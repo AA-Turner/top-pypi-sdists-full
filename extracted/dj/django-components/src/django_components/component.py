@@ -1750,7 +1750,7 @@ class Component(metaclass=ComponentMeta):
 
     This field is generated from [`Component.media_class`](../api#django_components.Component.media_class).
 
-    Read more on [Accessing component's HTML / JS / CSS](../../concepts/fundamentals/defining_js_css_html_files/#accessing-components-media-files).
+    Read more on [Accessing component's Media JS / CSS](../../concepts/fundamentals/secondary_js_css_files/#accessing-media-files).
 
     **Example:**
 
@@ -1776,7 +1776,7 @@ class Component(metaclass=ComponentMeta):
     This is useful when you want to customize the behavior of the media files, like
     customizing how the JS or CSS files are rendered into `<script>` or `<link>` HTML tags.
 
-    Read more in [Defining HTML / JS / CSS files](../../concepts/fundamentals/defining_js_css_html_files/#customize-how-paths-are-rendered-into-html-tags-with-media_class).
+    Read more in [Media class](../../concepts/fundamentals/secondary_js_css_files/#media-class).
 
     **Example:**
 
@@ -2697,11 +2697,12 @@ class Component(metaclass=ComponentMeta):
 
     - [`"document"`](../../concepts/advanced/rendering_js_css#document) (default)
         - Smartly inserts JS / CSS into placeholders or into `<head>` and `<body>` tags.
-        - Inserts extra script to allow `fragment` types to work.
-        - Assumes the HTML will be rendered in a JS-enabled browser.
+        - Requires the HTML to be rendered in a JS-enabled browser.
+        - Inserts extra script for managing fragments.
     - [`"fragment"`](../../concepts/advanced/rendering_js_css#fragment)
         - A lightweight HTML fragment to be inserted into a document with AJAX.
-        - No JS / CSS included.
+        - Fragment will fetch its own JS / CSS dependencies when inserted into the page.
+        - Requires the HTML to be rendered in a JS-enabled browser.
     - [`"simple"`](../../concepts/advanced/rendering_js_css#simple)
         - Smartly insert JS / CSS into placeholders or into `<head>` and `<body>` tags.
         - No extra script loaded.
@@ -3186,11 +3187,12 @@ class Component(metaclass=ComponentMeta):
 
             - [`"document"`](../../concepts/advanced/rendering_js_css#document) (default)
                 - Smartly inserts JS / CSS into placeholders or into `<head>` and `<body>` tags.
-                - Inserts extra script to allow `fragment` types to work.
-                - Assumes the HTML will be rendered in a JS-enabled browser.
+                - Requires the HTML to be rendered in a JS-enabled browser.
+                - Inserts extra script for managing fragments.
             - [`"fragment"`](../../concepts/advanced/rendering_js_css#fragment)
                 - A lightweight HTML fragment to be inserted into a document with AJAX.
-                - No JS / CSS included.
+                - Fragment will fetch its own JS / CSS dependencies when inserted into the page.
+                - Requires the HTML to be rendered in a JS-enabled browser.
             - [`"simple"`](../../concepts/advanced/rendering_js_css#simple)
                 - Smartly insert JS / CSS into placeholders or into `<head>` and `<body>` tags.
                 - No extra script loaded.
@@ -3250,7 +3252,7 @@ class Component(metaclass=ComponentMeta):
             ),
         )
         ```
-        """  # noqa: 501
+        """  # noqa: E501
 
         # TODO_v1 - Remove, superseded by `deps_strategy`
         if type is not None:

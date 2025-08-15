@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keras-nlp
-Version: 0.21.1
+Version: 0.22.0
 Summary: Pretrained models for Keras.
 Author-email: Keras team <keras-users@googlegroups.com>
 License-Expression: Apache-2.0
@@ -18,9 +18,9 @@ Classifier: Operating System :: MacOS
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: keras-hub==0.21.1
+Requires-Dist: keras-hub==0.22.0
 
 # KerasNLP: Multi-framework NLP Models
 

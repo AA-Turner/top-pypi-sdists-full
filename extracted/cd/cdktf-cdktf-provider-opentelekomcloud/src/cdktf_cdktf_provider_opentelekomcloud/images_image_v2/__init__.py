@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_images_image_v2`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_images_image_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_images_image_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ImagesImageV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.imagesImageV2.ImagesImageV2",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2 opentelekomcloud_images_image_v2}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2 opentelekomcloud_images_image_v2}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class ImagesImageV2(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2 opentelekomcloud_images_image_v2} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2 opentelekomcloud_images_image_v2} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param container_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#container_format ImagesImageV2#container_format}.
-        :param disk_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#disk_format ImagesImageV2#disk_format}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#name ImagesImageV2#name}.
-        :param hw_firmware_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#hw_firmware_type ImagesImageV2#hw_firmware_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#id ImagesImageV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_cache_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#image_cache_path ImagesImageV2#image_cache_path}.
-        :param image_source_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#image_source_url ImagesImageV2#image_source_url}.
-        :param local_file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#local_file_path ImagesImageV2#local_file_path}.
-        :param min_disk_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#min_disk_gb ImagesImageV2#min_disk_gb}.
-        :param min_ram_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#min_ram_mb ImagesImageV2#min_ram_mb}.
-        :param protected: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#protected ImagesImageV2#protected}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#region ImagesImageV2#region}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#tags ImagesImageV2#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#timeouts ImagesImageV2#timeouts}
-        :param visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#visibility ImagesImageV2#visibility}.
+        :param container_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#container_format ImagesImageV2#container_format}.
+        :param disk_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#disk_format ImagesImageV2#disk_format}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#name ImagesImageV2#name}.
+        :param hw_firmware_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#hw_firmware_type ImagesImageV2#hw_firmware_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#id ImagesImageV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_cache_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#image_cache_path ImagesImageV2#image_cache_path}.
+        :param image_source_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#image_source_url ImagesImageV2#image_source_url}.
+        :param local_file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#local_file_path ImagesImageV2#local_file_path}.
+        :param min_disk_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#min_disk_gb ImagesImageV2#min_disk_gb}.
+        :param min_ram_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#min_ram_mb ImagesImageV2#min_ram_mb}.
+        :param protected: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#protected ImagesImageV2#protected}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#region ImagesImageV2#region}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#tags ImagesImageV2#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#timeouts ImagesImageV2#timeouts}
+        :param visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#visibility ImagesImageV2#visibility}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class ImagesImageV2(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ImagesImageV2 to import.
-        :param import_from_id: The id of the existing ImagesImageV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ImagesImageV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ImagesImageV2 to import is found.
         '''
         if __debug__:
@@ -159,7 +159,7 @@ class ImagesImageV2(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#create ImagesImageV2#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#create ImagesImageV2#create}.
         '''
         value = ImagesImageV2Timeouts(create=create)
 
@@ -585,21 +585,21 @@ class ImagesImageV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param container_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#container_format ImagesImageV2#container_format}.
-        :param disk_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#disk_format ImagesImageV2#disk_format}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#name ImagesImageV2#name}.
-        :param hw_firmware_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#hw_firmware_type ImagesImageV2#hw_firmware_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#id ImagesImageV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_cache_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#image_cache_path ImagesImageV2#image_cache_path}.
-        :param image_source_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#image_source_url ImagesImageV2#image_source_url}.
-        :param local_file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#local_file_path ImagesImageV2#local_file_path}.
-        :param min_disk_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#min_disk_gb ImagesImageV2#min_disk_gb}.
-        :param min_ram_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#min_ram_mb ImagesImageV2#min_ram_mb}.
-        :param protected: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#protected ImagesImageV2#protected}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#region ImagesImageV2#region}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#tags ImagesImageV2#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#timeouts ImagesImageV2#timeouts}
-        :param visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#visibility ImagesImageV2#visibility}.
+        :param container_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#container_format ImagesImageV2#container_format}.
+        :param disk_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#disk_format ImagesImageV2#disk_format}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#name ImagesImageV2#name}.
+        :param hw_firmware_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#hw_firmware_type ImagesImageV2#hw_firmware_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#id ImagesImageV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_cache_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#image_cache_path ImagesImageV2#image_cache_path}.
+        :param image_source_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#image_source_url ImagesImageV2#image_source_url}.
+        :param local_file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#local_file_path ImagesImageV2#local_file_path}.
+        :param min_disk_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#min_disk_gb ImagesImageV2#min_disk_gb}.
+        :param min_ram_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#min_ram_mb ImagesImageV2#min_ram_mb}.
+        :param protected: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#protected ImagesImageV2#protected}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#region ImagesImageV2#region}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#tags ImagesImageV2#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#timeouts ImagesImageV2#timeouts}
+        :param visibility: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#visibility ImagesImageV2#visibility}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -739,34 +739,34 @@ class ImagesImageV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def container_format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#container_format ImagesImageV2#container_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#container_format ImagesImageV2#container_format}.'''
         result = self._values.get("container_format")
         assert result is not None, "Required property 'container_format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def disk_format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#disk_format ImagesImageV2#disk_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#disk_format ImagesImageV2#disk_format}.'''
         result = self._values.get("disk_format")
         assert result is not None, "Required property 'disk_format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#name ImagesImageV2#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#name ImagesImageV2#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def hw_firmware_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#hw_firmware_type ImagesImageV2#hw_firmware_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#hw_firmware_type ImagesImageV2#hw_firmware_type}.'''
         result = self._values.get("hw_firmware_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#id ImagesImageV2#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#id ImagesImageV2#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -776,31 +776,31 @@ class ImagesImageV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def image_cache_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#image_cache_path ImagesImageV2#image_cache_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#image_cache_path ImagesImageV2#image_cache_path}.'''
         result = self._values.get("image_cache_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def image_source_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#image_source_url ImagesImageV2#image_source_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#image_source_url ImagesImageV2#image_source_url}.'''
         result = self._values.get("image_source_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def local_file_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#local_file_path ImagesImageV2#local_file_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#local_file_path ImagesImageV2#local_file_path}.'''
         result = self._values.get("local_file_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def min_disk_gb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#min_disk_gb ImagesImageV2#min_disk_gb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#min_disk_gb ImagesImageV2#min_disk_gb}.'''
         result = self._values.get("min_disk_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_ram_mb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#min_ram_mb ImagesImageV2#min_ram_mb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#min_ram_mb ImagesImageV2#min_ram_mb}.'''
         result = self._values.get("min_ram_mb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -808,19 +808,19 @@ class ImagesImageV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def protected(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#protected ImagesImageV2#protected}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#protected ImagesImageV2#protected}.'''
         result = self._values.get("protected")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#region ImagesImageV2#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#region ImagesImageV2#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#tags ImagesImageV2#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#tags ImagesImageV2#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -828,14 +828,14 @@ class ImagesImageV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ImagesImageV2Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#timeouts ImagesImageV2#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#timeouts ImagesImageV2#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ImagesImageV2Timeouts"], result)
 
     @builtins.property
     def visibility(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#visibility ImagesImageV2#visibility}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#visibility ImagesImageV2#visibility}.'''
         result = self._values.get("visibility")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -859,7 +859,7 @@ class ImagesImageV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 class ImagesImageV2Timeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#create ImagesImageV2#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#create ImagesImageV2#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__43f5ba6dcf59032f522c6b852b9a1f0f523adb319d4c12fea75da922815448c5)
@@ -870,7 +870,7 @@ class ImagesImageV2Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/images_image_v2#create ImagesImageV2#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/images_image_v2#create ImagesImageV2#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 

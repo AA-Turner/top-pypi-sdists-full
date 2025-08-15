@@ -56,7 +56,11 @@ class Review:
         deadline = time.time() + timeout
 
         logger.info(
-            f"review_requested {self.execution_id} {self.review_id} {self.instruction}"
+            "review_requested",
+            extra={
+                "review_id": self.review_id,
+                "instruction": self.instruction,
+            },
         )
 
         while time.time() < deadline:

@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_networking_vip_associate_v2`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_networking_vip_associate_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/networking_vip_associate_v2).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_networking_vip_associate_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/networking_vip_associate_v2).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkingVipAssociateV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.networkingVipAssociateV2.NetworkingVipAssociateV2",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/networking_vip_associate_v2 opentelekomcloud_networking_vip_associate_v2}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/networking_vip_associate_v2 opentelekomcloud_networking_vip_associate_v2}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class NetworkingVipAssociateV2(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/networking_vip_associate_v2 opentelekomcloud_networking_vip_associate_v2} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/networking_vip_associate_v2 opentelekomcloud_networking_vip_associate_v2} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param port_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/networking_vip_associate_v2#port_ids NetworkingVipAssociateV2#port_ids}.
-        :param vip_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/networking_vip_associate_v2#vip_id NetworkingVipAssociateV2#vip_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/networking_vip_associate_v2#id NetworkingVipAssociateV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param port_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/networking_vip_associate_v2#port_ids NetworkingVipAssociateV2#port_ids}.
+        :param vip_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/networking_vip_associate_v2#vip_id NetworkingVipAssociateV2#vip_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/networking_vip_associate_v2#id NetworkingVipAssociateV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class NetworkingVipAssociateV2(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkingVipAssociateV2 to import.
-        :param import_from_id: The id of the existing NetworkingVipAssociateV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/networking_vip_associate_v2#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkingVipAssociateV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/networking_vip_associate_v2#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkingVipAssociateV2 to import is found.
         '''
         if __debug__:
@@ -238,9 +238,9 @@ class NetworkingVipAssociateV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param port_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/networking_vip_associate_v2#port_ids NetworkingVipAssociateV2#port_ids}.
-        :param vip_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/networking_vip_associate_v2#vip_id NetworkingVipAssociateV2#vip_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/networking_vip_associate_v2#id NetworkingVipAssociateV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param port_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/networking_vip_associate_v2#port_ids NetworkingVipAssociateV2#port_ids}.
+        :param vip_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/networking_vip_associate_v2#vip_id NetworkingVipAssociateV2#vip_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/networking_vip_associate_v2#id NetworkingVipAssociateV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -343,21 +343,21 @@ class NetworkingVipAssociateV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def port_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/networking_vip_associate_v2#port_ids NetworkingVipAssociateV2#port_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/networking_vip_associate_v2#port_ids NetworkingVipAssociateV2#port_ids}.'''
         result = self._values.get("port_ids")
         assert result is not None, "Required property 'port_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def vip_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/networking_vip_associate_v2#vip_id NetworkingVipAssociateV2#vip_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/networking_vip_associate_v2#vip_id NetworkingVipAssociateV2#vip_id}.'''
         result = self._values.get("vip_id")
         assert result is not None, "Required property 'vip_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/networking_vip_associate_v2#id NetworkingVipAssociateV2#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/networking_vip_associate_v2#id NetworkingVipAssociateV2#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_ces_metric_data_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_ces_metric_data_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_ces_metric_data_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CesMetricDataV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.cesMetricDataV1.CesMetricDataV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1 opentelekomcloud_ces_metric_data_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1 opentelekomcloud_ces_metric_data_v1}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class CesMetricDataV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1 opentelekomcloud_ces_metric_data_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1 opentelekomcloud_ces_metric_data_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param collect_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#collect_time CesMetricDataV1#collect_time}.
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#metric CesMetricDataV1#metric}
-        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#ttl CesMetricDataV1#ttl}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#value CesMetricDataV1#value}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#id CesMetricDataV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#timeouts CesMetricDataV1#timeouts}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#type CesMetricDataV1#type}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#unit CesMetricDataV1#unit}.
+        :param collect_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#collect_time CesMetricDataV1#collect_time}.
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#metric CesMetricDataV1#metric}
+        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#ttl CesMetricDataV1#ttl}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#value CesMetricDataV1#value}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#id CesMetricDataV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#timeouts CesMetricDataV1#timeouts}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#type CesMetricDataV1#type}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#unit CesMetricDataV1#unit}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class CesMetricDataV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CesMetricDataV1 to import.
-        :param import_from_id: The id of the existing CesMetricDataV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CesMetricDataV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CesMetricDataV1 to import is found.
         '''
         if __debug__:
@@ -144,9 +144,9 @@ class CesMetricDataV1(
         namespace: builtins.str,
     ) -> None:
         '''
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#dimensions CesMetricDataV1#dimensions}
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#metric_name CesMetricDataV1#metric_name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#namespace CesMetricDataV1#namespace}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#dimensions CesMetricDataV1#dimensions}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#metric_name CesMetricDataV1#metric_name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#namespace CesMetricDataV1#namespace}.
         '''
         value = CesMetricDataV1Metric(
             dimensions=dimensions, metric_name=metric_name, namespace=namespace
@@ -162,8 +162,8 @@ class CesMetricDataV1(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#create CesMetricDataV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#delete CesMetricDataV1#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#create CesMetricDataV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#delete CesMetricDataV1#delete}.
         '''
         value = CesMetricDataV1Timeouts(create=create, delete=delete)
 
@@ -372,14 +372,14 @@ class CesMetricDataV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param collect_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#collect_time CesMetricDataV1#collect_time}.
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#metric CesMetricDataV1#metric}
-        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#ttl CesMetricDataV1#ttl}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#value CesMetricDataV1#value}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#id CesMetricDataV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#timeouts CesMetricDataV1#timeouts}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#type CesMetricDataV1#type}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#unit CesMetricDataV1#unit}.
+        :param collect_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#collect_time CesMetricDataV1#collect_time}.
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#metric CesMetricDataV1#metric}
+        :param ttl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#ttl CesMetricDataV1#ttl}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#value CesMetricDataV1#value}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#id CesMetricDataV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#timeouts CesMetricDataV1#timeouts}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#type CesMetricDataV1#type}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#unit CesMetricDataV1#unit}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -499,7 +499,7 @@ class CesMetricDataV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def collect_time(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#collect_time CesMetricDataV1#collect_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#collect_time CesMetricDataV1#collect_time}.'''
         result = self._values.get("collect_time")
         assert result is not None, "Required property 'collect_time' is missing"
         return typing.cast(jsii.Number, result)
@@ -508,7 +508,7 @@ class CesMetricDataV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def metric(self) -> "CesMetricDataV1Metric":
         '''metric block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#metric CesMetricDataV1#metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#metric CesMetricDataV1#metric}
         '''
         result = self._values.get("metric")
         assert result is not None, "Required property 'metric' is missing"
@@ -516,21 +516,21 @@ class CesMetricDataV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ttl(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#ttl CesMetricDataV1#ttl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#ttl CesMetricDataV1#ttl}.'''
         result = self._values.get("ttl")
         assert result is not None, "Required property 'ttl' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#value CesMetricDataV1#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#value CesMetricDataV1#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#id CesMetricDataV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#id CesMetricDataV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -542,20 +542,20 @@ class CesMetricDataV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CesMetricDataV1Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#timeouts CesMetricDataV1#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#timeouts CesMetricDataV1#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CesMetricDataV1Timeouts"], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#type CesMetricDataV1#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#type CesMetricDataV1#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#unit CesMetricDataV1#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#unit CesMetricDataV1#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -589,9 +589,9 @@ class CesMetricDataV1Metric:
         namespace: builtins.str,
     ) -> None:
         '''
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#dimensions CesMetricDataV1#dimensions}
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#metric_name CesMetricDataV1#metric_name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#namespace CesMetricDataV1#namespace}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#dimensions CesMetricDataV1#dimensions}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#metric_name CesMetricDataV1#metric_name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#namespace CesMetricDataV1#namespace}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4fdc05e407c651e03765deb0f8bee22ec1b956a9dace057282f7faad8670ce68)
@@ -610,7 +610,7 @@ class CesMetricDataV1Metric:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CesMetricDataV1MetricDimensions"]]:
         '''dimensions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#dimensions CesMetricDataV1#dimensions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#dimensions CesMetricDataV1#dimensions}
         '''
         result = self._values.get("dimensions")
         assert result is not None, "Required property 'dimensions' is missing"
@@ -618,14 +618,14 @@ class CesMetricDataV1Metric:
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#metric_name CesMetricDataV1#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#metric_name CesMetricDataV1#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def namespace(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#namespace CesMetricDataV1#namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#namespace CesMetricDataV1#namespace}.'''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
         return typing.cast(builtins.str, result)
@@ -650,8 +650,8 @@ class CesMetricDataV1Metric:
 class CesMetricDataV1MetricDimensions:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#name CesMetricDataV1#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#value CesMetricDataV1#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#name CesMetricDataV1#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#value CesMetricDataV1#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__914def8e428087547cb5675596a39bf454bcf8a2dc33de83e037b83856616acf)
@@ -664,14 +664,14 @@ class CesMetricDataV1MetricDimensions:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#name CesMetricDataV1#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#name CesMetricDataV1#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#value CesMetricDataV1#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#value CesMetricDataV1#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -964,8 +964,8 @@ class CesMetricDataV1Timeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#create CesMetricDataV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#delete CesMetricDataV1#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#create CesMetricDataV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#delete CesMetricDataV1#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d28d38431ddcbc81e8e992cdaf9853cc43ad739f67eff6699eef0ed99973994b)
@@ -979,13 +979,13 @@ class CesMetricDataV1Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#create CesMetricDataV1#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#create CesMetricDataV1#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_metric_data_v1#delete CesMetricDataV1#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_metric_data_v1#delete CesMetricDataV1#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

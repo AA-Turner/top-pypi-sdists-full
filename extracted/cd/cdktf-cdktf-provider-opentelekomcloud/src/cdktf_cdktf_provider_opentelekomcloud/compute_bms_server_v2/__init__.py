@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_compute_bms_server_v2`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_compute_bms_server_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_compute_bms_server_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeBmsServerV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.computeBmsServerV2.ComputeBmsServerV2",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2 opentelekomcloud_compute_bms_server_v2}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2 opentelekomcloud_compute_bms_server_v2}.'''
 
     def __init__(
         self,
@@ -77,28 +77,28 @@ class ComputeBmsServerV2(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2 opentelekomcloud_compute_bms_server_v2} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2 opentelekomcloud_compute_bms_server_v2} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#availability_zone ComputeBmsServerV2#availability_zone}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#name ComputeBmsServerV2#name}.
-        :param admin_pass: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#admin_pass ComputeBmsServerV2#admin_pass}.
-        :param block_device: block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#block_device ComputeBmsServerV2#block_device}
-        :param flavor_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#flavor_id ComputeBmsServerV2#flavor_id}.
-        :param flavor_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#flavor_name ComputeBmsServerV2#flavor_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#id ComputeBmsServerV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#image_id ComputeBmsServerV2#image_id}.
-        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#image_name ComputeBmsServerV2#image_name}.
-        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#key_pair ComputeBmsServerV2#key_pair}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#metadata ComputeBmsServerV2#metadata}.
-        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#network ComputeBmsServerV2#network}
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#region ComputeBmsServerV2#region}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#security_groups ComputeBmsServerV2#security_groups}.
-        :param stop_before_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#stop_before_destroy ComputeBmsServerV2#stop_before_destroy}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#tags ComputeBmsServerV2#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#timeouts ComputeBmsServerV2#timeouts}
-        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#user_data ComputeBmsServerV2#user_data}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#availability_zone ComputeBmsServerV2#availability_zone}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#name ComputeBmsServerV2#name}.
+        :param admin_pass: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#admin_pass ComputeBmsServerV2#admin_pass}.
+        :param block_device: block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#block_device ComputeBmsServerV2#block_device}
+        :param flavor_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#flavor_id ComputeBmsServerV2#flavor_id}.
+        :param flavor_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#flavor_name ComputeBmsServerV2#flavor_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#id ComputeBmsServerV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#image_id ComputeBmsServerV2#image_id}.
+        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#image_name ComputeBmsServerV2#image_name}.
+        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#key_pair ComputeBmsServerV2#key_pair}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#metadata ComputeBmsServerV2#metadata}.
+        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#network ComputeBmsServerV2#network}
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#region ComputeBmsServerV2#region}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#security_groups ComputeBmsServerV2#security_groups}.
+        :param stop_before_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#stop_before_destroy ComputeBmsServerV2#stop_before_destroy}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#tags ComputeBmsServerV2#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#timeouts ComputeBmsServerV2#timeouts}
+        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#user_data ComputeBmsServerV2#user_data}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -154,7 +154,7 @@ class ComputeBmsServerV2(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeBmsServerV2 to import.
-        :param import_from_id: The id of the existing ComputeBmsServerV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeBmsServerV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeBmsServerV2 to import is found.
         '''
         if __debug__:
@@ -200,9 +200,9 @@ class ComputeBmsServerV2(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#create ComputeBmsServerV2#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#delete ComputeBmsServerV2#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#update ComputeBmsServerV2#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#create ComputeBmsServerV2#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#delete ComputeBmsServerV2#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#update ComputeBmsServerV2#update}.
         '''
         value = ComputeBmsServerV2Timeouts(create=create, delete=delete, update=update)
 
@@ -656,15 +656,15 @@ class ComputeBmsServerV2BlockDevice:
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#source_type ComputeBmsServerV2#source_type}.
-        :param boot_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#boot_index ComputeBmsServerV2#boot_index}.
-        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#delete_on_termination ComputeBmsServerV2#delete_on_termination}.
-        :param destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#destination_type ComputeBmsServerV2#destination_type}.
-        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#device_name ComputeBmsServerV2#device_name}.
-        :param guest_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#guest_format ComputeBmsServerV2#guest_format}.
-        :param uuid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#uuid ComputeBmsServerV2#uuid}.
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#volume_size ComputeBmsServerV2#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#volume_type ComputeBmsServerV2#volume_type}.
+        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#source_type ComputeBmsServerV2#source_type}.
+        :param boot_index: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#boot_index ComputeBmsServerV2#boot_index}.
+        :param delete_on_termination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#delete_on_termination ComputeBmsServerV2#delete_on_termination}.
+        :param destination_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#destination_type ComputeBmsServerV2#destination_type}.
+        :param device_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#device_name ComputeBmsServerV2#device_name}.
+        :param guest_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#guest_format ComputeBmsServerV2#guest_format}.
+        :param uuid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#uuid ComputeBmsServerV2#uuid}.
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#volume_size ComputeBmsServerV2#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#volume_type ComputeBmsServerV2#volume_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9946b69b0f59b531eef2664d54c26be605a7bc5100b139eb1bbfbd4c532092ab)
@@ -699,14 +699,14 @@ class ComputeBmsServerV2BlockDevice:
 
     @builtins.property
     def source_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#source_type ComputeBmsServerV2#source_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#source_type ComputeBmsServerV2#source_type}.'''
         result = self._values.get("source_type")
         assert result is not None, "Required property 'source_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def boot_index(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#boot_index ComputeBmsServerV2#boot_index}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#boot_index ComputeBmsServerV2#boot_index}.'''
         result = self._values.get("boot_index")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -714,43 +714,43 @@ class ComputeBmsServerV2BlockDevice:
     def delete_on_termination(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#delete_on_termination ComputeBmsServerV2#delete_on_termination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#delete_on_termination ComputeBmsServerV2#delete_on_termination}.'''
         result = self._values.get("delete_on_termination")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def destination_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#destination_type ComputeBmsServerV2#destination_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#destination_type ComputeBmsServerV2#destination_type}.'''
         result = self._values.get("destination_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def device_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#device_name ComputeBmsServerV2#device_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#device_name ComputeBmsServerV2#device_name}.'''
         result = self._values.get("device_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def guest_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#guest_format ComputeBmsServerV2#guest_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#guest_format ComputeBmsServerV2#guest_format}.'''
         result = self._values.get("guest_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def uuid(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#uuid ComputeBmsServerV2#uuid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#uuid ComputeBmsServerV2#uuid}.'''
         result = self._values.get("uuid")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#volume_size ComputeBmsServerV2#volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#volume_size ComputeBmsServerV2#volume_size}.'''
         result = self._values.get("volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#volume_type ComputeBmsServerV2#volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#volume_type ComputeBmsServerV2#volume_type}.'''
         result = self._values.get("volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1161,24 +1161,24 @@ class ComputeBmsServerV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#availability_zone ComputeBmsServerV2#availability_zone}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#name ComputeBmsServerV2#name}.
-        :param admin_pass: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#admin_pass ComputeBmsServerV2#admin_pass}.
-        :param block_device: block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#block_device ComputeBmsServerV2#block_device}
-        :param flavor_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#flavor_id ComputeBmsServerV2#flavor_id}.
-        :param flavor_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#flavor_name ComputeBmsServerV2#flavor_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#id ComputeBmsServerV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param image_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#image_id ComputeBmsServerV2#image_id}.
-        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#image_name ComputeBmsServerV2#image_name}.
-        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#key_pair ComputeBmsServerV2#key_pair}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#metadata ComputeBmsServerV2#metadata}.
-        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#network ComputeBmsServerV2#network}
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#region ComputeBmsServerV2#region}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#security_groups ComputeBmsServerV2#security_groups}.
-        :param stop_before_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#stop_before_destroy ComputeBmsServerV2#stop_before_destroy}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#tags ComputeBmsServerV2#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#timeouts ComputeBmsServerV2#timeouts}
-        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#user_data ComputeBmsServerV2#user_data}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#availability_zone ComputeBmsServerV2#availability_zone}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#name ComputeBmsServerV2#name}.
+        :param admin_pass: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#admin_pass ComputeBmsServerV2#admin_pass}.
+        :param block_device: block_device block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#block_device ComputeBmsServerV2#block_device}
+        :param flavor_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#flavor_id ComputeBmsServerV2#flavor_id}.
+        :param flavor_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#flavor_name ComputeBmsServerV2#flavor_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#id ComputeBmsServerV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param image_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#image_id ComputeBmsServerV2#image_id}.
+        :param image_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#image_name ComputeBmsServerV2#image_name}.
+        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#key_pair ComputeBmsServerV2#key_pair}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#metadata ComputeBmsServerV2#metadata}.
+        :param network: network block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#network ComputeBmsServerV2#network}
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#region ComputeBmsServerV2#region}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#security_groups ComputeBmsServerV2#security_groups}.
+        :param stop_before_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#stop_before_destroy ComputeBmsServerV2#stop_before_destroy}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#tags ComputeBmsServerV2#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#timeouts ComputeBmsServerV2#timeouts}
+        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#user_data ComputeBmsServerV2#user_data}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1328,21 +1328,21 @@ class ComputeBmsServerV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def availability_zone(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#availability_zone ComputeBmsServerV2#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#availability_zone ComputeBmsServerV2#availability_zone}.'''
         result = self._values.get("availability_zone")
         assert result is not None, "Required property 'availability_zone' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#name ComputeBmsServerV2#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#name ComputeBmsServerV2#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def admin_pass(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#admin_pass ComputeBmsServerV2#admin_pass}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#admin_pass ComputeBmsServerV2#admin_pass}.'''
         result = self._values.get("admin_pass")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1352,26 +1352,26 @@ class ComputeBmsServerV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ComputeBmsServerV2BlockDevice]]]:
         '''block_device block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#block_device ComputeBmsServerV2#block_device}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#block_device ComputeBmsServerV2#block_device}
         '''
         result = self._values.get("block_device")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ComputeBmsServerV2BlockDevice]]], result)
 
     @builtins.property
     def flavor_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#flavor_id ComputeBmsServerV2#flavor_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#flavor_id ComputeBmsServerV2#flavor_id}.'''
         result = self._values.get("flavor_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def flavor_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#flavor_name ComputeBmsServerV2#flavor_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#flavor_name ComputeBmsServerV2#flavor_name}.'''
         result = self._values.get("flavor_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#id ComputeBmsServerV2#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#id ComputeBmsServerV2#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1381,25 +1381,25 @@ class ComputeBmsServerV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def image_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#image_id ComputeBmsServerV2#image_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#image_id ComputeBmsServerV2#image_id}.'''
         result = self._values.get("image_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def image_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#image_name ComputeBmsServerV2#image_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#image_name ComputeBmsServerV2#image_name}.'''
         result = self._values.get("image_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def key_pair(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#key_pair ComputeBmsServerV2#key_pair}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#key_pair ComputeBmsServerV2#key_pair}.'''
         result = self._values.get("key_pair")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#metadata ComputeBmsServerV2#metadata}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#metadata ComputeBmsServerV2#metadata}.'''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1409,20 +1409,20 @@ class ComputeBmsServerV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeBmsServerV2Network"]]]:
         '''network block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#network ComputeBmsServerV2#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#network ComputeBmsServerV2#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeBmsServerV2Network"]]], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#region ComputeBmsServerV2#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#region ComputeBmsServerV2#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#security_groups ComputeBmsServerV2#security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#security_groups ComputeBmsServerV2#security_groups}.'''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1430,13 +1430,13 @@ class ComputeBmsServerV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def stop_before_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#stop_before_destroy ComputeBmsServerV2#stop_before_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#stop_before_destroy ComputeBmsServerV2#stop_before_destroy}.'''
         result = self._values.get("stop_before_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#tags ComputeBmsServerV2#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#tags ComputeBmsServerV2#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1444,14 +1444,14 @@ class ComputeBmsServerV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeBmsServerV2Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#timeouts ComputeBmsServerV2#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#timeouts ComputeBmsServerV2#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeBmsServerV2Timeouts"], result)
 
     @builtins.property
     def user_data(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#user_data ComputeBmsServerV2#user_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#user_data ComputeBmsServerV2#user_data}.'''
         result = self._values.get("user_data")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1491,12 +1491,12 @@ class ComputeBmsServerV2Network:
         uuid: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_network: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#access_network ComputeBmsServerV2#access_network}.
-        :param fixed_ip_v4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#fixed_ip_v4 ComputeBmsServerV2#fixed_ip_v4}.
-        :param fixed_ip_v6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#fixed_ip_v6 ComputeBmsServerV2#fixed_ip_v6}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#name ComputeBmsServerV2#name}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#port ComputeBmsServerV2#port}.
-        :param uuid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#uuid ComputeBmsServerV2#uuid}.
+        :param access_network: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#access_network ComputeBmsServerV2#access_network}.
+        :param fixed_ip_v4: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#fixed_ip_v4 ComputeBmsServerV2#fixed_ip_v4}.
+        :param fixed_ip_v6: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#fixed_ip_v6 ComputeBmsServerV2#fixed_ip_v6}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#name ComputeBmsServerV2#name}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#port ComputeBmsServerV2#port}.
+        :param uuid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#uuid ComputeBmsServerV2#uuid}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f9ecfb9a03a9e980d6cba7cfe370139e95731aaf18bff0c789c15f50b30bb495)
@@ -1524,37 +1524,37 @@ class ComputeBmsServerV2Network:
     def access_network(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#access_network ComputeBmsServerV2#access_network}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#access_network ComputeBmsServerV2#access_network}.'''
         result = self._values.get("access_network")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def fixed_ip_v4(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#fixed_ip_v4 ComputeBmsServerV2#fixed_ip_v4}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#fixed_ip_v4 ComputeBmsServerV2#fixed_ip_v4}.'''
         result = self._values.get("fixed_ip_v4")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def fixed_ip_v6(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#fixed_ip_v6 ComputeBmsServerV2#fixed_ip_v6}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#fixed_ip_v6 ComputeBmsServerV2#fixed_ip_v6}.'''
         result = self._values.get("fixed_ip_v6")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#name ComputeBmsServerV2#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#name ComputeBmsServerV2#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#port ComputeBmsServerV2#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#port ComputeBmsServerV2#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def uuid(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#uuid ComputeBmsServerV2#uuid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#uuid ComputeBmsServerV2#uuid}.'''
         result = self._values.get("uuid")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1856,9 +1856,9 @@ class ComputeBmsServerV2Timeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#create ComputeBmsServerV2#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#delete ComputeBmsServerV2#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#update ComputeBmsServerV2#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#create ComputeBmsServerV2#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#delete ComputeBmsServerV2#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#update ComputeBmsServerV2#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e55d4a87efbb38d3c8681b6cc99262b4323deb5b205030fb08301c2f2f354d6f)
@@ -1875,19 +1875,19 @@ class ComputeBmsServerV2Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#create ComputeBmsServerV2#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#create ComputeBmsServerV2#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#delete ComputeBmsServerV2#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#delete ComputeBmsServerV2#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/compute_bms_server_v2#update ComputeBmsServerV2#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/compute_bms_server_v2#update ComputeBmsServerV2#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

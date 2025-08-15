@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_lb_pool_v3`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_lb_pool_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_lb_pool_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LbPoolV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.lbPoolV3.LbPoolV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3 opentelekomcloud_lb_pool_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3 opentelekomcloud_lb_pool_v3}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class LbPoolV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3 opentelekomcloud_lb_pool_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3 opentelekomcloud_lb_pool_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param lb_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#lb_algorithm LbPoolV3#lb_algorithm}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#protocol LbPoolV3#protocol}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#description LbPoolV3#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#id LbPoolV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param listener_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#listener_id LbPoolV3#listener_id}.
-        :param loadbalancer_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#loadbalancer_id LbPoolV3#loadbalancer_id}.
-        :param member_deletion_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#member_deletion_protection LbPoolV3#member_deletion_protection}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#name LbPoolV3#name}.
-        :param project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#project_id LbPoolV3#project_id}.
-        :param session_persistence: session_persistence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#session_persistence LbPoolV3#session_persistence}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#type LbPoolV3#type}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#vpc_id LbPoolV3#vpc_id}.
+        :param lb_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#lb_algorithm LbPoolV3#lb_algorithm}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#protocol LbPoolV3#protocol}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#description LbPoolV3#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#id LbPoolV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param listener_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#listener_id LbPoolV3#listener_id}.
+        :param loadbalancer_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#loadbalancer_id LbPoolV3#loadbalancer_id}.
+        :param member_deletion_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#member_deletion_protection LbPoolV3#member_deletion_protection}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#name LbPoolV3#name}.
+        :param project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#project_id LbPoolV3#project_id}.
+        :param session_persistence: session_persistence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#session_persistence LbPoolV3#session_persistence}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#type LbPoolV3#type}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#vpc_id LbPoolV3#vpc_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class LbPoolV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LbPoolV3 to import.
-        :param import_from_id: The id of the existing LbPoolV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LbPoolV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LbPoolV3 to import is found.
         '''
         if __debug__:
@@ -156,9 +156,9 @@ class LbPoolV3(
         persistence_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#type LbPoolV3#type}.
-        :param cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#cookie_name LbPoolV3#cookie_name}.
-        :param persistence_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#persistence_timeout LbPoolV3#persistence_timeout}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#type LbPoolV3#type}.
+        :param cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#cookie_name LbPoolV3#cookie_name}.
+        :param persistence_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#persistence_timeout LbPoolV3#persistence_timeout}.
         '''
         value = LbPoolV3SessionPersistence(
             type=type, cookie_name=cookie_name, persistence_timeout=persistence_timeout
@@ -488,18 +488,18 @@ class LbPoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param lb_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#lb_algorithm LbPoolV3#lb_algorithm}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#protocol LbPoolV3#protocol}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#description LbPoolV3#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#id LbPoolV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param listener_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#listener_id LbPoolV3#listener_id}.
-        :param loadbalancer_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#loadbalancer_id LbPoolV3#loadbalancer_id}.
-        :param member_deletion_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#member_deletion_protection LbPoolV3#member_deletion_protection}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#name LbPoolV3#name}.
-        :param project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#project_id LbPoolV3#project_id}.
-        :param session_persistence: session_persistence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#session_persistence LbPoolV3#session_persistence}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#type LbPoolV3#type}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#vpc_id LbPoolV3#vpc_id}.
+        :param lb_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#lb_algorithm LbPoolV3#lb_algorithm}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#protocol LbPoolV3#protocol}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#description LbPoolV3#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#id LbPoolV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param listener_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#listener_id LbPoolV3#listener_id}.
+        :param loadbalancer_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#loadbalancer_id LbPoolV3#loadbalancer_id}.
+        :param member_deletion_protection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#member_deletion_protection LbPoolV3#member_deletion_protection}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#name LbPoolV3#name}.
+        :param project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#project_id LbPoolV3#project_id}.
+        :param session_persistence: session_persistence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#session_persistence LbPoolV3#session_persistence}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#type LbPoolV3#type}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#vpc_id LbPoolV3#vpc_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -631,27 +631,27 @@ class LbPoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def lb_algorithm(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#lb_algorithm LbPoolV3#lb_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#lb_algorithm LbPoolV3#lb_algorithm}.'''
         result = self._values.get("lb_algorithm")
         assert result is not None, "Required property 'lb_algorithm' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#protocol LbPoolV3#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#protocol LbPoolV3#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#description LbPoolV3#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#description LbPoolV3#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#id LbPoolV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#id LbPoolV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -661,13 +661,13 @@ class LbPoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def listener_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#listener_id LbPoolV3#listener_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#listener_id LbPoolV3#listener_id}.'''
         result = self._values.get("listener_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def loadbalancer_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#loadbalancer_id LbPoolV3#loadbalancer_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#loadbalancer_id LbPoolV3#loadbalancer_id}.'''
         result = self._values.get("loadbalancer_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -675,19 +675,19 @@ class LbPoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def member_deletion_protection(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#member_deletion_protection LbPoolV3#member_deletion_protection}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#member_deletion_protection LbPoolV3#member_deletion_protection}.'''
         result = self._values.get("member_deletion_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#name LbPoolV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#name LbPoolV3#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#project_id LbPoolV3#project_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#project_id LbPoolV3#project_id}.'''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -695,20 +695,20 @@ class LbPoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def session_persistence(self) -> typing.Optional["LbPoolV3SessionPersistence"]:
         '''session_persistence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#session_persistence LbPoolV3#session_persistence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#session_persistence LbPoolV3#session_persistence}
         '''
         result = self._values.get("session_persistence")
         return typing.cast(typing.Optional["LbPoolV3SessionPersistence"], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#type LbPoolV3#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#type LbPoolV3#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vpc_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#vpc_id LbPoolV3#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#vpc_id LbPoolV3#vpc_id}.'''
         result = self._values.get("vpc_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -742,9 +742,9 @@ class LbPoolV3SessionPersistence:
         persistence_timeout: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#type LbPoolV3#type}.
-        :param cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#cookie_name LbPoolV3#cookie_name}.
-        :param persistence_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#persistence_timeout LbPoolV3#persistence_timeout}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#type LbPoolV3#type}.
+        :param cookie_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#cookie_name LbPoolV3#cookie_name}.
+        :param persistence_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#persistence_timeout LbPoolV3#persistence_timeout}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__899231a4eac961f6bc03439517f6e99c4ca1f06ecb9b0ee10b1ad4d08699e6c0)
@@ -761,20 +761,20 @@ class LbPoolV3SessionPersistence:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#type LbPoolV3#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#type LbPoolV3#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cookie_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#cookie_name LbPoolV3#cookie_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#cookie_name LbPoolV3#cookie_name}.'''
         result = self._values.get("cookie_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def persistence_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_pool_v3#persistence_timeout LbPoolV3#persistence_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_pool_v3#persistence_timeout LbPoolV3#persistence_timeout}.'''
         result = self._values.get("persistence_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 

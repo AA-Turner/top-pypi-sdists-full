@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.14 03:00:00                  #
+# Updated Date: 2025.08.14 13:00:00                  #
 # ================================================== #
 
 import datetime
@@ -38,6 +38,14 @@ from pygpt_net.utils import trans
 from .experts import Experts
 
 class Editor:
+
+    TAB_IDX = {
+        "general": 0,
+        "personalize": 1,
+        "experts": 2,
+        "remote_tools": 3,
+    }
+
     def __init__(self, window=None):
         """
         Presets editor controller
@@ -77,7 +85,7 @@ class Editor:
                 "label": "preset.user_name",
             },
             "description": {
-                "type": "textarea",
+                "type": "text",
                 "label": "preset.description",
                 "placeholder": "preset.description.desc",
             },
@@ -189,25 +197,6 @@ class Editor:
                     },
                 }
             },
-            "assistant_id": {
-                "type": "text",
-                "label": "preset.assistant_id",
-                "description": "preset.assistant_id.desc",
-            },
-            "tool.function": {
-                "type": "dict",
-                "label": "preset.tool.function",
-                "keys": {
-                    'name': 'text',
-                    'params': 'textarea',
-                    'desc': 'textarea',
-                },
-                "extra": {
-                    "urls": {
-                        "Help": "https://platform.openai.com/docs/guides/function-calling",
-                    },
-                },
-            },
         }
         self.hidden_by_mode = {  # hidden fields by mode
             MODE_CHAT: ["idx"],
@@ -267,15 +256,6 @@ class Editor:
         self.window.ui.add_hook("update.preset.prompt", self.hook_update)
         self.window.ui.add_hook("update.preset.agent_provider", self.hook_update)
         self.window.ui.add_hook("update.preset.agent_provider_openai", self.hook_update)
-
-        # register functions dictionary
-        parent = "preset"
-        key = "tool.function"
-        self.window.ui.dialogs.register_dictionary(
-            key,
-            parent,
-            self.get_option(key),
-        )
 
     def toggle_extra_options(self):
         """
@@ -594,6 +574,7 @@ class Editor:
                         checkboxLayout.addLayout(opt_layout)
                     else:
                         layout.addLayout(opt_layout)
+                layout.addStretch(1)
                 layout.addLayout(checkboxLayout)
 
                 # as tab
@@ -777,6 +758,7 @@ class Editor:
         # load extra options
         self.load_extra_options(data)
 
+        # toggle extra options
         self.toggle_extra_options()
 
         # update experts list, after ID loaded
@@ -784,24 +766,6 @@ class Editor:
 
         # setup avatar config
         self.update_avatar_config(data)
-
-        # restore functions
-        if data.has_functions():
-            functions = data.get_functions()
-            values = []
-            for function in functions:
-                values.append(
-                    {
-                        "name": function['name'],
-                        "params": function['params'],
-                        "desc": function['desc'],
-                    }
-                )
-            self.window.ui.config[self.id]['tool.function'].items = values
-            self.window.ui.config[self.id]['tool.function'].model.updateData(values)
-        else:
-            self.window.ui.config[self.id]['tool.function'].items = []
-            self.window.ui.config[self.id]['tool.function'].model.updateData([])
 
         # set focus to name field
         current_model = self.window.core.config.get('model')
@@ -954,16 +918,9 @@ class Editor:
         # sort by name
         self.window.core.presets.sort_by_name()
 
-        # switch to editing preset, if new
-        if is_new:
-            self.window.controller.presets.set(mode, id)
-            self.window.controller.presets.select_model()
-        else:
-            # switch to model if current preset
-            current_preset = self.window.core.config.get('preset')
-            if current_preset is not None and current_preset == id:
-                self.window.controller.presets.set(mode, current_preset)
-                self.window.controller.presets.select_model()
+        # switch to editing preset on save
+        self.window.controller.presets.set(mode, id)
+        self.window.controller.presets.select_model()
 
         # update presets list
         no_scroll = False
@@ -999,36 +956,6 @@ class Editor:
         preset.tools = {
             'function': [],  # functions are assigned separately (below)
         }
-
-        # assign functions tool
-        values = self.window.controller.config.get_value(
-            parent_id=self.id,
-            key='tool.function',
-            option=self.options['tool.function'],
-        )
-        functions = []
-        for function in values:
-            name = function['name']
-            params = function['params']
-            desc = function['desc']
-            if name is None or name == "":
-                continue
-            if params is None or params == "":
-                params = '{"type": "object", "properties": {}}'  # default empty JSON params
-            if desc is None:
-                desc = ""
-            functions.append(
-                {
-                    "name": name,
-                    "params": params,
-                    "desc": desc,
-                }
-            )
-
-        if len(functions) > 0:
-            preset.tools['function'] = functions
-        else:
-            preset.tools['function'] = []
 
         # extra options
         self.append_extra_options(preset)
@@ -1189,3 +1116,21 @@ class Editor:
             option=self.options["ai_avatar"],
             value="",
         )
+
+    def toggle_tab(self, name: str, show: bool = True):
+        """
+        Show experts tab
+
+        :param name: name of the tab
+        :param show: Show or hide experts tab
+        """
+        tabs = self.window.ui.tabs['preset.editor.tabs']
+        idx = self.TAB_IDX[name]
+        if tabs is not None:
+            if show:
+                tabs.setTabEnabled(idx, True)
+                tabs.setTabVisible(idx, True)
+                self.experts.update_tab()
+            else:
+                tabs.setTabEnabled(idx, False)
+                tabs.setTabVisible(idx, False)

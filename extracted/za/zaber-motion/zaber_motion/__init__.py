@@ -9,6 +9,7 @@ from .tools import Tools as Tools
 from .unit_table import UnitTable as UnitTable
 from .dto.axis_address import AxisAddress as AxisAddress
 from .dto.channel_address import ChannelAddress as ChannelAddress
+from .dto.device_db_source import DeviceDbSource as DeviceDbSource
 from .dto.device_db_source_type import DeviceDbSourceType as DeviceDbSourceType
 from .dto.firmware_version import FirmwareVersion as FirmwareVersion
 from .dto.log_output_mode import LogOutputMode as LogOutputMode
@@ -83,6 +84,7 @@ from .dto.exceptions.command_failed_exception_data import CommandFailedException
 from .dto.exceptions.command_too_long_exception_data import CommandTooLongExceptionData as CommandTooLongExceptionData
 from .dto.exceptions.device_address_conflict_exception_data import DeviceAddressConflictExceptionData as DeviceAddressConflictExceptionData
 from .dto.exceptions.device_db_failed_exception_data import DeviceDbFailedExceptionData as DeviceDbFailedExceptionData
+from .dto.exceptions.device_db_inner_error import DeviceDbInnerError as DeviceDbInnerError
 from .dto.exceptions.g_code_execution_exception_data import GCodeExecutionExceptionData as GCodeExecutionExceptionData
 from .dto.exceptions.g_code_syntax_exception_data import GCodeSyntaxExceptionData as GCodeSyntaxExceptionData
 from .dto.exceptions.invalid_packet_exception_data import InvalidPacketExceptionData as InvalidPacketExceptionData

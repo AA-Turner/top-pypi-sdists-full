@@ -1,12 +1,27 @@
-import matplotlib.pyplot as plt  # type: ignore
+
+import os
+
+from code_loader.inner_leap_binder.leapbinder import mapping_runtime_mode_env_var_mame
+
+if not os.environ.get(mapping_runtime_mode_env_var_mame):
+    try:
+        import matplotlib.pyplot as plt  # type: ignore
+    except ImportError:
+        raise ImportError(
+            "Matplotlib is not installed. Please install it using 'pip install matplotlib' to visualize Leap data."
+        )
+
+
 import numpy as np
-from code_loader.contract.enums import LeapDataType  # type: ignore
-from code_loader.contract.datasetclasses import LeapData  # type: ignore
+from code_loader.contract.enums import LeapDataType
 from textwrap import wrap
 import math
 
+from code_loader.contract.visualizer_classes import LeapImage, LeapImageWithBBox, LeapGraph, LeapText, \
+    LeapHorizontalBar, LeapImageMask, LeapTextMask, LeapImageWithHeatmap
 
-def plot_image_with_b_box(leap_data: LeapData, title: str) -> None:
+
+def plot_image_with_b_box(leap_data: LeapImageWithBBox, title: str) -> None:
     """
     Plot an image with overlaid bounding boxes.
 
@@ -63,7 +78,7 @@ def plot_image_with_b_box(leap_data: LeapData, title: str) -> None:
     plt.show()
 
 
-def plot_image(leap_data: LeapData, title: str) -> None:
+def plot_image(leap_data: LeapImage, title: str) -> None:
     """
     Display the image contained in the LeapImage object.
 
@@ -93,7 +108,7 @@ def plot_image(leap_data: LeapData, title: str) -> None:
     plt.show()
 
 
-def plot_graph(leap_data: LeapData, title: str) -> None:
+def plot_graph(leap_data: LeapGraph, title: str) -> None:
     """
         Display the line chart contained in the LeapGraph object.
 
@@ -130,7 +145,7 @@ def plot_graph(leap_data: LeapData, title: str) -> None:
     plt.show()
 
 
-def plot_text_with_heatmap(leap_data: LeapData, title: str) -> None:
+def plot_text_with_heatmap(leap_data: LeapText, title: str) -> None:
     """
     Display the text contained in the LeapText object with a heatmap overlay.
 
@@ -199,7 +214,7 @@ def plot_text_with_heatmap(leap_data: LeapData, title: str) -> None:
     plt.show()
 
 
-def plot_hbar(leap_data: LeapData, title: str) -> None:
+def plot_hbar(leap_data: LeapHorizontalBar, title: str) -> None:
     """
         Display the horizontal bar chart contained in the LeapHorizontalBar object.
 
@@ -255,7 +270,7 @@ def plot_hbar(leap_data: LeapData, title: str) -> None:
     plt.show()
 
 
-def plot_image_mask(leap_data: LeapData, title: str) -> None:
+def plot_image_mask(leap_data: LeapImageMask, title: str) -> None:
     """
         Plots an image with overlaid masks given a LeapImageMask visualizer object.
 
@@ -304,7 +319,7 @@ def plot_image_mask(leap_data: LeapData, title: str) -> None:
     plt.show()
 
 
-def plot_text_mask(leap_data: LeapData, title: str) -> None:
+def plot_text_mask(leap_data: LeapTextMask, title: str) -> None:
     """
         Plots text with overlaid masks given a LeapTextMask visualizer object.
 
@@ -356,7 +371,7 @@ def plot_text_mask(leap_data: LeapData, title: str) -> None:
     plt.show()
 
 
-def plot_image_with_heatmap(leap_data: LeapData, title: str) -> None:
+def plot_image_with_heatmap(leap_data: LeapImageWithHeatmap, title: str) -> None:
     """
         Display the image with overlaid heatmaps contained in the LeapImageWithHeatmap object.
 

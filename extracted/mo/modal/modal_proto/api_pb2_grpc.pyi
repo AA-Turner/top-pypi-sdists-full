@@ -79,10 +79,7 @@ class ModalClientStub:
         modal_proto.api_pb2.AttemptAwaitRequest,
         modal_proto.api_pb2.AttemptAwaitResponse,
     ]
-    """Input Plane
-    These RPCs are experimental, not deployed to production, and can be changed / removed
-    without needing to worry about backwards compatibility.
-    """
+    """Input Plane"""
     AttemptRetry: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.AttemptRetryRequest,
         modal_proto.api_pb2.AttemptRetryResponse,
@@ -282,6 +279,10 @@ class ModalClientStub:
         modal_proto.api_pb2.FunctionCallCancelRequest,
         google.protobuf.empty_pb2.Empty,
     ]
+    FunctionCallFromId: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FunctionCallFromIdRequest,
+        modal_proto.api_pb2.FunctionCallFromIdResponse,
+    ]
     FunctionCallGetDataIn: grpc.UnaryStreamMultiCallable[
         modal_proto.api_pb2.FunctionCallGetDataRequest,
         modal_proto.api_pb2.DataChunk,
@@ -302,6 +303,11 @@ class ModalClientStub:
         modal_proto.api_pb2.FunctionCreateRequest,
         modal_proto.api_pb2.FunctionCreateResponse,
     ]
+    FunctionFinishInputs: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FunctionFinishInputsRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
+    """For map RPCs, to signal that all inputs have been sent"""
     FunctionGet: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.FunctionGetRequest,
         modal_proto.api_pb2.FunctionGetResponse,
@@ -805,10 +811,7 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.AttemptAwaitRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.AttemptAwaitResponse:
-        """Input Plane
-        These RPCs are experimental, not deployed to production, and can be changed / removed
-        without needing to worry about backwards compatibility.
-        """
+        """Input Plane"""
     @abc.abstractmethod
     def AttemptRetry(
         self,
@@ -1103,6 +1106,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
     @abc.abstractmethod
+    def FunctionCallFromId(
+        self,
+        request: modal_proto.api_pb2.FunctionCallFromIdRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.FunctionCallFromIdResponse: ...
+    @abc.abstractmethod
     def FunctionCallGetDataIn(
         self,
         request: modal_proto.api_pb2.FunctionCallGetDataRequest,
@@ -1132,6 +1141,13 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.FunctionCreateRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.FunctionCreateResponse: ...
+    @abc.abstractmethod
+    def FunctionFinishInputs(
+        self,
+        request: modal_proto.api_pb2.FunctionFinishInputsRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty:
+        """For map RPCs, to signal that all inputs have been sent"""
     @abc.abstractmethod
     def FunctionGet(
         self,

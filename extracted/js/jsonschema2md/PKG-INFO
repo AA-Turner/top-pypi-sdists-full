@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: jsonschema2md
-Version: 1.6.1
+Version: 1.7.0
 Summary: Convert JSON Schema to human-readable Markdown documentation
 License: Apache-2.0
 Keywords: JSON Schema,Markdown,Converter,Parser,Documentation

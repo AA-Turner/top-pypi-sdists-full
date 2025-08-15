@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: FLAML
-Version: 2.3.5
+Version: 2.3.6
 Summary: A fast library for automated machine learning and tuning
 Home-page: https://github.com/microsoft/FLAML
 Author: Microsoft Corporation

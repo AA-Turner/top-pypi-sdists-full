@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_identity_role_assignment_v3`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_identity_role_assignment_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_identity_role_assignment_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IdentityRoleAssignmentV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.identityRoleAssignmentV3.IdentityRoleAssignmentV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3 opentelekomcloud_identity_role_assignment_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3 opentelekomcloud_identity_role_assignment_v3}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class IdentityRoleAssignmentV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3 opentelekomcloud_identity_role_assignment_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3 opentelekomcloud_identity_role_assignment_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#group_id IdentityRoleAssignmentV3#group_id}.
-        :param role_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#role_id IdentityRoleAssignmentV3#role_id}.
-        :param all_projects: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#all_projects IdentityRoleAssignmentV3#all_projects}.
-        :param domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#domain_id IdentityRoleAssignmentV3#domain_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#id IdentityRoleAssignmentV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#project_id IdentityRoleAssignmentV3#project_id}.
+        :param group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#group_id IdentityRoleAssignmentV3#group_id}.
+        :param role_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#role_id IdentityRoleAssignmentV3#role_id}.
+        :param all_projects: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#all_projects IdentityRoleAssignmentV3#all_projects}.
+        :param domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#domain_id IdentityRoleAssignmentV3#domain_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#id IdentityRoleAssignmentV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#project_id IdentityRoleAssignmentV3#project_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class IdentityRoleAssignmentV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IdentityRoleAssignmentV3 to import.
-        :param import_from_id: The id of the existing IdentityRoleAssignmentV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IdentityRoleAssignmentV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IdentityRoleAssignmentV3 to import is found.
         '''
         if __debug__:
@@ -311,12 +311,12 @@ class IdentityRoleAssignmentV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#group_id IdentityRoleAssignmentV3#group_id}.
-        :param role_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#role_id IdentityRoleAssignmentV3#role_id}.
-        :param all_projects: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#all_projects IdentityRoleAssignmentV3#all_projects}.
-        :param domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#domain_id IdentityRoleAssignmentV3#domain_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#id IdentityRoleAssignmentV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#project_id IdentityRoleAssignmentV3#project_id}.
+        :param group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#group_id IdentityRoleAssignmentV3#group_id}.
+        :param role_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#role_id IdentityRoleAssignmentV3#role_id}.
+        :param all_projects: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#all_projects IdentityRoleAssignmentV3#all_projects}.
+        :param domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#domain_id IdentityRoleAssignmentV3#domain_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#id IdentityRoleAssignmentV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#project_id IdentityRoleAssignmentV3#project_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -428,14 +428,14 @@ class IdentityRoleAssignmentV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#group_id IdentityRoleAssignmentV3#group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#group_id IdentityRoleAssignmentV3#group_id}.'''
         result = self._values.get("group_id")
         assert result is not None, "Required property 'group_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#role_id IdentityRoleAssignmentV3#role_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#role_id IdentityRoleAssignmentV3#role_id}.'''
         result = self._values.get("role_id")
         assert result is not None, "Required property 'role_id' is missing"
         return typing.cast(builtins.str, result)
@@ -444,19 +444,19 @@ class IdentityRoleAssignmentV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def all_projects(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#all_projects IdentityRoleAssignmentV3#all_projects}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#all_projects IdentityRoleAssignmentV3#all_projects}.'''
         result = self._values.get("all_projects")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def domain_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#domain_id IdentityRoleAssignmentV3#domain_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#domain_id IdentityRoleAssignmentV3#domain_id}.'''
         result = self._values.get("domain_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#id IdentityRoleAssignmentV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#id IdentityRoleAssignmentV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -466,7 +466,7 @@ class IdentityRoleAssignmentV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_role_assignment_v3#project_id IdentityRoleAssignmentV3#project_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_role_assignment_v3#project_id IdentityRoleAssignmentV3#project_id}.'''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
 

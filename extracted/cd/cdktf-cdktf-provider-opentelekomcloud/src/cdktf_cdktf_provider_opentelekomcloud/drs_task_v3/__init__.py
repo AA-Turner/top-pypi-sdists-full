@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_drs_task_v3`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_drs_task_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_drs_task_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DrsTaskV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.drsTaskV3.DrsTaskV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3 opentelekomcloud_drs_task_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3 opentelekomcloud_drs_task_v3}.'''
 
     def __init__(
         self,
@@ -79,30 +79,30 @@ class DrsTaskV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3 opentelekomcloud_drs_task_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3 opentelekomcloud_drs_task_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destination_db: destination_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#destination_db DrsTaskV3#destination_db}
-        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#direction DrsTaskV3#direction}.
-        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#name DrsTaskV3#name}.
-        :param source_db: source_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#source_db DrsTaskV3#source_db}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#type DrsTaskV3#type}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#description DrsTaskV3#description}.
-        :param destination_db_readonly: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#destination_db_readonly DrsTaskV3#destination_db_readonly}.
-        :param expired_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#expired_days DrsTaskV3#expired_days}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#force_destroy DrsTaskV3#force_destroy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#id DrsTaskV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param limit_speed: limit_speed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#limit_speed DrsTaskV3#limit_speed}
-        :param migrate_definer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#migrate_definer DrsTaskV3#migrate_definer}.
-        :param migration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#migration_type DrsTaskV3#migration_type}.
-        :param multi_write: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#multi_write DrsTaskV3#multi_write}.
-        :param net_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#net_type DrsTaskV3#net_type}.
-        :param node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#node_num DrsTaskV3#node_num}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#start_time DrsTaskV3#start_time}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#tags DrsTaskV3#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#timeouts DrsTaskV3#timeouts}
+        :param destination_db: destination_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#destination_db DrsTaskV3#destination_db}
+        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#direction DrsTaskV3#direction}.
+        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#name DrsTaskV3#name}.
+        :param source_db: source_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#source_db DrsTaskV3#source_db}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#type DrsTaskV3#type}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#description DrsTaskV3#description}.
+        :param destination_db_readonly: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#destination_db_readonly DrsTaskV3#destination_db_readonly}.
+        :param expired_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#expired_days DrsTaskV3#expired_days}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#force_destroy DrsTaskV3#force_destroy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#id DrsTaskV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param limit_speed: limit_speed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#limit_speed DrsTaskV3#limit_speed}
+        :param migrate_definer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#migrate_definer DrsTaskV3#migrate_definer}.
+        :param migration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#migration_type DrsTaskV3#migration_type}.
+        :param multi_write: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#multi_write DrsTaskV3#multi_write}.
+        :param net_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#net_type DrsTaskV3#net_type}.
+        :param node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#node_num DrsTaskV3#node_num}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#start_time DrsTaskV3#start_time}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#tags DrsTaskV3#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#timeouts DrsTaskV3#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -160,7 +160,7 @@ class DrsTaskV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DrsTaskV3 to import.
-        :param import_from_id: The id of the existing DrsTaskV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DrsTaskV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DrsTaskV3 to import is found.
         '''
         if __debug__:
@@ -191,20 +191,20 @@ class DrsTaskV3(
         subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.
-        :param ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ip DrsTaskV3#ip}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#password DrsTaskV3#password}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#port DrsTaskV3#port}.
-        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#user DrsTaskV3#user}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#instance_id DrsTaskV3#instance_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#name DrsTaskV3#name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#region DrsTaskV3#region}.
-        :param ssl_cert_check_sum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_check_sum DrsTaskV3#ssl_cert_check_sum}.
-        :param ssl_cert_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_key DrsTaskV3#ssl_cert_key}.
-        :param ssl_cert_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_name DrsTaskV3#ssl_cert_name}.
-        :param ssl_cert_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_password DrsTaskV3#ssl_cert_password}.
-        :param ssl_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_enabled DrsTaskV3#ssl_enabled}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#subnet_id DrsTaskV3#subnet_id}.
+        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.
+        :param ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ip DrsTaskV3#ip}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#password DrsTaskV3#password}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#port DrsTaskV3#port}.
+        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#user DrsTaskV3#user}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#instance_id DrsTaskV3#instance_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#name DrsTaskV3#name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#region DrsTaskV3#region}.
+        :param ssl_cert_check_sum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_check_sum DrsTaskV3#ssl_cert_check_sum}.
+        :param ssl_cert_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_key DrsTaskV3#ssl_cert_key}.
+        :param ssl_cert_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_name DrsTaskV3#ssl_cert_name}.
+        :param ssl_cert_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_password DrsTaskV3#ssl_cert_password}.
+        :param ssl_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_enabled DrsTaskV3#ssl_enabled}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#subnet_id DrsTaskV3#subnet_id}.
         '''
         value = DrsTaskV3DestinationDb(
             engine_type=engine_type,
@@ -258,20 +258,20 @@ class DrsTaskV3(
         subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.
-        :param ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ip DrsTaskV3#ip}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#password DrsTaskV3#password}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#port DrsTaskV3#port}.
-        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#user DrsTaskV3#user}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#instance_id DrsTaskV3#instance_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#name DrsTaskV3#name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#region DrsTaskV3#region}.
-        :param ssl_cert_check_sum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_check_sum DrsTaskV3#ssl_cert_check_sum}.
-        :param ssl_cert_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_key DrsTaskV3#ssl_cert_key}.
-        :param ssl_cert_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_name DrsTaskV3#ssl_cert_name}.
-        :param ssl_cert_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_password DrsTaskV3#ssl_cert_password}.
-        :param ssl_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_enabled DrsTaskV3#ssl_enabled}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#subnet_id DrsTaskV3#subnet_id}.
+        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.
+        :param ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ip DrsTaskV3#ip}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#password DrsTaskV3#password}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#port DrsTaskV3#port}.
+        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#user DrsTaskV3#user}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#instance_id DrsTaskV3#instance_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#name DrsTaskV3#name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#region DrsTaskV3#region}.
+        :param ssl_cert_check_sum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_check_sum DrsTaskV3#ssl_cert_check_sum}.
+        :param ssl_cert_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_key DrsTaskV3#ssl_cert_key}.
+        :param ssl_cert_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_name DrsTaskV3#ssl_cert_name}.
+        :param ssl_cert_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_password DrsTaskV3#ssl_cert_password}.
+        :param ssl_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_enabled DrsTaskV3#ssl_enabled}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#subnet_id DrsTaskV3#subnet_id}.
         '''
         value = DrsTaskV3SourceDb(
             engine_type=engine_type,
@@ -300,8 +300,8 @@ class DrsTaskV3(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#create DrsTaskV3#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#delete DrsTaskV3#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#create DrsTaskV3#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#delete DrsTaskV3#delete}.
         '''
         value = DrsTaskV3Timeouts(create=create, delete=delete)
 
@@ -815,26 +815,26 @@ class DrsTaskV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destination_db: destination_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#destination_db DrsTaskV3#destination_db}
-        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#direction DrsTaskV3#direction}.
-        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#name DrsTaskV3#name}.
-        :param source_db: source_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#source_db DrsTaskV3#source_db}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#type DrsTaskV3#type}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#description DrsTaskV3#description}.
-        :param destination_db_readonly: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#destination_db_readonly DrsTaskV3#destination_db_readonly}.
-        :param expired_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#expired_days DrsTaskV3#expired_days}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#force_destroy DrsTaskV3#force_destroy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#id DrsTaskV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param limit_speed: limit_speed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#limit_speed DrsTaskV3#limit_speed}
-        :param migrate_definer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#migrate_definer DrsTaskV3#migrate_definer}.
-        :param migration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#migration_type DrsTaskV3#migration_type}.
-        :param multi_write: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#multi_write DrsTaskV3#multi_write}.
-        :param net_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#net_type DrsTaskV3#net_type}.
-        :param node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#node_num DrsTaskV3#node_num}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#start_time DrsTaskV3#start_time}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#tags DrsTaskV3#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#timeouts DrsTaskV3#timeouts}
+        :param destination_db: destination_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#destination_db DrsTaskV3#destination_db}
+        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#direction DrsTaskV3#direction}.
+        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#name DrsTaskV3#name}.
+        :param source_db: source_db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#source_db DrsTaskV3#source_db}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#type DrsTaskV3#type}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#description DrsTaskV3#description}.
+        :param destination_db_readonly: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#destination_db_readonly DrsTaskV3#destination_db_readonly}.
+        :param expired_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#expired_days DrsTaskV3#expired_days}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#force_destroy DrsTaskV3#force_destroy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#id DrsTaskV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param limit_speed: limit_speed block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#limit_speed DrsTaskV3#limit_speed}
+        :param migrate_definer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#migrate_definer DrsTaskV3#migrate_definer}.
+        :param migration_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#migration_type DrsTaskV3#migration_type}.
+        :param multi_write: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#multi_write DrsTaskV3#multi_write}.
+        :param net_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#net_type DrsTaskV3#net_type}.
+        :param node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#node_num DrsTaskV3#node_num}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#start_time DrsTaskV3#start_time}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#tags DrsTaskV3#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#timeouts DrsTaskV3#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -992,7 +992,7 @@ class DrsTaskV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def destination_db(self) -> "DrsTaskV3DestinationDb":
         '''destination_db block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#destination_db DrsTaskV3#destination_db}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#destination_db DrsTaskV3#destination_db}
         '''
         result = self._values.get("destination_db")
         assert result is not None, "Required property 'destination_db' is missing"
@@ -1000,21 +1000,21 @@ class DrsTaskV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def direction(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#direction DrsTaskV3#direction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#direction DrsTaskV3#direction}.'''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def engine_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.'''
         result = self._values.get("engine_type")
         assert result is not None, "Required property 'engine_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#name DrsTaskV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#name DrsTaskV3#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1023,7 +1023,7 @@ class DrsTaskV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_db(self) -> "DrsTaskV3SourceDb":
         '''source_db block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#source_db DrsTaskV3#source_db}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#source_db DrsTaskV3#source_db}
         '''
         result = self._values.get("source_db")
         assert result is not None, "Required property 'source_db' is missing"
@@ -1031,14 +1031,14 @@ class DrsTaskV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#type DrsTaskV3#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#type DrsTaskV3#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#description DrsTaskV3#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#description DrsTaskV3#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1046,13 +1046,13 @@ class DrsTaskV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def destination_db_readonly(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#destination_db_readonly DrsTaskV3#destination_db_readonly}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#destination_db_readonly DrsTaskV3#destination_db_readonly}.'''
         result = self._values.get("destination_db_readonly")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def expired_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#expired_days DrsTaskV3#expired_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#expired_days DrsTaskV3#expired_days}.'''
         result = self._values.get("expired_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1060,13 +1060,13 @@ class DrsTaskV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#force_destroy DrsTaskV3#force_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#force_destroy DrsTaskV3#force_destroy}.'''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#id DrsTaskV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#id DrsTaskV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1080,7 +1080,7 @@ class DrsTaskV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DrsTaskV3LimitSpeed"]]]:
         '''limit_speed block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#limit_speed DrsTaskV3#limit_speed}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#limit_speed DrsTaskV3#limit_speed}
         '''
         result = self._values.get("limit_speed")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DrsTaskV3LimitSpeed"]]], result)
@@ -1089,13 +1089,13 @@ class DrsTaskV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def migrate_definer(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#migrate_definer DrsTaskV3#migrate_definer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#migrate_definer DrsTaskV3#migrate_definer}.'''
         result = self._values.get("migrate_definer")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def migration_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#migration_type DrsTaskV3#migration_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#migration_type DrsTaskV3#migration_type}.'''
         result = self._values.get("migration_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1103,31 +1103,31 @@ class DrsTaskV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def multi_write(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#multi_write DrsTaskV3#multi_write}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#multi_write DrsTaskV3#multi_write}.'''
         result = self._values.get("multi_write")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def net_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#net_type DrsTaskV3#net_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#net_type DrsTaskV3#net_type}.'''
         result = self._values.get("net_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def node_num(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#node_num DrsTaskV3#node_num}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#node_num DrsTaskV3#node_num}.'''
         result = self._values.get("node_num")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def start_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#start_time DrsTaskV3#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#start_time DrsTaskV3#start_time}.'''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#tags DrsTaskV3#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#tags DrsTaskV3#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1135,7 +1135,7 @@ class DrsTaskV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DrsTaskV3Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#timeouts DrsTaskV3#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#timeouts DrsTaskV3#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DrsTaskV3Timeouts"], result)
@@ -1192,20 +1192,20 @@ class DrsTaskV3DestinationDb:
         subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.
-        :param ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ip DrsTaskV3#ip}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#password DrsTaskV3#password}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#port DrsTaskV3#port}.
-        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#user DrsTaskV3#user}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#instance_id DrsTaskV3#instance_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#name DrsTaskV3#name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#region DrsTaskV3#region}.
-        :param ssl_cert_check_sum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_check_sum DrsTaskV3#ssl_cert_check_sum}.
-        :param ssl_cert_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_key DrsTaskV3#ssl_cert_key}.
-        :param ssl_cert_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_name DrsTaskV3#ssl_cert_name}.
-        :param ssl_cert_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_password DrsTaskV3#ssl_cert_password}.
-        :param ssl_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_enabled DrsTaskV3#ssl_enabled}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#subnet_id DrsTaskV3#subnet_id}.
+        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.
+        :param ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ip DrsTaskV3#ip}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#password DrsTaskV3#password}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#port DrsTaskV3#port}.
+        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#user DrsTaskV3#user}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#instance_id DrsTaskV3#instance_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#name DrsTaskV3#name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#region DrsTaskV3#region}.
+        :param ssl_cert_check_sum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_check_sum DrsTaskV3#ssl_cert_check_sum}.
+        :param ssl_cert_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_key DrsTaskV3#ssl_cert_key}.
+        :param ssl_cert_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_name DrsTaskV3#ssl_cert_name}.
+        :param ssl_cert_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_password DrsTaskV3#ssl_cert_password}.
+        :param ssl_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_enabled DrsTaskV3#ssl_enabled}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#subnet_id DrsTaskV3#subnet_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59d62c4b688521d013d9303f2bef6269168ab81a30ae87770fb636a3a2f51bd8)
@@ -1251,78 +1251,78 @@ class DrsTaskV3DestinationDb:
 
     @builtins.property
     def engine_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.'''
         result = self._values.get("engine_type")
         assert result is not None, "Required property 'engine_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ip(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ip DrsTaskV3#ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ip DrsTaskV3#ip}.'''
         result = self._values.get("ip")
         assert result is not None, "Required property 'ip' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#password DrsTaskV3#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#password DrsTaskV3#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#port DrsTaskV3#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#port DrsTaskV3#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def user(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#user DrsTaskV3#user}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#user DrsTaskV3#user}.'''
         result = self._values.get("user")
         assert result is not None, "Required property 'user' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def instance_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#instance_id DrsTaskV3#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#instance_id DrsTaskV3#instance_id}.'''
         result = self._values.get("instance_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#name DrsTaskV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#name DrsTaskV3#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#region DrsTaskV3#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#region DrsTaskV3#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_cert_check_sum(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_check_sum DrsTaskV3#ssl_cert_check_sum}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_check_sum DrsTaskV3#ssl_cert_check_sum}.'''
         result = self._values.get("ssl_cert_check_sum")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_cert_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_key DrsTaskV3#ssl_cert_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_key DrsTaskV3#ssl_cert_key}.'''
         result = self._values.get("ssl_cert_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_cert_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_name DrsTaskV3#ssl_cert_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_name DrsTaskV3#ssl_cert_name}.'''
         result = self._values.get("ssl_cert_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_cert_password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_password DrsTaskV3#ssl_cert_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_password DrsTaskV3#ssl_cert_password}.'''
         result = self._values.get("ssl_cert_password")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1330,13 +1330,13 @@ class DrsTaskV3DestinationDb:
     def ssl_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_enabled DrsTaskV3#ssl_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_enabled DrsTaskV3#ssl_enabled}.'''
         result = self._values.get("ssl_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#subnet_id DrsTaskV3#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#subnet_id DrsTaskV3#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1683,9 +1683,9 @@ class DrsTaskV3LimitSpeed:
         start_time: builtins.str,
     ) -> None:
         '''
-        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#end_time DrsTaskV3#end_time}.
-        :param speed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#speed DrsTaskV3#speed}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#start_time DrsTaskV3#start_time}.
+        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#end_time DrsTaskV3#end_time}.
+        :param speed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#speed DrsTaskV3#speed}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#start_time DrsTaskV3#start_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1480ef8745f5127588129ccab9ec02db38eeaefb7c17e7e87565ed2dab27ed1e)
@@ -1700,21 +1700,21 @@ class DrsTaskV3LimitSpeed:
 
     @builtins.property
     def end_time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#end_time DrsTaskV3#end_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#end_time DrsTaskV3#end_time}.'''
         result = self._values.get("end_time")
         assert result is not None, "Required property 'end_time' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def speed(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#speed DrsTaskV3#speed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#speed DrsTaskV3#speed}.'''
         result = self._values.get("speed")
         assert result is not None, "Required property 'speed' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def start_time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#start_time DrsTaskV3#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#start_time DrsTaskV3#start_time}.'''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
         return typing.cast(builtins.str, result)
@@ -1956,20 +1956,20 @@ class DrsTaskV3SourceDb:
         subnet_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.
-        :param ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ip DrsTaskV3#ip}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#password DrsTaskV3#password}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#port DrsTaskV3#port}.
-        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#user DrsTaskV3#user}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#instance_id DrsTaskV3#instance_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#name DrsTaskV3#name}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#region DrsTaskV3#region}.
-        :param ssl_cert_check_sum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_check_sum DrsTaskV3#ssl_cert_check_sum}.
-        :param ssl_cert_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_key DrsTaskV3#ssl_cert_key}.
-        :param ssl_cert_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_name DrsTaskV3#ssl_cert_name}.
-        :param ssl_cert_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_password DrsTaskV3#ssl_cert_password}.
-        :param ssl_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_enabled DrsTaskV3#ssl_enabled}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#subnet_id DrsTaskV3#subnet_id}.
+        :param engine_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.
+        :param ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ip DrsTaskV3#ip}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#password DrsTaskV3#password}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#port DrsTaskV3#port}.
+        :param user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#user DrsTaskV3#user}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#instance_id DrsTaskV3#instance_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#name DrsTaskV3#name}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#region DrsTaskV3#region}.
+        :param ssl_cert_check_sum: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_check_sum DrsTaskV3#ssl_cert_check_sum}.
+        :param ssl_cert_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_key DrsTaskV3#ssl_cert_key}.
+        :param ssl_cert_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_name DrsTaskV3#ssl_cert_name}.
+        :param ssl_cert_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_password DrsTaskV3#ssl_cert_password}.
+        :param ssl_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_enabled DrsTaskV3#ssl_enabled}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#subnet_id DrsTaskV3#subnet_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__17268970270f3c295d220be7ce9444eb726803980147b63b6bb521d34ef4d87f)
@@ -2015,78 +2015,78 @@ class DrsTaskV3SourceDb:
 
     @builtins.property
     def engine_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#engine_type DrsTaskV3#engine_type}.'''
         result = self._values.get("engine_type")
         assert result is not None, "Required property 'engine_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ip(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ip DrsTaskV3#ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ip DrsTaskV3#ip}.'''
         result = self._values.get("ip")
         assert result is not None, "Required property 'ip' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#password DrsTaskV3#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#password DrsTaskV3#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#port DrsTaskV3#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#port DrsTaskV3#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def user(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#user DrsTaskV3#user}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#user DrsTaskV3#user}.'''
         result = self._values.get("user")
         assert result is not None, "Required property 'user' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def instance_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#instance_id DrsTaskV3#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#instance_id DrsTaskV3#instance_id}.'''
         result = self._values.get("instance_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#name DrsTaskV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#name DrsTaskV3#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#region DrsTaskV3#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#region DrsTaskV3#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_cert_check_sum(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_check_sum DrsTaskV3#ssl_cert_check_sum}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_check_sum DrsTaskV3#ssl_cert_check_sum}.'''
         result = self._values.get("ssl_cert_check_sum")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_cert_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_key DrsTaskV3#ssl_cert_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_key DrsTaskV3#ssl_cert_key}.'''
         result = self._values.get("ssl_cert_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_cert_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_name DrsTaskV3#ssl_cert_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_name DrsTaskV3#ssl_cert_name}.'''
         result = self._values.get("ssl_cert_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ssl_cert_password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_cert_password DrsTaskV3#ssl_cert_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_cert_password DrsTaskV3#ssl_cert_password}.'''
         result = self._values.get("ssl_cert_password")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2094,13 +2094,13 @@ class DrsTaskV3SourceDb:
     def ssl_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#ssl_enabled DrsTaskV3#ssl_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#ssl_enabled DrsTaskV3#ssl_enabled}.'''
         result = self._values.get("ssl_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#subnet_id DrsTaskV3#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#subnet_id DrsTaskV3#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2446,8 +2446,8 @@ class DrsTaskV3Timeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#create DrsTaskV3#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#delete DrsTaskV3#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#create DrsTaskV3#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#delete DrsTaskV3#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ddea68c2485ced71a161eb8518ac928af53de2c35698ec6e6526df31e355706)
@@ -2461,13 +2461,13 @@ class DrsTaskV3Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#create DrsTaskV3#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#create DrsTaskV3#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/drs_task_v3#delete DrsTaskV3#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/drs_task_v3#delete DrsTaskV3#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

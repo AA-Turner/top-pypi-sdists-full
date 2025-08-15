@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_as_policy_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_as_policy_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_as_policy_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AsPolicyV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.asPolicyV1.AsPolicyV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1 opentelekomcloud_as_policy_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1 opentelekomcloud_as_policy_v1}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class AsPolicyV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1 opentelekomcloud_as_policy_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1 opentelekomcloud_as_policy_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param scaling_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scaling_group_id AsPolicyV1#scaling_group_id}.
-        :param scaling_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scaling_policy_name AsPolicyV1#scaling_policy_name}.
-        :param scaling_policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scaling_policy_type AsPolicyV1#scaling_policy_type}.
-        :param alarm_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#alarm_id AsPolicyV1#alarm_id}.
-        :param cool_down_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#cool_down_time AsPolicyV1#cool_down_time}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#id AsPolicyV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#region AsPolicyV1#region}.
-        :param scaling_policy_action: scaling_policy_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scaling_policy_action AsPolicyV1#scaling_policy_action}
-        :param scheduled_policy: scheduled_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scheduled_policy AsPolicyV1#scheduled_policy}
+        :param scaling_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scaling_group_id AsPolicyV1#scaling_group_id}.
+        :param scaling_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scaling_policy_name AsPolicyV1#scaling_policy_name}.
+        :param scaling_policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scaling_policy_type AsPolicyV1#scaling_policy_type}.
+        :param alarm_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#alarm_id AsPolicyV1#alarm_id}.
+        :param cool_down_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#cool_down_time AsPolicyV1#cool_down_time}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#id AsPolicyV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#region AsPolicyV1#region}.
+        :param scaling_policy_action: scaling_policy_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scaling_policy_action AsPolicyV1#scaling_policy_action}
+        :param scheduled_policy: scheduled_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scheduled_policy AsPolicyV1#scheduled_policy}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class AsPolicyV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AsPolicyV1 to import.
-        :param import_from_id: The id of the existing AsPolicyV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AsPolicyV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AsPolicyV1 to import is found.
         '''
         if __debug__:
@@ -146,8 +146,8 @@ class AsPolicyV1(
         operation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#instance_number AsPolicyV1#instance_number}.
-        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#operation AsPolicyV1#operation}.
+        :param instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#instance_number AsPolicyV1#instance_number}.
+        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#operation AsPolicyV1#operation}.
         '''
         value = AsPolicyV1ScalingPolicyAction(
             instance_number=instance_number, operation=operation
@@ -166,11 +166,11 @@ class AsPolicyV1(
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param launch_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#launch_time AsPolicyV1#launch_time}.
-        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#end_time AsPolicyV1#end_time}.
-        :param recurrence_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#recurrence_type AsPolicyV1#recurrence_type}.
-        :param recurrence_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#recurrence_value AsPolicyV1#recurrence_value}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#start_time AsPolicyV1#start_time}.
+        :param launch_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#launch_time AsPolicyV1#launch_time}.
+        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#end_time AsPolicyV1#end_time}.
+        :param recurrence_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#recurrence_type AsPolicyV1#recurrence_type}.
+        :param recurrence_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#recurrence_value AsPolicyV1#recurrence_value}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#start_time AsPolicyV1#start_time}.
         '''
         value = AsPolicyV1ScheduledPolicy(
             launch_time=launch_time,
@@ -412,15 +412,15 @@ class AsPolicyV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param scaling_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scaling_group_id AsPolicyV1#scaling_group_id}.
-        :param scaling_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scaling_policy_name AsPolicyV1#scaling_policy_name}.
-        :param scaling_policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scaling_policy_type AsPolicyV1#scaling_policy_type}.
-        :param alarm_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#alarm_id AsPolicyV1#alarm_id}.
-        :param cool_down_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#cool_down_time AsPolicyV1#cool_down_time}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#id AsPolicyV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#region AsPolicyV1#region}.
-        :param scaling_policy_action: scaling_policy_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scaling_policy_action AsPolicyV1#scaling_policy_action}
-        :param scheduled_policy: scheduled_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scheduled_policy AsPolicyV1#scheduled_policy}
+        :param scaling_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scaling_group_id AsPolicyV1#scaling_group_id}.
+        :param scaling_policy_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scaling_policy_name AsPolicyV1#scaling_policy_name}.
+        :param scaling_policy_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scaling_policy_type AsPolicyV1#scaling_policy_type}.
+        :param alarm_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#alarm_id AsPolicyV1#alarm_id}.
+        :param cool_down_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#cool_down_time AsPolicyV1#cool_down_time}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#id AsPolicyV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#region AsPolicyV1#region}.
+        :param scaling_policy_action: scaling_policy_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scaling_policy_action AsPolicyV1#scaling_policy_action}
+        :param scheduled_policy: scheduled_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scheduled_policy AsPolicyV1#scheduled_policy}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -544,40 +544,40 @@ class AsPolicyV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def scaling_group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scaling_group_id AsPolicyV1#scaling_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scaling_group_id AsPolicyV1#scaling_group_id}.'''
         result = self._values.get("scaling_group_id")
         assert result is not None, "Required property 'scaling_group_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def scaling_policy_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scaling_policy_name AsPolicyV1#scaling_policy_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scaling_policy_name AsPolicyV1#scaling_policy_name}.'''
         result = self._values.get("scaling_policy_name")
         assert result is not None, "Required property 'scaling_policy_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def scaling_policy_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scaling_policy_type AsPolicyV1#scaling_policy_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scaling_policy_type AsPolicyV1#scaling_policy_type}.'''
         result = self._values.get("scaling_policy_type")
         assert result is not None, "Required property 'scaling_policy_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def alarm_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#alarm_id AsPolicyV1#alarm_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#alarm_id AsPolicyV1#alarm_id}.'''
         result = self._values.get("alarm_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cool_down_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#cool_down_time AsPolicyV1#cool_down_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#cool_down_time AsPolicyV1#cool_down_time}.'''
         result = self._values.get("cool_down_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#id AsPolicyV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#id AsPolicyV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -587,7 +587,7 @@ class AsPolicyV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#region AsPolicyV1#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#region AsPolicyV1#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -595,7 +595,7 @@ class AsPolicyV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def scaling_policy_action(self) -> typing.Optional["AsPolicyV1ScalingPolicyAction"]:
         '''scaling_policy_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scaling_policy_action AsPolicyV1#scaling_policy_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scaling_policy_action AsPolicyV1#scaling_policy_action}
         '''
         result = self._values.get("scaling_policy_action")
         return typing.cast(typing.Optional["AsPolicyV1ScalingPolicyAction"], result)
@@ -604,7 +604,7 @@ class AsPolicyV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def scheduled_policy(self) -> typing.Optional["AsPolicyV1ScheduledPolicy"]:
         '''scheduled_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#scheduled_policy AsPolicyV1#scheduled_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#scheduled_policy AsPolicyV1#scheduled_policy}
         '''
         result = self._values.get("scheduled_policy")
         return typing.cast(typing.Optional["AsPolicyV1ScheduledPolicy"], result)
@@ -634,8 +634,8 @@ class AsPolicyV1ScalingPolicyAction:
         operation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#instance_number AsPolicyV1#instance_number}.
-        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#operation AsPolicyV1#operation}.
+        :param instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#instance_number AsPolicyV1#instance_number}.
+        :param operation: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#operation AsPolicyV1#operation}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd675edbd2d840117e95d492ef8a1a0bdcb9ba699d244fd2c1c4c3a1c3522bc1)
@@ -649,13 +649,13 @@ class AsPolicyV1ScalingPolicyAction:
 
     @builtins.property
     def instance_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#instance_number AsPolicyV1#instance_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#instance_number AsPolicyV1#instance_number}.'''
         result = self._values.get("instance_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def operation(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#operation AsPolicyV1#operation}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#operation AsPolicyV1#operation}.'''
         result = self._values.get("operation")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -771,11 +771,11 @@ class AsPolicyV1ScheduledPolicy:
         start_time: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param launch_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#launch_time AsPolicyV1#launch_time}.
-        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#end_time AsPolicyV1#end_time}.
-        :param recurrence_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#recurrence_type AsPolicyV1#recurrence_type}.
-        :param recurrence_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#recurrence_value AsPolicyV1#recurrence_value}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#start_time AsPolicyV1#start_time}.
+        :param launch_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#launch_time AsPolicyV1#launch_time}.
+        :param end_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#end_time AsPolicyV1#end_time}.
+        :param recurrence_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#recurrence_type AsPolicyV1#recurrence_type}.
+        :param recurrence_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#recurrence_value AsPolicyV1#recurrence_value}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#start_time AsPolicyV1#start_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c222afc491c2b3e39d61b609038908726292bfb697c712d312d125ae3e3122c2)
@@ -798,32 +798,32 @@ class AsPolicyV1ScheduledPolicy:
 
     @builtins.property
     def launch_time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#launch_time AsPolicyV1#launch_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#launch_time AsPolicyV1#launch_time}.'''
         result = self._values.get("launch_time")
         assert result is not None, "Required property 'launch_time' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def end_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#end_time AsPolicyV1#end_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#end_time AsPolicyV1#end_time}.'''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def recurrence_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#recurrence_type AsPolicyV1#recurrence_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#recurrence_type AsPolicyV1#recurrence_type}.'''
         result = self._values.get("recurrence_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def recurrence_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#recurrence_value AsPolicyV1#recurrence_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#recurrence_value AsPolicyV1#recurrence_value}.'''
         result = self._values.get("recurrence_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_time(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_policy_v1#start_time AsPolicyV1#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_policy_v1#start_time AsPolicyV1#start_time}.'''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
 

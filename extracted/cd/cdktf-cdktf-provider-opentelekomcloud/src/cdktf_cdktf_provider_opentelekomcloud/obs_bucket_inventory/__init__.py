@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_obs_bucket_inventory`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_obs_bucket_inventory`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_obs_bucket_inventory`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ObsBucketInventory(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.obsBucketInventory.ObsBucketInventory",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory opentelekomcloud_obs_bucket_inventory}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory opentelekomcloud_obs_bucket_inventory}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class ObsBucketInventory(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory opentelekomcloud_obs_bucket_inventory} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory opentelekomcloud_obs_bucket_inventory} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#bucket ObsBucketInventory#bucket}.
-        :param configuration_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#configuration_id ObsBucketInventory#configuration_id}.
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#destination ObsBucketInventory#destination}
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#frequency ObsBucketInventory#frequency}.
-        :param included_object_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#included_object_versions ObsBucketInventory#included_object_versions}.
-        :param is_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#is_enabled ObsBucketInventory#is_enabled}.
-        :param filter_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#filter_prefix ObsBucketInventory#filter_prefix}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#id ObsBucketInventory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param optional_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#optional_fields ObsBucketInventory#optional_fields}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#bucket ObsBucketInventory#bucket}.
+        :param configuration_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#configuration_id ObsBucketInventory#configuration_id}.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#destination ObsBucketInventory#destination}
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#frequency ObsBucketInventory#frequency}.
+        :param included_object_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#included_object_versions ObsBucketInventory#included_object_versions}.
+        :param is_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#is_enabled ObsBucketInventory#is_enabled}.
+        :param filter_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#filter_prefix ObsBucketInventory#filter_prefix}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#id ObsBucketInventory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param optional_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#optional_fields ObsBucketInventory#optional_fields}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class ObsBucketInventory(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ObsBucketInventory to import.
-        :param import_from_id: The id of the existing ObsBucketInventory that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ObsBucketInventory that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ObsBucketInventory to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class ObsBucketInventory(
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#bucket ObsBucketInventory#bucket}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#format ObsBucketInventory#format}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#prefix ObsBucketInventory#prefix}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#bucket ObsBucketInventory#bucket}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#format ObsBucketInventory#format}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#prefix ObsBucketInventory#prefix}.
         '''
         value = ObsBucketInventoryDestination(
             bucket=bucket, format=format, prefix=prefix
@@ -390,15 +390,15 @@ class ObsBucketInventoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#bucket ObsBucketInventory#bucket}.
-        :param configuration_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#configuration_id ObsBucketInventory#configuration_id}.
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#destination ObsBucketInventory#destination}
-        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#frequency ObsBucketInventory#frequency}.
-        :param included_object_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#included_object_versions ObsBucketInventory#included_object_versions}.
-        :param is_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#is_enabled ObsBucketInventory#is_enabled}.
-        :param filter_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#filter_prefix ObsBucketInventory#filter_prefix}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#id ObsBucketInventory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param optional_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#optional_fields ObsBucketInventory#optional_fields}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#bucket ObsBucketInventory#bucket}.
+        :param configuration_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#configuration_id ObsBucketInventory#configuration_id}.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#destination ObsBucketInventory#destination}
+        :param frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#frequency ObsBucketInventory#frequency}.
+        :param included_object_versions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#included_object_versions ObsBucketInventory#included_object_versions}.
+        :param is_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#is_enabled ObsBucketInventory#is_enabled}.
+        :param filter_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#filter_prefix ObsBucketInventory#filter_prefix}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#id ObsBucketInventory#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param optional_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#optional_fields ObsBucketInventory#optional_fields}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -517,14 +517,14 @@ class ObsBucketInventoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#bucket ObsBucketInventory#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#bucket ObsBucketInventory#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def configuration_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#configuration_id ObsBucketInventory#configuration_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#configuration_id ObsBucketInventory#configuration_id}.'''
         result = self._values.get("configuration_id")
         assert result is not None, "Required property 'configuration_id' is missing"
         return typing.cast(builtins.str, result)
@@ -533,7 +533,7 @@ class ObsBucketInventoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def destination(self) -> "ObsBucketInventoryDestination":
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#destination ObsBucketInventory#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#destination ObsBucketInventory#destination}
         '''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
@@ -541,34 +541,34 @@ class ObsBucketInventoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def frequency(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#frequency ObsBucketInventory#frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#frequency ObsBucketInventory#frequency}.'''
         result = self._values.get("frequency")
         assert result is not None, "Required property 'frequency' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def included_object_versions(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#included_object_versions ObsBucketInventory#included_object_versions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#included_object_versions ObsBucketInventory#included_object_versions}.'''
         result = self._values.get("included_object_versions")
         assert result is not None, "Required property 'included_object_versions' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def is_enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#is_enabled ObsBucketInventory#is_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#is_enabled ObsBucketInventory#is_enabled}.'''
         result = self._values.get("is_enabled")
         assert result is not None, "Required property 'is_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def filter_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#filter_prefix ObsBucketInventory#filter_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#filter_prefix ObsBucketInventory#filter_prefix}.'''
         result = self._values.get("filter_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#id ObsBucketInventory#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#id ObsBucketInventory#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -578,7 +578,7 @@ class ObsBucketInventoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def optional_fields(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#optional_fields ObsBucketInventory#optional_fields}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#optional_fields ObsBucketInventory#optional_fields}.'''
         result = self._values.get("optional_fields")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -608,9 +608,9 @@ class ObsBucketInventoryDestination:
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#bucket ObsBucketInventory#bucket}.
-        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#format ObsBucketInventory#format}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#prefix ObsBucketInventory#prefix}.
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#bucket ObsBucketInventory#bucket}.
+        :param format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#format ObsBucketInventory#format}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#prefix ObsBucketInventory#prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b6cecfd34dc5b1b865dc0774034ed442ac8a4355691a1c1aa7ff8ea12e924152)
@@ -626,21 +626,21 @@ class ObsBucketInventoryDestination:
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#bucket ObsBucketInventory#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#bucket ObsBucketInventory#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#format ObsBucketInventory#format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#format ObsBucketInventory#format}.'''
         result = self._values.get("format")
         assert result is not None, "Required property 'format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_inventory#prefix ObsBucketInventory#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_inventory#prefix ObsBucketInventory#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 

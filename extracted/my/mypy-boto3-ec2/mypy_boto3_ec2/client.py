@@ -1255,6 +1255,8 @@ from .type_defs import (
     ModifyInstanceAttributeRequestTypeDef,
     ModifyInstanceCapacityReservationAttributesRequestTypeDef,
     ModifyInstanceCapacityReservationAttributesResultTypeDef,
+    ModifyInstanceConnectEndpointRequestTypeDef,
+    ModifyInstanceConnectEndpointResultTypeDef,
     ModifyInstanceCpuOptionsRequestTypeDef,
     ModifyInstanceCpuOptionsResultTypeDef,
     ModifyInstanceCreditSpecificationRequestTypeDef,
@@ -7325,6 +7327,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_instance_capacity_reservation_attributes.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_instance_capacity_reservation_attributes)
+        """
+
+    def modify_instance_connect_endpoint(
+        self, **kwargs: Unpack[ModifyInstanceConnectEndpointRequestTypeDef]
+    ) -> ModifyInstanceConnectEndpointResultTypeDef:
+        """
+        Modifies the specified EC2 Instance Connect Endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_instance_connect_endpoint.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_instance_connect_endpoint)
         """
 
     def modify_instance_cpu_options(

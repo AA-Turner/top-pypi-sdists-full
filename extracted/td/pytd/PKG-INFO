@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytd
-Version: 2.1.0
+Version: 2.2.0
 Summary: Treasure Data Driver for Python
 Home-page: https://github.com/treasure-data/pytd
 Author: Treasure Data
@@ -26,7 +26,7 @@ Requires-Dist: urllib3>=1.21.1
 Requires-Dist: trino>=0.334.0
 Requires-Dist: pandas>=2.1.0
 Requires-Dist: numpy>=1.25.2
-Requires-Dist: td-client>=1.1.0
+Requires-Dist: td-client>=1.5.0
 Requires-Dist: pytz>=2018.5
 Requires-Dist: tqdm>=4.60.0
 Provides-Extra: spark

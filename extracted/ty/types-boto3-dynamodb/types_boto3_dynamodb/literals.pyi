@@ -33,6 +33,7 @@ __all__ = (
     "ConditionalOperatorType",
     "ContinuousBackupsStatusType",
     "ContributorInsightsActionType",
+    "ContributorInsightsModeType",
     "ContributorInsightsStatusType",
     "DestinationStatusType",
     "DynamoDBServiceName",
@@ -115,6 +116,7 @@ ComparisonOperatorType = Literal[
 ConditionalOperatorType = Literal["AND", "OR"]
 ContinuousBackupsStatusType = Literal["DISABLED", "ENABLED"]
 ContributorInsightsActionType = Literal["DISABLE", "ENABLE"]
+ContributorInsightsModeType = Literal["ACCESSED_AND_THROTTLED_KEYS", "THROTTLED_KEYS"]
 ContributorInsightsStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING", "FAILED"]
 DestinationStatusType = Literal[
     "ACTIVE", "DISABLED", "DISABLING", "ENABLE_FAILED", "ENABLING", "UPDATING"
@@ -202,6 +204,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -215,6 +218,7 @@ ServiceName = Literal[
     "batch",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

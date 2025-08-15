@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_hss_host_protection_v5`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_hss_host_protection_v5`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_hss_host_protection_v5`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class HssHostProtectionV5(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.hssHostProtectionV5.HssHostProtectionV5",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5 opentelekomcloud_hss_host_protection_v5}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5 opentelekomcloud_hss_host_protection_v5}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class HssHostProtectionV5(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5 opentelekomcloud_hss_host_protection_v5} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5 opentelekomcloud_hss_host_protection_v5} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param charging_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#charging_mode HssHostProtectionV5#charging_mode}.
-        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#host_id HssHostProtectionV5#host_id}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#version HssHostProtectionV5#version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#id HssHostProtectionV5#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_wait_host_available: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#is_wait_host_available HssHostProtectionV5#is_wait_host_available}.
-        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#resource_id HssHostProtectionV5#resource_id}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#timeouts HssHostProtectionV5#timeouts}
+        :param charging_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#charging_mode HssHostProtectionV5#charging_mode}.
+        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#host_id HssHostProtectionV5#host_id}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#version HssHostProtectionV5#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#id HssHostProtectionV5#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_wait_host_available: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#is_wait_host_available HssHostProtectionV5#is_wait_host_available}.
+        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#resource_id HssHostProtectionV5#resource_id}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#timeouts HssHostProtectionV5#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class HssHostProtectionV5(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the HssHostProtectionV5 to import.
-        :param import_from_id: The id of the existing HssHostProtectionV5 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing HssHostProtectionV5 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the HssHostProtectionV5 to import is found.
         '''
         if __debug__:
@@ -135,7 +135,7 @@ class HssHostProtectionV5(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#create HssHostProtectionV5#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#create HssHostProtectionV5#create}.
         '''
         value = HssHostProtectionV5Timeouts(create=create)
 
@@ -389,13 +389,13 @@ class HssHostProtectionV5Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param charging_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#charging_mode HssHostProtectionV5#charging_mode}.
-        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#host_id HssHostProtectionV5#host_id}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#version HssHostProtectionV5#version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#id HssHostProtectionV5#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_wait_host_available: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#is_wait_host_available HssHostProtectionV5#is_wait_host_available}.
-        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#resource_id HssHostProtectionV5#resource_id}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#timeouts HssHostProtectionV5#timeouts}
+        :param charging_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#charging_mode HssHostProtectionV5#charging_mode}.
+        :param host_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#host_id HssHostProtectionV5#host_id}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#version HssHostProtectionV5#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#id HssHostProtectionV5#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_wait_host_available: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#is_wait_host_available HssHostProtectionV5#is_wait_host_available}.
+        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#resource_id HssHostProtectionV5#resource_id}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#timeouts HssHostProtectionV5#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -511,28 +511,28 @@ class HssHostProtectionV5Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def charging_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#charging_mode HssHostProtectionV5#charging_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#charging_mode HssHostProtectionV5#charging_mode}.'''
         result = self._values.get("charging_mode")
         assert result is not None, "Required property 'charging_mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#host_id HssHostProtectionV5#host_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#host_id HssHostProtectionV5#host_id}.'''
         result = self._values.get("host_id")
         assert result is not None, "Required property 'host_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#version HssHostProtectionV5#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#version HssHostProtectionV5#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#id HssHostProtectionV5#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#id HssHostProtectionV5#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -544,13 +544,13 @@ class HssHostProtectionV5Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_wait_host_available(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#is_wait_host_available HssHostProtectionV5#is_wait_host_available}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#is_wait_host_available HssHostProtectionV5#is_wait_host_available}.'''
         result = self._values.get("is_wait_host_available")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def resource_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#resource_id HssHostProtectionV5#resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#resource_id HssHostProtectionV5#resource_id}.'''
         result = self._values.get("resource_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -558,7 +558,7 @@ class HssHostProtectionV5Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["HssHostProtectionV5Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#timeouts HssHostProtectionV5#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#timeouts HssHostProtectionV5#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["HssHostProtectionV5Timeouts"], result)
@@ -583,7 +583,7 @@ class HssHostProtectionV5Config(_cdktf_9a9027ec.TerraformMetaArguments):
 class HssHostProtectionV5Timeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#create HssHostProtectionV5#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#create HssHostProtectionV5#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5f70c193a8634afa82d53d88230fabc7c5a1f9a92d95b48a3ffa7d036096cb6f)
@@ -594,7 +594,7 @@ class HssHostProtectionV5Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/hss_host_protection_v5#create HssHostProtectionV5#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/hss_host_protection_v5#create HssHostProtectionV5#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 

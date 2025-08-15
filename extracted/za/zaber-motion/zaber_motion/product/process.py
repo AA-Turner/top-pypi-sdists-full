@@ -63,12 +63,12 @@ class Process:
         return self._warnings
 
     def __init__(self, controller: 'ProcessController', process_number: int):
-        self._controller = controller
-        self._process_number = process_number
-        self._axis = Axis(controller.device, process_number)
-        self._settings = AxisSettings(self._axis)
-        self._storage = AxisStorage(self._axis)
-        self._warnings = Warnings(controller.device, process_number)
+        self._controller: 'ProcessController' = controller
+        self._process_number: int = process_number
+        self._axis: Axis = Axis(controller.device, process_number)
+        self._settings: AxisSettings = AxisSettings(self._axis)
+        self._storage: AxisStorage = AxisStorage(self._axis)
+        self._warnings: Warnings = Warnings(controller.device, process_number)
 
     def enable(
             self,

@@ -20,7 +20,7 @@ class DeviceSettings:
     """
 
     def __init__(self, device: 'Device'):
-        self._device = device
+        self._device: 'Device' = device
 
     def get(
             self,

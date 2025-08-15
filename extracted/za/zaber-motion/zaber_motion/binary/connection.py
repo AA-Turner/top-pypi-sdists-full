@@ -75,7 +75,7 @@ class Connection:
         return self.__retrieve_is_open()
 
     def __init__(self, interface_id: int):
-        self._interface_id = interface_id
+        self._interface_id: int = interface_id
         self.__setup_events()
 
     @staticmethod

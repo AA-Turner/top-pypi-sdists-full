@@ -1,12 +1,11 @@
 Metadata-Version: 2.1
 Name: english-words
-Version: 2.0.1
+Version: 2.0.2
 Summary: Generate sets of english words by combining different word lists
 Home-page: https://github.com/mwiens91/english-words-py
 Author: Matt Wiens
 Author-email: mwiens91@gmail.com
 License: MIT
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
@@ -83,5 +82,3 @@ When that bridge is crossed, word lists should possibly be chosen by the
 user instead of simply including all of them; word lists could also be
 preprocessed on the client side instead of being included in the
 package.
-
-

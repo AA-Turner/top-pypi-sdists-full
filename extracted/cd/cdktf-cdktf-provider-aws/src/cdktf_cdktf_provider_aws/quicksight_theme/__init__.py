@@ -1,7 +1,7 @@
 r'''
 # `aws_quicksight_theme`
 
-Refer to the Terraform Registry for docs: [`aws_quicksight_theme`](https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme).
+Refer to the Terraform Registry for docs: [`aws_quicksight_theme`](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class QuicksightTheme(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.quicksightTheme.QuicksightTheme",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme aws_quicksight_theme}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme aws_quicksight_theme}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class QuicksightTheme(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme aws_quicksight_theme} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme aws_quicksight_theme} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param base_theme_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#base_theme_id QuicksightTheme#base_theme_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#name QuicksightTheme#name}.
-        :param theme_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#theme_id QuicksightTheme#theme_id}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#aws_account_id QuicksightTheme#aws_account_id}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#configuration QuicksightTheme#configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#id QuicksightTheme#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#permissions QuicksightTheme#permissions}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#region QuicksightTheme#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#tags QuicksightTheme#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#tags_all QuicksightTheme#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#timeouts QuicksightTheme#timeouts}
-        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#version_description QuicksightTheme#version_description}.
+        :param base_theme_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#base_theme_id QuicksightTheme#base_theme_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#name QuicksightTheme#name}.
+        :param theme_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#theme_id QuicksightTheme#theme_id}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#aws_account_id QuicksightTheme#aws_account_id}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#configuration QuicksightTheme#configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#id QuicksightTheme#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#permissions QuicksightTheme#permissions}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#region QuicksightTheme#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#tags QuicksightTheme#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#tags_all QuicksightTheme#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#timeouts QuicksightTheme#timeouts}
+        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#version_description QuicksightTheme#version_description}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class QuicksightTheme(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the QuicksightTheme to import.
-        :param import_from_id: The id of the existing QuicksightTheme that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing QuicksightTheme that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the QuicksightTheme to import is found.
         '''
         if __debug__:
@@ -157,10 +157,10 @@ class QuicksightTheme(
         ui_color_palette: typing.Optional[typing.Union["QuicksightThemeConfigurationUiColorPalette", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param data_color_palette: data_color_palette block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#data_color_palette QuicksightTheme#data_color_palette}
-        :param sheet: sheet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#sheet QuicksightTheme#sheet}
-        :param typography: typography block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#typography QuicksightTheme#typography}
-        :param ui_color_palette: ui_color_palette block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#ui_color_palette QuicksightTheme#ui_color_palette}
+        :param data_color_palette: data_color_palette block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#data_color_palette QuicksightTheme#data_color_palette}
+        :param sheet: sheet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#sheet QuicksightTheme#sheet}
+        :param typography: typography block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#typography QuicksightTheme#typography}
+        :param ui_color_palette: ui_color_palette block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#ui_color_palette QuicksightTheme#ui_color_palette}
         '''
         value = QuicksightThemeConfiguration(
             data_color_palette=data_color_palette,
@@ -193,9 +193,9 @@ class QuicksightTheme(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#create QuicksightTheme#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#delete QuicksightTheme#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#update QuicksightTheme#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#create QuicksightTheme#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#delete QuicksightTheme#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#update QuicksightTheme#update}.
         '''
         value = QuicksightThemeTimeouts(create=create, delete=delete, update=update)
 
@@ -522,18 +522,18 @@ class QuicksightThemeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param base_theme_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#base_theme_id QuicksightTheme#base_theme_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#name QuicksightTheme#name}.
-        :param theme_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#theme_id QuicksightTheme#theme_id}.
-        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#aws_account_id QuicksightTheme#aws_account_id}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#configuration QuicksightTheme#configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#id QuicksightTheme#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#permissions QuicksightTheme#permissions}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#region QuicksightTheme#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#tags QuicksightTheme#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#tags_all QuicksightTheme#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#timeouts QuicksightTheme#timeouts}
-        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#version_description QuicksightTheme#version_description}.
+        :param base_theme_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#base_theme_id QuicksightTheme#base_theme_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#name QuicksightTheme#name}.
+        :param theme_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#theme_id QuicksightTheme#theme_id}.
+        :param aws_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#aws_account_id QuicksightTheme#aws_account_id}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#configuration QuicksightTheme#configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#id QuicksightTheme#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param permissions: permissions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#permissions QuicksightTheme#permissions}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#region QuicksightTheme#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#tags QuicksightTheme#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#tags_all QuicksightTheme#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#timeouts QuicksightTheme#timeouts}
+        :param version_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#version_description QuicksightTheme#version_description}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -666,28 +666,28 @@ class QuicksightThemeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def base_theme_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#base_theme_id QuicksightTheme#base_theme_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#base_theme_id QuicksightTheme#base_theme_id}.'''
         result = self._values.get("base_theme_id")
         assert result is not None, "Required property 'base_theme_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#name QuicksightTheme#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#name QuicksightTheme#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def theme_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#theme_id QuicksightTheme#theme_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#theme_id QuicksightTheme#theme_id}.'''
         result = self._values.get("theme_id")
         assert result is not None, "Required property 'theme_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def aws_account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#aws_account_id QuicksightTheme#aws_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#aws_account_id QuicksightTheme#aws_account_id}.'''
         result = self._values.get("aws_account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -695,14 +695,14 @@ class QuicksightThemeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def configuration(self) -> typing.Optional["QuicksightThemeConfiguration"]:
         '''configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#configuration QuicksightTheme#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#configuration QuicksightTheme#configuration}
         '''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional["QuicksightThemeConfiguration"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#id QuicksightTheme#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#id QuicksightTheme#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -716,7 +716,7 @@ class QuicksightThemeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightThemePermissions"]]]:
         '''permissions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#permissions QuicksightTheme#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#permissions QuicksightTheme#permissions}
         '''
         result = self._values.get("permissions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightThemePermissions"]]], result)
@@ -725,20 +725,20 @@ class QuicksightThemeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#region QuicksightTheme#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#region QuicksightTheme#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#tags QuicksightTheme#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#tags QuicksightTheme#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#tags_all QuicksightTheme#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#tags_all QuicksightTheme#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -746,14 +746,14 @@ class QuicksightThemeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["QuicksightThemeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#timeouts QuicksightTheme#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#timeouts QuicksightTheme#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["QuicksightThemeTimeouts"], result)
 
     @builtins.property
     def version_description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#version_description QuicksightTheme#version_description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#version_description QuicksightTheme#version_description}.'''
         result = self._values.get("version_description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -789,10 +789,10 @@ class QuicksightThemeConfiguration:
         ui_color_palette: typing.Optional[typing.Union["QuicksightThemeConfigurationUiColorPalette", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param data_color_palette: data_color_palette block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#data_color_palette QuicksightTheme#data_color_palette}
-        :param sheet: sheet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#sheet QuicksightTheme#sheet}
-        :param typography: typography block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#typography QuicksightTheme#typography}
-        :param ui_color_palette: ui_color_palette block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#ui_color_palette QuicksightTheme#ui_color_palette}
+        :param data_color_palette: data_color_palette block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#data_color_palette QuicksightTheme#data_color_palette}
+        :param sheet: sheet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#sheet QuicksightTheme#sheet}
+        :param typography: typography block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#typography QuicksightTheme#typography}
+        :param ui_color_palette: ui_color_palette block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#ui_color_palette QuicksightTheme#ui_color_palette}
         '''
         if isinstance(data_color_palette, dict):
             data_color_palette = QuicksightThemeConfigurationDataColorPalette(**data_color_palette)
@@ -824,7 +824,7 @@ class QuicksightThemeConfiguration:
     ) -> typing.Optional["QuicksightThemeConfigurationDataColorPalette"]:
         '''data_color_palette block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#data_color_palette QuicksightTheme#data_color_palette}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#data_color_palette QuicksightTheme#data_color_palette}
         '''
         result = self._values.get("data_color_palette")
         return typing.cast(typing.Optional["QuicksightThemeConfigurationDataColorPalette"], result)
@@ -833,7 +833,7 @@ class QuicksightThemeConfiguration:
     def sheet(self) -> typing.Optional["QuicksightThemeConfigurationSheet"]:
         '''sheet block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#sheet QuicksightTheme#sheet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#sheet QuicksightTheme#sheet}
         '''
         result = self._values.get("sheet")
         return typing.cast(typing.Optional["QuicksightThemeConfigurationSheet"], result)
@@ -842,7 +842,7 @@ class QuicksightThemeConfiguration:
     def typography(self) -> typing.Optional["QuicksightThemeConfigurationTypography"]:
         '''typography block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#typography QuicksightTheme#typography}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#typography QuicksightTheme#typography}
         '''
         result = self._values.get("typography")
         return typing.cast(typing.Optional["QuicksightThemeConfigurationTypography"], result)
@@ -853,7 +853,7 @@ class QuicksightThemeConfiguration:
     ) -> typing.Optional["QuicksightThemeConfigurationUiColorPalette"]:
         '''ui_color_palette block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#ui_color_palette QuicksightTheme#ui_color_palette}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#ui_color_palette QuicksightTheme#ui_color_palette}
         '''
         result = self._values.get("ui_color_palette")
         return typing.cast(typing.Optional["QuicksightThemeConfigurationUiColorPalette"], result)
@@ -888,9 +888,9 @@ class QuicksightThemeConfigurationDataColorPalette:
         min_max_gradient: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param colors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#colors QuicksightTheme#colors}.
-        :param empty_fill_color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#empty_fill_color QuicksightTheme#empty_fill_color}.
-        :param min_max_gradient: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#min_max_gradient QuicksightTheme#min_max_gradient}.
+        :param colors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#colors QuicksightTheme#colors}.
+        :param empty_fill_color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#empty_fill_color QuicksightTheme#empty_fill_color}.
+        :param min_max_gradient: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#min_max_gradient QuicksightTheme#min_max_gradient}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3818ff653239253f52b8176917be93bc465e3fddc4af05f7b1ee144022e57e5)
@@ -907,19 +907,19 @@ class QuicksightThemeConfigurationDataColorPalette:
 
     @builtins.property
     def colors(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#colors QuicksightTheme#colors}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#colors QuicksightTheme#colors}.'''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def empty_fill_color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#empty_fill_color QuicksightTheme#empty_fill_color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#empty_fill_color QuicksightTheme#empty_fill_color}.'''
         result = self._values.get("empty_fill_color")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def min_max_gradient(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#min_max_gradient QuicksightTheme#min_max_gradient}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#min_max_gradient QuicksightTheme#min_max_gradient}.'''
         result = self._values.get("min_max_gradient")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1065,9 +1065,9 @@ class QuicksightThemeConfigurationOutputReference(
         min_max_gradient: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param colors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#colors QuicksightTheme#colors}.
-        :param empty_fill_color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#empty_fill_color QuicksightTheme#empty_fill_color}.
-        :param min_max_gradient: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#min_max_gradient QuicksightTheme#min_max_gradient}.
+        :param colors: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#colors QuicksightTheme#colors}.
+        :param empty_fill_color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#empty_fill_color QuicksightTheme#empty_fill_color}.
+        :param min_max_gradient: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#min_max_gradient QuicksightTheme#min_max_gradient}.
         '''
         value = QuicksightThemeConfigurationDataColorPalette(
             colors=colors,
@@ -1085,8 +1085,8 @@ class QuicksightThemeConfigurationOutputReference(
         tile_layout: typing.Optional[typing.Union["QuicksightThemeConfigurationSheetTileLayout", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param tile: tile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#tile QuicksightTheme#tile}
-        :param tile_layout: tile_layout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#tile_layout QuicksightTheme#tile_layout}
+        :param tile: tile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#tile QuicksightTheme#tile}
+        :param tile_layout: tile_layout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#tile_layout QuicksightTheme#tile_layout}
         '''
         value = QuicksightThemeConfigurationSheet(tile=tile, tile_layout=tile_layout)
 
@@ -1099,7 +1099,7 @@ class QuicksightThemeConfigurationOutputReference(
         font_families: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightThemeConfigurationTypographyFontFamilies", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param font_families: font_families block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#font_families QuicksightTheme#font_families}
+        :param font_families: font_families block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#font_families QuicksightTheme#font_families}
         '''
         value = QuicksightThemeConfigurationTypography(font_families=font_families)
 
@@ -1127,22 +1127,22 @@ class QuicksightThemeConfigurationOutputReference(
         warning_foreground: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param accent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#accent QuicksightTheme#accent}.
-        :param accent_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#accent_foreground QuicksightTheme#accent_foreground}.
-        :param danger: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#danger QuicksightTheme#danger}.
-        :param danger_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#danger_foreground QuicksightTheme#danger_foreground}.
-        :param dimension: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#dimension QuicksightTheme#dimension}.
-        :param dimension_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#dimension_foreground QuicksightTheme#dimension_foreground}.
-        :param measure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#measure QuicksightTheme#measure}.
-        :param measure_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#measure_foreground QuicksightTheme#measure_foreground}.
-        :param primary_background: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#primary_background QuicksightTheme#primary_background}.
-        :param primary_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#primary_foreground QuicksightTheme#primary_foreground}.
-        :param secondary_background: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#secondary_background QuicksightTheme#secondary_background}.
-        :param secondary_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#secondary_foreground QuicksightTheme#secondary_foreground}.
-        :param success: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#success QuicksightTheme#success}.
-        :param success_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#success_foreground QuicksightTheme#success_foreground}.
-        :param warning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#warning QuicksightTheme#warning}.
-        :param warning_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#warning_foreground QuicksightTheme#warning_foreground}.
+        :param accent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#accent QuicksightTheme#accent}.
+        :param accent_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#accent_foreground QuicksightTheme#accent_foreground}.
+        :param danger: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#danger QuicksightTheme#danger}.
+        :param danger_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#danger_foreground QuicksightTheme#danger_foreground}.
+        :param dimension: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#dimension QuicksightTheme#dimension}.
+        :param dimension_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#dimension_foreground QuicksightTheme#dimension_foreground}.
+        :param measure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#measure QuicksightTheme#measure}.
+        :param measure_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#measure_foreground QuicksightTheme#measure_foreground}.
+        :param primary_background: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#primary_background QuicksightTheme#primary_background}.
+        :param primary_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#primary_foreground QuicksightTheme#primary_foreground}.
+        :param secondary_background: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#secondary_background QuicksightTheme#secondary_background}.
+        :param secondary_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#secondary_foreground QuicksightTheme#secondary_foreground}.
+        :param success: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#success QuicksightTheme#success}.
+        :param success_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#success_foreground QuicksightTheme#success_foreground}.
+        :param warning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#warning QuicksightTheme#warning}.
+        :param warning_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#warning_foreground QuicksightTheme#warning_foreground}.
         '''
         value = QuicksightThemeConfigurationUiColorPalette(
             accent=accent,
@@ -1260,8 +1260,8 @@ class QuicksightThemeConfigurationSheet:
         tile_layout: typing.Optional[typing.Union["QuicksightThemeConfigurationSheetTileLayout", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param tile: tile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#tile QuicksightTheme#tile}
-        :param tile_layout: tile_layout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#tile_layout QuicksightTheme#tile_layout}
+        :param tile: tile block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#tile QuicksightTheme#tile}
+        :param tile_layout: tile_layout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#tile_layout QuicksightTheme#tile_layout}
         '''
         if isinstance(tile, dict):
             tile = QuicksightThemeConfigurationSheetTile(**tile)
@@ -1281,7 +1281,7 @@ class QuicksightThemeConfigurationSheet:
     def tile(self) -> typing.Optional["QuicksightThemeConfigurationSheetTile"]:
         '''tile block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#tile QuicksightTheme#tile}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#tile QuicksightTheme#tile}
         '''
         result = self._values.get("tile")
         return typing.cast(typing.Optional["QuicksightThemeConfigurationSheetTile"], result)
@@ -1292,7 +1292,7 @@ class QuicksightThemeConfigurationSheet:
     ) -> typing.Optional["QuicksightThemeConfigurationSheetTileLayout"]:
         '''tile_layout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#tile_layout QuicksightTheme#tile_layout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#tile_layout QuicksightTheme#tile_layout}
         '''
         result = self._values.get("tile_layout")
         return typing.cast(typing.Optional["QuicksightThemeConfigurationSheetTileLayout"], result)
@@ -1336,7 +1336,7 @@ class QuicksightThemeConfigurationSheetOutputReference(
         border: typing.Optional[typing.Union["QuicksightThemeConfigurationSheetTileBorder", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param border: border block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#border QuicksightTheme#border}
+        :param border: border block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#border QuicksightTheme#border}
         '''
         value = QuicksightThemeConfigurationSheetTile(border=border)
 
@@ -1350,8 +1350,8 @@ class QuicksightThemeConfigurationSheetOutputReference(
         margin: typing.Optional[typing.Union["QuicksightThemeConfigurationSheetTileLayoutMargin", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param gutter: gutter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#gutter QuicksightTheme#gutter}
-        :param margin: margin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#margin QuicksightTheme#margin}
+        :param gutter: gutter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#gutter QuicksightTheme#gutter}
+        :param margin: margin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#margin QuicksightTheme#margin}
         '''
         value = QuicksightThemeConfigurationSheetTileLayout(
             gutter=gutter, margin=margin
@@ -1419,7 +1419,7 @@ class QuicksightThemeConfigurationSheetTile:
         border: typing.Optional[typing.Union["QuicksightThemeConfigurationSheetTileBorder", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param border: border block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#border QuicksightTheme#border}
+        :param border: border block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#border QuicksightTheme#border}
         '''
         if isinstance(border, dict):
             border = QuicksightThemeConfigurationSheetTileBorder(**border)
@@ -1434,7 +1434,7 @@ class QuicksightThemeConfigurationSheetTile:
     def border(self) -> typing.Optional["QuicksightThemeConfigurationSheetTileBorder"]:
         '''border block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#border QuicksightTheme#border}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#border QuicksightTheme#border}
         '''
         result = self._values.get("border")
         return typing.cast(typing.Optional["QuicksightThemeConfigurationSheetTileBorder"], result)
@@ -1463,7 +1463,7 @@ class QuicksightThemeConfigurationSheetTileBorder:
         show: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param show: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.
+        :param show: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0be25645d493ee3ca5141175c510ecafc6a00159bb7bc49aaa2e062cea03d8ae)
@@ -1476,7 +1476,7 @@ class QuicksightThemeConfigurationSheetTileBorder:
     def show(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.'''
         result = self._values.get("show")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1569,8 +1569,8 @@ class QuicksightThemeConfigurationSheetTileLayout:
         margin: typing.Optional[typing.Union["QuicksightThemeConfigurationSheetTileLayoutMargin", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param gutter: gutter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#gutter QuicksightTheme#gutter}
-        :param margin: margin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#margin QuicksightTheme#margin}
+        :param gutter: gutter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#gutter QuicksightTheme#gutter}
+        :param margin: margin block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#margin QuicksightTheme#margin}
         '''
         if isinstance(gutter, dict):
             gutter = QuicksightThemeConfigurationSheetTileLayoutGutter(**gutter)
@@ -1592,7 +1592,7 @@ class QuicksightThemeConfigurationSheetTileLayout:
     ) -> typing.Optional["QuicksightThemeConfigurationSheetTileLayoutGutter"]:
         '''gutter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#gutter QuicksightTheme#gutter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#gutter QuicksightTheme#gutter}
         '''
         result = self._values.get("gutter")
         return typing.cast(typing.Optional["QuicksightThemeConfigurationSheetTileLayoutGutter"], result)
@@ -1603,7 +1603,7 @@ class QuicksightThemeConfigurationSheetTileLayout:
     ) -> typing.Optional["QuicksightThemeConfigurationSheetTileLayoutMargin"]:
         '''margin block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#margin QuicksightTheme#margin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#margin QuicksightTheme#margin}
         '''
         result = self._values.get("margin")
         return typing.cast(typing.Optional["QuicksightThemeConfigurationSheetTileLayoutMargin"], result)
@@ -1632,7 +1632,7 @@ class QuicksightThemeConfigurationSheetTileLayoutGutter:
         show: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param show: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.
+        :param show: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b967b2404bae9c2d27369b4bc631d8b07e78c44adbb467b47879a2fd2075bb9f)
@@ -1645,7 +1645,7 @@ class QuicksightThemeConfigurationSheetTileLayoutGutter:
     def show(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.'''
         result = self._values.get("show")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1737,7 +1737,7 @@ class QuicksightThemeConfigurationSheetTileLayoutMargin:
         show: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param show: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.
+        :param show: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e1394f3790d73d0ad60683f1fc02a6bbb21a99f3e5e7775d24850bf54aa035c)
@@ -1750,7 +1750,7 @@ class QuicksightThemeConfigurationSheetTileLayoutMargin:
     def show(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.'''
         result = self._values.get("show")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1857,7 +1857,7 @@ class QuicksightThemeConfigurationSheetTileLayoutOutputReference(
         show: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param show: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.
+        :param show: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.
         '''
         value = QuicksightThemeConfigurationSheetTileLayoutGutter(show=show)
 
@@ -1870,7 +1870,7 @@ class QuicksightThemeConfigurationSheetTileLayoutOutputReference(
         show: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param show: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.
+        :param show: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.
         '''
         value = QuicksightThemeConfigurationSheetTileLayoutMargin(show=show)
 
@@ -1957,7 +1957,7 @@ class QuicksightThemeConfigurationSheetTileOutputReference(
         show: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param show: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.
+        :param show: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#show QuicksightTheme#show}.
         '''
         value = QuicksightThemeConfigurationSheetTileBorder(show=show)
 
@@ -2007,7 +2007,7 @@ class QuicksightThemeConfigurationTypography:
         font_families: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["QuicksightThemeConfigurationTypographyFontFamilies", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param font_families: font_families block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#font_families QuicksightTheme#font_families}
+        :param font_families: font_families block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#font_families QuicksightTheme#font_families}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d11bb2a814c3e025aed20ea2ea86a45859dadb9aa3b89d481b3e774172d2f63)
@@ -2022,7 +2022,7 @@ class QuicksightThemeConfigurationTypography:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightThemeConfigurationTypographyFontFamilies"]]]:
         '''font_families block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#font_families QuicksightTheme#font_families}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#font_families QuicksightTheme#font_families}
         '''
         result = self._values.get("font_families")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["QuicksightThemeConfigurationTypographyFontFamilies"]]], result)
@@ -2047,7 +2047,7 @@ class QuicksightThemeConfigurationTypography:
 class QuicksightThemeConfigurationTypographyFontFamilies:
     def __init__(self, *, font_family: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param font_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#font_family QuicksightTheme#font_family}.
+        :param font_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#font_family QuicksightTheme#font_family}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c81e0289cb375ba774cc00dc70b542280b977b6c219635bd4b4a13948a30dc86)
@@ -2058,7 +2058,7 @@ class QuicksightThemeConfigurationTypographyFontFamilies:
 
     @builtins.property
     def font_family(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#font_family QuicksightTheme#font_family}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#font_family QuicksightTheme#font_family}.'''
         result = self._values.get("font_family")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2341,22 +2341,22 @@ class QuicksightThemeConfigurationUiColorPalette:
         warning_foreground: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param accent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#accent QuicksightTheme#accent}.
-        :param accent_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#accent_foreground QuicksightTheme#accent_foreground}.
-        :param danger: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#danger QuicksightTheme#danger}.
-        :param danger_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#danger_foreground QuicksightTheme#danger_foreground}.
-        :param dimension: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#dimension QuicksightTheme#dimension}.
-        :param dimension_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#dimension_foreground QuicksightTheme#dimension_foreground}.
-        :param measure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#measure QuicksightTheme#measure}.
-        :param measure_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#measure_foreground QuicksightTheme#measure_foreground}.
-        :param primary_background: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#primary_background QuicksightTheme#primary_background}.
-        :param primary_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#primary_foreground QuicksightTheme#primary_foreground}.
-        :param secondary_background: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#secondary_background QuicksightTheme#secondary_background}.
-        :param secondary_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#secondary_foreground QuicksightTheme#secondary_foreground}.
-        :param success: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#success QuicksightTheme#success}.
-        :param success_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#success_foreground QuicksightTheme#success_foreground}.
-        :param warning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#warning QuicksightTheme#warning}.
-        :param warning_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#warning_foreground QuicksightTheme#warning_foreground}.
+        :param accent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#accent QuicksightTheme#accent}.
+        :param accent_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#accent_foreground QuicksightTheme#accent_foreground}.
+        :param danger: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#danger QuicksightTheme#danger}.
+        :param danger_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#danger_foreground QuicksightTheme#danger_foreground}.
+        :param dimension: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#dimension QuicksightTheme#dimension}.
+        :param dimension_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#dimension_foreground QuicksightTheme#dimension_foreground}.
+        :param measure: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#measure QuicksightTheme#measure}.
+        :param measure_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#measure_foreground QuicksightTheme#measure_foreground}.
+        :param primary_background: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#primary_background QuicksightTheme#primary_background}.
+        :param primary_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#primary_foreground QuicksightTheme#primary_foreground}.
+        :param secondary_background: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#secondary_background QuicksightTheme#secondary_background}.
+        :param secondary_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#secondary_foreground QuicksightTheme#secondary_foreground}.
+        :param success: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#success QuicksightTheme#success}.
+        :param success_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#success_foreground QuicksightTheme#success_foreground}.
+        :param warning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#warning QuicksightTheme#warning}.
+        :param warning_foreground: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#warning_foreground QuicksightTheme#warning_foreground}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__420bdb7c662a19a89fc65f2538589de688438a2c24fc436f9a6d4bf28667b8f6)
@@ -2412,97 +2412,97 @@ class QuicksightThemeConfigurationUiColorPalette:
 
     @builtins.property
     def accent(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#accent QuicksightTheme#accent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#accent QuicksightTheme#accent}.'''
         result = self._values.get("accent")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def accent_foreground(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#accent_foreground QuicksightTheme#accent_foreground}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#accent_foreground QuicksightTheme#accent_foreground}.'''
         result = self._values.get("accent_foreground")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def danger(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#danger QuicksightTheme#danger}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#danger QuicksightTheme#danger}.'''
         result = self._values.get("danger")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def danger_foreground(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#danger_foreground QuicksightTheme#danger_foreground}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#danger_foreground QuicksightTheme#danger_foreground}.'''
         result = self._values.get("danger_foreground")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dimension(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#dimension QuicksightTheme#dimension}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#dimension QuicksightTheme#dimension}.'''
         result = self._values.get("dimension")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dimension_foreground(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#dimension_foreground QuicksightTheme#dimension_foreground}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#dimension_foreground QuicksightTheme#dimension_foreground}.'''
         result = self._values.get("dimension_foreground")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def measure(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#measure QuicksightTheme#measure}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#measure QuicksightTheme#measure}.'''
         result = self._values.get("measure")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def measure_foreground(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#measure_foreground QuicksightTheme#measure_foreground}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#measure_foreground QuicksightTheme#measure_foreground}.'''
         result = self._values.get("measure_foreground")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def primary_background(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#primary_background QuicksightTheme#primary_background}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#primary_background QuicksightTheme#primary_background}.'''
         result = self._values.get("primary_background")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def primary_foreground(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#primary_foreground QuicksightTheme#primary_foreground}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#primary_foreground QuicksightTheme#primary_foreground}.'''
         result = self._values.get("primary_foreground")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secondary_background(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#secondary_background QuicksightTheme#secondary_background}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#secondary_background QuicksightTheme#secondary_background}.'''
         result = self._values.get("secondary_background")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secondary_foreground(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#secondary_foreground QuicksightTheme#secondary_foreground}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#secondary_foreground QuicksightTheme#secondary_foreground}.'''
         result = self._values.get("secondary_foreground")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def success(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#success QuicksightTheme#success}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#success QuicksightTheme#success}.'''
         result = self._values.get("success")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def success_foreground(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#success_foreground QuicksightTheme#success_foreground}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#success_foreground QuicksightTheme#success_foreground}.'''
         result = self._values.get("success_foreground")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def warning(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#warning QuicksightTheme#warning}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#warning QuicksightTheme#warning}.'''
         result = self._values.get("warning")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def warning_foreground(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#warning_foreground QuicksightTheme#warning_foreground}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#warning_foreground QuicksightTheme#warning_foreground}.'''
         result = self._values.get("warning_foreground")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2905,8 +2905,8 @@ class QuicksightThemePermissions:
         principal: builtins.str,
     ) -> None:
         '''
-        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#actions QuicksightTheme#actions}.
-        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#principal QuicksightTheme#principal}.
+        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#actions QuicksightTheme#actions}.
+        :param principal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#principal QuicksightTheme#principal}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__190453c2e1402a3b6745bd76c794d0448e00adebcb008ad79948bd6f3246b734)
@@ -2919,14 +2919,14 @@ class QuicksightThemePermissions:
 
     @builtins.property
     def actions(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#actions QuicksightTheme#actions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#actions QuicksightTheme#actions}.'''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def principal(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#principal QuicksightTheme#principal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#principal QuicksightTheme#principal}.'''
         result = self._values.get("principal")
         assert result is not None, "Required property 'principal' is missing"
         return typing.cast(builtins.str, result)
@@ -3125,9 +3125,9 @@ class QuicksightThemeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#create QuicksightTheme#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#delete QuicksightTheme#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#update QuicksightTheme#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#create QuicksightTheme#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#delete QuicksightTheme#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#update QuicksightTheme#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__10fa624a7349879ab349e7669152967e0b61c53a23a6359af70a78b5e9b8f791)
@@ -3144,19 +3144,19 @@ class QuicksightThemeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#create QuicksightTheme#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#create QuicksightTheme#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#delete QuicksightTheme#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#delete QuicksightTheme#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/quicksight_theme#update QuicksightTheme#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/quicksight_theme#update QuicksightTheme#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_mrs_cluster_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_mrs_cluster_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_mrs_cluster_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MrsClusterV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.mrsClusterV1.MrsClusterV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1 opentelekomcloud_mrs_cluster_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1 opentelekomcloud_mrs_cluster_v1}.'''
 
     def __init__(
         self,
@@ -89,40 +89,40 @@ class MrsClusterV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1 opentelekomcloud_mrs_cluster_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1 opentelekomcloud_mrs_cluster_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param available_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#available_zone_id MrsClusterV1#available_zone_id}.
-        :param billing_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#billing_type MrsClusterV1#billing_type}.
-        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#cluster_name MrsClusterV1#cluster_name}.
-        :param cluster_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#cluster_version MrsClusterV1#cluster_version}.
-        :param component_list: component_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#component_list MrsClusterV1#component_list}
-        :param core_node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_node_num MrsClusterV1#core_node_num}.
-        :param core_node_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_node_size MrsClusterV1#core_node_size}.
-        :param master_node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_node_num MrsClusterV1#master_node_num}.
-        :param master_node_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_node_size MrsClusterV1#master_node_size}.
-        :param node_public_cert_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#node_public_cert_name MrsClusterV1#node_public_cert_name}.
-        :param safe_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#safe_mode MrsClusterV1#safe_mode}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#subnet_id MrsClusterV1#subnet_id}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#vpc_id MrsClusterV1#vpc_id}.
-        :param add_jobs: add_jobs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#add_jobs MrsClusterV1#add_jobs}
-        :param bootstrap_scripts: bootstrap_scripts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#bootstrap_scripts MrsClusterV1#bootstrap_scripts}
-        :param cluster_admin_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#cluster_admin_secret MrsClusterV1#cluster_admin_secret}.
-        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#cluster_type MrsClusterV1#cluster_type}.
-        :param core_data_volume_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_data_volume_count MrsClusterV1#core_data_volume_count}.
-        :param core_data_volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_data_volume_size MrsClusterV1#core_data_volume_size}.
-        :param core_data_volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_data_volume_type MrsClusterV1#core_data_volume_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#id MrsClusterV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_collection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#log_collection MrsClusterV1#log_collection}.
-        :param master_data_volume_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_data_volume_count MrsClusterV1#master_data_volume_count}.
-        :param master_data_volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_data_volume_size MrsClusterV1#master_data_volume_size}.
-        :param master_data_volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_data_volume_type MrsClusterV1#master_data_volume_type}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#region MrsClusterV1#region}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#tags MrsClusterV1#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#timeouts MrsClusterV1#timeouts}
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#volume_size MrsClusterV1#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#volume_type MrsClusterV1#volume_type}.
+        :param available_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#available_zone_id MrsClusterV1#available_zone_id}.
+        :param billing_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#billing_type MrsClusterV1#billing_type}.
+        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#cluster_name MrsClusterV1#cluster_name}.
+        :param cluster_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#cluster_version MrsClusterV1#cluster_version}.
+        :param component_list: component_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#component_list MrsClusterV1#component_list}
+        :param core_node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_node_num MrsClusterV1#core_node_num}.
+        :param core_node_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_node_size MrsClusterV1#core_node_size}.
+        :param master_node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_node_num MrsClusterV1#master_node_num}.
+        :param master_node_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_node_size MrsClusterV1#master_node_size}.
+        :param node_public_cert_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#node_public_cert_name MrsClusterV1#node_public_cert_name}.
+        :param safe_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#safe_mode MrsClusterV1#safe_mode}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#subnet_id MrsClusterV1#subnet_id}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#vpc_id MrsClusterV1#vpc_id}.
+        :param add_jobs: add_jobs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#add_jobs MrsClusterV1#add_jobs}
+        :param bootstrap_scripts: bootstrap_scripts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#bootstrap_scripts MrsClusterV1#bootstrap_scripts}
+        :param cluster_admin_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#cluster_admin_secret MrsClusterV1#cluster_admin_secret}.
+        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#cluster_type MrsClusterV1#cluster_type}.
+        :param core_data_volume_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_data_volume_count MrsClusterV1#core_data_volume_count}.
+        :param core_data_volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_data_volume_size MrsClusterV1#core_data_volume_size}.
+        :param core_data_volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_data_volume_type MrsClusterV1#core_data_volume_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#id MrsClusterV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_collection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#log_collection MrsClusterV1#log_collection}.
+        :param master_data_volume_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_data_volume_count MrsClusterV1#master_data_volume_count}.
+        :param master_data_volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_data_volume_size MrsClusterV1#master_data_volume_size}.
+        :param master_data_volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_data_volume_type MrsClusterV1#master_data_volume_type}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#region MrsClusterV1#region}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#tags MrsClusterV1#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#timeouts MrsClusterV1#timeouts}
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#volume_size MrsClusterV1#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#volume_type MrsClusterV1#volume_type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -190,7 +190,7 @@ class MrsClusterV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MrsClusterV1 to import.
-        :param import_from_id: The id of the existing MrsClusterV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MrsClusterV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MrsClusterV1 to import is found.
         '''
         if __debug__:
@@ -248,8 +248,8 @@ class MrsClusterV1(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#create MrsClusterV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#delete MrsClusterV1#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#create MrsClusterV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#delete MrsClusterV1#delete}.
         '''
         value = MrsClusterV1Timeouts(create=create, delete=delete)
 
@@ -993,18 +993,18 @@ class MrsClusterV1AddJobs:
         shutdown_cluster: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param jar_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#jar_path MrsClusterV1#jar_path}.
-        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#job_name MrsClusterV1#job_name}.
-        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#job_type MrsClusterV1#job_type}.
-        :param submit_job_once_cluster_run: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#submit_job_once_cluster_run MrsClusterV1#submit_job_once_cluster_run}.
-        :param arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#arguments MrsClusterV1#arguments}.
-        :param file_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#file_action MrsClusterV1#file_action}.
-        :param hive_script_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#hive_script_path MrsClusterV1#hive_script_path}.
-        :param hql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#hql MrsClusterV1#hql}.
-        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#input MrsClusterV1#input}.
-        :param job_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#job_log MrsClusterV1#job_log}.
-        :param output: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#output MrsClusterV1#output}.
-        :param shutdown_cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#shutdown_cluster MrsClusterV1#shutdown_cluster}.
+        :param jar_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#jar_path MrsClusterV1#jar_path}.
+        :param job_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#job_name MrsClusterV1#job_name}.
+        :param job_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#job_type MrsClusterV1#job_type}.
+        :param submit_job_once_cluster_run: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#submit_job_once_cluster_run MrsClusterV1#submit_job_once_cluster_run}.
+        :param arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#arguments MrsClusterV1#arguments}.
+        :param file_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#file_action MrsClusterV1#file_action}.
+        :param hive_script_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#hive_script_path MrsClusterV1#hive_script_path}.
+        :param hql: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#hql MrsClusterV1#hql}.
+        :param input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#input MrsClusterV1#input}.
+        :param job_log: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#job_log MrsClusterV1#job_log}.
+        :param output: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#output MrsClusterV1#output}.
+        :param shutdown_cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#shutdown_cluster MrsClusterV1#shutdown_cluster}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aeab201972cfbe87f9c41acea37e25148c53915b930b0ebc40ca30aac59f61a6)
@@ -1045,21 +1045,21 @@ class MrsClusterV1AddJobs:
 
     @builtins.property
     def jar_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#jar_path MrsClusterV1#jar_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#jar_path MrsClusterV1#jar_path}.'''
         result = self._values.get("jar_path")
         assert result is not None, "Required property 'jar_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def job_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#job_name MrsClusterV1#job_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#job_name MrsClusterV1#job_name}.'''
         result = self._values.get("job_name")
         assert result is not None, "Required property 'job_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def job_type(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#job_type MrsClusterV1#job_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#job_type MrsClusterV1#job_type}.'''
         result = self._values.get("job_type")
         assert result is not None, "Required property 'job_type' is missing"
         return typing.cast(jsii.Number, result)
@@ -1068,50 +1068,50 @@ class MrsClusterV1AddJobs:
     def submit_job_once_cluster_run(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#submit_job_once_cluster_run MrsClusterV1#submit_job_once_cluster_run}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#submit_job_once_cluster_run MrsClusterV1#submit_job_once_cluster_run}.'''
         result = self._values.get("submit_job_once_cluster_run")
         assert result is not None, "Required property 'submit_job_once_cluster_run' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def arguments(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#arguments MrsClusterV1#arguments}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#arguments MrsClusterV1#arguments}.'''
         result = self._values.get("arguments")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def file_action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#file_action MrsClusterV1#file_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#file_action MrsClusterV1#file_action}.'''
         result = self._values.get("file_action")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def hive_script_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#hive_script_path MrsClusterV1#hive_script_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#hive_script_path MrsClusterV1#hive_script_path}.'''
         result = self._values.get("hive_script_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def hql(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#hql MrsClusterV1#hql}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#hql MrsClusterV1#hql}.'''
         result = self._values.get("hql")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def input(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#input MrsClusterV1#input}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#input MrsClusterV1#input}.'''
         result = self._values.get("input")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def job_log(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#job_log MrsClusterV1#job_log}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#job_log MrsClusterV1#job_log}.'''
         result = self._values.get("job_log")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def output(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#output MrsClusterV1#output}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#output MrsClusterV1#output}.'''
         result = self._values.get("output")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1119,7 +1119,7 @@ class MrsClusterV1AddJobs:
     def shutdown_cluster(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#shutdown_cluster MrsClusterV1#shutdown_cluster}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#shutdown_cluster MrsClusterV1#shutdown_cluster}.'''
         result = self._values.get("shutdown_cluster")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1545,13 +1545,13 @@ class MrsClusterV1BootstrapScripts:
         parameters: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param fail_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#fail_action MrsClusterV1#fail_action}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#name MrsClusterV1#name}.
-        :param nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#nodes MrsClusterV1#nodes}.
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#uri MrsClusterV1#uri}.
-        :param active_master: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#active_master MrsClusterV1#active_master}.
-        :param before_component_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#before_component_start MrsClusterV1#before_component_start}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#parameters MrsClusterV1#parameters}.
+        :param fail_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#fail_action MrsClusterV1#fail_action}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#name MrsClusterV1#name}.
+        :param nodes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#nodes MrsClusterV1#nodes}.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#uri MrsClusterV1#uri}.
+        :param active_master: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#active_master MrsClusterV1#active_master}.
+        :param before_component_start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#before_component_start MrsClusterV1#before_component_start}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#parameters MrsClusterV1#parameters}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5adeac6b80ae85a20793e28376b81064244966a3b56c93d50540647850d158fa)
@@ -1577,28 +1577,28 @@ class MrsClusterV1BootstrapScripts:
 
     @builtins.property
     def fail_action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#fail_action MrsClusterV1#fail_action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#fail_action MrsClusterV1#fail_action}.'''
         result = self._values.get("fail_action")
         assert result is not None, "Required property 'fail_action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#name MrsClusterV1#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#name MrsClusterV1#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def nodes(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#nodes MrsClusterV1#nodes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#nodes MrsClusterV1#nodes}.'''
         result = self._values.get("nodes")
         assert result is not None, "Required property 'nodes' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#uri MrsClusterV1#uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#uri MrsClusterV1#uri}.'''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
         return typing.cast(builtins.str, result)
@@ -1607,7 +1607,7 @@ class MrsClusterV1BootstrapScripts:
     def active_master(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#active_master MrsClusterV1#active_master}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#active_master MrsClusterV1#active_master}.'''
         result = self._values.get("active_master")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1615,13 +1615,13 @@ class MrsClusterV1BootstrapScripts:
     def before_component_start(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#before_component_start MrsClusterV1#before_component_start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#before_component_start MrsClusterV1#before_component_start}.'''
         result = self._values.get("before_component_start")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#parameters MrsClusterV1#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#parameters MrsClusterV1#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1922,7 +1922,7 @@ class MrsClusterV1BootstrapScriptsOutputReference(
 class MrsClusterV1ComponentListStruct:
     def __init__(self, *, component_name: builtins.str) -> None:
         '''
-        :param component_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#component_name MrsClusterV1#component_name}.
+        :param component_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#component_name MrsClusterV1#component_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8083d53c5c7e565a2fa9b4fe30c349e18de3405056b526a12a743424344ee312)
@@ -1933,7 +1933,7 @@ class MrsClusterV1ComponentListStruct:
 
     @builtins.property
     def component_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#component_name MrsClusterV1#component_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#component_name MrsClusterV1#component_name}.'''
         result = self._values.get("component_name")
         assert result is not None, "Required property 'component_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2212,36 +2212,36 @@ class MrsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param available_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#available_zone_id MrsClusterV1#available_zone_id}.
-        :param billing_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#billing_type MrsClusterV1#billing_type}.
-        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#cluster_name MrsClusterV1#cluster_name}.
-        :param cluster_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#cluster_version MrsClusterV1#cluster_version}.
-        :param component_list: component_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#component_list MrsClusterV1#component_list}
-        :param core_node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_node_num MrsClusterV1#core_node_num}.
-        :param core_node_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_node_size MrsClusterV1#core_node_size}.
-        :param master_node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_node_num MrsClusterV1#master_node_num}.
-        :param master_node_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_node_size MrsClusterV1#master_node_size}.
-        :param node_public_cert_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#node_public_cert_name MrsClusterV1#node_public_cert_name}.
-        :param safe_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#safe_mode MrsClusterV1#safe_mode}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#subnet_id MrsClusterV1#subnet_id}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#vpc_id MrsClusterV1#vpc_id}.
-        :param add_jobs: add_jobs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#add_jobs MrsClusterV1#add_jobs}
-        :param bootstrap_scripts: bootstrap_scripts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#bootstrap_scripts MrsClusterV1#bootstrap_scripts}
-        :param cluster_admin_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#cluster_admin_secret MrsClusterV1#cluster_admin_secret}.
-        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#cluster_type MrsClusterV1#cluster_type}.
-        :param core_data_volume_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_data_volume_count MrsClusterV1#core_data_volume_count}.
-        :param core_data_volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_data_volume_size MrsClusterV1#core_data_volume_size}.
-        :param core_data_volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_data_volume_type MrsClusterV1#core_data_volume_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#id MrsClusterV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_collection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#log_collection MrsClusterV1#log_collection}.
-        :param master_data_volume_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_data_volume_count MrsClusterV1#master_data_volume_count}.
-        :param master_data_volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_data_volume_size MrsClusterV1#master_data_volume_size}.
-        :param master_data_volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_data_volume_type MrsClusterV1#master_data_volume_type}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#region MrsClusterV1#region}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#tags MrsClusterV1#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#timeouts MrsClusterV1#timeouts}
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#volume_size MrsClusterV1#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#volume_type MrsClusterV1#volume_type}.
+        :param available_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#available_zone_id MrsClusterV1#available_zone_id}.
+        :param billing_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#billing_type MrsClusterV1#billing_type}.
+        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#cluster_name MrsClusterV1#cluster_name}.
+        :param cluster_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#cluster_version MrsClusterV1#cluster_version}.
+        :param component_list: component_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#component_list MrsClusterV1#component_list}
+        :param core_node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_node_num MrsClusterV1#core_node_num}.
+        :param core_node_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_node_size MrsClusterV1#core_node_size}.
+        :param master_node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_node_num MrsClusterV1#master_node_num}.
+        :param master_node_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_node_size MrsClusterV1#master_node_size}.
+        :param node_public_cert_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#node_public_cert_name MrsClusterV1#node_public_cert_name}.
+        :param safe_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#safe_mode MrsClusterV1#safe_mode}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#subnet_id MrsClusterV1#subnet_id}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#vpc_id MrsClusterV1#vpc_id}.
+        :param add_jobs: add_jobs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#add_jobs MrsClusterV1#add_jobs}
+        :param bootstrap_scripts: bootstrap_scripts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#bootstrap_scripts MrsClusterV1#bootstrap_scripts}
+        :param cluster_admin_secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#cluster_admin_secret MrsClusterV1#cluster_admin_secret}.
+        :param cluster_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#cluster_type MrsClusterV1#cluster_type}.
+        :param core_data_volume_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_data_volume_count MrsClusterV1#core_data_volume_count}.
+        :param core_data_volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_data_volume_size MrsClusterV1#core_data_volume_size}.
+        :param core_data_volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_data_volume_type MrsClusterV1#core_data_volume_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#id MrsClusterV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_collection: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#log_collection MrsClusterV1#log_collection}.
+        :param master_data_volume_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_data_volume_count MrsClusterV1#master_data_volume_count}.
+        :param master_data_volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_data_volume_size MrsClusterV1#master_data_volume_size}.
+        :param master_data_volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_data_volume_type MrsClusterV1#master_data_volume_type}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#region MrsClusterV1#region}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#tags MrsClusterV1#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#timeouts MrsClusterV1#timeouts}
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#volume_size MrsClusterV1#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#volume_type MrsClusterV1#volume_type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -2416,28 +2416,28 @@ class MrsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def available_zone_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#available_zone_id MrsClusterV1#available_zone_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#available_zone_id MrsClusterV1#available_zone_id}.'''
         result = self._values.get("available_zone_id")
         assert result is not None, "Required property 'available_zone_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def billing_type(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#billing_type MrsClusterV1#billing_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#billing_type MrsClusterV1#billing_type}.'''
         result = self._values.get("billing_type")
         assert result is not None, "Required property 'billing_type' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def cluster_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#cluster_name MrsClusterV1#cluster_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#cluster_name MrsClusterV1#cluster_name}.'''
         result = self._values.get("cluster_name")
         assert result is not None, "Required property 'cluster_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def cluster_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#cluster_version MrsClusterV1#cluster_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#cluster_version MrsClusterV1#cluster_version}.'''
         result = self._values.get("cluster_version")
         assert result is not None, "Required property 'cluster_version' is missing"
         return typing.cast(builtins.str, result)
@@ -2448,7 +2448,7 @@ class MrsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[MrsClusterV1ComponentListStruct]]:
         '''component_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#component_list MrsClusterV1#component_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#component_list MrsClusterV1#component_list}
         '''
         result = self._values.get("component_list")
         assert result is not None, "Required property 'component_list' is missing"
@@ -2456,56 +2456,56 @@ class MrsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def core_node_num(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_node_num MrsClusterV1#core_node_num}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_node_num MrsClusterV1#core_node_num}.'''
         result = self._values.get("core_node_num")
         assert result is not None, "Required property 'core_node_num' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def core_node_size(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_node_size MrsClusterV1#core_node_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_node_size MrsClusterV1#core_node_size}.'''
         result = self._values.get("core_node_size")
         assert result is not None, "Required property 'core_node_size' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def master_node_num(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_node_num MrsClusterV1#master_node_num}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_node_num MrsClusterV1#master_node_num}.'''
         result = self._values.get("master_node_num")
         assert result is not None, "Required property 'master_node_num' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def master_node_size(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_node_size MrsClusterV1#master_node_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_node_size MrsClusterV1#master_node_size}.'''
         result = self._values.get("master_node_size")
         assert result is not None, "Required property 'master_node_size' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def node_public_cert_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#node_public_cert_name MrsClusterV1#node_public_cert_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#node_public_cert_name MrsClusterV1#node_public_cert_name}.'''
         result = self._values.get("node_public_cert_name")
         assert result is not None, "Required property 'node_public_cert_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def safe_mode(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#safe_mode MrsClusterV1#safe_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#safe_mode MrsClusterV1#safe_mode}.'''
         result = self._values.get("safe_mode")
         assert result is not None, "Required property 'safe_mode' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def subnet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#subnet_id MrsClusterV1#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#subnet_id MrsClusterV1#subnet_id}.'''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#vpc_id MrsClusterV1#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#vpc_id MrsClusterV1#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)
@@ -2516,7 +2516,7 @@ class MrsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[MrsClusterV1AddJobs]]]:
         '''add_jobs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#add_jobs MrsClusterV1#add_jobs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#add_jobs MrsClusterV1#add_jobs}
         '''
         result = self._values.get("add_jobs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[MrsClusterV1AddJobs]]], result)
@@ -2527,44 +2527,44 @@ class MrsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[MrsClusterV1BootstrapScripts]]]:
         '''bootstrap_scripts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#bootstrap_scripts MrsClusterV1#bootstrap_scripts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#bootstrap_scripts MrsClusterV1#bootstrap_scripts}
         '''
         result = self._values.get("bootstrap_scripts")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[MrsClusterV1BootstrapScripts]]], result)
 
     @builtins.property
     def cluster_admin_secret(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#cluster_admin_secret MrsClusterV1#cluster_admin_secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#cluster_admin_secret MrsClusterV1#cluster_admin_secret}.'''
         result = self._values.get("cluster_admin_secret")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cluster_type(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#cluster_type MrsClusterV1#cluster_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#cluster_type MrsClusterV1#cluster_type}.'''
         result = self._values.get("cluster_type")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def core_data_volume_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_data_volume_count MrsClusterV1#core_data_volume_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_data_volume_count MrsClusterV1#core_data_volume_count}.'''
         result = self._values.get("core_data_volume_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def core_data_volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_data_volume_size MrsClusterV1#core_data_volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_data_volume_size MrsClusterV1#core_data_volume_size}.'''
         result = self._values.get("core_data_volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def core_data_volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#core_data_volume_type MrsClusterV1#core_data_volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#core_data_volume_type MrsClusterV1#core_data_volume_type}.'''
         result = self._values.get("core_data_volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#id MrsClusterV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#id MrsClusterV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2574,37 +2574,37 @@ class MrsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def log_collection(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#log_collection MrsClusterV1#log_collection}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#log_collection MrsClusterV1#log_collection}.'''
         result = self._values.get("log_collection")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def master_data_volume_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_data_volume_count MrsClusterV1#master_data_volume_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_data_volume_count MrsClusterV1#master_data_volume_count}.'''
         result = self._values.get("master_data_volume_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def master_data_volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_data_volume_size MrsClusterV1#master_data_volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_data_volume_size MrsClusterV1#master_data_volume_size}.'''
         result = self._values.get("master_data_volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def master_data_volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#master_data_volume_type MrsClusterV1#master_data_volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#master_data_volume_type MrsClusterV1#master_data_volume_type}.'''
         result = self._values.get("master_data_volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#region MrsClusterV1#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#region MrsClusterV1#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#tags MrsClusterV1#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#tags MrsClusterV1#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2612,20 +2612,20 @@ class MrsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MrsClusterV1Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#timeouts MrsClusterV1#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#timeouts MrsClusterV1#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MrsClusterV1Timeouts"], result)
 
     @builtins.property
     def volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#volume_size MrsClusterV1#volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#volume_size MrsClusterV1#volume_size}.'''
         result = self._values.get("volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#volume_type MrsClusterV1#volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#volume_type MrsClusterV1#volume_type}.'''
         result = self._values.get("volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2654,8 +2654,8 @@ class MrsClusterV1Timeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#create MrsClusterV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#delete MrsClusterV1#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#create MrsClusterV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#delete MrsClusterV1#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__138cf2bfdcf9c3a8d57158c552e2b73bf45deda4ae8985d9ea3a121364275302)
@@ -2669,13 +2669,13 @@ class MrsClusterV1Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#create MrsClusterV1#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#create MrsClusterV1#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/mrs_cluster_v1#delete MrsClusterV1#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/mrs_cluster_v1#delete MrsClusterV1#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

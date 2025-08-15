@@ -28,7 +28,7 @@ class ProcessController:
         Creates instance of `ProcessController` of the given device.
         If the device is identified, this constructor will ensure it is a process controller.
         """
-        self._device = device
+        self._device: Device = device
         self.__verify_is_process_controller()
 
     @staticmethod

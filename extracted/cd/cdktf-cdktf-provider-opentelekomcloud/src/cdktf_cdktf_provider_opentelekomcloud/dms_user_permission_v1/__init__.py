@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_dms_user_permission_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_dms_user_permission_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_dms_user_permission_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DmsUserPermissionV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.dmsUserPermissionV1.DmsUserPermissionV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1 opentelekomcloud_dms_user_permission_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1 opentelekomcloud_dms_user_permission_v1}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DmsUserPermissionV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1 opentelekomcloud_dms_user_permission_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1 opentelekomcloud_dms_user_permission_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#instance_id DmsUserPermissionV1#instance_id}.
-        :param policies: policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#policies DmsUserPermissionV1#policies}
-        :param topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#topic_name DmsUserPermissionV1#topic_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#id DmsUserPermissionV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#instance_id DmsUserPermissionV1#instance_id}.
+        :param policies: policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#policies DmsUserPermissionV1#policies}
+        :param topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#topic_name DmsUserPermissionV1#topic_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#id DmsUserPermissionV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DmsUserPermissionV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DmsUserPermissionV1 to import.
-        :param import_from_id: The id of the existing DmsUserPermissionV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DmsUserPermissionV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DmsUserPermissionV1 to import is found.
         '''
         if __debug__:
@@ -263,10 +263,10 @@ class DmsUserPermissionV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#instance_id DmsUserPermissionV1#instance_id}.
-        :param policies: policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#policies DmsUserPermissionV1#policies}
-        :param topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#topic_name DmsUserPermissionV1#topic_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#id DmsUserPermissionV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#instance_id DmsUserPermissionV1#instance_id}.
+        :param policies: policies block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#policies DmsUserPermissionV1#policies}
+        :param topic_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#topic_name DmsUserPermissionV1#topic_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#id DmsUserPermissionV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -371,7 +371,7 @@ class DmsUserPermissionV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#instance_id DmsUserPermissionV1#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#instance_id DmsUserPermissionV1#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
@@ -382,7 +382,7 @@ class DmsUserPermissionV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DmsUserPermissionV1Policies"]]:
         '''policies block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#policies DmsUserPermissionV1#policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#policies DmsUserPermissionV1#policies}
         '''
         result = self._values.get("policies")
         assert result is not None, "Required property 'policies' is missing"
@@ -390,14 +390,14 @@ class DmsUserPermissionV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def topic_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#topic_name DmsUserPermissionV1#topic_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#topic_name DmsUserPermissionV1#topic_name}.'''
         result = self._values.get("topic_name")
         assert result is not None, "Required property 'topic_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#id DmsUserPermissionV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#id DmsUserPermissionV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -425,8 +425,8 @@ class DmsUserPermissionV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 class DmsUserPermissionV1Policies:
     def __init__(self, *, access_policy: builtins.str, username: builtins.str) -> None:
         '''
-        :param access_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#access_policy DmsUserPermissionV1#access_policy}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#username DmsUserPermissionV1#username}.
+        :param access_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#access_policy DmsUserPermissionV1#access_policy}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#username DmsUserPermissionV1#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__644f49bd7a4a37ed1eeec12bacaed00fd968618b297edbf7bdcdcaec650e4091)
@@ -439,14 +439,14 @@ class DmsUserPermissionV1Policies:
 
     @builtins.property
     def access_policy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#access_policy DmsUserPermissionV1#access_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#access_policy DmsUserPermissionV1#access_policy}.'''
         result = self._values.get("access_policy")
         assert result is not None, "Required property 'access_policy' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def username(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dms_user_permission_v1#username DmsUserPermissionV1#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dms_user_permission_v1#username DmsUserPermissionV1#username}.'''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)

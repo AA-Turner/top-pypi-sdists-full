@@ -255,6 +255,7 @@ AssociatedGatewayTypeDef = TypedDict(
 class BGPPeerTypeDef(TypedDict):
     bgpPeerId: NotRequired[str]
     asn: NotRequired[int]
+    asnLong: NotRequired[int]
     authKey: NotRequired[str]
     addressFamily: NotRequired[AddressFamilyType]
     amazonAddress: NotRequired[str]
@@ -284,6 +285,7 @@ class ConfirmTransitVirtualInterfaceRequestTypeDef(TypedDict):
 
 class NewBGPPeerTypeDef(TypedDict):
     asn: NotRequired[int]
+    asnLong: NotRequired[int]
     authKey: NotRequired[str]
     addressFamily: NotRequired[AddressFamilyType]
     amazonAddress: NotRequired[str]
@@ -296,6 +298,7 @@ class CustomerAgreementTypeDef(TypedDict):
 class DeleteBGPPeerRequestTypeDef(TypedDict):
     virtualInterfaceId: NotRequired[str]
     asn: NotRequired[int]
+    asnLong: NotRequired[int]
     customerAddress: NotRequired[str]
     bgpPeerId: NotRequired[str]
 
@@ -336,6 +339,8 @@ class DescribeConnectionsOnInterconnectRequestTypeDef(TypedDict):
 
 class DescribeConnectionsRequestTypeDef(TypedDict):
     connectionId: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class DescribeDirectConnectGatewayAssociationProposalsRequestTypeDef(TypedDict):
     directConnectGatewayId: NotRequired[str]
@@ -379,6 +384,8 @@ class DescribeDirectConnectGatewaysRequestTypeDef(TypedDict):
 
 class DescribeHostedConnectionsRequestTypeDef(TypedDict):
     connectionId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class DescribeInterconnectLoaRequestTypeDef(TypedDict):
     interconnectId: str
@@ -387,9 +394,13 @@ class DescribeInterconnectLoaRequestTypeDef(TypedDict):
 
 class DescribeInterconnectsRequestTypeDef(TypedDict):
     interconnectId: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class DescribeLagsRequestTypeDef(TypedDict):
     lagId: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class DescribeLoaRequestTypeDef(TypedDict):
     connectionId: str
@@ -414,6 +425,8 @@ class DescribeTagsRequestTypeDef(TypedDict):
 class DescribeVirtualInterfacesRequestTypeDef(TypedDict):
     connectionId: NotRequired[str]
     virtualInterfaceId: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class DisassociateConnectionFromLagRequestTypeDef(TypedDict):
     connectionId: str
@@ -597,7 +610,8 @@ class DirectConnectGatewayTypeDef(TypedDict):
 class NewPrivateVirtualInterfaceAllocationTypeDef(TypedDict):
     virtualInterfaceName: str
     vlan: int
-    asn: int
+    asn: NotRequired[int]
+    asnLong: NotRequired[int]
     mtu: NotRequired[int]
     authKey: NotRequired[str]
     amazonAddress: NotRequired[str]
@@ -608,7 +622,8 @@ class NewPrivateVirtualInterfaceAllocationTypeDef(TypedDict):
 class NewPrivateVirtualInterfaceTypeDef(TypedDict):
     virtualInterfaceName: str
     vlan: int
-    asn: int
+    asn: NotRequired[int]
+    asnLong: NotRequired[int]
     mtu: NotRequired[int]
     authKey: NotRequired[str]
     amazonAddress: NotRequired[str]
@@ -622,7 +637,8 @@ class NewPrivateVirtualInterfaceTypeDef(TypedDict):
 class NewPublicVirtualInterfaceAllocationTypeDef(TypedDict):
     virtualInterfaceName: str
     vlan: int
-    asn: int
+    asn: NotRequired[int]
+    asnLong: NotRequired[int]
     authKey: NotRequired[str]
     amazonAddress: NotRequired[str]
     customerAddress: NotRequired[str]
@@ -633,7 +649,8 @@ class NewPublicVirtualInterfaceAllocationTypeDef(TypedDict):
 class NewPublicVirtualInterfaceTypeDef(TypedDict):
     virtualInterfaceName: str
     vlan: int
-    asn: int
+    asn: NotRequired[int]
+    asnLong: NotRequired[int]
     authKey: NotRequired[str]
     amazonAddress: NotRequired[str]
     customerAddress: NotRequired[str]
@@ -645,6 +662,7 @@ class NewTransitVirtualInterfaceAllocationTypeDef(TypedDict):
     virtualInterfaceName: NotRequired[str]
     vlan: NotRequired[int]
     asn: NotRequired[int]
+    asnLong: NotRequired[int]
     mtu: NotRequired[int]
     authKey: NotRequired[str]
     amazonAddress: NotRequired[str]
@@ -656,6 +674,7 @@ class NewTransitVirtualInterfaceTypeDef(TypedDict):
     virtualInterfaceName: NotRequired[str]
     vlan: NotRequired[int]
     asn: NotRequired[int]
+    asnLong: NotRequired[int]
     mtu: NotRequired[int]
     authKey: NotRequired[str]
     amazonAddress: NotRequired[str]
@@ -808,6 +827,7 @@ class VirtualInterfaceResponseTypeDef(TypedDict):
     virtualInterfaceName: str
     vlan: int
     asn: int
+    asnLong: int
     amazonSideAsn: int
     authKey: str
     amazonAddress: str
@@ -837,6 +857,7 @@ class VirtualInterfaceTypeDef(TypedDict):
     virtualInterfaceName: NotRequired[str]
     vlan: NotRequired[int]
     asn: NotRequired[int]
+    asnLong: NotRequired[int]
     amazonSideAsn: NotRequired[int]
     authKey: NotRequired[str]
     amazonAddress: NotRequired[str]
@@ -973,6 +994,7 @@ class DescribeTagsResponseTypeDef(TypedDict):
 class ConnectionsTypeDef(TypedDict):
     connections: List[ConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class LagResponseTypeDef(TypedDict):
     connectionsBandwidth: str
@@ -1024,6 +1046,7 @@ class LagTypeDef(TypedDict):
 class InterconnectsTypeDef(TypedDict):
     interconnects: List[InterconnectTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class CreateDirectConnectGatewayAssociationProposalResultTypeDef(TypedDict):
     directConnectGatewayAssociationProposal: DirectConnectGatewayAssociationProposalTypeDef
@@ -1078,7 +1101,9 @@ class DeleteBGPPeerResponseTypeDef(TypedDict):
 class VirtualInterfacesTypeDef(TypedDict):
     virtualInterfaces: List[VirtualInterfaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class LagsTypeDef(TypedDict):
     lags: List[LagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]

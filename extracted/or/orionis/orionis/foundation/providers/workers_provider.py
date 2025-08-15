@@ -57,11 +57,7 @@ class WorkersProvider(ServiceProvider):
         - Suitable for stateless or short-lived worker operations
         """
 
-        self.app.transient(
-            IWorkers,  # The interface contract that defines worker operations
-            Workers,   # The concrete implementation class
-            alias="x-orionis.services.system.workers"  # Descriptive alias for container lookup
-        )
+        self.app.transient(IWorkers, Workers, alias="x-orionis.services.system.workers")
 
     def boot(self) -> None:
         """

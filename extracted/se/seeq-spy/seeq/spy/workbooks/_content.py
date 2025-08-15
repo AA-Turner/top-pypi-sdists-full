@@ -5,11 +5,14 @@ import re
 from datetime import datetime, timedelta
 from typing import Optional, Union
 
+import pandas as pd
+
 from seeq import spy
 from seeq.sdk import *
 from seeq.spy import _common
 from seeq.spy import _login
 from seeq.spy._errors import *
+from seeq.spy._login import get_user_timezone
 from seeq.spy._redaction import safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
@@ -358,10 +361,26 @@ class DateRange(Item):
         frontend_date_range_dict = _report_content_utilities.format_date_range_from_api_output(date_range_output)
 
         if not frontend_date_range_dict['auto'].get('enabled', False):
-            date_range_dict['Start'] = \
-                _login.parse_content_datetime_with_timezone(session, date_range_output.date_range.start).isoformat()
-            date_range_dict['End'] = \
-                _login.parse_content_datetime_with_timezone(session, date_range_output.date_range.end).isoformat()
+            if date_range_output.date_range is not None \
+                    and date_range_output.date_range.start is not None \
+                    and date_range_output.date_range.end is not None:
+                date_range_dict['Start'] = _login.parse_content_datetime_with_timezone(
+                    session, date_range_output.date_range.start).isoformat()
+                date_range_dict['End'] = _login.parse_content_datetime_with_timezone(
+                    session, date_range_output.date_range.end).isoformat()
+            elif status is not None and status.errors == 'catalog':
+                # The DateRange is not in a valid state, so we set them to the last day so later uses don't error.
+                status.warn(
+                    f'Date Range "{date_range_output.name}" {date_range_output.id} does not have a start or end time, '
+                    f'and is not auto-updating. Defaulting to the last 24 hours.')
+                timezone = get_user_timezone(session) if session is not None else 'UTC'
+                now = pd.Timestamp.now(tz=timezone)
+                date_range_dict['Start'] = now - pd.Timedelta(days=1)
+                date_range_dict['End'] = now
+            else:
+                raise SPyRuntimeError(
+                    f'Date Range "{date_range_output.name}" {date_range_output.id} does not have a start or end time, '
+                    f'and is not auto-updating. Please fix the date range definition in Workbench.')
         else:
             date_range_dict['Auto Enabled'] = True
             date_range_dict['Auto Offset Direction'] = frontend_date_range_dict['auto']['offsetDirection'].capitalize()
@@ -379,10 +398,10 @@ class DateRange(Item):
         if 'range' in condition_dict:
             if condition_dict['range'].get('start') is not None:
                 capsule_picker_dict['Search Start'] = \
-                    _login.parse_content_datetime_with_timezone(session, condition_dict["range"]["start"]).isoformat()
+                    _login.parse_content_datetime_with_timezone(session, condition_dict['range']['start']).isoformat()
             if condition_dict['range'].get('end') is not None:
                 capsule_picker_dict['Search End'] = \
-                    _login.parse_content_datetime_with_timezone(session, condition_dict["range"]["end"]).isoformat()
+                    _login.parse_content_datetime_with_timezone(session, condition_dict['range']['end']).isoformat()
 
         if condition_dict.get('strategy') is not None:
             capsule_picker_dict['Strategy'] = condition_dict['strategy']

@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "keras-nlp"
-version = "0.21.1"
-dependencies = ["keras-hub==0.21.1"]
+version = "0.22.0"
+dependencies = ["keras-hub==0.22.0"]
 authors = [
     {name = "Keras team", email = "keras-users@googlegroups.com"},
 ]
 description = "Pretrained models for Keras."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "Apache-2.0"
 classifiers = [
     "Development Status :: 3 - Alpha",

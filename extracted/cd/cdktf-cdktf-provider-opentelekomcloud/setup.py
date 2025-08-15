@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-opentelekomcloud",
-    "version": "12.0.5",
+    "version": "12.0.6",
     "description": "Prebuilt opentelekomcloud Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-opentelekomcloud.git",
@@ -93,6 +93,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_antiddos_v1",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_apigw_api_history_v2",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_apigw_gateway_features_v2",
+        "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_apigw_groups_v2",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_cbr_backup_ids_v3",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_cbr_backup_v3",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_cce_addon_template_v3",
@@ -199,6 +200,8 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_rms_policy_definitions_v1",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_rms_policy_states_v1",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_rms_regions_v1",
+        "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_rms_resource_relationships_v1",
+        "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_rms_resource_tags_v1",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_rts_software_config_v1",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_rts_software_deployment_v1",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_rts_stack_resource_v1",
@@ -211,6 +214,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_smn_subscription_v2",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_smn_topic_subscription_v2",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_smn_topic_v2",
+        "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_tms_quotas_v1",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_tms_tags_v1",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_vbs_backup_policy_v2",
         "cdktf_cdktf_provider_opentelekomcloud.data_opentelekomcloud_vbs_backup_v2",
@@ -408,6 +412,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_opentelekomcloud.swr_organization_permissions_v2",
         "cdktf_cdktf_provider_opentelekomcloud.swr_organization_v2",
         "cdktf_cdktf_provider_opentelekomcloud.swr_repository_v2",
+        "cdktf_cdktf_provider_opentelekomcloud.tms_resource_tags_v1",
         "cdktf_cdktf_provider_opentelekomcloud.tms_tags_v1",
         "cdktf_cdktf_provider_opentelekomcloud.vbs_backup_policy_v2",
         "cdktf_cdktf_provider_opentelekomcloud.vbs_backup_share_v2",
@@ -458,7 +463,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_opentelekomcloud._jsii": [
-            "provider-opentelekomcloud@12.0.5.jsii.tgz"
+            "provider-opentelekomcloud@12.0.6.jsii.tgz"
         ],
         "cdktf_cdktf_provider_opentelekomcloud": [
             "py.typed"
@@ -468,7 +473,7 @@ kwargs = json.loads(
     "install_requires": [
         "cdktf>=0.21.0, <0.22.0",
         "constructs>=10.4.2, <11.0.0",
-        "jsii>=1.112.0, <2.0.0",
+        "jsii>=1.113.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard>=2.13.3,<4.3.0"
     ],

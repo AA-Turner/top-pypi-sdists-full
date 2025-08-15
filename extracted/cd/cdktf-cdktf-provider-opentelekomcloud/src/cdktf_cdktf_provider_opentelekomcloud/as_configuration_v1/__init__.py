@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_as_configuration_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_as_configuration_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_as_configuration_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AsConfigurationV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.asConfigurationV1.AsConfigurationV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1 opentelekomcloud_as_configuration_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1 opentelekomcloud_as_configuration_v1}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class AsConfigurationV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1 opentelekomcloud_as_configuration_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1 opentelekomcloud_as_configuration_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_config: instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#instance_config AsConfigurationV1#instance_config}
-        :param scaling_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#scaling_configuration_name AsConfigurationV1#scaling_configuration_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#id AsConfigurationV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#region AsConfigurationV1#region}.
+        :param instance_config: instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#instance_config AsConfigurationV1#instance_config}
+        :param scaling_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#scaling_configuration_name AsConfigurationV1#scaling_configuration_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#id AsConfigurationV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#region AsConfigurationV1#region}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class AsConfigurationV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AsConfigurationV1 to import.
-        :param import_from_id: The id of the existing AsConfigurationV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AsConfigurationV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AsConfigurationV1 to import is found.
         '''
         if __debug__:
@@ -139,16 +139,16 @@ class AsConfigurationV1(
         user_data: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#key_name AsConfigurationV1#key_name}.
-        :param disk: disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#disk AsConfigurationV1#disk}
-        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#flavor AsConfigurationV1#flavor}.
-        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#image AsConfigurationV1#image}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#instance_id AsConfigurationV1#instance_id}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#metadata AsConfigurationV1#metadata}.
-        :param personality: personality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#personality AsConfigurationV1#personality}
-        :param public_ip: public_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#public_ip AsConfigurationV1#public_ip}
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#security_groups AsConfigurationV1#security_groups}.
-        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#user_data AsConfigurationV1#user_data}.
+        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#key_name AsConfigurationV1#key_name}.
+        :param disk: disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#disk AsConfigurationV1#disk}
+        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#flavor AsConfigurationV1#flavor}.
+        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#image AsConfigurationV1#image}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#instance_id AsConfigurationV1#instance_id}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#metadata AsConfigurationV1#metadata}.
+        :param personality: personality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#personality AsConfigurationV1#personality}
+        :param public_ip: public_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#public_ip AsConfigurationV1#public_ip}
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#security_groups AsConfigurationV1#security_groups}.
+        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#user_data AsConfigurationV1#user_data}.
         '''
         value = AsConfigurationV1InstanceConfig(
             key_name=key_name,
@@ -291,10 +291,10 @@ class AsConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_config: instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#instance_config AsConfigurationV1#instance_config}
-        :param scaling_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#scaling_configuration_name AsConfigurationV1#scaling_configuration_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#id AsConfigurationV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#region AsConfigurationV1#region}.
+        :param instance_config: instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#instance_config AsConfigurationV1#instance_config}
+        :param scaling_configuration_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#scaling_configuration_name AsConfigurationV1#scaling_configuration_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#id AsConfigurationV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#region AsConfigurationV1#region}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -404,7 +404,7 @@ class AsConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance_config(self) -> "AsConfigurationV1InstanceConfig":
         '''instance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#instance_config AsConfigurationV1#instance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#instance_config AsConfigurationV1#instance_config}
         '''
         result = self._values.get("instance_config")
         assert result is not None, "Required property 'instance_config' is missing"
@@ -412,14 +412,14 @@ class AsConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def scaling_configuration_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#scaling_configuration_name AsConfigurationV1#scaling_configuration_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#scaling_configuration_name AsConfigurationV1#scaling_configuration_name}.'''
         result = self._values.get("scaling_configuration_name")
         assert result is not None, "Required property 'scaling_configuration_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#id AsConfigurationV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#id AsConfigurationV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -429,7 +429,7 @@ class AsConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#region AsConfigurationV1#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#region AsConfigurationV1#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -477,16 +477,16 @@ class AsConfigurationV1InstanceConfig:
         user_data: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#key_name AsConfigurationV1#key_name}.
-        :param disk: disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#disk AsConfigurationV1#disk}
-        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#flavor AsConfigurationV1#flavor}.
-        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#image AsConfigurationV1#image}.
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#instance_id AsConfigurationV1#instance_id}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#metadata AsConfigurationV1#metadata}.
-        :param personality: personality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#personality AsConfigurationV1#personality}
-        :param public_ip: public_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#public_ip AsConfigurationV1#public_ip}
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#security_groups AsConfigurationV1#security_groups}.
-        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#user_data AsConfigurationV1#user_data}.
+        :param key_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#key_name AsConfigurationV1#key_name}.
+        :param disk: disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#disk AsConfigurationV1#disk}
+        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#flavor AsConfigurationV1#flavor}.
+        :param image: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#image AsConfigurationV1#image}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#instance_id AsConfigurationV1#instance_id}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#metadata AsConfigurationV1#metadata}.
+        :param personality: personality block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#personality AsConfigurationV1#personality}
+        :param public_ip: public_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#public_ip AsConfigurationV1#public_ip}
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#security_groups AsConfigurationV1#security_groups}.
+        :param user_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#user_data AsConfigurationV1#user_data}.
         '''
         if isinstance(public_ip, dict):
             public_ip = AsConfigurationV1InstanceConfigPublicIp(**public_ip)
@@ -526,7 +526,7 @@ class AsConfigurationV1InstanceConfig:
 
     @builtins.property
     def key_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#key_name AsConfigurationV1#key_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#key_name AsConfigurationV1#key_name}.'''
         result = self._values.get("key_name")
         assert result is not None, "Required property 'key_name' is missing"
         return typing.cast(builtins.str, result)
@@ -537,32 +537,32 @@ class AsConfigurationV1InstanceConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AsConfigurationV1InstanceConfigDisk"]]]:
         '''disk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#disk AsConfigurationV1#disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#disk AsConfigurationV1#disk}
         '''
         result = self._values.get("disk")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AsConfigurationV1InstanceConfigDisk"]]], result)
 
     @builtins.property
     def flavor(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#flavor AsConfigurationV1#flavor}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#flavor AsConfigurationV1#flavor}.'''
         result = self._values.get("flavor")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def image(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#image AsConfigurationV1#image}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#image AsConfigurationV1#image}.'''
         result = self._values.get("image")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def instance_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#instance_id AsConfigurationV1#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#instance_id AsConfigurationV1#instance_id}.'''
         result = self._values.get("instance_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#metadata AsConfigurationV1#metadata}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#metadata AsConfigurationV1#metadata}.'''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -572,7 +572,7 @@ class AsConfigurationV1InstanceConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AsConfigurationV1InstanceConfigPersonality"]]]:
         '''personality block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#personality AsConfigurationV1#personality}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#personality AsConfigurationV1#personality}
         '''
         result = self._values.get("personality")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AsConfigurationV1InstanceConfigPersonality"]]], result)
@@ -581,20 +581,20 @@ class AsConfigurationV1InstanceConfig:
     def public_ip(self) -> typing.Optional["AsConfigurationV1InstanceConfigPublicIp"]:
         '''public_ip block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#public_ip AsConfigurationV1#public_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#public_ip AsConfigurationV1#public_ip}
         '''
         result = self._values.get("public_ip")
         return typing.cast(typing.Optional["AsConfigurationV1InstanceConfigPublicIp"], result)
 
     @builtins.property
     def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#security_groups AsConfigurationV1#security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#security_groups AsConfigurationV1#security_groups}.'''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def user_data(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#user_data AsConfigurationV1#user_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#user_data AsConfigurationV1#user_data}.'''
         result = self._values.get("user_data")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -630,10 +630,10 @@ class AsConfigurationV1InstanceConfigDisk:
         kms_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#disk_type AsConfigurationV1#disk_type}.
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#size AsConfigurationV1#size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#volume_type AsConfigurationV1#volume_type}.
-        :param kms_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#kms_id AsConfigurationV1#kms_id}.
+        :param disk_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#disk_type AsConfigurationV1#disk_type}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#size AsConfigurationV1#size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#volume_type AsConfigurationV1#volume_type}.
+        :param kms_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#kms_id AsConfigurationV1#kms_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e695d640c13ec4082b1158a53057096e8069e895c0ad84bd6bdd6008d240b0cc)
@@ -651,28 +651,28 @@ class AsConfigurationV1InstanceConfigDisk:
 
     @builtins.property
     def disk_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#disk_type AsConfigurationV1#disk_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#disk_type AsConfigurationV1#disk_type}.'''
         result = self._values.get("disk_type")
         assert result is not None, "Required property 'disk_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#size AsConfigurationV1#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#size AsConfigurationV1#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def volume_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#volume_type AsConfigurationV1#volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#volume_type AsConfigurationV1#volume_type}.'''
         result = self._values.get("volume_type")
         assert result is not None, "Required property 'volume_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kms_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#kms_id AsConfigurationV1#kms_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#kms_id AsConfigurationV1#kms_id}.'''
         result = self._values.get("kms_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -950,7 +950,7 @@ class AsConfigurationV1InstanceConfigOutputReference(
         eip: typing.Union["AsConfigurationV1InstanceConfigPublicIpEip", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param eip: eip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#eip AsConfigurationV1#eip}
+        :param eip: eip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#eip AsConfigurationV1#eip}
         '''
         value = AsConfigurationV1InstanceConfigPublicIp(eip=eip)
 
@@ -1173,8 +1173,8 @@ class AsConfigurationV1InstanceConfigOutputReference(
 class AsConfigurationV1InstanceConfigPersonality:
     def __init__(self, *, content: builtins.str, path: builtins.str) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#content AsConfigurationV1#content}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#path AsConfigurationV1#path}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#content AsConfigurationV1#content}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#path AsConfigurationV1#path}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__422080c6dcba79b6aec12e50cf1ed422b1bab2442b5e6bc24b1726c198a724eb)
@@ -1187,14 +1187,14 @@ class AsConfigurationV1InstanceConfigPersonality:
 
     @builtins.property
     def content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#content AsConfigurationV1#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#content AsConfigurationV1#content}.'''
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#path AsConfigurationV1#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#path AsConfigurationV1#path}.'''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
         return typing.cast(builtins.str, result)
@@ -1394,7 +1394,7 @@ class AsConfigurationV1InstanceConfigPublicIp:
         eip: typing.Union["AsConfigurationV1InstanceConfigPublicIpEip", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param eip: eip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#eip AsConfigurationV1#eip}
+        :param eip: eip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#eip AsConfigurationV1#eip}
         '''
         if isinstance(eip, dict):
             eip = AsConfigurationV1InstanceConfigPublicIpEip(**eip)
@@ -1409,7 +1409,7 @@ class AsConfigurationV1InstanceConfigPublicIp:
     def eip(self) -> "AsConfigurationV1InstanceConfigPublicIpEip":
         '''eip block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#eip AsConfigurationV1#eip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#eip AsConfigurationV1#eip}
         '''
         result = self._values.get("eip")
         assert result is not None, "Required property 'eip' is missing"
@@ -1440,8 +1440,8 @@ class AsConfigurationV1InstanceConfigPublicIpEip:
         ip_type: builtins.str,
     ) -> None:
         '''
-        :param bandwidth: bandwidth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#bandwidth AsConfigurationV1#bandwidth}
-        :param ip_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#ip_type AsConfigurationV1#ip_type}.
+        :param bandwidth: bandwidth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#bandwidth AsConfigurationV1#bandwidth}
+        :param ip_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#ip_type AsConfigurationV1#ip_type}.
         '''
         if isinstance(bandwidth, dict):
             bandwidth = AsConfigurationV1InstanceConfigPublicIpEipBandwidth(**bandwidth)
@@ -1458,7 +1458,7 @@ class AsConfigurationV1InstanceConfigPublicIpEip:
     def bandwidth(self) -> "AsConfigurationV1InstanceConfigPublicIpEipBandwidth":
         '''bandwidth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#bandwidth AsConfigurationV1#bandwidth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#bandwidth AsConfigurationV1#bandwidth}
         '''
         result = self._values.get("bandwidth")
         assert result is not None, "Required property 'bandwidth' is missing"
@@ -1466,7 +1466,7 @@ class AsConfigurationV1InstanceConfigPublicIpEip:
 
     @builtins.property
     def ip_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#ip_type AsConfigurationV1#ip_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#ip_type AsConfigurationV1#ip_type}.'''
         result = self._values.get("ip_type")
         assert result is not None, "Required property 'ip_type' is missing"
         return typing.cast(builtins.str, result)
@@ -1501,9 +1501,9 @@ class AsConfigurationV1InstanceConfigPublicIpEipBandwidth:
         size: jsii.Number,
     ) -> None:
         '''
-        :param charging_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#charging_mode AsConfigurationV1#charging_mode}.
-        :param share_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#share_type AsConfigurationV1#share_type}.
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#size AsConfigurationV1#size}.
+        :param charging_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#charging_mode AsConfigurationV1#charging_mode}.
+        :param share_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#share_type AsConfigurationV1#share_type}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#size AsConfigurationV1#size}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__72079c95fc454087c573fd2156f417e4e1d358ffb070f5b89a4c54cb5b5a1db7)
@@ -1518,21 +1518,21 @@ class AsConfigurationV1InstanceConfigPublicIpEipBandwidth:
 
     @builtins.property
     def charging_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#charging_mode AsConfigurationV1#charging_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#charging_mode AsConfigurationV1#charging_mode}.'''
         result = self._values.get("charging_mode")
         assert result is not None, "Required property 'charging_mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def share_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#share_type AsConfigurationV1#share_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#share_type AsConfigurationV1#share_type}.'''
         result = self._values.get("share_type")
         assert result is not None, "Required property 'share_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#size AsConfigurationV1#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#size AsConfigurationV1#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(jsii.Number, result)
@@ -1667,9 +1667,9 @@ class AsConfigurationV1InstanceConfigPublicIpEipOutputReference(
         size: jsii.Number,
     ) -> None:
         '''
-        :param charging_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#charging_mode AsConfigurationV1#charging_mode}.
-        :param share_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#share_type AsConfigurationV1#share_type}.
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#size AsConfigurationV1#size}.
+        :param charging_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#charging_mode AsConfigurationV1#charging_mode}.
+        :param share_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#share_type AsConfigurationV1#share_type}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#size AsConfigurationV1#size}.
         '''
         value = AsConfigurationV1InstanceConfigPublicIpEipBandwidth(
             charging_mode=charging_mode, share_type=share_type, size=size
@@ -1754,8 +1754,8 @@ class AsConfigurationV1InstanceConfigPublicIpOutputReference(
         ip_type: builtins.str,
     ) -> None:
         '''
-        :param bandwidth: bandwidth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#bandwidth AsConfigurationV1#bandwidth}
-        :param ip_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_configuration_v1#ip_type AsConfigurationV1#ip_type}.
+        :param bandwidth: bandwidth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#bandwidth AsConfigurationV1#bandwidth}
+        :param ip_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_configuration_v1#ip_type AsConfigurationV1#ip_type}.
         '''
         value = AsConfigurationV1InstanceConfigPublicIpEip(
             bandwidth=bandwidth, ip_type=ip_type

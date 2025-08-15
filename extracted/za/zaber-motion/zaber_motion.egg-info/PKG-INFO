@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zaber_motion
-Version: 7.10.0
+Version: 7.11.0
 Summary: An official library for communicating with Zaber devices.
 Author-email: "Zaber Technologies Inc." <contact@zaber.com>
 License: The MIT License (MIT)
@@ -2138,6 +2138,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: reactivex~=4.0.0
+Dynamic: license-file
 
 # Zaber Motion Library
 

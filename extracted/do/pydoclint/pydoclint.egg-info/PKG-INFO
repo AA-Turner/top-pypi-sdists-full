@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: pydoclint
-Version: 0.6.6
+Version: 0.6.10
 Summary: A Python docstring linter that checks arguments, returns, yields, and raises sections
-Home-page: https://github.com/jsh9/pydoclint
+Author: jsh9
 License: MIT
+Project-URL: Homepage, https://github.com/jsh9/pydoclint
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only

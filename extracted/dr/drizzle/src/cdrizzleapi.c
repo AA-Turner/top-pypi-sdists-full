@@ -139,7 +139,7 @@ tdriz(PyObject *obj UNUSED_PARAM, PyObject *args, PyObject *keywords) {
             driz_error_set_message(&error, "Invalid context array");
             goto _exit;
         }
-    };
+    }
 
     /* Convert the fill value string */
 
@@ -230,19 +230,29 @@ tdriz(PyObject *obj UNUSED_PARAM, PyObject *args, PyObject *keywords) {
     p.fill_value = fill_value;
     p.error = &error;
 
-    if (driz_error_check(&error, "xmin must be >= 0", p.xmin >= 0)) goto _exit;
-    if (driz_error_check(&error, "ymin must be >= 0", p.ymin >= 0)) goto _exit;
-    if (driz_error_check(&error, "xmax must be > xmin", p.xmax > p.xmin))
+    if (driz_error_check(&error, "xmin must be >= 0", p.xmin >= 0)) {
         goto _exit;
-    if (driz_error_check(&error, "ymax must be > ymin", p.ymax > p.ymin))
+    }
+    if (driz_error_check(&error, "ymin must be >= 0", p.ymin >= 0)) {
         goto _exit;
-    if (driz_error_check(&error, "scale must be > 0", p.scale > 0.0))
+    }
+    if (driz_error_check(&error, "xmax must be > xmin", p.xmax > p.xmin)) {
         goto _exit;
-    if (driz_error_check(&error, "exposure time must be > 0", p.exposure_time))
+    }
+    if (driz_error_check(&error, "ymax must be > ymin", p.ymax > p.ymin)) {
         goto _exit;
+    }
+    if (driz_error_check(&error, "scale must be > 0", p.scale > 0.0f)) {
+        goto _exit;
+    }
+    if (driz_error_check(&error, "exposure time must be > 0",
+                         p.exposure_time > 0.0f)) {
+        goto _exit;
+    }
     if (driz_error_check(&error, "weight scale must be > 0",
-                         p.weight_scale > 0.0))
+                         p.weight_scale > 0.0f)) {
         goto _exit;
+    }
 
     get_dimensions(p.pixmap, psize);
     if (psize[0] != isize[0] || psize[1] != isize[1]) {
@@ -607,7 +617,13 @@ clip_polygon_wrap(PyObject *self, PyObject *args) {
 /** ---------------------------------------------------------------------------
  * Table of functions callable from python
  */
-
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#elif defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-function-type-mismatch"
+#endif
 static struct PyMethodDef cdrizzle_methods[] = {
     {"tdriz", (PyCFunction)tdriz, METH_VARARGS | METH_KEYWORDS,
      "tdriz(image, weights, pixmap, output, counts, context, uniqid, xmin, "
@@ -623,6 +639,11 @@ static struct PyMethodDef cdrizzle_methods[] = {
     {"clip_polygon", clip_polygon_wrap, METH_VARARGS, "clip_polygon(p, q)"},
     {NULL, NULL} /* sentinel */
 };
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#elif defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 /** ---------------------------------------------------------------------------
  */

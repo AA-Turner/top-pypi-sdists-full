@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: django-choices-field
-Version: 3.0.0
+Version: 3.0.1
 Summary: Django field that set/get django's new TextChoices/IntegerChoices enum.
 License: MIT
 Keywords: django,enum

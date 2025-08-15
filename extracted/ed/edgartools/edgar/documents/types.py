@@ -2,10 +2,10 @@
 Type definitions for the HTML parser.
 """
 
-from typing import Protocol, TypedDict, Literal, Union, Optional, Dict, Any, List
-from enum import Enum, auto
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
+from enum import Enum, auto
+from typing import Protocol, Union, Optional, Dict, Any, List
 
 
 class NodeType(Enum):

@@ -8785,6 +8785,7 @@ def show_support_request_acknowledgement(
 @cli.command(name="list-support-request-acknowledgements")
 @click.option("--org-id", type=str, default=None, help="org id of the supporting user")
 @click.option("--support-request-id", default=None)
+@click.option("--expired", default=None, type=bool)
 @click.option("--limit", default=500)
 @click.pass_context
 def list_support_request_acknowledgements(ctx, **kwargs):

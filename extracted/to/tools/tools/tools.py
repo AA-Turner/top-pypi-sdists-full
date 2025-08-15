@@ -162,6 +162,21 @@ def unnest_dict(d, format='.'):
             un_d[k] = v
     return un_d
 
+def nest_dict(d, format='.'):
+    '''
+    Convert a 1st order dictionary with format-separated-keys into a nested dictionary.
+    '''
+    n_d = {}
+    for k, v in d.items():
+        keys = k.split(format)
+        d_ = n_d # Start from root
+        for key in keys[:-1]: # Traverse to the last key
+            if key not in d_: # If key does not exist, create a new dict
+                d_[key] = {}
+            d_ = d_[key] # Move to the next dict
+        d_[keys[-1]] = v # Set the value to the last key
+    return n_d
+
 def nestdict_to_list(d, key=None):
     '''
     open 2nd order nested dict to list of dicts.
@@ -187,7 +202,26 @@ def update_ld(ld, d):
 
     return ld
 
-def update_keys(d, d_key, copy=True): # inplace? copy?
+def update_keys(d, d_key, copy=False): # inplace? copy?
+    """
+    Update keys of a dictionary.
+
+    Parameters
+    ----------
+    d : dict
+        Dictionary to update.
+    d_key : dict
+        Dictionary of old and new keys.
+        The keys of d_key are the old keys, and the values are the new keys.
+    copy : bool, default=False
+        If True, a copy of the dictionary is made before updating the keys.
+
+    Returns
+    -------
+    d : dict
+        Updated dictionary with new keys.
+        If copy is True, a new dictionary is returned.
+    """
     if copy:
         d = dcopy(d)
     for k_old, k_new in d_key.items():

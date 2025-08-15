@@ -9,7 +9,7 @@ import warnings
 from collections.abc import AsyncGenerator, Sequence, Sized
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional, Union
 
 import typing_extensions
 from google.protobuf.message import Message
@@ -71,6 +71,8 @@ from .mount import _get_client_mount, _Mount
 from .network_file_system import _NetworkFileSystem, network_file_system_mount_protos
 from .output import _get_output_manager
 from .parallel_map import (
+    _experimental_spawn_map_async,
+    _experimental_spawn_map_sync,
     _for_each_async,
     _for_each_sync,
     _map_async,
@@ -78,6 +80,7 @@ from .parallel_map import (
     _map_invocation_inputplane,
     _map_sync,
     _spawn_map_async,
+    _spawn_map_invocation,
     _spawn_map_sync,
     _starmap_async,
     _starmap_sync,
@@ -214,7 +217,11 @@ class _Invocation:
         return _Invocation(stub, function_call_id, client, retry_context)
 
     async def pop_function_call_outputs(
-        self, timeout: Optional[float], clear_on_success: bool, input_jwts: Optional[list[str]] = None
+        self,
+        index: int = 0,
+        timeout: Optional[float] = None,
+        clear_on_success: bool = False,
+        input_jwts: Optional[list[str]] = None,
     ) -> api_pb2.FunctionGetOutputsResponse:
         t0 = time.time()
         if timeout is None:
@@ -232,6 +239,8 @@ class _Invocation:
                 clear_on_success=clear_on_success,
                 requested_at=time.time(),
                 input_jwts=input_jwts,
+                start_idx=index,
+                end_idx=index,
             )
             response: api_pb2.FunctionGetOutputsResponse = await retry_transient_errors(
                 self.stub.FunctionGetOutputs,
@@ -265,6 +274,7 @@ class _Invocation:
         # waits indefinitely for a single result for the function, and clear the outputs buffer after
         item: api_pb2.FunctionGetOutputsItem = (
             await self.pop_function_call_outputs(
+                index=0,
                 timeout=None,
                 clear_on_success=True,
                 input_jwts=[expected_jwt] if expected_jwt else None,
@@ -308,14 +318,16 @@ class _Invocation:
 
             await self._retry_input()
 
-    async def poll_function(self, timeout: Optional[float] = None):
+    async def poll_function(self, timeout: Optional[float] = None, *, index: int = 0):
         """Waits up to timeout for a result from a function.
 
         If timeout is `None`, waits indefinitely. This function is not
         cancellation-safe.
         """
         response: api_pb2.FunctionGetOutputsResponse = await self.pop_function_call_outputs(
-            timeout=timeout, clear_on_success=False
+            index=index,
+            timeout=timeout,
+            clear_on_success=False,
         )
         if len(response.outputs) == 0 and response.num_unfinished_inputs == 0:
             # if no unfinished inputs and no outputs, then function expired
@@ -348,11 +360,47 @@ class _Invocation:
                 if items_total is not None and items_received >= items_total:
                     break
 
+    async def enumerate(self, start_index: int, end_index: int):
+        """Iterate over the results of the function call in the range [start_index, end_index)."""
+        limit = 49
+        current_index = start_index
+        while current_index < end_index:
+            # batch_end_indx is inclusive, so we subtract 1 to get the last index in the batch.
+            batch_end_index = min(current_index + limit, end_index) - 1
+            request = api_pb2.FunctionGetOutputsRequest(
+                function_call_id=self.function_call_id,
+                timeout=0,
+                last_entry_id="0-0",
+                clear_on_success=False,
+                requested_at=time.time(),
+                start_idx=current_index,
+                end_idx=batch_end_index,
+            )
+            response: api_pb2.FunctionGetOutputsResponse = await retry_transient_errors(
+                self.stub.FunctionGetOutputs,
+                request,
+                attempt_timeout=ATTEMPT_TIMEOUT_GRACE_PERIOD,
+            )
+
+            outputs = list(response.outputs)
+            outputs.sort(key=lambda x: x.idx)
+            for output in outputs:
+                if output.idx != current_index:
+                    break
+                result = await _process_result(output.result, output.data_format, self.stub, self.client)
+                yield output.idx, result
+                current_index += 1
+
+            # We're missing current_index, so we need to poll the function for the next result
+            if len(outputs) < (batch_end_index - current_index + 1):
+                result = await self.poll_function(index=current_index)
+                yield current_index, result
+                current_index += 1
+
 
 class _InputPlaneInvocation:
     """Internal client representation of a single-input call to a Modal Function using the input
-    plane server API. As of 4/22/2025, this class is experimental and not used in production.
-    It is OK to make breaking changes to this class."""
+    plane server API."""
 
     stub: ModalClientModal
 
@@ -462,7 +510,7 @@ class _InputPlaneInvocation:
                 _stream_function_call_data(
                     self.client,
                     self.stub,
-                    "",
+                    function_call_id=None,
                     variant="data_out",
                     attempt_token=self.attempt_token,
                 ),
@@ -603,7 +651,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         memory: Optional[Union[int, tuple[int, int]]] = None,
         proxy: Optional[_Proxy] = None,
         retries: Optional[Union[int, Retries]] = None,
-        timeout: Optional[int] = None,
+        timeout: int = 300,
         min_containers: Optional[int] = None,
         max_containers: Optional[int] = None,
         buffer_containers: Optional[int] = None,
@@ -1130,6 +1178,8 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                     target_concurrent_inputs=options.target_concurrent_inputs,
                     batch_max_size=options.batch_max_size,
                     batch_linger_ms=options.batch_wait_ms,
+                    scheduler_placement=options.scheduler_placement,
+                    cloud_provider_str=options.cloud,
                 )
             else:
                 options_pb = None
@@ -1274,7 +1324,8 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
 
             self._hydrate(response.function_id, resolver.client, response.handle_metadata)
 
-        rep = f"Function.from_name('{app_name}', '{name}')"
+        environment_rep = f", environment_name={environment_name!r}" if environment_name else ""
+        rep = f"modal.Function.from_name('{app_name}', '{name}'{environment_rep})"
         return cls._from_loader(_load_remote, rep, is_another_app=True, hydrate_lazily=True)
 
     @classmethod
@@ -1543,6 +1594,22 @@ Use the `Function.get_web_url()` method instead.
                 async for item in stream:
                     yield item
 
+    @live_method
+    async def _spawn_map(self, input_queue: _SynchronizedQueue) -> "_FunctionCall[ReturnType]":
+        self._check_no_web_url("spawn_map")
+        if self._is_generator:
+            raise InvalidError("A generator function cannot be called with `.spawn_map(...)`.")
+
+        assert self._function_name
+        function_call_id, num_inputs = await _spawn_map_invocation(
+            self,
+            input_queue,
+            self.client,
+        )
+        metadata = api_pb2.FunctionCallFromIdResponse(function_call_id=function_call_id, num_inputs=num_inputs)
+        fc: _FunctionCall[ReturnType] = _FunctionCall._new_hydrated(function_call_id, self.client, metadata)
+        return fc
+
     async def _call_function(self, args, kwargs) -> ReturnType:
         invocation: Union[_Invocation, _InputPlaneInvocation]
         if self._input_plane_url:
@@ -1789,6 +1856,7 @@ Use the `Function.get_web_url()` method instead.
     starmap = MethodWithAio(_starmap_sync, _starmap_async, synchronizer)
     for_each = MethodWithAio(_for_each_sync, _for_each_async, synchronizer)
     spawn_map = MethodWithAio(_spawn_map_sync, _spawn_map_async, synchronizer)
+    experimental_spawn_map = MethodWithAio(_experimental_spawn_map_sync, _experimental_spawn_map_async, synchronizer)
 
 
 class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
@@ -1803,12 +1871,28 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
     """
 
     _is_generator: bool = False
+    _num_inputs: Optional[int] = None
 
     def _invocation(self):
         return _Invocation(self.client.stub, self.object_id, self.client)
 
-    async def get(self, timeout: Optional[float] = None) -> ReturnType:
-        """Get the result of the function call.
+    def _hydrate_metadata(self, metadata: Optional[Message]):
+        if not metadata:
+            return
+        assert isinstance(metadata, api_pb2.FunctionCallFromIdResponse)
+        self._num_inputs = metadata.num_inputs
+
+    @live_method
+    async def num_inputs(self) -> int:
+        """Get the number of inputs in the function call."""
+        # Should have been hydrated.
+        assert self._num_inputs is not None
+        return self._num_inputs
+
+    async def get(self, timeout: Optional[float] = None, *, index: int = 0) -> ReturnType:
+        """Get the result of the index-th input of the function call.
+        `.spawn()` calls have a single output, so only specifying `index=0` is valid.
+        A non-zero index is useful when your function has multiple outputs, like via `.spawn_map()`.
 
         This function waits indefinitely by default. It takes an optional
         `timeout` argument that specifies the maximum number of seconds to wait,
@@ -1816,7 +1900,37 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
 
         The returned coroutine is not cancellation-safe.
         """
-        return await self._invocation().poll_function(timeout=timeout)
+        return await self._invocation().poll_function(timeout=timeout, index=index)
+
+    @live_method_gen
+    async def iter(self, *, start: int = 0, end: Optional[int] = None) -> AsyncIterator[ReturnType]:
+        """Iterate in-order over the results of the function call.
+
+        Optionally, specify a range [start, end) to iterate over.
+
+        Example:
+        ```python
+        @app.function()
+        def my_func(a):
+            return a ** 2
+
+
+        @app.local_entrypoint()
+        def main():
+            fc = my_func.spawn_map([1, 2, 3, 4])
+            assert list(fc.iter()) == [1, 4, 9, 16]
+            assert list(fc.iter(start=1, end=3)) == [4, 9]
+        ```
+
+        If `end` is not provided, it will iterate over all results.
+        """
+        num_inputs = await self.num_inputs()
+        if end is None:
+            end = num_inputs
+        if start < 0 or end > num_inputs:
+            raise ValueError(f"Invalid index range: {start} to {end} for {num_inputs} inputs")
+        async for _, item in self._invocation().enumerate(start_index=start, end_index=end):
+            yield item
 
     async def get_call_graph(self) -> list[InputInfo]:
         """Returns a structure representing the call graph from a given root
@@ -1870,7 +1984,15 @@ class _FunctionCall(typing.Generic[ReturnType], _Object, type_prefix="fc"):
         if client is None:
             client = await _Client.from_env()
 
-        fc: _FunctionCall[Any] = _FunctionCall._new_hydrated(function_call_id, client, None)
+        async def _load(self: _FunctionCall, resolver: Resolver, existing_object_id: Optional[str]):
+            request = api_pb2.FunctionCallFromIdRequest(function_call_id=function_call_id)
+            resp = await retry_transient_errors(resolver.client.stub.FunctionCallFromId, request)
+            self._hydrate(function_call_id, resolver.client, resp)
+
+        rep = f"FunctionCall.from_id({function_call_id!r})"
+        fc: _FunctionCall[Any] = _FunctionCall._from_loader(_load, rep, hydrate_lazily=True)
+        # We already know the object ID, so we can set it directly
+        fc._object_id = function_call_id
         return fc
 
     @staticmethod

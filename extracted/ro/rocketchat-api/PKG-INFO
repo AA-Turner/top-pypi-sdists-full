@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rocketchat_API
-Version: 1.35.1
+Version: 1.35.2
 Summary: Python API wrapper for Rocket.Chat
 Home-page: https://github.com/jadolg/rocketchat_API
 Author: Jorge Alberto Díaz Orozco

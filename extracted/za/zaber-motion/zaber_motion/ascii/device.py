@@ -180,17 +180,17 @@ class Device:
         return self._pvt
 
     def __init__(self, connection: 'Connection', device_address: int):
-        self._connection = connection
-        self._device_address = device_address
-        self._settings = DeviceSettings(self)
-        self._storage = DeviceStorage(self)
-        self._io = DeviceIO(self)
-        self._all_axes = AllAxes(self)
-        self._warnings = Warnings(self, 0)
-        self._oscilloscope = Oscilloscope(self)
-        self._triggers = Triggers(self)
-        self._streams = Streams(self)
-        self._pvt = Pvt(self)
+        self._connection: 'Connection' = connection
+        self._device_address: int = device_address
+        self._settings: DeviceSettings = DeviceSettings(self)
+        self._storage: DeviceStorage = DeviceStorage(self)
+        self._io: DeviceIO = DeviceIO(self)
+        self._all_axes: AllAxes = AllAxes(self)
+        self._warnings: Warnings = Warnings(self, 0)
+        self._oscilloscope: Oscilloscope = Oscilloscope(self)
+        self._triggers: Triggers = Triggers(self)
+        self._streams: Streams = Streams(self)
+        self._pvt: Pvt = Pvt(self)
 
     def identify(
             self,

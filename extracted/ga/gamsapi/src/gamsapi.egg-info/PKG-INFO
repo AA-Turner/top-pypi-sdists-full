@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gamsapi
-Version: 50.3.0
+Version: 50.4.0
 Summary: GAMS Python API
 Home-page: https://www.gams.com/
 Author: GAMS Development Corporation
@@ -52,22 +52,22 @@ Provides-Extra: transfer
 Requires-Dist: pandas<2.3,>=2.0; extra == "transfer"
 Requires-Dist: scipy; extra == "transfer"
 Provides-Extra: all
-Requires-Dist: certifi; extra == "all"
-Requires-Dist: numpy; extra == "all"
-Requires-Dist: cerberus; extra == "all"
-Requires-Dist: psycopg2-binary; extra == "all"
-Requires-Dist: pandas<2.3,>=2.0; extra == "all"
-Requires-Dist: ply; extra == "all"
-Requires-Dist: pymysql; extra == "all"
 Requires-Dist: sqlalchemy; extra == "all"
-Requires-Dist: scipy; extra == "all"
+Requires-Dist: cerberus; extra == "all"
 Requires-Dist: pymssql; extra == "all"
+Requires-Dist: pandas<2.3,>=2.0; extra == "all"
+Requires-Dist: numpy; extra == "all"
+Requires-Dist: scipy; extra == "all"
+Requires-Dist: pymysql; extra == "all"
 Requires-Dist: urllib3; extra == "all"
-Requires-Dist: python_dateutil; extra == "all"
+Requires-Dist: ply; extra == "all"
 Requires-Dist: ipython; extra == "all"
+Requires-Dist: psycopg2-binary; extra == "all"
 Requires-Dist: pyyaml; extra == "all"
 Requires-Dist: openpyxl>=3.1.0; extra == "all"
 Requires-Dist: pyodbc; extra == "all"
+Requires-Dist: certifi; extra == "all"
+Requires-Dist: python_dateutil; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

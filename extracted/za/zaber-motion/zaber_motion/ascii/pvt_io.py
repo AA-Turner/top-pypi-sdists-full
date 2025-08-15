@@ -18,8 +18,8 @@ class PvtIo:
     """
 
     def __init__(self, device: 'Device', stream_id: int):
-        self._device = device
-        self._stream_id = stream_id
+        self._device: 'Device' = device
+        self._stream_id: int = stream_id
 
     def set_digital_output(
             self,

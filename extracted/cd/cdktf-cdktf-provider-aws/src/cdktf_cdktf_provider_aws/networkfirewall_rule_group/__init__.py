@@ -1,7 +1,7 @@
 r'''
 # `aws_networkfirewall_rule_group`
 
-Refer to the Terraform Registry for docs: [`aws_networkfirewall_rule_group`](https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group).
+Refer to the Terraform Registry for docs: [`aws_networkfirewall_rule_group`](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkfirewallRuleGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.networkfirewallRuleGroup.NetworkfirewallRuleGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group aws_networkfirewall_rule_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group aws_networkfirewall_rule_group}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class NetworkfirewallRuleGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group aws_networkfirewall_rule_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group aws_networkfirewall_rule_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#capacity NetworkfirewallRuleGroup#capacity}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#name NetworkfirewallRuleGroup#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#type NetworkfirewallRuleGroup#type}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#description NetworkfirewallRuleGroup#description}.
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#encryption_configuration NetworkfirewallRuleGroup#encryption_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#id NetworkfirewallRuleGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#region NetworkfirewallRuleGroup#region}
-        :param rule_group: rule_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rule_group NetworkfirewallRuleGroup#rule_group}
-        :param rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rules NetworkfirewallRuleGroup#rules}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#tags NetworkfirewallRuleGroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#tags_all NetworkfirewallRuleGroup#tags_all}.
+        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#capacity NetworkfirewallRuleGroup#capacity}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#name NetworkfirewallRuleGroup#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#type NetworkfirewallRuleGroup#type}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#description NetworkfirewallRuleGroup#description}.
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#encryption_configuration NetworkfirewallRuleGroup#encryption_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#id NetworkfirewallRuleGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#region NetworkfirewallRuleGroup#region}
+        :param rule_group: rule_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rule_group NetworkfirewallRuleGroup#rule_group}
+        :param rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rules NetworkfirewallRuleGroup#rules}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#tags NetworkfirewallRuleGroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#tags_all NetworkfirewallRuleGroup#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class NetworkfirewallRuleGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkfirewallRuleGroup to import.
-        :param import_from_id: The id of the existing NetworkfirewallRuleGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkfirewallRuleGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkfirewallRuleGroup to import is found.
         '''
         if __debug__:
@@ -152,8 +152,8 @@ class NetworkfirewallRuleGroup(
         key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#type NetworkfirewallRuleGroup#type}.
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#key_id NetworkfirewallRuleGroup#key_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#type NetworkfirewallRuleGroup#type}.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#key_id NetworkfirewallRuleGroup#key_id}.
         '''
         value = NetworkfirewallRuleGroupEncryptionConfiguration(
             type=type, key_id=key_id
@@ -171,10 +171,10 @@ class NetworkfirewallRuleGroup(
         stateful_rule_options: typing.Optional[typing.Union["NetworkfirewallRuleGroupRuleGroupStatefulRuleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param rules_source: rules_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rules_source NetworkfirewallRuleGroup#rules_source}
-        :param reference_sets: reference_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#reference_sets NetworkfirewallRuleGroup#reference_sets}
-        :param rule_variables: rule_variables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rule_variables NetworkfirewallRuleGroup#rule_variables}
-        :param stateful_rule_options: stateful_rule_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#stateful_rule_options NetworkfirewallRuleGroup#stateful_rule_options}
+        :param rules_source: rules_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rules_source NetworkfirewallRuleGroup#rules_source}
+        :param reference_sets: reference_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#reference_sets NetworkfirewallRuleGroup#reference_sets}
+        :param rule_variables: rule_variables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rule_variables NetworkfirewallRuleGroup#rule_variables}
+        :param stateful_rule_options: stateful_rule_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#stateful_rule_options NetworkfirewallRuleGroup#stateful_rule_options}
         '''
         value = NetworkfirewallRuleGroupRuleGroup(
             rules_source=rules_source,
@@ -475,17 +475,17 @@ class NetworkfirewallRuleGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#capacity NetworkfirewallRuleGroup#capacity}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#name NetworkfirewallRuleGroup#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#type NetworkfirewallRuleGroup#type}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#description NetworkfirewallRuleGroup#description}.
-        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#encryption_configuration NetworkfirewallRuleGroup#encryption_configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#id NetworkfirewallRuleGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#region NetworkfirewallRuleGroup#region}
-        :param rule_group: rule_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rule_group NetworkfirewallRuleGroup#rule_group}
-        :param rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rules NetworkfirewallRuleGroup#rules}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#tags NetworkfirewallRuleGroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#tags_all NetworkfirewallRuleGroup#tags_all}.
+        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#capacity NetworkfirewallRuleGroup#capacity}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#name NetworkfirewallRuleGroup#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#type NetworkfirewallRuleGroup#type}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#description NetworkfirewallRuleGroup#description}.
+        :param encryption_configuration: encryption_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#encryption_configuration NetworkfirewallRuleGroup#encryption_configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#id NetworkfirewallRuleGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#region NetworkfirewallRuleGroup#region}
+        :param rule_group: rule_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rule_group NetworkfirewallRuleGroup#rule_group}
+        :param rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rules NetworkfirewallRuleGroup#rules}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#tags NetworkfirewallRuleGroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#tags_all NetworkfirewallRuleGroup#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -615,28 +615,28 @@ class NetworkfirewallRuleGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def capacity(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#capacity NetworkfirewallRuleGroup#capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#capacity NetworkfirewallRuleGroup#capacity}.'''
         result = self._values.get("capacity")
         assert result is not None, "Required property 'capacity' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#name NetworkfirewallRuleGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#name NetworkfirewallRuleGroup#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#type NetworkfirewallRuleGroup#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#type NetworkfirewallRuleGroup#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#description NetworkfirewallRuleGroup#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#description NetworkfirewallRuleGroup#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -646,14 +646,14 @@ class NetworkfirewallRuleGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["NetworkfirewallRuleGroupEncryptionConfiguration"]:
         '''encryption_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#encryption_configuration NetworkfirewallRuleGroup#encryption_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#encryption_configuration NetworkfirewallRuleGroup#encryption_configuration}
         '''
         result = self._values.get("encryption_configuration")
         return typing.cast(typing.Optional["NetworkfirewallRuleGroupEncryptionConfiguration"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#id NetworkfirewallRuleGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#id NetworkfirewallRuleGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -665,7 +665,7 @@ class NetworkfirewallRuleGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#region NetworkfirewallRuleGroup#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#region NetworkfirewallRuleGroup#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -674,26 +674,26 @@ class NetworkfirewallRuleGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rule_group(self) -> typing.Optional["NetworkfirewallRuleGroupRuleGroup"]:
         '''rule_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rule_group NetworkfirewallRuleGroup#rule_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rule_group NetworkfirewallRuleGroup#rule_group}
         '''
         result = self._values.get("rule_group")
         return typing.cast(typing.Optional["NetworkfirewallRuleGroupRuleGroup"], result)
 
     @builtins.property
     def rules(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rules NetworkfirewallRuleGroup#rules}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rules NetworkfirewallRuleGroup#rules}.'''
         result = self._values.get("rules")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#tags NetworkfirewallRuleGroup#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#tags NetworkfirewallRuleGroup#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#tags_all NetworkfirewallRuleGroup#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#tags_all NetworkfirewallRuleGroup#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -722,8 +722,8 @@ class NetworkfirewallRuleGroupEncryptionConfiguration:
         key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#type NetworkfirewallRuleGroup#type}.
-        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#key_id NetworkfirewallRuleGroup#key_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#type NetworkfirewallRuleGroup#type}.
+        :param key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#key_id NetworkfirewallRuleGroup#key_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6391ce75351753b235ba650c477e024c92f33e80ac55d7f035ed5fe0ee9002da)
@@ -737,14 +737,14 @@ class NetworkfirewallRuleGroupEncryptionConfiguration:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#type NetworkfirewallRuleGroup#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#type NetworkfirewallRuleGroup#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#key_id NetworkfirewallRuleGroup#key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#key_id NetworkfirewallRuleGroup#key_id}.'''
         result = self._values.get("key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -856,10 +856,10 @@ class NetworkfirewallRuleGroupRuleGroup:
         stateful_rule_options: typing.Optional[typing.Union["NetworkfirewallRuleGroupRuleGroupStatefulRuleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param rules_source: rules_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rules_source NetworkfirewallRuleGroup#rules_source}
-        :param reference_sets: reference_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#reference_sets NetworkfirewallRuleGroup#reference_sets}
-        :param rule_variables: rule_variables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rule_variables NetworkfirewallRuleGroup#rule_variables}
-        :param stateful_rule_options: stateful_rule_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#stateful_rule_options NetworkfirewallRuleGroup#stateful_rule_options}
+        :param rules_source: rules_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rules_source NetworkfirewallRuleGroup#rules_source}
+        :param reference_sets: reference_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#reference_sets NetworkfirewallRuleGroup#reference_sets}
+        :param rule_variables: rule_variables block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rule_variables NetworkfirewallRuleGroup#rule_variables}
+        :param stateful_rule_options: stateful_rule_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#stateful_rule_options NetworkfirewallRuleGroup#stateful_rule_options}
         '''
         if isinstance(rules_source, dict):
             rules_source = NetworkfirewallRuleGroupRuleGroupRulesSource(**rules_source)
@@ -889,7 +889,7 @@ class NetworkfirewallRuleGroupRuleGroup:
     def rules_source(self) -> "NetworkfirewallRuleGroupRuleGroupRulesSource":
         '''rules_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rules_source NetworkfirewallRuleGroup#rules_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rules_source NetworkfirewallRuleGroup#rules_source}
         '''
         result = self._values.get("rules_source")
         assert result is not None, "Required property 'rules_source' is missing"
@@ -901,7 +901,7 @@ class NetworkfirewallRuleGroupRuleGroup:
     ) -> typing.Optional["NetworkfirewallRuleGroupRuleGroupReferenceSets"]:
         '''reference_sets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#reference_sets NetworkfirewallRuleGroup#reference_sets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#reference_sets NetworkfirewallRuleGroup#reference_sets}
         '''
         result = self._values.get("reference_sets")
         return typing.cast(typing.Optional["NetworkfirewallRuleGroupRuleGroupReferenceSets"], result)
@@ -912,7 +912,7 @@ class NetworkfirewallRuleGroupRuleGroup:
     ) -> typing.Optional["NetworkfirewallRuleGroupRuleGroupRuleVariables"]:
         '''rule_variables block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rule_variables NetworkfirewallRuleGroup#rule_variables}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rule_variables NetworkfirewallRuleGroup#rule_variables}
         '''
         result = self._values.get("rule_variables")
         return typing.cast(typing.Optional["NetworkfirewallRuleGroupRuleGroupRuleVariables"], result)
@@ -923,7 +923,7 @@ class NetworkfirewallRuleGroupRuleGroup:
     ) -> typing.Optional["NetworkfirewallRuleGroupRuleGroupStatefulRuleOptions"]:
         '''stateful_rule_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#stateful_rule_options NetworkfirewallRuleGroup#stateful_rule_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#stateful_rule_options NetworkfirewallRuleGroup#stateful_rule_options}
         '''
         result = self._values.get("stateful_rule_options")
         return typing.cast(typing.Optional["NetworkfirewallRuleGroupRuleGroupStatefulRuleOptions"], result)
@@ -967,7 +967,7 @@ class NetworkfirewallRuleGroupRuleGroupOutputReference(
         ip_set_references: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkfirewallRuleGroupRuleGroupReferenceSetsIpSetReferences", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param ip_set_references: ip_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#ip_set_references NetworkfirewallRuleGroup#ip_set_references}
+        :param ip_set_references: ip_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#ip_set_references NetworkfirewallRuleGroup#ip_set_references}
         '''
         value = NetworkfirewallRuleGroupRuleGroupReferenceSets(
             ip_set_references=ip_set_references
@@ -985,10 +985,10 @@ class NetworkfirewallRuleGroupRuleGroupOutputReference(
         stateless_rules_and_custom_actions: typing.Optional[typing.Union["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param rules_source_list: rules_source_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rules_source_list NetworkfirewallRuleGroup#rules_source_list}
-        :param rules_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rules_string NetworkfirewallRuleGroup#rules_string}.
-        :param stateful_rule: stateful_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#stateful_rule NetworkfirewallRuleGroup#stateful_rule}
-        :param stateless_rules_and_custom_actions: stateless_rules_and_custom_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#stateless_rules_and_custom_actions NetworkfirewallRuleGroup#stateless_rules_and_custom_actions}
+        :param rules_source_list: rules_source_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rules_source_list NetworkfirewallRuleGroup#rules_source_list}
+        :param rules_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rules_string NetworkfirewallRuleGroup#rules_string}.
+        :param stateful_rule: stateful_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#stateful_rule NetworkfirewallRuleGroup#stateful_rule}
+        :param stateless_rules_and_custom_actions: stateless_rules_and_custom_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#stateless_rules_and_custom_actions NetworkfirewallRuleGroup#stateless_rules_and_custom_actions}
         '''
         value = NetworkfirewallRuleGroupRuleGroupRulesSource(
             rules_source_list=rules_source_list,
@@ -1007,8 +1007,8 @@ class NetworkfirewallRuleGroupRuleGroupOutputReference(
         port_sets: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSets", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param ip_sets: ip_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#ip_sets NetworkfirewallRuleGroup#ip_sets}
-        :param port_sets: port_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#port_sets NetworkfirewallRuleGroup#port_sets}
+        :param ip_sets: ip_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#ip_sets NetworkfirewallRuleGroup#ip_sets}
+        :param port_sets: port_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#port_sets NetworkfirewallRuleGroup#port_sets}
         '''
         value = NetworkfirewallRuleGroupRuleGroupRuleVariables(
             ip_sets=ip_sets, port_sets=port_sets
@@ -1019,7 +1019,7 @@ class NetworkfirewallRuleGroupRuleGroupOutputReference(
     @jsii.member(jsii_name="putStatefulRuleOptions")
     def put_stateful_rule_options(self, *, rule_order: builtins.str) -> None:
         '''
-        :param rule_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rule_order NetworkfirewallRuleGroup#rule_order}.
+        :param rule_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rule_order NetworkfirewallRuleGroup#rule_order}.
         '''
         value = NetworkfirewallRuleGroupRuleGroupStatefulRuleOptions(
             rule_order=rule_order
@@ -1123,7 +1123,7 @@ class NetworkfirewallRuleGroupRuleGroupReferenceSets:
         ip_set_references: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkfirewallRuleGroupRuleGroupReferenceSetsIpSetReferences", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param ip_set_references: ip_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#ip_set_references NetworkfirewallRuleGroup#ip_set_references}
+        :param ip_set_references: ip_set_references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#ip_set_references NetworkfirewallRuleGroup#ip_set_references}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b255ad4bfec8ff33c4907af04309ddda2e48c4cb2a3253fdaed504f3c904271)
@@ -1138,7 +1138,7 @@ class NetworkfirewallRuleGroupRuleGroupReferenceSets:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupReferenceSetsIpSetReferences"]]]:
         '''ip_set_references block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#ip_set_references NetworkfirewallRuleGroup#ip_set_references}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#ip_set_references NetworkfirewallRuleGroup#ip_set_references}
         '''
         result = self._values.get("ip_set_references")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupReferenceSetsIpSetReferences"]]], result)
@@ -1168,8 +1168,8 @@ class NetworkfirewallRuleGroupRuleGroupReferenceSetsIpSetReferences:
         key: builtins.str,
     ) -> None:
         '''
-        :param ip_set_reference: ip_set_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#ip_set_reference NetworkfirewallRuleGroup#ip_set_reference}
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#key NetworkfirewallRuleGroup#key}.
+        :param ip_set_reference: ip_set_reference block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#ip_set_reference NetworkfirewallRuleGroup#ip_set_reference}
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#key NetworkfirewallRuleGroup#key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b995155a686aa94cda0ec89fc420ff8f62b1586751ac361a2d7f77af6dc32f5)
@@ -1186,7 +1186,7 @@ class NetworkfirewallRuleGroupRuleGroupReferenceSetsIpSetReferences:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupReferenceSetsIpSetReferencesIpSetReference"]]:
         '''ip_set_reference block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#ip_set_reference NetworkfirewallRuleGroup#ip_set_reference}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#ip_set_reference NetworkfirewallRuleGroup#ip_set_reference}
         '''
         result = self._values.get("ip_set_reference")
         assert result is not None, "Required property 'ip_set_reference' is missing"
@@ -1194,7 +1194,7 @@ class NetworkfirewallRuleGroupRuleGroupReferenceSetsIpSetReferences:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#key NetworkfirewallRuleGroup#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#key NetworkfirewallRuleGroup#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
@@ -1219,7 +1219,7 @@ class NetworkfirewallRuleGroupRuleGroupReferenceSetsIpSetReferences:
 class NetworkfirewallRuleGroupRuleGroupReferenceSetsIpSetReferencesIpSetReference:
     def __init__(self, *, reference_arn: builtins.str) -> None:
         '''
-        :param reference_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#reference_arn NetworkfirewallRuleGroup#reference_arn}.
+        :param reference_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#reference_arn NetworkfirewallRuleGroup#reference_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ee46082e3581278bc4cbc1ca5d4d4076e0f416421f054ef788487451c99be1c)
@@ -1230,7 +1230,7 @@ class NetworkfirewallRuleGroupRuleGroupReferenceSetsIpSetReferencesIpSetReferenc
 
     @builtins.property
     def reference_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#reference_arn NetworkfirewallRuleGroup#reference_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#reference_arn NetworkfirewallRuleGroup#reference_arn}.'''
         result = self._values.get("reference_arn")
         assert result is not None, "Required property 'reference_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1664,8 +1664,8 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariables:
         port_sets: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSets", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param ip_sets: ip_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#ip_sets NetworkfirewallRuleGroup#ip_sets}
-        :param port_sets: port_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#port_sets NetworkfirewallRuleGroup#port_sets}
+        :param ip_sets: ip_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#ip_sets NetworkfirewallRuleGroup#ip_sets}
+        :param port_sets: port_sets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#port_sets NetworkfirewallRuleGroup#port_sets}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a93cfcda5b1e5634427da7e0b19ecce25766e75b77a8c7d8527799884f5f069)
@@ -1683,7 +1683,7 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariables:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRuleVariablesIpSets"]]]:
         '''ip_sets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#ip_sets NetworkfirewallRuleGroup#ip_sets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#ip_sets NetworkfirewallRuleGroup#ip_sets}
         '''
         result = self._values.get("ip_sets")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRuleVariablesIpSets"]]], result)
@@ -1694,7 +1694,7 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariables:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSets"]]]:
         '''port_sets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#port_sets NetworkfirewallRuleGroup#port_sets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#port_sets NetworkfirewallRuleGroup#port_sets}
         '''
         result = self._values.get("port_sets")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSets"]]], result)
@@ -1724,8 +1724,8 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariablesIpSets:
         key: builtins.str,
     ) -> None:
         '''
-        :param ip_set: ip_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#ip_set NetworkfirewallRuleGroup#ip_set}
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#key NetworkfirewallRuleGroup#key}.
+        :param ip_set: ip_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#ip_set NetworkfirewallRuleGroup#ip_set}
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#key NetworkfirewallRuleGroup#key}.
         '''
         if isinstance(ip_set, dict):
             ip_set = NetworkfirewallRuleGroupRuleGroupRuleVariablesIpSetsIpSet(**ip_set)
@@ -1742,7 +1742,7 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariablesIpSets:
     def ip_set(self) -> "NetworkfirewallRuleGroupRuleGroupRuleVariablesIpSetsIpSet":
         '''ip_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#ip_set NetworkfirewallRuleGroup#ip_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#ip_set NetworkfirewallRuleGroup#ip_set}
         '''
         result = self._values.get("ip_set")
         assert result is not None, "Required property 'ip_set' is missing"
@@ -1750,7 +1750,7 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariablesIpSets:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#key NetworkfirewallRuleGroup#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#key NetworkfirewallRuleGroup#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
@@ -1775,7 +1775,7 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariablesIpSets:
 class NetworkfirewallRuleGroupRuleGroupRuleVariablesIpSetsIpSet:
     def __init__(self, *, definition: typing.Sequence[builtins.str]) -> None:
         '''
-        :param definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#definition NetworkfirewallRuleGroup#definition}.
+        :param definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#definition NetworkfirewallRuleGroup#definition}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16048dcbc05d380c325ecea9910c7aa5b98f0e27d2b96fa25b526ad568e28392)
@@ -1786,7 +1786,7 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariablesIpSetsIpSet:
 
     @builtins.property
     def definition(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#definition NetworkfirewallRuleGroup#definition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#definition NetworkfirewallRuleGroup#definition}.'''
         result = self._values.get("definition")
         assert result is not None, "Required property 'definition' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1980,7 +1980,7 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariablesIpSetsOutputReference(
     @jsii.member(jsii_name="putIpSet")
     def put_ip_set(self, *, definition: typing.Sequence[builtins.str]) -> None:
         '''
-        :param definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#definition NetworkfirewallRuleGroup#definition}.
+        :param definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#definition NetworkfirewallRuleGroup#definition}.
         '''
         value = NetworkfirewallRuleGroupRuleGroupRuleVariablesIpSetsIpSet(
             definition=definition
@@ -2146,8 +2146,8 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSets:
         port_set: typing.Union["NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSetsPortSet", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#key NetworkfirewallRuleGroup#key}.
-        :param port_set: port_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#port_set NetworkfirewallRuleGroup#port_set}
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#key NetworkfirewallRuleGroup#key}.
+        :param port_set: port_set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#port_set NetworkfirewallRuleGroup#port_set}
         '''
         if isinstance(port_set, dict):
             port_set = NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSetsPortSet(**port_set)
@@ -2162,7 +2162,7 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSets:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#key NetworkfirewallRuleGroup#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#key NetworkfirewallRuleGroup#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
@@ -2173,7 +2173,7 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSets:
     ) -> "NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSetsPortSet":
         '''port_set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#port_set NetworkfirewallRuleGroup#port_set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#port_set NetworkfirewallRuleGroup#port_set}
         '''
         result = self._values.get("port_set")
         assert result is not None, "Required property 'port_set' is missing"
@@ -2313,7 +2313,7 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSetsOutputReference(
     @jsii.member(jsii_name="putPortSet")
     def put_port_set(self, *, definition: typing.Sequence[builtins.str]) -> None:
         '''
-        :param definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#definition NetworkfirewallRuleGroup#definition}.
+        :param definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#definition NetworkfirewallRuleGroup#definition}.
         '''
         value = NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSetsPortSet(
             definition=definition
@@ -2378,7 +2378,7 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSetsOutputReference(
 class NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSetsPortSet:
     def __init__(self, *, definition: typing.Sequence[builtins.str]) -> None:
         '''
-        :param definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#definition NetworkfirewallRuleGroup#definition}.
+        :param definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#definition NetworkfirewallRuleGroup#definition}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__51f1c27ba49aa37c414f9a23883377ba770d684d683cc6f1617031bdcfaebc52)
@@ -2389,7 +2389,7 @@ class NetworkfirewallRuleGroupRuleGroupRuleVariablesPortSetsPortSet:
 
     @builtins.property
     def definition(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#definition NetworkfirewallRuleGroup#definition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#definition NetworkfirewallRuleGroup#definition}.'''
         result = self._values.get("definition")
         assert result is not None, "Required property 'definition' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2481,10 +2481,10 @@ class NetworkfirewallRuleGroupRuleGroupRulesSource:
         stateless_rules_and_custom_actions: typing.Optional[typing.Union["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param rules_source_list: rules_source_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rules_source_list NetworkfirewallRuleGroup#rules_source_list}
-        :param rules_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rules_string NetworkfirewallRuleGroup#rules_string}.
-        :param stateful_rule: stateful_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#stateful_rule NetworkfirewallRuleGroup#stateful_rule}
-        :param stateless_rules_and_custom_actions: stateless_rules_and_custom_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#stateless_rules_and_custom_actions NetworkfirewallRuleGroup#stateless_rules_and_custom_actions}
+        :param rules_source_list: rules_source_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rules_source_list NetworkfirewallRuleGroup#rules_source_list}
+        :param rules_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rules_string NetworkfirewallRuleGroup#rules_string}.
+        :param stateful_rule: stateful_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#stateful_rule NetworkfirewallRuleGroup#stateful_rule}
+        :param stateless_rules_and_custom_actions: stateless_rules_and_custom_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#stateless_rules_and_custom_actions NetworkfirewallRuleGroup#stateless_rules_and_custom_actions}
         '''
         if isinstance(rules_source_list, dict):
             rules_source_list = NetworkfirewallRuleGroupRuleGroupRulesSourceRulesSourceListStruct(**rules_source_list)
@@ -2512,14 +2512,14 @@ class NetworkfirewallRuleGroupRuleGroupRulesSource:
     ) -> typing.Optional["NetworkfirewallRuleGroupRuleGroupRulesSourceRulesSourceListStruct"]:
         '''rules_source_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rules_source_list NetworkfirewallRuleGroup#rules_source_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rules_source_list NetworkfirewallRuleGroup#rules_source_list}
         '''
         result = self._values.get("rules_source_list")
         return typing.cast(typing.Optional["NetworkfirewallRuleGroupRuleGroupRulesSourceRulesSourceListStruct"], result)
 
     @builtins.property
     def rules_string(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rules_string NetworkfirewallRuleGroup#rules_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rules_string NetworkfirewallRuleGroup#rules_string}.'''
         result = self._values.get("rules_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2529,7 +2529,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSource:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRule"]]]:
         '''stateful_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#stateful_rule NetworkfirewallRuleGroup#stateful_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#stateful_rule NetworkfirewallRuleGroup#stateful_rule}
         '''
         result = self._values.get("stateful_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRule"]]], result)
@@ -2540,7 +2540,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSource:
     ) -> typing.Optional["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions"]:
         '''stateless_rules_and_custom_actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#stateless_rules_and_custom_actions NetworkfirewallRuleGroup#stateless_rules_and_custom_actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#stateless_rules_and_custom_actions NetworkfirewallRuleGroup#stateless_rules_and_custom_actions}
         '''
         result = self._values.get("stateless_rules_and_custom_actions")
         return typing.cast(typing.Optional["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions"], result)
@@ -2586,9 +2586,9 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceOutputReference(
         target_types: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param generated_rules_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#generated_rules_type NetworkfirewallRuleGroup#generated_rules_type}.
-        :param targets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#targets NetworkfirewallRuleGroup#targets}.
-        :param target_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#target_types NetworkfirewallRuleGroup#target_types}.
+        :param generated_rules_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#generated_rules_type NetworkfirewallRuleGroup#generated_rules_type}.
+        :param targets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#targets NetworkfirewallRuleGroup#targets}.
+        :param target_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#target_types NetworkfirewallRuleGroup#target_types}.
         '''
         value = NetworkfirewallRuleGroupRuleGroupRulesSourceRulesSourceListStruct(
             generated_rules_type=generated_rules_type,
@@ -2619,8 +2619,8 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceOutputReference(
         custom_action: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomAction", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param stateless_rule: stateless_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#stateless_rule NetworkfirewallRuleGroup#stateless_rule}
-        :param custom_action: custom_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#custom_action NetworkfirewallRuleGroup#custom_action}
+        :param stateless_rule: stateless_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#stateless_rule NetworkfirewallRuleGroup#stateless_rule}
+        :param custom_action: custom_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#custom_action NetworkfirewallRuleGroup#custom_action}
         '''
         value = NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions(
             stateless_rule=stateless_rule, custom_action=custom_action
@@ -2739,9 +2739,9 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceRulesSourceListStruct:
         target_types: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param generated_rules_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#generated_rules_type NetworkfirewallRuleGroup#generated_rules_type}.
-        :param targets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#targets NetworkfirewallRuleGroup#targets}.
-        :param target_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#target_types NetworkfirewallRuleGroup#target_types}.
+        :param generated_rules_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#generated_rules_type NetworkfirewallRuleGroup#generated_rules_type}.
+        :param targets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#targets NetworkfirewallRuleGroup#targets}.
+        :param target_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#target_types NetworkfirewallRuleGroup#target_types}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e19e8cadfc836de8c61a302bf02048017f0634404c8a9a1e5f821ffe7058e98a)
@@ -2756,21 +2756,21 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceRulesSourceListStruct:
 
     @builtins.property
     def generated_rules_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#generated_rules_type NetworkfirewallRuleGroup#generated_rules_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#generated_rules_type NetworkfirewallRuleGroup#generated_rules_type}.'''
         result = self._values.get("generated_rules_type")
         assert result is not None, "Required property 'generated_rules_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def targets(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#targets NetworkfirewallRuleGroup#targets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#targets NetworkfirewallRuleGroup#targets}.'''
         result = self._values.get("targets")
         assert result is not None, "Required property 'targets' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def target_types(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#target_types NetworkfirewallRuleGroup#target_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#target_types NetworkfirewallRuleGroup#target_types}.'''
         result = self._values.get("target_types")
         assert result is not None, "Required property 'target_types' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2890,9 +2890,9 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRule:
         rule_option: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRuleRuleOption", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#action NetworkfirewallRuleGroup#action}.
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#header NetworkfirewallRuleGroup#header}
-        :param rule_option: rule_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rule_option NetworkfirewallRuleGroup#rule_option}
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#action NetworkfirewallRuleGroup#action}.
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#header NetworkfirewallRuleGroup#header}
+        :param rule_option: rule_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rule_option NetworkfirewallRuleGroup#rule_option}
         '''
         if isinstance(header, dict):
             header = NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRuleHeader(**header)
@@ -2909,7 +2909,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRule:
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#action NetworkfirewallRuleGroup#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#action NetworkfirewallRuleGroup#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
@@ -2920,7 +2920,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRule:
     ) -> "NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRuleHeader":
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#header NetworkfirewallRuleGroup#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#header NetworkfirewallRuleGroup#header}
         '''
         result = self._values.get("header")
         assert result is not None, "Required property 'header' is missing"
@@ -2932,7 +2932,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRule:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRuleRuleOption"]]:
         '''rule_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rule_option NetworkfirewallRuleGroup#rule_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rule_option NetworkfirewallRuleGroup#rule_option}
         '''
         result = self._values.get("rule_option")
         assert result is not None, "Required property 'rule_option' is missing"
@@ -2974,12 +2974,12 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRuleHeader:
         source_port: builtins.str,
     ) -> None:
         '''
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#destination NetworkfirewallRuleGroup#destination}.
-        :param destination_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#destination_port NetworkfirewallRuleGroup#destination_port}.
-        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#direction NetworkfirewallRuleGroup#direction}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#protocol NetworkfirewallRuleGroup#protocol}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#source NetworkfirewallRuleGroup#source}.
-        :param source_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#source_port NetworkfirewallRuleGroup#source_port}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#destination NetworkfirewallRuleGroup#destination}.
+        :param destination_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#destination_port NetworkfirewallRuleGroup#destination_port}.
+        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#direction NetworkfirewallRuleGroup#direction}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#protocol NetworkfirewallRuleGroup#protocol}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#source NetworkfirewallRuleGroup#source}.
+        :param source_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#source_port NetworkfirewallRuleGroup#source_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__54748213b6df13a1a7e4fe6254155d9d92fcf8ca5a18b7e9e530d258a8f06a09)
@@ -3000,42 +3000,42 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRuleHeader:
 
     @builtins.property
     def destination(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#destination NetworkfirewallRuleGroup#destination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#destination NetworkfirewallRuleGroup#destination}.'''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def destination_port(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#destination_port NetworkfirewallRuleGroup#destination_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#destination_port NetworkfirewallRuleGroup#destination_port}.'''
         result = self._values.get("destination_port")
         assert result is not None, "Required property 'destination_port' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def direction(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#direction NetworkfirewallRuleGroup#direction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#direction NetworkfirewallRuleGroup#direction}.'''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#protocol NetworkfirewallRuleGroup#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#protocol NetworkfirewallRuleGroup#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#source NetworkfirewallRuleGroup#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#source NetworkfirewallRuleGroup#source}.'''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_port(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#source_port NetworkfirewallRuleGroup#source_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#source_port NetworkfirewallRuleGroup#source_port}.'''
         result = self._values.get("source_port")
         assert result is not None, "Required property 'source_port' is missing"
         return typing.cast(builtins.str, result)
@@ -3323,12 +3323,12 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRuleOutputReference(
         source_port: builtins.str,
     ) -> None:
         '''
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#destination NetworkfirewallRuleGroup#destination}.
-        :param destination_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#destination_port NetworkfirewallRuleGroup#destination_port}.
-        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#direction NetworkfirewallRuleGroup#direction}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#protocol NetworkfirewallRuleGroup#protocol}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#source NetworkfirewallRuleGroup#source}.
-        :param source_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#source_port NetworkfirewallRuleGroup#source_port}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#destination NetworkfirewallRuleGroup#destination}.
+        :param destination_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#destination_port NetworkfirewallRuleGroup#destination_port}.
+        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#direction NetworkfirewallRuleGroup#direction}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#protocol NetworkfirewallRuleGroup#protocol}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#source NetworkfirewallRuleGroup#source}.
+        :param source_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#source_port NetworkfirewallRuleGroup#source_port}.
         '''
         value = NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRuleHeader(
             destination=destination,
@@ -3430,8 +3430,8 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRuleRuleOption:
         settings: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param keyword: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#keyword NetworkfirewallRuleGroup#keyword}.
-        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#settings NetworkfirewallRuleGroup#settings}.
+        :param keyword: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#keyword NetworkfirewallRuleGroup#keyword}.
+        :param settings: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#settings NetworkfirewallRuleGroup#settings}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__acc488a7586e26aa62033f7f0a37677ceb77b3fb786d1cd8cd921969833ec421)
@@ -3445,14 +3445,14 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatefulRuleRuleOption:
 
     @builtins.property
     def keyword(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#keyword NetworkfirewallRuleGroup#keyword}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#keyword NetworkfirewallRuleGroup#keyword}.'''
         result = self._values.get("keyword")
         assert result is not None, "Required property 'keyword' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def settings(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#settings NetworkfirewallRuleGroup#settings}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#settings NetworkfirewallRuleGroup#settings}.'''
         result = self._values.get("settings")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3656,8 +3656,8 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         custom_action: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomAction", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param stateless_rule: stateless_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#stateless_rule NetworkfirewallRuleGroup#stateless_rule}
-        :param custom_action: custom_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#custom_action NetworkfirewallRuleGroup#custom_action}
+        :param stateless_rule: stateless_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#stateless_rule NetworkfirewallRuleGroup#stateless_rule}
+        :param custom_action: custom_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#custom_action NetworkfirewallRuleGroup#custom_action}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b91d02c31dd3796fe81dcc607500a520c0ea3216cb5e487ef470b27eaf24fc83)
@@ -3675,7 +3675,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRule"]]:
         '''stateless_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#stateless_rule NetworkfirewallRuleGroup#stateless_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#stateless_rule NetworkfirewallRuleGroup#stateless_rule}
         '''
         result = self._values.get("stateless_rule")
         assert result is not None, "Required property 'stateless_rule' is missing"
@@ -3687,7 +3687,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomAction"]]]:
         '''custom_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#custom_action NetworkfirewallRuleGroup#custom_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#custom_action NetworkfirewallRuleGroup#custom_action}
         '''
         result = self._values.get("custom_action")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomAction"]]], result)
@@ -3720,8 +3720,8 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         action_name: builtins.str,
     ) -> None:
         '''
-        :param action_definition: action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#action_definition NetworkfirewallRuleGroup#action_definition}
-        :param action_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#action_name NetworkfirewallRuleGroup#action_name}.
+        :param action_definition: action_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#action_definition NetworkfirewallRuleGroup#action_definition}
+        :param action_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#action_name NetworkfirewallRuleGroup#action_name}.
         '''
         if isinstance(action_definition, dict):
             action_definition = NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomActionActionDefinition(**action_definition)
@@ -3740,7 +3740,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
     ) -> "NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomActionActionDefinition":
         '''action_definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#action_definition NetworkfirewallRuleGroup#action_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#action_definition NetworkfirewallRuleGroup#action_definition}
         '''
         result = self._values.get("action_definition")
         assert result is not None, "Required property 'action_definition' is missing"
@@ -3748,7 +3748,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
 
     @builtins.property
     def action_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#action_name NetworkfirewallRuleGroup#action_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#action_name NetworkfirewallRuleGroup#action_name}.'''
         result = self._values.get("action_name")
         assert result is not None, "Required property 'action_name' is missing"
         return typing.cast(builtins.str, result)
@@ -3777,7 +3777,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         publish_metric_action: typing.Union["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomActionActionDefinitionPublishMetricAction", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param publish_metric_action: publish_metric_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#publish_metric_action NetworkfirewallRuleGroup#publish_metric_action}
+        :param publish_metric_action: publish_metric_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#publish_metric_action NetworkfirewallRuleGroup#publish_metric_action}
         '''
         if isinstance(publish_metric_action, dict):
             publish_metric_action = NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomActionActionDefinitionPublishMetricAction(**publish_metric_action)
@@ -3794,7 +3794,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
     ) -> "NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomActionActionDefinitionPublishMetricAction":
         '''publish_metric_action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#publish_metric_action NetworkfirewallRuleGroup#publish_metric_action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#publish_metric_action NetworkfirewallRuleGroup#publish_metric_action}
         '''
         result = self._values.get("publish_metric_action")
         assert result is not None, "Required property 'publish_metric_action' is missing"
@@ -3839,7 +3839,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         dimension: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomActionActionDefinitionPublishMetricActionDimension", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#dimension NetworkfirewallRuleGroup#dimension}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#dimension NetworkfirewallRuleGroup#dimension}
         '''
         value = NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomActionActionDefinitionPublishMetricAction(
             dimension=dimension
@@ -3891,7 +3891,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         dimension: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomActionActionDefinitionPublishMetricActionDimension", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#dimension NetworkfirewallRuleGroup#dimension}
+        :param dimension: dimension block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#dimension NetworkfirewallRuleGroup#dimension}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3add29817afc529d8b09cf55d7dcfd3114b1f252a58548a7497fd14676b25f6f)
@@ -3906,7 +3906,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomActionActionDefinitionPublishMetricActionDimension"]]:
         '''dimension block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#dimension NetworkfirewallRuleGroup#dimension}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#dimension NetworkfirewallRuleGroup#dimension}
         '''
         result = self._values.get("dimension")
         assert result is not None, "Required property 'dimension' is missing"
@@ -3932,7 +3932,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
 class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomActionActionDefinitionPublishMetricActionDimension:
     def __init__(self, *, value: builtins.str) -> None:
         '''
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#value NetworkfirewallRuleGroup#value}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#value NetworkfirewallRuleGroup#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e788abeda4fb21d447cd60bcfc7de1dde7827d8edff13bdf822f4591d24c2cc)
@@ -3943,7 +3943,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#value NetworkfirewallRuleGroup#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#value NetworkfirewallRuleGroup#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -4305,7 +4305,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         publish_metric_action: typing.Union[NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomActionActionDefinitionPublishMetricAction, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param publish_metric_action: publish_metric_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#publish_metric_action NetworkfirewallRuleGroup#publish_metric_action}
+        :param publish_metric_action: publish_metric_action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#publish_metric_action NetworkfirewallRuleGroup#publish_metric_action}
         '''
         value = NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsCustomActionActionDefinition(
             publish_metric_action=publish_metric_action
@@ -4471,8 +4471,8 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         rule_definition: typing.Union["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinition", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#priority NetworkfirewallRuleGroup#priority}.
-        :param rule_definition: rule_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rule_definition NetworkfirewallRuleGroup#rule_definition}
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#priority NetworkfirewallRuleGroup#priority}.
+        :param rule_definition: rule_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rule_definition NetworkfirewallRuleGroup#rule_definition}
         '''
         if isinstance(rule_definition, dict):
             rule_definition = NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinition(**rule_definition)
@@ -4487,7 +4487,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
 
     @builtins.property
     def priority(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#priority NetworkfirewallRuleGroup#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#priority NetworkfirewallRuleGroup#priority}.'''
         result = self._values.get("priority")
         assert result is not None, "Required property 'priority' is missing"
         return typing.cast(jsii.Number, result)
@@ -4498,7 +4498,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
     ) -> "NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinition":
         '''rule_definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rule_definition NetworkfirewallRuleGroup#rule_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rule_definition NetworkfirewallRuleGroup#rule_definition}
         '''
         result = self._values.get("rule_definition")
         assert result is not None, "Required property 'rule_definition' is missing"
@@ -4643,8 +4643,8 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         match_attributes: typing.Union["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributes", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#actions NetworkfirewallRuleGroup#actions}.
-        :param match_attributes: match_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#match_attributes NetworkfirewallRuleGroup#match_attributes}
+        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#actions NetworkfirewallRuleGroup#actions}.
+        :param match_attributes: match_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#match_attributes NetworkfirewallRuleGroup#match_attributes}
         '''
         value = NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinition(
             actions=actions, match_attributes=match_attributes
@@ -4714,8 +4714,8 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         match_attributes: typing.Union["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributes", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#actions NetworkfirewallRuleGroup#actions}.
-        :param match_attributes: match_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#match_attributes NetworkfirewallRuleGroup#match_attributes}
+        :param actions: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#actions NetworkfirewallRuleGroup#actions}.
+        :param match_attributes: match_attributes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#match_attributes NetworkfirewallRuleGroup#match_attributes}
         '''
         if isinstance(match_attributes, dict):
             match_attributes = NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributes(**match_attributes)
@@ -4730,7 +4730,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
 
     @builtins.property
     def actions(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#actions NetworkfirewallRuleGroup#actions}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#actions NetworkfirewallRuleGroup#actions}.'''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -4741,7 +4741,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
     ) -> "NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributes":
         '''match_attributes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#match_attributes NetworkfirewallRuleGroup#match_attributes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#match_attributes NetworkfirewallRuleGroup#match_attributes}
         '''
         result = self._values.get("match_attributes")
         assert result is not None, "Required property 'match_attributes' is missing"
@@ -4783,12 +4783,12 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         tcp_flag: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesTcpFlag", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#destination NetworkfirewallRuleGroup#destination}
-        :param destination_port: destination_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#destination_port NetworkfirewallRuleGroup#destination_port}
-        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#protocols NetworkfirewallRuleGroup#protocols}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#source NetworkfirewallRuleGroup#source}
-        :param source_port: source_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#source_port NetworkfirewallRuleGroup#source_port}
-        :param tcp_flag: tcp_flag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#tcp_flag NetworkfirewallRuleGroup#tcp_flag}
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#destination NetworkfirewallRuleGroup#destination}
+        :param destination_port: destination_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#destination_port NetworkfirewallRuleGroup#destination_port}
+        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#protocols NetworkfirewallRuleGroup#protocols}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#source NetworkfirewallRuleGroup#source}
+        :param source_port: source_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#source_port NetworkfirewallRuleGroup#source_port}
+        :param tcp_flag: tcp_flag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#tcp_flag NetworkfirewallRuleGroup#tcp_flag}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__68be9ab7491e3b8ffb5347ef9eae6c8a1f5d8fa562271d72787eee54cfb51e24)
@@ -4818,7 +4818,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesDestination"]]]:
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#destination NetworkfirewallRuleGroup#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#destination NetworkfirewallRuleGroup#destination}
         '''
         result = self._values.get("destination")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesDestination"]]], result)
@@ -4829,14 +4829,14 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesDestinationPort"]]]:
         '''destination_port block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#destination_port NetworkfirewallRuleGroup#destination_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#destination_port NetworkfirewallRuleGroup#destination_port}
         '''
         result = self._values.get("destination_port")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesDestinationPort"]]], result)
 
     @builtins.property
     def protocols(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#protocols NetworkfirewallRuleGroup#protocols}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#protocols NetworkfirewallRuleGroup#protocols}.'''
         result = self._values.get("protocols")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -4846,7 +4846,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesSource"]]]:
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#source NetworkfirewallRuleGroup#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#source NetworkfirewallRuleGroup#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesSource"]]], result)
@@ -4857,7 +4857,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesSourcePort"]]]:
         '''source_port block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#source_port NetworkfirewallRuleGroup#source_port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#source_port NetworkfirewallRuleGroup#source_port}
         '''
         result = self._values.get("source_port")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesSourcePort"]]], result)
@@ -4868,7 +4868,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesTcpFlag"]]]:
         '''tcp_flag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#tcp_flag NetworkfirewallRuleGroup#tcp_flag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#tcp_flag NetworkfirewallRuleGroup#tcp_flag}
         '''
         result = self._values.get("tcp_flag")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesTcpFlag"]]], result)
@@ -4893,7 +4893,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
 class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesDestination:
     def __init__(self, *, address_definition: builtins.str) -> None:
         '''
-        :param address_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#address_definition NetworkfirewallRuleGroup#address_definition}.
+        :param address_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#address_definition NetworkfirewallRuleGroup#address_definition}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c7a2485c18189c30ad95d89ed72f7407e3600425a340685fef8a162ec11f33e5)
@@ -4904,7 +4904,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
 
     @builtins.property
     def address_definition(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#address_definition NetworkfirewallRuleGroup#address_definition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#address_definition NetworkfirewallRuleGroup#address_definition}.'''
         result = self._values.get("address_definition")
         assert result is not None, "Required property 'address_definition' is missing"
         return typing.cast(builtins.str, result)
@@ -5088,8 +5088,8 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         to_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#from_port NetworkfirewallRuleGroup#from_port}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#to_port NetworkfirewallRuleGroup#to_port}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#from_port NetworkfirewallRuleGroup#from_port}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#to_port NetworkfirewallRuleGroup#to_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d5e66e0034e08cac24727687b65e354c53ebe50b5f00200c2a22b25d1780fad4)
@@ -5103,14 +5103,14 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
 
     @builtins.property
     def from_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#from_port NetworkfirewallRuleGroup#from_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#from_port NetworkfirewallRuleGroup#from_port}.'''
         result = self._values.get("from_port")
         assert result is not None, "Required property 'from_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def to_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#to_port NetworkfirewallRuleGroup#to_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#to_port NetworkfirewallRuleGroup#to_port}.'''
         result = self._values.get("to_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5523,7 +5523,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
 class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesSource:
     def __init__(self, *, address_definition: builtins.str) -> None:
         '''
-        :param address_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#address_definition NetworkfirewallRuleGroup#address_definition}.
+        :param address_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#address_definition NetworkfirewallRuleGroup#address_definition}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b8288dee6a15b27dbf2bddba6310fa94b8e738bde1b1881a81aa349290dfdb1a)
@@ -5534,7 +5534,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
 
     @builtins.property
     def address_definition(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#address_definition NetworkfirewallRuleGroup#address_definition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#address_definition NetworkfirewallRuleGroup#address_definition}.'''
         result = self._values.get("address_definition")
         assert result is not None, "Required property 'address_definition' is missing"
         return typing.cast(builtins.str, result)
@@ -5718,8 +5718,8 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         to_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#from_port NetworkfirewallRuleGroup#from_port}.
-        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#to_port NetworkfirewallRuleGroup#to_port}.
+        :param from_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#from_port NetworkfirewallRuleGroup#from_port}.
+        :param to_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#to_port NetworkfirewallRuleGroup#to_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__527e767478b17cec7dd5db1aae24c682d93a4b2e315edbd1e9ed40b729b30aaa)
@@ -5733,14 +5733,14 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
 
     @builtins.property
     def from_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#from_port NetworkfirewallRuleGroup#from_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#from_port NetworkfirewallRuleGroup#from_port}.'''
         result = self._values.get("from_port")
         assert result is not None, "Required property 'from_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def to_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#to_port NetworkfirewallRuleGroup#to_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#to_port NetworkfirewallRuleGroup#to_port}.'''
         result = self._values.get("to_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5944,8 +5944,8 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         masks: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param flags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#flags NetworkfirewallRuleGroup#flags}.
-        :param masks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#masks NetworkfirewallRuleGroup#masks}.
+        :param flags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#flags NetworkfirewallRuleGroup#flags}.
+        :param masks: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#masks NetworkfirewallRuleGroup#masks}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24a9badd423218e7cbaf476be61d6142713fab82b62fbe39ca31e69700260725)
@@ -5959,14 +5959,14 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
 
     @builtins.property
     def flags(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#flags NetworkfirewallRuleGroup#flags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#flags NetworkfirewallRuleGroup#flags}.'''
         result = self._values.get("flags")
         assert result is not None, "Required property 'flags' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def masks(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#masks NetworkfirewallRuleGroup#masks}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#masks NetworkfirewallRuleGroup#masks}.'''
         result = self._values.get("masks")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -6189,12 +6189,12 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
         tcp_flag: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributesTcpFlag, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#destination NetworkfirewallRuleGroup#destination}
-        :param destination_port: destination_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#destination_port NetworkfirewallRuleGroup#destination_port}
-        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#protocols NetworkfirewallRuleGroup#protocols}.
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#source NetworkfirewallRuleGroup#source}
-        :param source_port: source_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#source_port NetworkfirewallRuleGroup#source_port}
-        :param tcp_flag: tcp_flag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#tcp_flag NetworkfirewallRuleGroup#tcp_flag}
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#destination NetworkfirewallRuleGroup#destination}
+        :param destination_port: destination_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#destination_port NetworkfirewallRuleGroup#destination_port}
+        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#protocols NetworkfirewallRuleGroup#protocols}.
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#source NetworkfirewallRuleGroup#source}
+        :param source_port: source_port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#source_port NetworkfirewallRuleGroup#source_port}
+        :param tcp_flag: tcp_flag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#tcp_flag NetworkfirewallRuleGroup#tcp_flag}
         '''
         value = NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActionsStatelessRuleRuleDefinitionMatchAttributes(
             destination=destination,
@@ -6264,7 +6264,7 @@ class NetworkfirewallRuleGroupRuleGroupRulesSourceStatelessRulesAndCustomActions
 class NetworkfirewallRuleGroupRuleGroupStatefulRuleOptions:
     def __init__(self, *, rule_order: builtins.str) -> None:
         '''
-        :param rule_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rule_order NetworkfirewallRuleGroup#rule_order}.
+        :param rule_order: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rule_order NetworkfirewallRuleGroup#rule_order}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__71141886f5c2cd83a0b8de39bcf65f16bd92555c2a61f2a1ab8b30a5bafc23d7)
@@ -6275,7 +6275,7 @@ class NetworkfirewallRuleGroupRuleGroupStatefulRuleOptions:
 
     @builtins.property
     def rule_order(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/networkfirewall_rule_group#rule_order NetworkfirewallRuleGroup#rule_order}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/networkfirewall_rule_group#rule_order NetworkfirewallRuleGroup#rule_order}.'''
         result = self._values.get("rule_order")
         assert result is not None, "Required property 'rule_order' is missing"
         return typing.cast(builtins.str, result)

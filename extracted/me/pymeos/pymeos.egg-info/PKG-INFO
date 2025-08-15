@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pymeos
-Version: 1.2.0
+Version: 1.2.1
 Summary: Python wrapper for the MEOS C Library.
 Author-email: Victor Divi <vdiviloper@gmail.com>, Zhicheng Luo <zhicheng.luo@ulb.be>, Krishna Chaitanya Bommakanti <bkchaitan94@gmail.com>
 License: PostgreSQL License

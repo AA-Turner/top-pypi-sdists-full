@@ -26,7 +26,7 @@ class Oscilloscope:
         return self._device
 
     def __init__(self, device: 'Device'):
-        self._device = device
+        self._device: 'Device' = device
 
     def add_channel(
             self,

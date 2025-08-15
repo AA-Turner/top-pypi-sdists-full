@@ -230,6 +230,8 @@ class SeeqNames:
         unique_row_id = 'Existing Row Identifier'
         csv_item_id_column = 'csv item id'
         last_capsule_state_column = 'Last Capsule State'
+        hierarchy_node_id_column = 'node_id'
+        hierarchy_node_column_column = 'node_column'
         class Parameters:
             property_name = 'propertyName'
             property_names = 'propertyNames'

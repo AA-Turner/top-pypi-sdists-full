@@ -1,7 +1,7 @@
 r'''
 # `azurerm_eventhub`
 
-Refer to the Terraform Registry for docs: [`azurerm_eventhub`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub).
+Refer to the Terraform Registry for docs: [`azurerm_eventhub`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Eventhub(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.eventhub.Eventhub",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub azurerm_eventhub}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub azurerm_eventhub}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class Eventhub(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub azurerm_eventhub} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub azurerm_eventhub} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#name Eventhub#name}.
-        :param partition_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#partition_count Eventhub#partition_count}.
-        :param capture_description: capture_description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#capture_description Eventhub#capture_description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#id Eventhub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param message_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#message_retention Eventhub#message_retention}.
-        :param namespace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#namespace_id Eventhub#namespace_id}.
-        :param namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#namespace_name Eventhub#namespace_name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#resource_group_name Eventhub#resource_group_name}.
-        :param retention_description: retention_description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#retention_description Eventhub#retention_description}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#status Eventhub#status}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#timeouts Eventhub#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#name Eventhub#name}.
+        :param partition_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#partition_count Eventhub#partition_count}.
+        :param capture_description: capture_description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#capture_description Eventhub#capture_description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#id Eventhub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param message_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#message_retention Eventhub#message_retention}.
+        :param namespace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#namespace_id Eventhub#namespace_id}.
+        :param namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#namespace_name Eventhub#namespace_name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#resource_group_name Eventhub#resource_group_name}.
+        :param retention_description: retention_description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#retention_description Eventhub#retention_description}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#status Eventhub#status}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#timeouts Eventhub#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class Eventhub(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Eventhub to import.
-        :param import_from_id: The id of the existing Eventhub that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Eventhub that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Eventhub to import is found.
         '''
         if __debug__:
@@ -156,12 +156,12 @@ class Eventhub(
         skip_empty_archives: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#destination Eventhub#destination}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#enabled Eventhub#enabled}.
-        :param encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#encoding Eventhub#encoding}.
-        :param interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#interval_in_seconds Eventhub#interval_in_seconds}.
-        :param size_limit_in_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#size_limit_in_bytes Eventhub#size_limit_in_bytes}.
-        :param skip_empty_archives: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#skip_empty_archives Eventhub#skip_empty_archives}.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#destination Eventhub#destination}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#enabled Eventhub#enabled}.
+        :param encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#encoding Eventhub#encoding}.
+        :param interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#interval_in_seconds Eventhub#interval_in_seconds}.
+        :param size_limit_in_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#size_limit_in_bytes Eventhub#size_limit_in_bytes}.
+        :param skip_empty_archives: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#skip_empty_archives Eventhub#skip_empty_archives}.
         '''
         value = EventhubCaptureDescription(
             destination=destination,
@@ -183,9 +183,9 @@ class Eventhub(
         tombstone_retention_time_in_hours: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cleanup_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#cleanup_policy Eventhub#cleanup_policy}.
-        :param retention_time_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#retention_time_in_hours Eventhub#retention_time_in_hours}.
-        :param tombstone_retention_time_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#tombstone_retention_time_in_hours Eventhub#tombstone_retention_time_in_hours}.
+        :param cleanup_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#cleanup_policy Eventhub#cleanup_policy}.
+        :param retention_time_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#retention_time_in_hours Eventhub#retention_time_in_hours}.
+        :param tombstone_retention_time_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#tombstone_retention_time_in_hours Eventhub#tombstone_retention_time_in_hours}.
         '''
         value = EventhubRetentionDescription(
             cleanup_policy=cleanup_policy,
@@ -205,10 +205,10 @@ class Eventhub(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#create Eventhub#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#delete Eventhub#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#read Eventhub#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#update Eventhub#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#create Eventhub#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#delete Eventhub#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#read Eventhub#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#update Eventhub#update}.
         '''
         value = EventhubTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -467,12 +467,12 @@ class EventhubCaptureDescription:
         skip_empty_archives: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#destination Eventhub#destination}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#enabled Eventhub#enabled}.
-        :param encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#encoding Eventhub#encoding}.
-        :param interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#interval_in_seconds Eventhub#interval_in_seconds}.
-        :param size_limit_in_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#size_limit_in_bytes Eventhub#size_limit_in_bytes}.
-        :param skip_empty_archives: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#skip_empty_archives Eventhub#skip_empty_archives}.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#destination Eventhub#destination}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#enabled Eventhub#enabled}.
+        :param encoding: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#encoding Eventhub#encoding}.
+        :param interval_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#interval_in_seconds Eventhub#interval_in_seconds}.
+        :param size_limit_in_bytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#size_limit_in_bytes Eventhub#size_limit_in_bytes}.
+        :param skip_empty_archives: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#skip_empty_archives Eventhub#skip_empty_archives}.
         '''
         if isinstance(destination, dict):
             destination = EventhubCaptureDescriptionDestination(**destination)
@@ -500,7 +500,7 @@ class EventhubCaptureDescription:
     def destination(self) -> "EventhubCaptureDescriptionDestination":
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#destination Eventhub#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#destination Eventhub#destination}
         '''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
@@ -508,27 +508,27 @@ class EventhubCaptureDescription:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#enabled Eventhub#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#enabled Eventhub#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def encoding(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#encoding Eventhub#encoding}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#encoding Eventhub#encoding}.'''
         result = self._values.get("encoding")
         assert result is not None, "Required property 'encoding' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def interval_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#interval_in_seconds Eventhub#interval_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#interval_in_seconds Eventhub#interval_in_seconds}.'''
         result = self._values.get("interval_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def size_limit_in_bytes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#size_limit_in_bytes Eventhub#size_limit_in_bytes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#size_limit_in_bytes Eventhub#size_limit_in_bytes}.'''
         result = self._values.get("size_limit_in_bytes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -536,7 +536,7 @@ class EventhubCaptureDescription:
     def skip_empty_archives(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#skip_empty_archives Eventhub#skip_empty_archives}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#skip_empty_archives Eventhub#skip_empty_archives}.'''
         result = self._values.get("skip_empty_archives")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -572,10 +572,10 @@ class EventhubCaptureDescriptionDestination:
         storage_account_id: builtins.str,
     ) -> None:
         '''
-        :param archive_name_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#archive_name_format Eventhub#archive_name_format}.
-        :param blob_container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#blob_container_name Eventhub#blob_container_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#name Eventhub#name}.
-        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#storage_account_id Eventhub#storage_account_id}.
+        :param archive_name_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#archive_name_format Eventhub#archive_name_format}.
+        :param blob_container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#blob_container_name Eventhub#blob_container_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#name Eventhub#name}.
+        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#storage_account_id Eventhub#storage_account_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bfd311a91a9b87c963a53178924b43d2c99c96ee9571ae8a71e2f61b5c436402)
@@ -592,28 +592,28 @@ class EventhubCaptureDescriptionDestination:
 
     @builtins.property
     def archive_name_format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#archive_name_format Eventhub#archive_name_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#archive_name_format Eventhub#archive_name_format}.'''
         result = self._values.get("archive_name_format")
         assert result is not None, "Required property 'archive_name_format' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def blob_container_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#blob_container_name Eventhub#blob_container_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#blob_container_name Eventhub#blob_container_name}.'''
         result = self._values.get("blob_container_name")
         assert result is not None, "Required property 'blob_container_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#name Eventhub#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#name Eventhub#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def storage_account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#storage_account_id Eventhub#storage_account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#storage_account_id Eventhub#storage_account_id}.'''
         result = self._values.get("storage_account_id")
         assert result is not None, "Required property 'storage_account_id' is missing"
         return typing.cast(builtins.str, result)
@@ -764,10 +764,10 @@ class EventhubCaptureDescriptionOutputReference(
         storage_account_id: builtins.str,
     ) -> None:
         '''
-        :param archive_name_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#archive_name_format Eventhub#archive_name_format}.
-        :param blob_container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#blob_container_name Eventhub#blob_container_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#name Eventhub#name}.
-        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#storage_account_id Eventhub#storage_account_id}.
+        :param archive_name_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#archive_name_format Eventhub#archive_name_format}.
+        :param blob_container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#blob_container_name Eventhub#blob_container_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#name Eventhub#name}.
+        :param storage_account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#storage_account_id Eventhub#storage_account_id}.
         '''
         value = EventhubCaptureDescriptionDestination(
             archive_name_format=archive_name_format,
@@ -970,17 +970,17 @@ class EventhubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#name Eventhub#name}.
-        :param partition_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#partition_count Eventhub#partition_count}.
-        :param capture_description: capture_description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#capture_description Eventhub#capture_description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#id Eventhub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param message_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#message_retention Eventhub#message_retention}.
-        :param namespace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#namespace_id Eventhub#namespace_id}.
-        :param namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#namespace_name Eventhub#namespace_name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#resource_group_name Eventhub#resource_group_name}.
-        :param retention_description: retention_description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#retention_description Eventhub#retention_description}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#status Eventhub#status}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#timeouts Eventhub#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#name Eventhub#name}.
+        :param partition_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#partition_count Eventhub#partition_count}.
+        :param capture_description: capture_description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#capture_description Eventhub#capture_description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#id Eventhub#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param message_retention: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#message_retention Eventhub#message_retention}.
+        :param namespace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#namespace_id Eventhub#namespace_id}.
+        :param namespace_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#namespace_name Eventhub#namespace_name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#resource_group_name Eventhub#resource_group_name}.
+        :param retention_description: retention_description block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#retention_description Eventhub#retention_description}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#status Eventhub#status}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#timeouts Eventhub#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1113,14 +1113,14 @@ class EventhubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#name Eventhub#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#name Eventhub#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def partition_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#partition_count Eventhub#partition_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#partition_count Eventhub#partition_count}.'''
         result = self._values.get("partition_count")
         assert result is not None, "Required property 'partition_count' is missing"
         return typing.cast(jsii.Number, result)
@@ -1129,14 +1129,14 @@ class EventhubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def capture_description(self) -> typing.Optional[EventhubCaptureDescription]:
         '''capture_description block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#capture_description Eventhub#capture_description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#capture_description Eventhub#capture_description}
         '''
         result = self._values.get("capture_description")
         return typing.cast(typing.Optional[EventhubCaptureDescription], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#id Eventhub#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#id Eventhub#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1146,25 +1146,25 @@ class EventhubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def message_retention(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#message_retention Eventhub#message_retention}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#message_retention Eventhub#message_retention}.'''
         result = self._values.get("message_retention")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def namespace_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#namespace_id Eventhub#namespace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#namespace_id Eventhub#namespace_id}.'''
         result = self._values.get("namespace_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def namespace_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#namespace_name Eventhub#namespace_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#namespace_name Eventhub#namespace_name}.'''
         result = self._values.get("namespace_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resource_group_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#resource_group_name Eventhub#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#resource_group_name Eventhub#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1172,14 +1172,14 @@ class EventhubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retention_description(self) -> typing.Optional["EventhubRetentionDescription"]:
         '''retention_description block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#retention_description Eventhub#retention_description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#retention_description Eventhub#retention_description}
         '''
         result = self._values.get("retention_description")
         return typing.cast(typing.Optional["EventhubRetentionDescription"], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#status Eventhub#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#status Eventhub#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1187,7 +1187,7 @@ class EventhubConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["EventhubTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#timeouts Eventhub#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#timeouts Eventhub#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["EventhubTimeouts"], result)
@@ -1222,9 +1222,9 @@ class EventhubRetentionDescription:
         tombstone_retention_time_in_hours: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param cleanup_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#cleanup_policy Eventhub#cleanup_policy}.
-        :param retention_time_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#retention_time_in_hours Eventhub#retention_time_in_hours}.
-        :param tombstone_retention_time_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#tombstone_retention_time_in_hours Eventhub#tombstone_retention_time_in_hours}.
+        :param cleanup_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#cleanup_policy Eventhub#cleanup_policy}.
+        :param retention_time_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#retention_time_in_hours Eventhub#retention_time_in_hours}.
+        :param tombstone_retention_time_in_hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#tombstone_retention_time_in_hours Eventhub#tombstone_retention_time_in_hours}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c8fa5c12b608e911ac5f4196dc24354a7530b707c5f8723069e96f369e6c4d1f)
@@ -1241,20 +1241,20 @@ class EventhubRetentionDescription:
 
     @builtins.property
     def cleanup_policy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#cleanup_policy Eventhub#cleanup_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#cleanup_policy Eventhub#cleanup_policy}.'''
         result = self._values.get("cleanup_policy")
         assert result is not None, "Required property 'cleanup_policy' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def retention_time_in_hours(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#retention_time_in_hours Eventhub#retention_time_in_hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#retention_time_in_hours Eventhub#retention_time_in_hours}.'''
         result = self._values.get("retention_time_in_hours")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tombstone_retention_time_in_hours(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#tombstone_retention_time_in_hours Eventhub#tombstone_retention_time_in_hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#tombstone_retention_time_in_hours Eventhub#tombstone_retention_time_in_hours}.'''
         result = self._values.get("tombstone_retention_time_in_hours")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1385,10 +1385,10 @@ class EventhubTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#create Eventhub#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#delete Eventhub#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#read Eventhub#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#update Eventhub#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#create Eventhub#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#delete Eventhub#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#read Eventhub#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#update Eventhub#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__173834c726c36ac830d4e38dc31f1f60d8e5314d1071679fda57b270a773c182)
@@ -1408,25 +1408,25 @@ class EventhubTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#create Eventhub#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#create Eventhub#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#delete Eventhub#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#delete Eventhub#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#read Eventhub#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#read Eventhub#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/eventhub#update Eventhub#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/eventhub#update Eventhub#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

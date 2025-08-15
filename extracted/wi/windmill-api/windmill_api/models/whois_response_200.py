@@ -1,11 +1,15 @@
 import datetime
-from typing import Any, Dict, List, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.whois_response_200_added_via import WhoisResponse200AddedVia
+
 
 T = TypeVar("T", bound="WhoisResponse200")
 
@@ -25,6 +29,7 @@ class WhoisResponse200:
         folders_owners (List[str]):
         name (Union[Unset, str]):
         groups (Union[Unset, List[str]]):
+        added_via (Union[Unset, None, WhoisResponse200AddedVia]):
     """
 
     email: str
@@ -38,6 +43,7 @@ class WhoisResponse200:
     folders_owners: List[str]
     name: Union[Unset, str] = UNSET
     groups: Union[Unset, List[str]] = UNSET
+    added_via: Union[Unset, None, "WhoisResponse200AddedVia"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -58,6 +64,10 @@ class WhoisResponse200:
         if not isinstance(self.groups, Unset):
             groups = self.groups
 
+        added_via: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self.added_via, Unset):
+            added_via = self.added_via.to_dict() if self.added_via else None
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -77,11 +87,15 @@ class WhoisResponse200:
             field_dict["name"] = name
         if groups is not UNSET:
             field_dict["groups"] = groups
+        if added_via is not UNSET:
+            field_dict["added_via"] = added_via
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.whois_response_200_added_via import WhoisResponse200AddedVia
+
         d = src_dict.copy()
         email = d.pop("email")
 
@@ -105,6 +119,15 @@ class WhoisResponse200:
 
         groups = cast(List[str], d.pop("groups", UNSET))
 
+        _added_via = d.pop("added_via", UNSET)
+        added_via: Union[Unset, None, WhoisResponse200AddedVia]
+        if _added_via is None:
+            added_via = None
+        elif isinstance(_added_via, Unset):
+            added_via = UNSET
+        else:
+            added_via = WhoisResponse200AddedVia.from_dict(_added_via)
+
         whois_response_200 = cls(
             email=email,
             username=username,
@@ -117,6 +140,7 @@ class WhoisResponse200:
             folders_owners=folders_owners,
             name=name,
             groups=groups,
+            added_via=added_via,
         )
 
         whois_response_200.additional_properties = d

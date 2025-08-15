@@ -5,15 +5,28 @@ function.
 """
 
 from collections.abc import Iterable
-import os
+from importlib import resources
 import pickle
-from english_words.constants import PROCESSED_DATA_DIR, ALPHA, LOWER
-from english_words.util import get_data_file_path
+from english_words.constants import ALPHA, LOWER, PROCESSED_DATA_DIR
+from english_words.util import get_data_file_name
 
 
 def get_english_words_set(
     sources: Iterable[str], alpha: bool = False, lower: bool = False
 ) -> set[str]:
+    """Get a set of English words by combining word lists.
+
+    Args:
+        sources: An iterable of word list identifiers.
+        alpha: A flag specifying that non-alphanumeric are removed from
+          words.
+        lower: A flag specifying that upper-case letters are converted
+          to lower-case
+
+    Returns:
+        A set of drawn from the provided word lists, adjusted according
+        to the provided options.
+    """
     # Ensure sources is non-empty
     if not sources:
         raise ValueError("No word list sources were provided")
@@ -33,11 +46,15 @@ def get_english_words_set(
 
     # Get sets to combine
     for source in sources:
-        data_path = get_data_file_path(source, options)
+        data_file_name = get_data_file_name(source, options)
 
         try:
-            with open(data_path, "rb") as f:
-                sets_list.append(pickle.load(f))
+            pickle_bytes = (
+                resources.files(__package__)
+                .joinpath(PROCESSED_DATA_DIR, data_file_name)
+                .read_bytes()
+            )
+            sets_list.append(pickle.loads(pickle_bytes))
         except FileNotFoundError as e:
             raise ValueError(
                 f"{source} is not a valid word list identifier"

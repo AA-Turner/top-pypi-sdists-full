@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import enum
 import itertools
+import math
 from dataclasses import dataclass, field
 from enum import auto
 from itertools import chain, repeat
@@ -59,6 +60,7 @@ from pytest import mark, param, raises
 from whenever import DateDelta, DateTimeDelta, PlainDateTime, TimeDelta, ZonedDateTime
 
 import tests.test_math
+import utilities.math
 import utilities.polars
 from utilities.hypothesis import (
     date_deltas,
@@ -77,7 +79,6 @@ from utilities.hypothesis import (
     zoned_date_time_periods,
     zoned_date_times,
 )
-from utilities.math import number_of_decimals
 from utilities.numpy import DEFAULT_RNG
 from utilities.pathlib import PWD
 from utilities.polars import (
@@ -90,13 +91,13 @@ from utilities.polars import (
     DatetimeUSCentral,
     DatetimeUSEastern,
     DatetimeUTC,
-    DropNullStructSeriesError,
     ExprOrSeries,
     FiniteEWMMeanError,
     InsertAfterError,
     InsertBeforeError,
-    IsNotNullStructSeriesError,
-    IsNullStructSeriesError,
+    OneColumnEmptyError,
+    OneColumnNonUniqueError,
+    RoundToFloatError,
     SetFirstRowAsColumnsError,
     TimePeriodDType,
     _check_polars_dataframe_predicates,
@@ -123,8 +124,6 @@ from utilities.polars import (
     _GetDataTypeOrSeriesTimeZoneNotDateTimeError,
     _GetDataTypeOrSeriesTimeZoneNotZonedError,
     _GetDataTypeOrSeriesTimeZoneStructNonUniqueError,
-    _GetSeriesNumberOfDecimalsAllNullError,
-    _GetSeriesNumberOfDecimalsNotFloatError,
     _InsertBetweenMissingColumnsError,
     _InsertBetweenNonConsecutiveError,
     _IsNearEventAfterError,
@@ -137,8 +136,6 @@ from utilities.polars import (
     _reconstruct_schema,
     _ReifyExprsEmptyError,
     _ReifyExprsSeriesNonUniqueError,
-    _StructFromDataClassNotADataclassError,
-    _StructFromDataClassTypeError,
     ac_halflife,
     acf,
     adjust_frequencies,
@@ -152,7 +149,6 @@ from utilities.polars import (
     boolean_value_counts,
     check_polars_dataframe,
     choice,
-    collect_series,
     columns_to_dict,
     concat_series,
     convert_time_zone,
@@ -163,29 +159,31 @@ from utilities.polars import (
     decreasing_horizontal,
     deserialize_dataframe,
     deserialize_series,
-    drop_null_struct_series,
     ensure_data_type,
     ensure_expr_or_series,
     ensure_expr_or_series_many,
+    expr_to_series,
     finite_ewm_mean,
+    first_true_horizontal,
     get_data_type_or_series_time_zone,
     get_expr_name,
     get_frequency_spectrum,
-    get_series_number_of_decimals,
     increasing_horizontal,
     insert_after,
     insert_before,
     insert_between,
+    is_false,
     is_near_event,
-    is_not_null_struct_series,
-    is_null_struct_series,
+    is_true,
     join,
     join_into_periods,
     map_over_columns,
     nan_sum_agg,
     nan_sum_cols,
     normal,
+    number_of_decimals,
     offset_datetime,
+    one_column,
     order_of_magnitude,
     period_range,
     read_dataframe,
@@ -197,7 +195,10 @@ from utilities.polars import (
     serialize_series,
     set_first_row_as_columns,
     struct_dtype,
-    struct_from_dataclass,
+    to_false,
+    to_not_false,
+    to_not_true,
+    to_true,
     touch,
     try_reify_expr,
     uniform,
@@ -830,14 +831,6 @@ class TestChoice:
         assert series.is_in(list(elements)).all()
 
 
-class TestCollectSeries:
-    def test_main(self) -> None:
-        expr = int_range(end=10)
-        series = collect_series(expr)
-        expected = int_range(end=10, eager=True)
-        assert_series_equal(series, expected)
-
-
 class TestColumnsToDict:
     def test_main(self) -> None:
         df = DataFrame(
@@ -1449,29 +1442,6 @@ class TestDatetimeDTypes:
         assert name == expected
 
 
-class TestDropNullStructSeries:
-    def test_main(self) -> None:
-        series = Series(
-            values=[
-                {"a": None, "b": None},
-                {"a": True, "b": None},
-                {"a": None, "b": False},
-                {"a": True, "b": False},
-            ],
-            dtype=Struct({"a": Boolean, "b": Boolean}),
-        )
-        result = drop_null_struct_series(series)
-        expected = series[1:]
-        assert_series_equal(result, expected)
-
-    def test_error(self) -> None:
-        series = Series(name="series", values=[1, 2, 3, None], dtype=Int64)
-        with raises(
-            DropNullStructSeriesError, match="Series must have Struct-dtype; got Int64"
-        ):
-            _ = drop_null_struct_series(series)
-
-
 class TestEnsureDataType:
     @given(dtype=sampled_from([Boolean, Boolean()]))
     def test_main(self, *, dtype: MaybeType[Boolean]) -> None:
@@ -1494,6 +1464,14 @@ class TestEnsureExprOrSeriesMany:
         assert len(result) == 2
         for r in result:
             assert isinstance(r, Expr | Series)
+
+
+class TestExprToSeries:
+    def test_main(self) -> None:
+        expr = int_range(end=10)
+        series = expr_to_series(expr)
+        expected = int_range(end=10, eager=True)
+        assert_series_equal(series, expected)
 
 
 class TestFiniteEWMMean:
@@ -1581,6 +1559,22 @@ class TestFiniteEWMWeights:
             _ = _finite_ewm_weights(min_weight=1.0)
 
 
+class TestFirstTrueHorizontal:
+    @mark.parametrize(
+        ("values", "expected"),
+        [
+            param([True, True, True], 0),
+            param([False, True, True], 1),
+            param([False, False, True], 2),
+            param([False, False, False], None),
+        ],
+    )
+    def test_main(self, *, values: list[bool], expected: int | None) -> None:
+        series = [Series(values=[v], dtype=Boolean) for v in values]
+        result = first_true_horizontal(*series)
+        assert result.item() == expected
+
+
 class TestGetDataTypeOrSeriesTimeZone:
     @given(
         time_zone=sampled_from([HongKong, UTC]),
@@ -1663,34 +1657,6 @@ class TestGetFrequencySpectrum:
             result, height=n, schema_list={"frequency": Float64, "amplitude": Float64}
         )
         assert allclose(result.filter(col("frequency").abs() > 0.02)["amplitude"], 0.0)
-
-
-class TestGetSeriesNumberOfDecimals:
-    @given(data=data(), n=hypothesis.strategies.integers(1, 10), nullable=booleans())
-    def test_main(self, *, data: DataObject, n: int, nullable: bool) -> None:
-        strategy = int64s() | none() if nullable else int64s()
-        ints_or_none = data.draw(lists(strategy, min_size=1, max_size=10))
-        values = [None if i is None else i / 10**n for i in ints_or_none]
-        series = Series(values=values, dtype=Float64)
-        result = get_series_number_of_decimals(series, nullable=nullable)
-        if not nullable:
-            assert result is not None
-            expected = max(number_of_decimals(v) for v in values if v is not None)
-            assert result == expected
-
-    def test_error_not_float(self) -> None:
-        with raises(
-            _GetSeriesNumberOfDecimalsNotFloatError,
-            match="Data type must be Float64; got Boolean",
-        ):
-            _ = get_series_number_of_decimals(Series(dtype=Boolean))
-
-    def test_error_not_zoned(self) -> None:
-        with raises(
-            _GetSeriesNumberOfDecimalsAllNullError,
-            match="Series must not be all-null; got .*",
-        ):
-            _ = get_series_number_of_decimals(Series(dtype=Float64))
 
 
 class TestIncreasingAndDecreasingHorizontal:
@@ -1834,6 +1800,18 @@ class TestIntegers:
         assert series.is_between(0, high, closed="left").all()
 
 
+class TestIsClose:
+    @given(values=pairs(float64s()), rel_tol=floats(0.0, 1.0), abs_tol=floats(0.0, 1.0))
+    def test_main(
+        self, *, values: tuple[float, float], rel_tol: float, abs_tol: float
+    ) -> None:
+        x, y = values
+        x_sr, y_sr = [Series(values=[i], dtype=Float64) for i in values]
+        result = utilities.polars.is_close(x_sr, y_sr, rel_tol=rel_tol, abs_tol=abs_tol)
+        expected = math.isclose(x, y, rel_tol=rel_tol, abs_tol=abs_tol)
+        assert result.item() is expected
+
+
 class TestIsNearEvent:
     df: ClassVar[DataFrame] = DataFrame(
         data=[
@@ -1930,68 +1908,20 @@ class TestIsNearEvent:
             _ = is_near_event(after=after)
 
 
-class TestIsNullAndIsNotNullStructSeries:
-    @given(
-        case=sampled_from([
-            (is_null_struct_series, [True, False, False, False]),
-            (is_not_null_struct_series, [False, True, True, True]),
-        ])
+class TestIsTrueAndFalse:
+    series: ClassVar[Series] = Series(
+        name="x", values=[True, False, None], dtype=Boolean
     )
-    def test_main(self, *, case: tuple[Callable[[Series], Series], list[bool]]) -> None:
-        func, exp_values = case
-        series = Series(
-            values=[
-                {"a": None, "b": None},
-                {"a": True, "b": None},
-                {"a": None, "b": False},
-                {"a": True, "b": False},
-            ],
-            dtype=Struct({"a": Boolean, "b": Boolean}),
-        )
-        result = func(series)
-        expected = Series(values=exp_values, dtype=Boolean)
+
+    def test_true(self) -> None:
+        result = is_true(self.series)
+        expected = Series(name="x", values=[True, False, False], dtype=Boolean)
         assert_series_equal(result, expected)
 
-    @given(
-        case=sampled_from([
-            (is_null_struct_series, [False, False, False, True]),
-            (is_not_null_struct_series, [True, True, True, False]),
-        ])
-    )
-    def test_nested(
-        self, *, case: tuple[Callable[[Series], Series], list[bool]]
-    ) -> None:
-        func, exp_values = case
-        series = Series(
-            values=[
-                {"a": 1, "b": 2, "inner": {"lower": 3, "upper": 4}},
-                {"a": 1, "b": 2, "inner": None},
-                {"a": None, "b": None, "inner": {"lower": 3, "upper": 4}},
-                {"a": None, "b": None, "inner": None},
-            ],
-            dtype=Struct({
-                "a": Int64,
-                "b": Int64,
-                "inner": Struct({"lower": Int64, "upper": Int64}),
-            }),
-        )
-        result = func(series)
-        expected = Series(values=exp_values, dtype=Boolean)
+    def test_false(self) -> None:
+        result = is_false(self.series)
+        expected = Series(name="x", values=[False, True, False], dtype=Boolean)
         assert_series_equal(result, expected)
-
-    @given(
-        case=sampled_from([
-            (is_null_struct_series, IsNullStructSeriesError),
-            (is_not_null_struct_series, IsNotNullStructSeriesError),
-        ])
-    )
-    def test_error(
-        self, *, case: tuple[Callable[[Series], Series], type[Exception]]
-    ) -> None:
-        func, error = case
-        series = Series(name="series", values=[1, 2, 3, None], dtype=Int64)
-        with raises(error, match="Series must have Struct-dtype; got Int64"):
-            _ = func(series)
 
 
 class TestJoin:
@@ -2302,6 +2232,22 @@ class TestNormal:
         assert series.is_finite().all()
 
 
+class TestNumberOfDecimals:
+    @given(
+        integer=hypothesis.strategies.integers(
+            -tests.test_math.TestNumberOfDecimals.max_int,
+            tests.test_math.TestNumberOfDecimals.max_int,
+        ),
+        case=sampled_from(tests.test_math.TestNumberOfDecimals.cases),
+    )
+    def test_main(self, *, integer: int, case: tuple[float, int]) -> None:
+        frac, expected = case
+        x = integer + frac
+        series = Series(name="x", values=[x], dtype=Float64)
+        result = number_of_decimals(series)
+        assert result.item() == expected
+
+
 class TestOffsetDateTime:
     @mark.parametrize(
         ("n", "time"), [param(1, whenever.Time(13, 30)), param(2, whenever.Time(15))]
@@ -2311,6 +2257,27 @@ class TestOffsetDateTime:
         result = offset_datetime(datetime, "1h30m", n=n)
         expected = datetime.replace_time(time)
         assert result == expected
+
+
+class TestOneColumn:
+    def test_main(self) -> None:
+        series = int_range(end=10, eager=True).alias("x")
+        df = series.to_frame()
+        result = one_column(df)
+        assert_series_equal(result, series)
+
+    def test_error_empty(self) -> None:
+        with raises(OneColumnEmptyError, match="DataFrame must not be empty"):
+            _ = one_column(DataFrame())
+
+    def test_error_non_unique(self) -> None:
+        x, y = [int_range(end=10, eager=True).alias(name) for name in ["x", "y"]]
+        df = concat_series(x, y)
+        with raises(
+            OneColumnNonUniqueError,
+            match="DataFrame must contain exactly one column; got 'x', 'y' and perhaps more",
+        ):
+            _ = one_column(df)
 
 
 class TestOrderOfMagnitude:
@@ -2461,8 +2428,8 @@ class TestReplaceTimeZone:
 class TestRoundToFloat:
     @mark.parametrize(("x", "y", "exp_value"), tests.test_math.TestRoundToFloat.cases)
     def test_main(self, *, x: float, y: float, exp_value: float) -> None:
-        series = Series(name="x", values=[x], dtype=Float64)
-        result = round_to_float(series, y)
+        x_sr = Series(name="x", values=[x], dtype=Float64)
+        result = round_to_float(x_sr, y)
         expected = Series(name="x", values=[exp_value], dtype=Float64)
         assert_series_equal(result, expected, check_exact=True)
 
@@ -2474,6 +2441,30 @@ class TestRoundToFloat:
         )
         expected = Series(name="x", values=[1.2], dtype=Float64).to_frame()
         assert_frame_equal(df, expected)
+
+    @mark.parametrize(("y_value", "expected"), [param(0.1, 1.2), param(None, None)])
+    def test_series_and_expr(self, *, y_value: float, expected: float | None) -> None:
+        x = Series(name="x", values=[1.234], dtype=Float64)
+        y = lit(y_value, dtype=Float64).alias("y")
+        result = round_to_float(x, y)
+        assert result.item() == expected
+
+    def test_expr_and_expr(self) -> None:
+        x = lit(1.234, dtype=Float64).alias("x")
+        y = Series(name="y", values=[0.1], dtype=Float64)
+        result = round_to_float(x, y)
+        assert result.item() == 1.2
+
+    @mark.parametrize(
+        ("x", "y"),
+        [param("x", "y"), param(col.x, "y"), param("x", col.y), param(col.x, col.y)],
+    )
+    def test_error(self, *, x: IntoExprColumn, y: IntoExprColumn) -> None:
+        with raises(
+            RoundToFloatError,
+            match="At least 1 of the dividend and/or divisor must be a Series; got .* and .*",
+        ):
+            _ = round_to_float(cast("Any", x), cast("Any", y))
 
 
 class TestSerializeAndDeserializeDataFrame:
@@ -2574,130 +2565,92 @@ class TestStructDType:
         assert result == expected
 
 
-class TestStructFromDataClass:
-    def test_simple(self) -> None:
-        @dataclass(kw_only=True, slots=True)
-        class Example:
-            bool_: bool
-            bool_maybe: bool | None = None
-            date: whenever.Date
-            date_maybe: whenever.Date | None = None
-            float_: float
-            float_maybe: float | None = None
-            int_: int
-            int_maybe: int | None = None
-            str_: str
-            str_maybe: str | None = None
+class TestToTrueAndFalse:
+    series_tt: ClassVar[Series] = Series(name="x", values=[True, True], dtype=Boolean)
+    series_tf: ClassVar[Series] = Series(name="x", values=[True, False], dtype=Boolean)
+    series_t0: ClassVar[Series] = Series(name="x", values=[True, None], dtype=Boolean)
+    series_ft: ClassVar[Series] = Series(name="x", values=[False, True], dtype=Boolean)
+    series_ff: ClassVar[Series] = Series(name="x", values=[False, False], dtype=Boolean)
+    series_f0: ClassVar[Series] = Series(name="x", values=[False, None], dtype=Boolean)
+    series_0t: ClassVar[Series] = Series(name="x", values=[None, True], dtype=Boolean)
+    series_0f: ClassVar[Series] = Series(name="x", values=[None, False], dtype=Boolean)
+    series_00: ClassVar[Series] = Series(name="x", values=[None, None], dtype=Boolean)
 
-        result = struct_from_dataclass(Example, globalns=globals())
-        expected = Struct({
-            "bool_": Boolean,
-            "bool_maybe": Boolean,
-            "date": pl.Date,
-            "date_maybe": pl.Date,
-            "float_": Float64,
-            "float_maybe": Float64,
-            "int_": Int64,
-            "int_maybe": Int64,
-            "str_": String,
-            "str_maybe": String,
-        })
-        assert result == expected
+    @mark.parametrize(
+        ("series", "exp_values"),
+        [
+            param(series_tt, [False, False]),
+            param(series_tf, [False, False]),
+            param(series_t0, [False, False]),
+            param(series_ft, [False, True]),
+            param(series_ff, [False, False]),
+            param(series_f0, [False, False]),
+            param(series_0t, [False, True]),
+            param(series_0f, [False, False]),
+            param(series_00, [False, False]),
+        ],
+    )
+    def test_to_true(self, *, series: Series, exp_values: list[bool]) -> None:
+        result = to_true(series)
+        exp_series = Series(name="x", values=exp_values, dtype=Boolean)
+        assert_series_equal(result, exp_series)
 
-    def test_enum(self) -> None:
-        class Truth(enum.Enum):
-            true = auto()
-            false = auto()
+    @mark.parametrize(
+        ("series", "exp_values"),
+        [
+            param(series_tt, [False, False]),
+            param(series_tf, [False, True]),
+            param(series_t0, [False, True]),
+            param(series_ft, [False, False]),
+            param(series_ff, [False, False]),
+            param(series_f0, [False, False]),
+            param(series_0t, [False, False]),
+            param(series_0f, [False, False]),
+            param(series_00, [False, False]),
+        ],
+    )
+    def test_to_not_true(self, *, series: Series, exp_values: list[bool]) -> None:
+        result = to_not_true(series)
+        exp_series = Series(name="x", values=exp_values, dtype=Boolean)
+        assert_series_equal(result, exp_series)
 
-        @dataclass(kw_only=True, slots=True)
-        class Example:
-            field: Truth
+    @mark.parametrize(
+        ("series", "exp_values"),
+        [
+            param(series_tt, [False, False]),
+            param(series_tf, [False, True]),
+            param(series_t0, [False, False]),
+            param(series_ft, [False, False]),
+            param(series_ff, [False, False]),
+            param(series_f0, [False, False]),
+            param(series_0t, [False, False]),
+            param(series_0f, [False, True]),
+            param(series_00, [False, False]),
+        ],
+    )
+    def test_to_false(self, *, series: Series, exp_values: list[bool]) -> None:
+        result = to_false(series)
+        exp_series = Series(name="x", values=exp_values, dtype=Boolean)
+        assert_series_equal(result, exp_series)
 
-        result = struct_from_dataclass(Example, localns=locals())
-        expected = Struct({"field": String})
-        assert result == expected
-
-    def test_literal(self) -> None:
-        LowOrHigh = Literal["low", "high"]  # noqa: N806
-
-        @dataclass(kw_only=True, slots=True)
-        class Example:
-            field: LowOrHigh  # pyright: ignore[reportInvalidTypeForm]
-
-        result = struct_from_dataclass(Example, localns=locals())
-        expected = Struct({"field": String})
-        assert result == expected
-
-    def test_containers(self) -> None:
-        @dataclass(kw_only=True, slots=True)
-        class Example:
-            frozenset_: frozenset[int]
-            list_: list[int]
-            set_: set[int]
-
-        result = struct_from_dataclass(Example, time_zone=UTC)
-        expected = Struct({
-            "frozenset_": List(Int64),
-            "list_": List(Int64),
-            "set_": List(Int64),
-        })
-        assert result == expected
-
-    def test_list_of_struct(self) -> None:
-        @dataclass(kw_only=True, slots=True)
-        class Inner:
-            field: int
-
-        @dataclass(kw_only=True, slots=True)
-        class Outer:
-            inner: list[Inner]
-
-        result = struct_from_dataclass(Outer, localns=locals(), time_zone=UTC)
-        expected = Struct({"inner": List(Struct({"field": Int64}))})
-        assert result == expected
-
-    def test_struct(self) -> None:
-        @dataclass(kw_only=True, slots=True)
-        class Inner:
-            field: int
-
-        @dataclass(kw_only=True, slots=True)
-        class Outer:
-            inner: Inner
-
-        result = struct_from_dataclass(Outer, localns=locals(), time_zone=UTC)
-        expected = Struct({"inner": Struct({"field": Int64})})
-        assert result == expected
-
-    def test_struct_of_list(self) -> None:
-        @dataclass(kw_only=True, slots=True)
-        class Inner:
-            field: list[int]
-
-        @dataclass(kw_only=True, slots=True)
-        class Outer:
-            inner: Inner
-
-        result = struct_from_dataclass(Outer, localns=locals(), time_zone=UTC)
-        expected = Struct({"inner": Struct({"field": List(Int64)})})
-        assert result == expected
-
-    def test_not_a_dataclass_error(self) -> None:
-        with raises(
-            _StructFromDataClassNotADataclassError,
-            match="Object must be a dataclass; got None",
-        ):
-            _ = struct_from_dataclass(cast("Any", None))
-
-    def test_missing_type_error(self) -> None:
-        @dataclass(kw_only=True, slots=True)
-        class Example:
-            field: None
-
-        with raises(
-            _StructFromDataClassTypeError, match="Unsupported type: <class 'NoneType'>"
-        ):
-            _ = struct_from_dataclass(Example)
+    @mark.parametrize(
+        ("series", "exp_values"),
+        [
+            param(series_tt, [False, False]),
+            param(series_tf, [False, False]),
+            param(series_t0, [False, False]),
+            param(series_ft, [False, True]),
+            param(series_ff, [False, False]),
+            param(series_f0, [False, True]),
+            param(series_0t, [False, False]),
+            param(series_0f, [False, False]),
+            param(series_00, [False, False]),
+        ],
+    )
+    def test_to_not_false(self, *, series: Series, exp_values: list[bool]) -> None:
+        result = to_not_false(series)
+        exp_series = Series(name="x", values=exp_values, dtype=Boolean)
+        assert_series_equal(result, exp_series)
 
 
 class TestTryReifyExpr:

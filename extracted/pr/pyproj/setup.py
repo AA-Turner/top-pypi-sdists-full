@@ -8,7 +8,7 @@ from pathlib import Path
 
 from setuptools import Extension, setup
 
-PROJ_MIN_VERSION = (9, 2, 0)
+PROJ_MIN_VERSION = (9, 4, 0)
 CURRENT_FILE_PATH = Path(__file__).absolute().parent
 BASE_INTERNAL_PROJ_DIR = Path("proj_dir")
 INTERNAL_PROJ_DIR = CURRENT_FILE_PATH / "pyproj" / BASE_INTERNAL_PROJ_DIR
@@ -142,6 +142,7 @@ def get_cythonize_options():
             "c_string_type": "str",
             "c_string_encoding": "utf-8",
             "embedsignature": True,
+            "freethreading_compatible": True,
         },
     }
     if os.environ.get("PYPROJ_FULL_COVERAGE"):

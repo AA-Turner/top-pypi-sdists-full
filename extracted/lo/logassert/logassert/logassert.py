@@ -28,6 +28,16 @@ except ImportError:
 
 MISSING_MARK = object()
 
+# conversion between the method used to log and the level it logs
+METHOD_TO_LEVEL_CONVERSION = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+    "critical": logging.CRITICAL,
+    "exception": logging.ERROR,
+}
+
 
 class SimpleRecord:
     """A record with simply level name and number, and just a string message."""
@@ -136,7 +146,7 @@ class _StructlogCapturer:
 
     def _capture(self, logger, levelname, event_dict):
         """Capture the info from structlog."""
-        levelno = getattr(logging, levelname.upper())
+        levelno = METHOD_TO_LEVEL_CONVERSION[levelname]
         r = StructRecord(levelno=levelno, levelname=levelname, event_dict=event_dict)
         self.records.append(r)
         return event_dict
@@ -153,49 +163,75 @@ class SetupLogChecker:
     """A version of the LogChecker to use in classic TestCases."""
 
     def __init__(self, test_instance, log_path):
-        self._log_checker = _StdlibStoringHandler(log_path)
+        self.handlers = [_StdlibStoringHandler(log_path)]
+        if structlog is not None:
+            sc = _StructlogCapturer()
+            self.handlers.append(sc)
 
         # fix TestCase instance with all classic-looking helpers
         self.test_instance = test_instance
-        test_instance.assertLogged = self._check_generic_pos
+        test_instance.assertLogged = functools.partial(self._check_pos, None)
+        test_instance.assertLoggedCritical = functools.partial(self._check_pos, logging.CRITICAL)
         test_instance.assertLoggedError = functools.partial(self._check_pos, logging.ERROR)
         test_instance.assertLoggedWarning = functools.partial(self._check_pos, logging.WARNING)
         test_instance.assertLoggedInfo = functools.partial(self._check_pos, logging.INFO)
         test_instance.assertLoggedDebug = functools.partial(self._check_pos, logging.DEBUG)
         test_instance.assertNotLogged = functools.partial(self._check_neg, None)
+        test_instance.assertNotLoggedCritical = functools.partial(
+            self._check_neg, logging.CRITICAL)
         test_instance.assertNotLoggedError = functools.partial(self._check_neg, logging.ERROR)
         test_instance.assertNotLoggedWarning = functools.partial(self._check_neg, logging.WARNING)
         test_instance.assertNotLoggedInfo = functools.partial(self._check_neg, logging.INFO)
         test_instance.assertNotLoggedDebug = functools.partial(self._check_neg, logging.DEBUG)
 
-    def _check_generic_pos(self, *tokens):
-        """Check if the different tokens were logged in one record, any level."""
-        for record in self._log_checker.records:
-            if all(token in record.message for token in tokens):
-                return
+    def _get_records(self):
+        """Get the record objects from the logged data in all the handlers."""
+        records = []
+        for handler in self.handlers:
+            records.extend(handler.records)
+        return records
 
-        # didn't exit, all tokens are not present in the same record
-        msgs = ["Tokens {} not found, all was logged is...".format(tokens)]
-        for record in self._log_checker.records:
-            msgs.append("    {:9s} {!r}".format(record.levelname, record.message))
-        self.test_instance.fail("\n".join(msgs))
+    def _check_pos(self, level, *tokens, **params):
+        """Check if the different tokens were logged in one record, assert by level.
 
-    def _check_pos(self, level, *tokens):
-        """Check if the different tokens were logged in one record, assert by level."""
-        for record in self._log_checker.records:
-            if all(record.levelno == level and token in record.message for token in tokens):
-                return
+        The params are used for structlog information.
+        """
+        records = self._get_records()
+        for record in records:
+            record_match = all(
+                (record.levelno == level or level is None) and token in record.message
+                for token in tokens
+            )
+            if record_match:
+                fields = record.extra_fields
+                if all(fields.get(key, MISSING_MARK) == value for key, value in params.items()):
+                    return
 
         # didn't exit, all tokens are not present in the same record
         level_name = logging.getLevelName(level)
-        msgs = ["Tokens {} not found in {}, all was logged is...".format(tokens, level_name)]
-        for record in self._log_checker.records:
-            msgs.append("    {:9s} {!r}".format(record.levelname, record.message))
+        if params:
+            repr_tokens = ", ".join(map(repr, tokens))
+            params_data = ", ".join(f"{key}={value!r}" for key, value in params.items())
+            token_data = f"({repr_tokens}, {params_data})"
+        else:
+            token_data = repr(tokens)
+        level_indicator = "" if level is None else f" in {level_name}"
+        msgs = [f"Tokens {token_data} not found{level_indicator}, all was logged is..."]
+        for record in records:
+            if record.extra_fields:
+                fields_data = ", ".join(
+                    f"{key!r}: {value!r}" for key, value in record.extra_fields.items()
+                )
+                record_data = f"{record.message!r} {{{fields_data}}}"
+            else:
+                record_data = repr(record.message)
+            msgs.append("    {:9s} {}".format(record.levelname.upper(), record_data))
         self.test_instance.fail("\n".join(msgs))
 
     def _check_neg(self, level, *tokens):
         """Check that the different tokens were NOT logged in one record, assert by level."""
-        for record in self._log_checker.records:
+        records = self._get_records()
+        for record in records:
             if level is not None and record.levelno != level:
                 continue
             if all(token in record.message for token in tokens):
@@ -453,12 +489,8 @@ class FixtureLogChecker:
 
     # translation between the attributes and logging levels
     _levels = {
-        'any_level': None,
-        'debug': logging.DEBUG,
-        'info': logging.INFO,
-        'warning': logging.WARNING,
-        'error': logging.ERROR,
-    }
+        "any_level": None,
+    } | METHOD_TO_LEVEL_CONVERSION
 
     def __init__(self):
         self.handlers = [_StdlibStoringHandler('')]

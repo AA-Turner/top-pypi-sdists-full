@@ -112,11 +112,11 @@ class Axis:
         return self.__retrieve_label()
 
     def __init__(self, device: 'Device', axis_number: int):
-        self._device = device
-        self._axis_number = axis_number
-        self._settings = AxisSettings(self)
-        self._storage = AxisStorage(self)
-        self._warnings = Warnings(device, axis_number)
+        self._device: 'Device' = device
+        self._axis_number: int = axis_number
+        self._settings: AxisSettings = AxisSettings(self)
+        self._storage: AxisStorage = AxisStorage(self)
+        self._warnings: Warnings = Warnings(device, axis_number)
 
     def home(
             self,

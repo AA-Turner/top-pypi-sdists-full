@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: boto3-stubs
-Version: 1.40.9
-Summary: Type annotations for boto3 1.40.9 generated with mypy-boto3-builder 8.11.0
+Version: 1.40.10
+Summary: Type annotations for boto3 1.40.10 generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -36,7 +36,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: boto3-stubs-full<1.41.0,>=1.40.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.40.9; extra == "boto3"
+Requires-Dist: boto3==1.40.10; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: mypy-boto3-accessanalyzer<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-account<1.41.0,>=1.40.0; extra == "all"
@@ -78,6 +78,7 @@ Requires-Dist: mypy-boto3-backupsearch<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-batch<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-bcm-data-exports<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-bcm-pricing-calculator<1.41.0,>=1.40.0; extra == "all"
+Requires-Dist: mypy-boto3-bcm-recommended-actions<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-bedrock<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-bedrock-agent<1.41.0,>=1.40.0; extra == "all"
 Requires-Dist: mypy-boto3-bedrock-agent-runtime<1.41.0,>=1.40.0; extra == "all"
@@ -539,6 +540,8 @@ Provides-Extra: bcm-data-exports
 Requires-Dist: mypy-boto3-bcm-data-exports<1.41.0,>=1.40.0; extra == "bcm-data-exports"
 Provides-Extra: bcm-pricing-calculator
 Requires-Dist: mypy-boto3-bcm-pricing-calculator<1.41.0,>=1.40.0; extra == "bcm-pricing-calculator"
+Provides-Extra: bcm-recommended-actions
+Requires-Dist: mypy-boto3-bcm-recommended-actions<1.41.0,>=1.40.0; extra == "bcm-recommended-actions"
 Provides-Extra: bedrock
 Requires-Dist: mypy-boto3-bedrock<1.41.0,>=1.40.0; extra == "bedrock"
 Provides-Extra: bedrock-agent
@@ -1311,8 +1314,8 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.40.9](https://pypi.org/project/boto3/) compatible
-with [VSCode](https://code.visualstudio.com/),
+Type annotations for [boto3 1.40.10](https://pypi.org/project/boto3/)
+compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
 [Sublime Text](https://www.sublimetext.com/),
@@ -1370,7 +1373,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.9' mypy-boto3-builder`
+   `uvx --with 'boto3==1.40.10' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1722,9 +1725,9 @@ repository.
 
 ## Submodules
 
-- `boto3-stubs[full]` - Type annotations for all 413 services in one package
+- `boto3-stubs[full]` - Type annotations for all 414 services in one package
   (recommended).
-- `boto3-stubs[all]` - Type annotations for all 413 services in separate
+- `boto3-stubs[all]` - Type annotations for all 414 services in separate
   packages.
 - `boto3-stubs[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/),
@@ -1852,6 +1855,9 @@ repository.
   service.
 - `boto3-stubs[bcm-pricing-calculator]` - Type annotations for
   [BillingandCostManagementPricingCalculator](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bcm_pricing_calculator/)
+  service.
+- `boto3-stubs[bcm-recommended-actions]` - Type annotations for
+  [BillingandCostManagementRecommendedActions](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bcm_recommended_actions/)
   service.
 - `boto3-stubs[bedrock]` - Type annotations for
   [Bedrock](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/)

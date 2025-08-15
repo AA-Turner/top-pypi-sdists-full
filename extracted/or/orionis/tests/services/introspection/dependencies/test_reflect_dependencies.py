@@ -170,7 +170,7 @@ class TestReflectDependencies(AsyncTestCase):
         self.assertEqual(dep_user_permissions.type, FakeUserWithPermissions)
 
         # Extract and validate the 'permissions' dependency (built-in generic type)
-        dep_permissions: Argument = method_dependencies.resolved.get('permissions')
+        dep_permissions: Argument = method_dependencies.unresolved.get('permissions')
 
         # Ensure the built-in type dependency is properly resolved as an Argument instance
         self.assertIsInstance(dep_permissions, Argument)
@@ -248,10 +248,14 @@ class TestReflectDependencies(AsyncTestCase):
         dep_x: Argument = callable_dependencies.resolved.get('x')
 
         # Verify that the 'x' parameter resolves to its default value of 3
-        self.assertEqual(dep_x, 3)
+        self.assertIsInstance(dep_x, Argument)
+        self.assertTrue(dep_x.resolved)
+        self.assertEqual(dep_x.default, 3)
 
         # Extract and validate the 'y' parameter dependency from resolved dependencies
         dep_y: Argument = callable_dependencies.resolved.get('y')
 
         # Verify that the 'y' parameter resolves to its default value of 4
-        self.assertEqual(dep_y, 4)
+        self.assertIsInstance(dep_y, Argument)
+        self.assertTrue(dep_y.resolved)
+        self.assertEqual(dep_y.default, 4)

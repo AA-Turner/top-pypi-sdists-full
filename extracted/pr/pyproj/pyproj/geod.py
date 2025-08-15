@@ -10,10 +10,10 @@ latitudes and longitudes of an initial and terminus point.
 
 __all__ = [
     "Geod",
-    "pj_ellps",
-    "geodesic_version_str",
     "GeodIntermediateFlag",
     "GeodIntermediateReturn",
+    "geodesic_version_str",
+    "pj_ellps",
     "reverse_azimuth",
 ]
 
@@ -1030,6 +1030,10 @@ class Geod(_Geod):
         to "close" the polygon by repeating the first vertex.
 
         .. note:: lats should be in the range [-90 deg, 90 deg].
+
+        .. note:: | There are a few limitations :
+                  | - only works with areas up to half the size of the globe ;
+                  | - certain large polygons may return negative values.
 
         .. warning:: The area returned is signed with counter-clockwise (CCW) traversal
                      being treated as positive. For polygons, holes should use the

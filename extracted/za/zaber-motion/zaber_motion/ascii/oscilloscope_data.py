@@ -57,7 +57,7 @@ class OscilloscopeData:
         return self.__retrieve_properties().io_channel
 
     def __init__(self, data_id: int):
-        self._data_id = data_id
+        self._data_id: int = data_id
 
     def get_timebase(
             self,

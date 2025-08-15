@@ -5800,7 +5800,7 @@ class OperationTypeClass(object):
     """Asset was dropped"""
     
     CUSTOM = "CUSTOM"
-    """Custom asset operation"""
+    """Custom asset operation. If this is set, ensure customOperationType is filled out."""
     
     UNKNOWN = "UNKNOWN"
     

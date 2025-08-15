@@ -124,9 +124,9 @@ class Device:
         return self.identity.device_type
 
     def __init__(self, connection: 'Connection', device_address: int):
-        self._connection = connection
-        self._settings = DeviceSettings(self)
-        self._device_address = device_address
+        self._connection: 'Connection' = connection
+        self._settings: DeviceSettings = DeviceSettings(self)
+        self._device_address: int = device_address
 
     def generic_command(
             self,

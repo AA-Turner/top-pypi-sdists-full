@@ -419,14 +419,14 @@ class PostProcessor:
             elif isinstance(use_case, GasLeakDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, LicensePlateMonitorUseCase):
-                result = use_case.process(data, parsed_config, context, stream_info)
+                result = use_case.process(data, parsed_config, input_bytes,context, stream_info)
             
             #Put all IMAGE based usecases here
             elif isinstance(use_case, BloodCancerDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, SkinCancerClassificationUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
-            elif isinstance(use_case, PlaqueSegmentationUseCase):
+            elif isinstance(use_case, PlaqueSegmentationUseCase):   
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, CardiomegalyUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)

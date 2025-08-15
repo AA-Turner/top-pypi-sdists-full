@@ -3,13 +3,14 @@ Advanced table processing strategy.
 """
 
 import re
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional
+
 from lxml.html import HtmlElement
 
 from edgar.documents.config import ParserConfig
-from edgar.documents.table_nodes import TableNode, Cell, Row
-from edgar.documents.types import TableType, Style
 from edgar.documents.strategies.style_parser import StyleParser
+from edgar.documents.table_nodes import TableNode, Cell, Row
+from edgar.documents.types import TableType
 
 
 class TableProcessor:

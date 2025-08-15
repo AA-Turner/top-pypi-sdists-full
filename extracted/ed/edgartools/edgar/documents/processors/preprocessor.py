@@ -3,7 +3,7 @@ HTML preprocessor for cleaning and normalizing HTML before parsing.
 """
 
 import re
-from typing import Optional
+
 from edgar.documents.config import ParserConfig
 
 

@@ -1,6 +1,16 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Generic, List, Optional, Sequence, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Sequence,
+    TypeVar,
+    Union,
+)
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing_extensions import Self
@@ -61,13 +71,15 @@ class EventInfo(BaseModel):
     ledger_close_at: datetime = Field(alias="ledgerClosedAt")
     contract_id: str = Field(alias="contractId")
     id: str = Field(alias="id")
-    paging_token: str = Field(
-        alias="pagingToken",
-        description="The field may will be removed in the next version of the protocol. It remains for backward.",
-    )
     topic: List[str] = Field(alias="topic")
     value: str = Field(alias="value")
-    in_successful_contract_call: bool = Field(alias="inSuccessfulContractCall")
+    in_successful_contract_call: bool = Field(
+        alias="inSuccessfulContractCall",
+        deprecated=True,
+        description="This field is deprecated and will be removed in the future.",
+    )
+    operation_index: int = Field(alias="operationIndex")
+    transaction_index: int = Field(alias="transactionIndex")
     transaction_hash: str = Field(alias="txHash")
 
 
@@ -77,13 +89,10 @@ class PaginationOptions(BaseModel):
 
 
 class PaginationMixin:
-    pagination: Optional[PaginationOptions] = None
-
     @model_validator(mode="after")
     def verify_ledger_or_cursor(self) -> Self:
-        if self.pagination and (
-            getattr(self, "start_ledger") and self.pagination.cursor
-        ):
+        pagination = getattr(self, "pagination", None)
+        if pagination and (getattr(self, "start_ledger") and pagination.cursor):
             raise ValueError("start_ledger and cursor cannot both be set")
         return self
 
@@ -96,6 +105,7 @@ class GetEventsRequest(PaginationMixin, BaseModel):
     """
 
     start_ledger: Optional[int] = Field(alias="startLedger", default=None)
+    pagination: Optional[PaginationOptions] = None
     filters: Optional[Sequence[EventFilter]] = None
 
 
@@ -108,6 +118,9 @@ class GetEventsResponse(BaseModel):
 
     events: List[EventInfo] = Field(alias="events")
     latest_ledger: int = Field(alias="latestLedger")
+    oldest_ledger: int = Field(alias="oldestLedger")
+    latest_Ledger_close_time: int = Field(alias="latestLedgerCloseTime")
+    oldest_ledger_close_time: int = Field(alias="oldestLedgerCloseTime")
     cursor: str
 
 
@@ -172,6 +185,17 @@ class ResourceConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class AuthMode(Enum):
+    """AuthMode represents the authentication mode for transaction simulation."""
+
+    ENFORCE = "enforce"
+    """Always enforce mode, even with an empty list."""
+    RECORD = "record"
+    """Always recording mode, failing if any auth exists."""
+    RECORD_ALL_NOROOT = "record_allow_nonroot"
+    """Like `RECORD` but allowing non-root authorization."""
+
+
 class SimulateTransactionRequest(BaseModel):
     """Response for JSON-RPC method simulateTransaction.
 
@@ -189,6 +213,7 @@ class SimulateTransactionRequest(BaseModel):
     resource_config: Optional[ResourceConfig] = Field(
         alias="resourceConfig", default=None
     )
+    auth_mode: Optional[AuthMode] = Field(alias="authMode", default=None)
     model_config = ConfigDict(populate_by_name=True)
 
 
@@ -279,6 +304,21 @@ class GetTransactionRequest(BaseModel):
     hash: str
 
 
+class Events(BaseModel):
+    # base64-encoded list of `xdr.DiagnosticEvent`s
+    diagnostic_events_xdr: Optional[List[str]] = Field(
+        alias="diagnosticEventsXdr", default=None
+    )
+    # base64-encoded list of `xdr.TransactionEvent`s
+    transaction_events_xdr: Optional[List[str]] = Field(
+        alias="transactionEventsXdr", default=None
+    )
+    # base64-encoded list of lists of `xdr.ContractEvent`s, where each element of the list corresponds to the events for that operation in the transaction
+    contract_events_xdr: Optional[List[List[str]]] = Field(
+        alias="contractEventsXdr", default=None
+    )
+
+
 class GetTransactionResponse(BaseModel):
     """Response for JSON-RPC method getTransaction.
 
@@ -303,6 +343,7 @@ class GetTransactionResponse(BaseModel):
     result_meta_xdr: Optional[str] = Field(
         alias="resultMetaXdr", default=None
     )  # stellar_sdk.xdr.TransactionMeta
+    events: Optional[Events] = None
     ledger: Optional[int] = Field(alias="ledger", default=None)
     create_at: Optional[int] = Field(alias="createdAt", default=None)
 
@@ -395,6 +436,7 @@ class GetTransactionsRequest(PaginationMixin, BaseModel):
     more information."""
 
     start_ledger: Optional[int] = Field(alias="startLedger", default=None)
+    pagination: Optional[PaginationOptions] = None
 
 
 class Transaction(BaseModel):
@@ -408,8 +450,12 @@ class Transaction(BaseModel):
     ledger: int
     created_at: int = Field(alias="createdAt")
     diagnostic_events_xdr: Optional[List[str]] = Field(
-        alias="diagnosticEventsXdr", default=None
+        alias="diagnosticEventsXdr",
+        default=None,
+        deprecated=True,
+        description="This field is deprecated and will be removed in the future. Use `events.diagnostic_events_xdr` instead.",
     )
+    events: Optional[Events] = None
 
 
 class GetTransactionsResponse(BaseModel):
@@ -448,6 +494,7 @@ class GetLedgersRequest(PaginationMixin, BaseModel):
     more information."""
 
     start_ledger: Optional[int] = Field(alias="startLedger", default=None)
+    pagination: Optional[PaginationOptions] = None
 
 
 class LedgerInfo(BaseModel):
@@ -489,3 +536,20 @@ class GetSACBalanceResponse(BaseModel):
     balance_entry: Optional[SACBalanceEntry] = Field(
         description="The balance entry for the account. If there is not a valid balance entry, this will be None."
     )
+
+
+DEFAULT_POLLING_ATTEMPTS: int = 30
+
+
+SleepStrategy = Callable[[int], int]
+"""A function for :meth:`stellar_sdk.SorobanServer.poll_transaction` and :meth:`stellar_sdk.SorobanServerAsync.poll_transaction` that returns the number of _seconds_ to sleep on a given `iteration`."""
+
+
+def BasicSleepStrategy(_iteration: int) -> int:
+    """A strategy that will sleep 1 second each time."""
+    return 1
+
+
+def LinearSleepStrategy(iteration: int) -> int:
+    """A strategy that will sleep 1 second longer on each attempt."""
+    return iteration * 1

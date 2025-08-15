@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_obs_bucket`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_obs_bucket`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_obs_bucket`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ObsBucket(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.obsBucket.ObsBucket",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket opentelekomcloud_obs_bucket}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket opentelekomcloud_obs_bucket}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class ObsBucket(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket opentelekomcloud_obs_bucket} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket opentelekomcloud_obs_bucket} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#bucket ObsBucket#bucket}.
-        :param acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#acl ObsBucket#acl}.
-        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#cors_rule ObsBucket#cors_rule}
-        :param event_notifications: event_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#event_notifications ObsBucket#event_notifications}
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#force_destroy ObsBucket#force_destroy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#id ObsBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lifecycle_rule: lifecycle_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#lifecycle_rule ObsBucket#lifecycle_rule}
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#logging ObsBucket#logging}
-        :param parallel_fs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#parallel_fs ObsBucket#parallel_fs}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#region ObsBucket#region}.
-        :param server_side_encryption: server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#server_side_encryption ObsBucket#server_side_encryption}
-        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#tags ObsBucket#tags}.
-        :param user_domain_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#user_domain_names ObsBucket#user_domain_names}.
-        :param versioning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#versioning ObsBucket#versioning}.
-        :param website: website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#website ObsBucket#website}
-        :param worm_policy: worm_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#worm_policy ObsBucket#worm_policy}
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#bucket ObsBucket#bucket}.
+        :param acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#acl ObsBucket#acl}.
+        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#cors_rule ObsBucket#cors_rule}
+        :param event_notifications: event_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#event_notifications ObsBucket#event_notifications}
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#force_destroy ObsBucket#force_destroy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#id ObsBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lifecycle_rule: lifecycle_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#lifecycle_rule ObsBucket#lifecycle_rule}
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#logging ObsBucket#logging}
+        :param parallel_fs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#parallel_fs ObsBucket#parallel_fs}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#region ObsBucket#region}.
+        :param server_side_encryption: server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#server_side_encryption ObsBucket#server_side_encryption}
+        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#tags ObsBucket#tags}.
+        :param user_domain_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#user_domain_names ObsBucket#user_domain_names}.
+        :param versioning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#versioning ObsBucket#versioning}.
+        :param website: website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#website ObsBucket#website}
+        :param worm_policy: worm_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#worm_policy ObsBucket#worm_policy}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class ObsBucket(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ObsBucket to import.
-        :param import_from_id: The id of the existing ObsBucket that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ObsBucket that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ObsBucket to import is found.
         '''
         if __debug__:
@@ -223,9 +223,9 @@ class ObsBucket(
         kms_project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#algorithm ObsBucket#algorithm}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#kms_key_id ObsBucket#kms_key_id}.
-        :param kms_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#kms_project_id ObsBucket#kms_project_id}.
+        :param algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#algorithm ObsBucket#algorithm}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#kms_key_id ObsBucket#kms_key_id}.
+        :param kms_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#kms_project_id ObsBucket#kms_project_id}.
         '''
         value = ObsBucketServerSideEncryption(
             algorithm=algorithm, kms_key_id=kms_key_id, kms_project_id=kms_project_id
@@ -243,10 +243,10 @@ class ObsBucket(
         routing_rules: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param error_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#error_document ObsBucket#error_document}.
-        :param index_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#index_document ObsBucket#index_document}.
-        :param redirect_all_requests_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#redirect_all_requests_to ObsBucket#redirect_all_requests_to}.
-        :param routing_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#routing_rules ObsBucket#routing_rules}.
+        :param error_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#error_document ObsBucket#error_document}.
+        :param index_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#index_document ObsBucket#index_document}.
+        :param redirect_all_requests_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#redirect_all_requests_to ObsBucket#redirect_all_requests_to}.
+        :param routing_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#routing_rules ObsBucket#routing_rules}.
         '''
         value = ObsBucketWebsite(
             error_document=error_document,
@@ -265,8 +265,8 @@ class ObsBucket(
         years: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#days ObsBucket#days}.
-        :param years: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#years ObsBucket#years}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#days ObsBucket#days}.
+        :param years: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#years ObsBucket#years}.
         '''
         value = ObsBucketWormPolicy(days=days, years=years)
 
@@ -692,23 +692,23 @@ class ObsBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#bucket ObsBucket#bucket}.
-        :param acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#acl ObsBucket#acl}.
-        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#cors_rule ObsBucket#cors_rule}
-        :param event_notifications: event_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#event_notifications ObsBucket#event_notifications}
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#force_destroy ObsBucket#force_destroy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#id ObsBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lifecycle_rule: lifecycle_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#lifecycle_rule ObsBucket#lifecycle_rule}
-        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#logging ObsBucket#logging}
-        :param parallel_fs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#parallel_fs ObsBucket#parallel_fs}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#region ObsBucket#region}.
-        :param server_side_encryption: server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#server_side_encryption ObsBucket#server_side_encryption}
-        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#tags ObsBucket#tags}.
-        :param user_domain_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#user_domain_names ObsBucket#user_domain_names}.
-        :param versioning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#versioning ObsBucket#versioning}.
-        :param website: website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#website ObsBucket#website}
-        :param worm_policy: worm_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#worm_policy ObsBucket#worm_policy}
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#bucket ObsBucket#bucket}.
+        :param acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#acl ObsBucket#acl}.
+        :param cors_rule: cors_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#cors_rule ObsBucket#cors_rule}
+        :param event_notifications: event_notifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#event_notifications ObsBucket#event_notifications}
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#force_destroy ObsBucket#force_destroy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#id ObsBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lifecycle_rule: lifecycle_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#lifecycle_rule ObsBucket#lifecycle_rule}
+        :param logging: logging block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#logging ObsBucket#logging}
+        :param parallel_fs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#parallel_fs ObsBucket#parallel_fs}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#region ObsBucket#region}.
+        :param server_side_encryption: server_side_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#server_side_encryption ObsBucket#server_side_encryption}
+        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#tags ObsBucket#tags}.
+        :param user_domain_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#user_domain_names ObsBucket#user_domain_names}.
+        :param versioning: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#versioning ObsBucket#versioning}.
+        :param website: website block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#website ObsBucket#website}
+        :param worm_policy: worm_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#worm_policy ObsBucket#worm_policy}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -860,14 +860,14 @@ class ObsBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#bucket ObsBucket#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#bucket ObsBucket#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def acl(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#acl ObsBucket#acl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#acl ObsBucket#acl}.'''
         result = self._values.get("acl")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -877,7 +877,7 @@ class ObsBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketCorsRule"]]]:
         '''cors_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#cors_rule ObsBucket#cors_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#cors_rule ObsBucket#cors_rule}
         '''
         result = self._values.get("cors_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketCorsRule"]]], result)
@@ -888,7 +888,7 @@ class ObsBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketEventNotifications"]]]:
         '''event_notifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#event_notifications ObsBucket#event_notifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#event_notifications ObsBucket#event_notifications}
         '''
         result = self._values.get("event_notifications")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketEventNotifications"]]], result)
@@ -897,13 +897,13 @@ class ObsBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#force_destroy ObsBucket#force_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#force_destroy ObsBucket#force_destroy}.'''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#id ObsBucket#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#id ObsBucket#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -917,7 +917,7 @@ class ObsBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLifecycleRule"]]]:
         '''lifecycle_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#lifecycle_rule ObsBucket#lifecycle_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#lifecycle_rule ObsBucket#lifecycle_rule}
         '''
         result = self._values.get("lifecycle_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLifecycleRule"]]], result)
@@ -928,7 +928,7 @@ class ObsBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLogging"]]]:
         '''logging block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#logging ObsBucket#logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#logging ObsBucket#logging}
         '''
         result = self._values.get("logging")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLogging"]]], result)
@@ -937,13 +937,13 @@ class ObsBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parallel_fs(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#parallel_fs ObsBucket#parallel_fs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#parallel_fs ObsBucket#parallel_fs}.'''
         result = self._values.get("parallel_fs")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#region ObsBucket#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#region ObsBucket#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -953,26 +953,26 @@ class ObsBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ObsBucketServerSideEncryption"]:
         '''server_side_encryption block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#server_side_encryption ObsBucket#server_side_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#server_side_encryption ObsBucket#server_side_encryption}
         '''
         result = self._values.get("server_side_encryption")
         return typing.cast(typing.Optional["ObsBucketServerSideEncryption"], result)
 
     @builtins.property
     def storage_class(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.'''
         result = self._values.get("storage_class")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#tags ObsBucket#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#tags ObsBucket#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def user_domain_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#user_domain_names ObsBucket#user_domain_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#user_domain_names ObsBucket#user_domain_names}.'''
         result = self._values.get("user_domain_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -980,7 +980,7 @@ class ObsBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def versioning(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#versioning ObsBucket#versioning}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#versioning ObsBucket#versioning}.'''
         result = self._values.get("versioning")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -988,7 +988,7 @@ class ObsBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def website(self) -> typing.Optional["ObsBucketWebsite"]:
         '''website block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#website ObsBucket#website}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#website ObsBucket#website}
         '''
         result = self._values.get("website")
         return typing.cast(typing.Optional["ObsBucketWebsite"], result)
@@ -997,7 +997,7 @@ class ObsBucketConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def worm_policy(self) -> typing.Optional["ObsBucketWormPolicy"]:
         '''worm_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#worm_policy ObsBucket#worm_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#worm_policy ObsBucket#worm_policy}
         '''
         result = self._values.get("worm_policy")
         return typing.cast(typing.Optional["ObsBucketWormPolicy"], result)
@@ -1036,11 +1036,11 @@ class ObsBucketCorsRule:
         max_age_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#allowed_methods ObsBucket#allowed_methods}.
-        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#allowed_origins ObsBucket#allowed_origins}.
-        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#allowed_headers ObsBucket#allowed_headers}.
-        :param expose_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#expose_headers ObsBucket#expose_headers}.
-        :param max_age_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#max_age_seconds ObsBucket#max_age_seconds}.
+        :param allowed_methods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#allowed_methods ObsBucket#allowed_methods}.
+        :param allowed_origins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#allowed_origins ObsBucket#allowed_origins}.
+        :param allowed_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#allowed_headers ObsBucket#allowed_headers}.
+        :param expose_headers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#expose_headers ObsBucket#expose_headers}.
+        :param max_age_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#max_age_seconds ObsBucket#max_age_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ca795a644525e90c5301ef8484c152f48705a332f9b323d03d19ae56f93ab7b)
@@ -1062,33 +1062,33 @@ class ObsBucketCorsRule:
 
     @builtins.property
     def allowed_methods(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#allowed_methods ObsBucket#allowed_methods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#allowed_methods ObsBucket#allowed_methods}.'''
         result = self._values.get("allowed_methods")
         assert result is not None, "Required property 'allowed_methods' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_origins(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#allowed_origins ObsBucket#allowed_origins}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#allowed_origins ObsBucket#allowed_origins}.'''
         result = self._values.get("allowed_origins")
         assert result is not None, "Required property 'allowed_origins' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def allowed_headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#allowed_headers ObsBucket#allowed_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#allowed_headers ObsBucket#allowed_headers}.'''
         result = self._values.get("allowed_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def expose_headers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#expose_headers ObsBucket#expose_headers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#expose_headers ObsBucket#expose_headers}.'''
         result = self._values.get("expose_headers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def max_age_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#max_age_seconds ObsBucket#max_age_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#max_age_seconds ObsBucket#max_age_seconds}.'''
         result = self._values.get("max_age_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1355,10 +1355,10 @@ class ObsBucketEventNotifications:
         id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#events ObsBucket#events}.
-        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#topic ObsBucket#topic}.
-        :param filter_rule: filter_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#filter_rule ObsBucket#filter_rule}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#id ObsBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#events ObsBucket#events}.
+        :param topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#topic ObsBucket#topic}.
+        :param filter_rule: filter_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#filter_rule ObsBucket#filter_rule}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#id ObsBucket#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a9aabf3e975f2fe7427a03fcc25c19443d62d403183caa5c360e0e511d35667)
@@ -1377,14 +1377,14 @@ class ObsBucketEventNotifications:
 
     @builtins.property
     def events(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#events ObsBucket#events}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#events ObsBucket#events}.'''
         result = self._values.get("events")
         assert result is not None, "Required property 'events' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def topic(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#topic ObsBucket#topic}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#topic ObsBucket#topic}.'''
         result = self._values.get("topic")
         assert result is not None, "Required property 'topic' is missing"
         return typing.cast(builtins.str, result)
@@ -1395,14 +1395,14 @@ class ObsBucketEventNotifications:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketEventNotificationsFilterRule"]]]:
         '''filter_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#filter_rule ObsBucket#filter_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#filter_rule ObsBucket#filter_rule}
         '''
         result = self._values.get("filter_rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketEventNotificationsFilterRule"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#id ObsBucket#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#id ObsBucket#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1435,8 +1435,8 @@ class ObsBucketEventNotificationsFilterRule:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#name ObsBucket#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#value ObsBucket#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#name ObsBucket#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#value ObsBucket#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea39ea2ac1e742899e255c8d72d8654a4082bcdcdf1b83d6689b92acd2249285)
@@ -1450,13 +1450,13 @@ class ObsBucketEventNotificationsFilterRule:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#name ObsBucket#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#name ObsBucket#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#value ObsBucket#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#value ObsBucket#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1897,14 +1897,14 @@ class ObsBucketLifecycleRule:
         transition: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ObsBucketLifecycleRuleTransition", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#enabled ObsBucket#enabled}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#name ObsBucket#name}.
-        :param expiration: expiration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#expiration ObsBucket#expiration}
-        :param noncurrent_version_expiration: noncurrent_version_expiration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#noncurrent_version_expiration ObsBucket#noncurrent_version_expiration}
-        :param noncurrent_version_transition: noncurrent_version_transition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#noncurrent_version_transition ObsBucket#noncurrent_version_transition}
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#prefix ObsBucket#prefix}.
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#tag ObsBucket#tag}
-        :param transition: transition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#transition ObsBucket#transition}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#enabled ObsBucket#enabled}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#name ObsBucket#name}.
+        :param expiration: expiration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#expiration ObsBucket#expiration}
+        :param noncurrent_version_expiration: noncurrent_version_expiration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#noncurrent_version_expiration ObsBucket#noncurrent_version_expiration}
+        :param noncurrent_version_transition: noncurrent_version_transition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#noncurrent_version_transition ObsBucket#noncurrent_version_transition}
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#prefix ObsBucket#prefix}.
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#tag ObsBucket#tag}
+        :param transition: transition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#transition ObsBucket#transition}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8262dd0f5a66cd41547015826014331a7cd0ef68ee54036f9ca6c16820f66d80)
@@ -1935,14 +1935,14 @@ class ObsBucketLifecycleRule:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#enabled ObsBucket#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#enabled ObsBucket#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#name ObsBucket#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#name ObsBucket#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1953,7 +1953,7 @@ class ObsBucketLifecycleRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLifecycleRuleExpiration"]]]:
         '''expiration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#expiration ObsBucket#expiration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#expiration ObsBucket#expiration}
         '''
         result = self._values.get("expiration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLifecycleRuleExpiration"]]], result)
@@ -1964,7 +1964,7 @@ class ObsBucketLifecycleRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLifecycleRuleNoncurrentVersionExpiration"]]]:
         '''noncurrent_version_expiration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#noncurrent_version_expiration ObsBucket#noncurrent_version_expiration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#noncurrent_version_expiration ObsBucket#noncurrent_version_expiration}
         '''
         result = self._values.get("noncurrent_version_expiration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLifecycleRuleNoncurrentVersionExpiration"]]], result)
@@ -1975,14 +1975,14 @@ class ObsBucketLifecycleRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLifecycleRuleNoncurrentVersionTransition"]]]:
         '''noncurrent_version_transition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#noncurrent_version_transition ObsBucket#noncurrent_version_transition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#noncurrent_version_transition ObsBucket#noncurrent_version_transition}
         '''
         result = self._values.get("noncurrent_version_transition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLifecycleRuleNoncurrentVersionTransition"]]], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#prefix ObsBucket#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#prefix ObsBucket#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1992,7 +1992,7 @@ class ObsBucketLifecycleRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLifecycleRuleTag"]]]:
         '''tag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#tag ObsBucket#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#tag ObsBucket#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLifecycleRuleTag"]]], result)
@@ -2003,7 +2003,7 @@ class ObsBucketLifecycleRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLifecycleRuleTransition"]]]:
         '''transition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#transition ObsBucket#transition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#transition ObsBucket#transition}
         '''
         result = self._values.get("transition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ObsBucketLifecycleRuleTransition"]]], result)
@@ -2028,7 +2028,7 @@ class ObsBucketLifecycleRule:
 class ObsBucketLifecycleRuleExpiration:
     def __init__(self, *, days: jsii.Number) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#days ObsBucket#days}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#days ObsBucket#days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58bf4258df8ac0f4478a72398e0e7e3264298d559b01bc1d6ded1eb6d950f792)
@@ -2039,7 +2039,7 @@ class ObsBucketLifecycleRuleExpiration:
 
     @builtins.property
     def days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#days ObsBucket#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#days ObsBucket#days}.'''
         result = self._values.get("days")
         assert result is not None, "Required property 'days' is missing"
         return typing.cast(jsii.Number, result)
@@ -2308,7 +2308,7 @@ class ObsBucketLifecycleRuleList(
 class ObsBucketLifecycleRuleNoncurrentVersionExpiration:
     def __init__(self, *, days: jsii.Number) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#days ObsBucket#days}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#days ObsBucket#days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1eda33096896a94096508745a24cc184829498ba827d53f048c03e0c717c19b)
@@ -2319,7 +2319,7 @@ class ObsBucketLifecycleRuleNoncurrentVersionExpiration:
 
     @builtins.property
     def days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#days ObsBucket#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#days ObsBucket#days}.'''
         result = self._values.get("days")
         assert result is not None, "Required property 'days' is missing"
         return typing.cast(jsii.Number, result)
@@ -2498,8 +2498,8 @@ class ObsBucketLifecycleRuleNoncurrentVersionExpirationOutputReference(
 class ObsBucketLifecycleRuleNoncurrentVersionTransition:
     def __init__(self, *, days: jsii.Number, storage_class: builtins.str) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#days ObsBucket#days}.
-        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#days ObsBucket#days}.
+        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06b8e36cd52dec4814c4ac4e7b53539e42fdb0094aa871cc076c34649f96d8a4)
@@ -2512,14 +2512,14 @@ class ObsBucketLifecycleRuleNoncurrentVersionTransition:
 
     @builtins.property
     def days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#days ObsBucket#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#days ObsBucket#days}.'''
         result = self._values.get("days")
         assert result is not None, "Required property 'days' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def storage_class(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.'''
         result = self._values.get("storage_class")
         assert result is not None, "Required property 'storage_class' is missing"
         return typing.cast(builtins.str, result)
@@ -2968,8 +2968,8 @@ class ObsBucketLifecycleRuleOutputReference(
 class ObsBucketLifecycleRuleTag:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#key ObsBucket#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#value ObsBucket#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#key ObsBucket#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#value ObsBucket#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__70e868f1d4924a9c10b1900c2caa4c36fa9f89733be43c49f3858cda220fa2e7)
@@ -2982,14 +2982,14 @@ class ObsBucketLifecycleRuleTag:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#key ObsBucket#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#key ObsBucket#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#value ObsBucket#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#value ObsBucket#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -3182,8 +3182,8 @@ class ObsBucketLifecycleRuleTagOutputReference(
 class ObsBucketLifecycleRuleTransition:
     def __init__(self, *, days: jsii.Number, storage_class: builtins.str) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#days ObsBucket#days}.
-        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#days ObsBucket#days}.
+        :param storage_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f5b1de372798966fb45a252f57991d3912b4cf0290752ddfeaba86b7bc29b26)
@@ -3196,14 +3196,14 @@ class ObsBucketLifecycleRuleTransition:
 
     @builtins.property
     def days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#days ObsBucket#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#days ObsBucket#days}.'''
         result = self._values.get("days")
         assert result is not None, "Required property 'days' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def storage_class(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#storage_class ObsBucket#storage_class}.'''
         result = self._values.get("storage_class")
         assert result is not None, "Required property 'storage_class' is missing"
         return typing.cast(builtins.str, result)
@@ -3409,9 +3409,9 @@ class ObsBucketLogging:
         target_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param target_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#target_bucket ObsBucket#target_bucket}.
-        :param agency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#agency ObsBucket#agency}.
-        :param target_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#target_prefix ObsBucket#target_prefix}.
+        :param target_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#target_bucket ObsBucket#target_bucket}.
+        :param agency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#agency ObsBucket#agency}.
+        :param target_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#target_prefix ObsBucket#target_prefix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__faefe30996e057d765d999dc4493309b3d73685bcffb404e659182a483d2161b)
@@ -3428,20 +3428,20 @@ class ObsBucketLogging:
 
     @builtins.property
     def target_bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#target_bucket ObsBucket#target_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#target_bucket ObsBucket#target_bucket}.'''
         result = self._values.get("target_bucket")
         assert result is not None, "Required property 'target_bucket' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def agency(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#agency ObsBucket#agency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#agency ObsBucket#agency}.'''
         result = self._values.get("agency")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#target_prefix ObsBucket#target_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#target_prefix ObsBucket#target_prefix}.'''
         result = self._values.get("target_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3668,9 +3668,9 @@ class ObsBucketServerSideEncryption:
         kms_project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#algorithm ObsBucket#algorithm}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#kms_key_id ObsBucket#kms_key_id}.
-        :param kms_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#kms_project_id ObsBucket#kms_project_id}.
+        :param algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#algorithm ObsBucket#algorithm}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#kms_key_id ObsBucket#kms_key_id}.
+        :param kms_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#kms_project_id ObsBucket#kms_project_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a4322da4776a5cd1352d6de284f41d3eaca3cae093f6a5b5ab7f4bd12978d39)
@@ -3686,21 +3686,21 @@ class ObsBucketServerSideEncryption:
 
     @builtins.property
     def algorithm(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#algorithm ObsBucket#algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#algorithm ObsBucket#algorithm}.'''
         result = self._values.get("algorithm")
         assert result is not None, "Required property 'algorithm' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kms_key_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#kms_key_id ObsBucket#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#kms_key_id ObsBucket#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         assert result is not None, "Required property 'kms_key_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kms_project_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#kms_project_id ObsBucket#kms_project_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#kms_project_id ObsBucket#kms_project_id}.'''
         result = self._values.get("kms_project_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3827,10 +3827,10 @@ class ObsBucketWebsite:
         routing_rules: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param error_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#error_document ObsBucket#error_document}.
-        :param index_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#index_document ObsBucket#index_document}.
-        :param redirect_all_requests_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#redirect_all_requests_to ObsBucket#redirect_all_requests_to}.
-        :param routing_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#routing_rules ObsBucket#routing_rules}.
+        :param error_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#error_document ObsBucket#error_document}.
+        :param index_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#index_document ObsBucket#index_document}.
+        :param redirect_all_requests_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#redirect_all_requests_to ObsBucket#redirect_all_requests_to}.
+        :param routing_rules: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#routing_rules ObsBucket#routing_rules}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6f2be9a2a5d3c664a9a1387dd6faf477b0f6af039b239e9f498be43005f9f62)
@@ -3850,25 +3850,25 @@ class ObsBucketWebsite:
 
     @builtins.property
     def error_document(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#error_document ObsBucket#error_document}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#error_document ObsBucket#error_document}.'''
         result = self._values.get("error_document")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def index_document(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#index_document ObsBucket#index_document}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#index_document ObsBucket#index_document}.'''
         result = self._values.get("index_document")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_all_requests_to(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#redirect_all_requests_to ObsBucket#redirect_all_requests_to}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#redirect_all_requests_to ObsBucket#redirect_all_requests_to}.'''
         result = self._values.get("redirect_all_requests_to")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def routing_rules(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#routing_rules ObsBucket#routing_rules}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#routing_rules ObsBucket#routing_rules}.'''
         result = self._values.get("routing_rules")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4014,8 +4014,8 @@ class ObsBucketWormPolicy:
         years: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#days ObsBucket#days}.
-        :param years: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#years ObsBucket#years}.
+        :param days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#days ObsBucket#days}.
+        :param years: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#years ObsBucket#years}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__063731e4b5f1c7078cb9399e808475e3bf068d0867e38b4e42d42cb281b97f6d)
@@ -4029,13 +4029,13 @@ class ObsBucketWormPolicy:
 
     @builtins.property
     def days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#days ObsBucket#days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#days ObsBucket#days}.'''
         result = self._values.get("days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def years(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket#years ObsBucket#years}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket#years ObsBucket#years}.'''
         result = self._values.get("years")
         return typing.cast(typing.Optional[jsii.Number], result)
 

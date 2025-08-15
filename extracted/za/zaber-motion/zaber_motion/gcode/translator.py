@@ -34,7 +34,7 @@ class Translator:
         return self.__get_current_coordinate_system()
 
     def __init__(self, translator_id: int):
-        self._translator_id = translator_id
+        self._translator_id: int = translator_id
 
     @staticmethod
     def setup(

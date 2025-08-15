@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_ces_event_report_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_ces_event_report_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_ces_event_report_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CesEventReportV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.cesEventReportV1.CesEventReportV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1 opentelekomcloud_ces_event_report_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1 opentelekomcloud_ces_event_report_v1}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class CesEventReportV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1 opentelekomcloud_ces_event_report_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1 opentelekomcloud_ces_event_report_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param detail: detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#detail CesEventReportV1#detail}
-        :param event_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_name CesEventReportV1#event_name}.
-        :param event_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_source CesEventReportV1#event_source}.
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#time CesEventReportV1#time}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#id CesEventReportV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#timeouts CesEventReportV1#timeouts}
+        :param detail: detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#detail CesEventReportV1#detail}
+        :param event_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_name CesEventReportV1#event_name}.
+        :param event_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_source CesEventReportV1#event_source}.
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#time CesEventReportV1#time}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#id CesEventReportV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#timeouts CesEventReportV1#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class CesEventReportV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CesEventReportV1 to import.
-        :param import_from_id: The id of the existing CesEventReportV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CesEventReportV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CesEventReportV1 to import is found.
         '''
         if __debug__:
@@ -143,14 +143,14 @@ class CesEventReportV1(
         resource_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#content CesEventReportV1#content}.
-        :param event_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_level CesEventReportV1#event_level}.
-        :param event_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_state CesEventReportV1#event_state}.
-        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_type CesEventReportV1#event_type}.
-        :param event_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_user CesEventReportV1#event_user}.
-        :param group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#group_id CesEventReportV1#group_id}.
-        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#resource_id CesEventReportV1#resource_id}.
-        :param resource_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#resource_name CesEventReportV1#resource_name}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#content CesEventReportV1#content}.
+        :param event_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_level CesEventReportV1#event_level}.
+        :param event_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_state CesEventReportV1#event_state}.
+        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_type CesEventReportV1#event_type}.
+        :param event_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_user CesEventReportV1#event_user}.
+        :param group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#group_id CesEventReportV1#group_id}.
+        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#resource_id CesEventReportV1#resource_id}.
+        :param resource_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#resource_name CesEventReportV1#resource_name}.
         '''
         value = CesEventReportV1Detail(
             content=content,
@@ -173,8 +173,8 @@ class CesEventReportV1(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#create CesEventReportV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#delete CesEventReportV1#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#create CesEventReportV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#delete CesEventReportV1#delete}.
         '''
         value = CesEventReportV1Timeouts(create=create, delete=delete)
 
@@ -342,12 +342,12 @@ class CesEventReportV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param detail: detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#detail CesEventReportV1#detail}
-        :param event_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_name CesEventReportV1#event_name}.
-        :param event_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_source CesEventReportV1#event_source}.
-        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#time CesEventReportV1#time}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#id CesEventReportV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#timeouts CesEventReportV1#timeouts}
+        :param detail: detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#detail CesEventReportV1#detail}
+        :param event_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_name CesEventReportV1#event_name}.
+        :param event_source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_source CesEventReportV1#event_source}.
+        :param time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#time CesEventReportV1#time}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#id CesEventReportV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#timeouts CesEventReportV1#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -463,7 +463,7 @@ class CesEventReportV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def detail(self) -> "CesEventReportV1Detail":
         '''detail block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#detail CesEventReportV1#detail}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#detail CesEventReportV1#detail}
         '''
         result = self._values.get("detail")
         assert result is not None, "Required property 'detail' is missing"
@@ -471,28 +471,28 @@ class CesEventReportV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def event_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_name CesEventReportV1#event_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_name CesEventReportV1#event_name}.'''
         result = self._values.get("event_name")
         assert result is not None, "Required property 'event_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def event_source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_source CesEventReportV1#event_source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_source CesEventReportV1#event_source}.'''
         result = self._values.get("event_source")
         assert result is not None, "Required property 'event_source' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#time CesEventReportV1#time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#time CesEventReportV1#time}.'''
         result = self._values.get("time")
         assert result is not None, "Required property 'time' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#id CesEventReportV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#id CesEventReportV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -504,7 +504,7 @@ class CesEventReportV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CesEventReportV1Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#timeouts CesEventReportV1#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#timeouts CesEventReportV1#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CesEventReportV1Timeouts"], result)
@@ -549,14 +549,14 @@ class CesEventReportV1Detail:
         resource_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#content CesEventReportV1#content}.
-        :param event_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_level CesEventReportV1#event_level}.
-        :param event_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_state CesEventReportV1#event_state}.
-        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_type CesEventReportV1#event_type}.
-        :param event_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_user CesEventReportV1#event_user}.
-        :param group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#group_id CesEventReportV1#group_id}.
-        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#resource_id CesEventReportV1#resource_id}.
-        :param resource_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#resource_name CesEventReportV1#resource_name}.
+        :param content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#content CesEventReportV1#content}.
+        :param event_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_level CesEventReportV1#event_level}.
+        :param event_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_state CesEventReportV1#event_state}.
+        :param event_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_type CesEventReportV1#event_type}.
+        :param event_user: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_user CesEventReportV1#event_user}.
+        :param group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#group_id CesEventReportV1#group_id}.
+        :param resource_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#resource_id CesEventReportV1#resource_id}.
+        :param resource_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#resource_name CesEventReportV1#resource_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__df3953fa46f0610db56a89ff9de983ba00d7f9da2243ff9bab947b1b72097673)
@@ -588,49 +588,49 @@ class CesEventReportV1Detail:
 
     @builtins.property
     def content(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#content CesEventReportV1#content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#content CesEventReportV1#content}.'''
         result = self._values.get("content")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def event_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_level CesEventReportV1#event_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_level CesEventReportV1#event_level}.'''
         result = self._values.get("event_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def event_state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_state CesEventReportV1#event_state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_state CesEventReportV1#event_state}.'''
         result = self._values.get("event_state")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def event_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_type CesEventReportV1#event_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_type CesEventReportV1#event_type}.'''
         result = self._values.get("event_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def event_user(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#event_user CesEventReportV1#event_user}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#event_user CesEventReportV1#event_user}.'''
         result = self._values.get("event_user")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#group_id CesEventReportV1#group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#group_id CesEventReportV1#group_id}.'''
         result = self._values.get("group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resource_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#resource_id CesEventReportV1#resource_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#resource_id CesEventReportV1#resource_id}.'''
         result = self._values.get("resource_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def resource_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#resource_name CesEventReportV1#resource_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#resource_name CesEventReportV1#resource_name}.'''
         result = self._values.get("resource_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -860,8 +860,8 @@ class CesEventReportV1Timeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#create CesEventReportV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#delete CesEventReportV1#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#create CesEventReportV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#delete CesEventReportV1#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac71935a2114f3d45f41cc39fe285506a117f613d072d297102e2e8457152486)
@@ -875,13 +875,13 @@ class CesEventReportV1Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#create CesEventReportV1#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#create CesEventReportV1#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_event_report_v1#delete CesEventReportV1#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_event_report_v1#delete CesEventReportV1#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

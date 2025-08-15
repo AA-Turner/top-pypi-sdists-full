@@ -41,6 +41,8 @@ from .literals import (
     ComputeType,
     ConnectionAliasStateType,
     ConnectionStateType,
+    CustomImageProtocolType,
+    CustomWorkspaceImageImportStateType,
     DataReplicationType,
     DedicatedTenancyAccountTypeType,
     DedicatedTenancyModificationStateEnumType,
@@ -49,12 +51,14 @@ from .literals import (
     DescribeWorkspaceDirectoriesFilterNameType,
     DescribeWorkspacesPoolsFilterOperatorType,
     EndpointEncryptionModeType,
+    ImageComputeTypeType,
     ImageTypeType,
     LogUploadEnumType,
     ModificationResourceEnumType,
     ModificationStateEnumType,
     OperatingSystemNameType,
     OperatingSystemTypeType,
+    OSVersionType,
     PoolsRunningModeType,
     ProtocolType,
     ReconnectEnumType,
@@ -149,6 +153,7 @@ __all__ = (
     "CreateWorkspacesPoolResultTypeDef",
     "CreateWorkspacesRequestTypeDef",
     "CreateWorkspacesResultTypeDef",
+    "CustomWorkspaceImageImportErrorDetailsTypeDef",
     "DataReplicationSettingsTypeDef",
     "DefaultClientBrandingAttributesTypeDef",
     "DefaultImportClientBrandingAttributesTypeDef",
@@ -185,6 +190,8 @@ __all__ = (
     "DescribeConnectionAliasPermissionsResultTypeDef",
     "DescribeConnectionAliasesRequestTypeDef",
     "DescribeConnectionAliasesResultTypeDef",
+    "DescribeCustomWorkspaceImageImportRequestTypeDef",
+    "DescribeCustomWorkspaceImageImportResultTypeDef",
     "DescribeImageAssociationsRequestTypeDef",
     "DescribeImageAssociationsResultTypeDef",
     "DescribeIpGroupsRequestPaginateTypeDef",
@@ -234,8 +241,11 @@ __all__ = (
     "IDCConfigTypeDef",
     "ImagePermissionTypeDef",
     "ImageResourceAssociationTypeDef",
+    "ImageSourceIdentifierTypeDef",
     "ImportClientBrandingRequestTypeDef",
     "ImportClientBrandingResultTypeDef",
+    "ImportCustomWorkspaceImageRequestTypeDef",
+    "ImportCustomWorkspaceImageResultTypeDef",
     "ImportWorkspaceImageRequestTypeDef",
     "ImportWorkspaceImageResultTypeDef",
     "IosClientBrandingAttributesTypeDef",
@@ -252,6 +262,7 @@ __all__ = (
     "MigrateWorkspaceResultTypeDef",
     "ModificationStateTypeDef",
     "ModifyAccountRequestTypeDef",
+    "ModifyAccountResultTypeDef",
     "ModifyCertificateBasedAuthPropertiesRequestTypeDef",
     "ModifyClientPropertiesRequestTypeDef",
     "ModifyEndpointEncryptionModeRequestTypeDef",
@@ -478,6 +489,10 @@ class TimeoutSettingsTypeDef(TypedDict):
     IdleDisconnectTimeoutInSeconds: NotRequired[int]
     MaxUserDurationInSeconds: NotRequired[int]
 
+class CustomWorkspaceImageImportErrorDetailsTypeDef(TypedDict):
+    ErrorCode: NotRequired[str]
+    ErrorMessage: NotRequired[str]
+
 class DataReplicationSettingsTypeDef(TypedDict):
     DataReplication: NotRequired[DataReplicationType]
     RecoverySnapshotTime: NotRequired[datetime]
@@ -600,6 +615,14 @@ class DescribeConnectionAliasesRequestTypeDef(TypedDict):
     ResourceId: NotRequired[str]
     Limit: NotRequired[int]
     NextToken: NotRequired[str]
+
+class DescribeCustomWorkspaceImageImportRequestTypeDef(TypedDict):
+    ImageId: str
+
+class ImageSourceIdentifierTypeDef(TypedDict):
+    Ec2ImportTaskId: NotRequired[str]
+    ImageBuildVersionArn: NotRequired[str]
+    Ec2ImageId: NotRequired[str]
 
 class DescribeImageAssociationsRequestTypeDef(TypedDict):
     ImageId: str
@@ -895,10 +918,16 @@ class DescribeAccountResultTypeDef(TypedDict):
     DedicatedTenancySupport: DedicatedTenancySupportResultEnumType
     DedicatedTenancyManagementCidrRange: str
     DedicatedTenancyAccountType: DedicatedTenancyAccountTypeType
+    Message: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetAccountLinkResultTypeDef(TypedDict):
     AccountLink: AccountLinkTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ImportCustomWorkspaceImageResultTypeDef(TypedDict):
+    ImageId: str
+    State: CustomWorkspaceImageImportStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ImportWorkspaceImageResultTypeDef(TypedDict):
@@ -918,6 +947,10 @@ class ListAvailableManagementCidrRangesResultTypeDef(TypedDict):
 class MigrateWorkspaceResultTypeDef(TypedDict):
     SourceWorkspaceId: str
     TargetWorkspaceId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ModifyAccountResultTypeDef(TypedDict):
+    Message: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RegisterWorkspaceDirectoryResultTypeDef(TypedDict):
@@ -1225,6 +1258,32 @@ class ImportClientBrandingResultTypeDef(TypedDict):
     DeviceTypeLinux: DefaultClientBrandingAttributesTypeDef
     DeviceTypeWeb: DefaultClientBrandingAttributesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeCustomWorkspaceImageImportResultTypeDef(TypedDict):
+    ImageId: str
+    InfrastructureConfigurationArn: str
+    State: CustomWorkspaceImageImportStateType
+    Created: datetime
+    LastUpdatedTime: datetime
+    ImageSource: ImageSourceIdentifierTypeDef
+    ImageBuilderInstanceId: str
+    ErrorDetails: List[CustomWorkspaceImageImportErrorDetailsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+ImportCustomWorkspaceImageRequestTypeDef = TypedDict(
+    "ImportCustomWorkspaceImageRequestTypeDef",
+    {
+        "ImageName": str,
+        "ImageDescription": str,
+        "ComputeType": ImageComputeTypeType,
+        "Protocol": CustomImageProtocolType,
+        "ImageSource": ImageSourceIdentifierTypeDef,
+        "InfrastructureConfigurationArn": str,
+        "Platform": Literal["WINDOWS"],
+        "OsVersion": OSVersionType,
+        "Tags": NotRequired[Sequence[TagTypeDef]],
+    },
+)
 
 class DescribeWorkspaceDirectoriesRequestPaginateTypeDef(TypedDict):
     DirectoryIds: NotRequired[Sequence[str]]

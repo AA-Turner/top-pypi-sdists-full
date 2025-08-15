@@ -21,6 +21,41 @@ else:
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
+class ProjectRequest(google.protobuf.message.Message):
+    """Request message for project operations"""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CREATE_PROJECT_REQUEST_FIELD_NUMBER: builtins.int
+    DELETE_PROJECT_REQUEST_FIELD_NUMBER: builtins.int
+    UPDATE_PROJECT_REQUEST_FIELD_NUMBER: builtins.int
+    GET_PROJECT_REQUEST_FIELD_NUMBER: builtins.int
+    LIST_PROJECTS_REQUEST_FIELD_NUMBER: builtins.int
+    @property
+    def create_project_request(self) -> global___CreateProjectRequest: ...
+    @property
+    def delete_project_request(self) -> global___DeleteProjectRequest: ...
+    @property
+    def update_project_request(self) -> global___UpdateProjectRequest: ...
+    @property
+    def get_project_request(self) -> global___GetProjectRequest: ...
+    @property
+    def list_projects_request(self) -> global___ListProjectsRequest: ...
+    def __init__(
+        self,
+        *,
+        create_project_request: global___CreateProjectRequest | None = ...,
+        delete_project_request: global___DeleteProjectRequest | None = ...,
+        update_project_request: global___UpdateProjectRequest | None = ...,
+        get_project_request: global___GetProjectRequest | None = ...,
+        list_projects_request: global___ListProjectsRequest | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["create_project_request", b"create_project_request", "delete_project_request", b"delete_project_request", "get_project_request", b"get_project_request", "list_projects_request", b"list_projects_request", "request", b"request", "update_project_request", b"update_project_request"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["create_project_request", b"create_project_request", "delete_project_request", b"delete_project_request", "get_project_request", b"get_project_request", "list_projects_request", b"list_projects_request", "request", b"request", "update_project_request", b"update_project_request"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["request", b"request"]) -> typing_extensions.Literal["create_project_request", "delete_project_request", "update_project_request", "get_project_request", "list_projects_request"] | None: ...
+
+global___ProjectRequest = ProjectRequest
+
 class CreateProjectRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 

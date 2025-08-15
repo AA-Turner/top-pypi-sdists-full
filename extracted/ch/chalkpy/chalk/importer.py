@@ -1077,12 +1077,18 @@ class ChalkImporter:
                         import inspect
 
                         if f.underscore_expression._chalk_definition_location is not None:
+                            definition_location = f.underscore_expression._chalk_definition_location
+                            if (
+                                isinstance(f.underscore_expression, UnderscoreFunction)
+                                and len(f.underscore_expression._chalk__args) > 0
+                            ):
+                                definition_location = f.underscore_expression._chalk__args[0]._chalk_definition_location
                             # Underscore expressions attempt to obtain a best-effort location.
                             # Currently, the column is always 1, because we do not have a reliable
                             # way to get the column of a caller.
                             underscore_position = PositionGQL(
-                                line=f.underscore_expression._chalk_definition_location.line,
-                                character=f.underscore_expression._chalk_definition_location.column,
+                                line=definition_location.line,
+                                character=definition_location.column,
                             )
                             range = RangeGQL(
                                 start=underscore_position,
@@ -1094,6 +1100,7 @@ class ChalkImporter:
                                 start=PositionGQL(line=1, character=1),
                                 end=PositionGQL(line=1, character=1),
                             )
+
                         diagnostics.append(
                             PublishDiagnosticsParams(
                                 uri=inspect.getfile(feature_class),
@@ -1223,7 +1230,12 @@ class _ScalarExpr:
 
 
 @dataclass(frozen=True)
-class _NamespaceExpr:
+class _HasOneNamespaceExpr:
+    namespace: str
+
+
+@dataclass(frozen=True)
+class _HasManyNamespaceExpr:
     namespace: str
 
 
@@ -1233,7 +1245,7 @@ def _supplemental_validate_feature_in_namespace(
     class_namespace: type[FeaturesProtocol],
     feature_name: str,
     underscore: Underscore,
-) -> Union[_ScalarExpr, _NamespaceExpr, None]:
+) -> Union[_ScalarExpr, _HasOneNamespaceExpr, _HasManyNamespaceExpr, None]:
     """
     Resolves references to features.
     """
@@ -1249,14 +1261,23 @@ def _supplemental_validate_feature_in_namespace(
     feature_definition = class_features[feature_name]
     if feature_definition.is_pseudofeature:
         return None
-    if feature_definition.is_windowed:
+    if (
+        feature_definition.is_windowed
+        or feature_definition.is_group_by_windowed
+        or feature_definition.has_window_materialization
+    ):
         return None
     if feature_definition.is_scalar:
+        # raise _UnderscoreValidationError("ok, we're here:", underscore, feature_definition.root_fqn, feature_definition.features_cls, feature_definition.is_windowed_pseudofeature)
         return _ScalarExpr(dtype=feature_definition.converter.pyarrow_dtype)
     if feature_definition.is_has_one:
         foreign_feature_namespace = feature_definition.typ.as_features_cls()
         if foreign_feature_namespace is not None:
-            return _NamespaceExpr(namespace=foreign_feature_namespace.namespace)
+            return _HasOneNamespaceExpr(namespace=foreign_feature_namespace.namespace)
+    if feature_definition.is_has_many:
+        foreign_feature_namespace = feature_definition.typ.as_dataframe()
+        if foreign_feature_namespace is not None:
+            return _HasManyNamespaceExpr(namespace=foreign_feature_namespace.namespace)
 
 
 def _supplemental_validate_underscore_expression(
@@ -1264,7 +1285,7 @@ def _supplemental_validate_underscore_expression(
     *,
     class_namespace: type[FeaturesProtocol],
     underscore: Underscore,
-) -> Union[_ScalarExpr, _NamespaceExpr, None]:
+) -> Union[_ScalarExpr, _HasOneNamespaceExpr, _HasManyNamespaceExpr, None]:
     """
     Validates that the provided `underscore` definition is legal when evaluated in `class_namespace`.
     Currently, does not perform type-checking; just checks that all names are in scope.
@@ -1272,7 +1293,6 @@ def _supplemental_validate_underscore_expression(
     If the underscore expression is invalid, raises a `_UnderscoreValidationError` with a message.
     The caller is responsible for converting this exception into a diagnostic message.
     """
-
     if isinstance(underscore, UnderscoreAttr) and isinstance(underscore._chalk__parent, UnderscoreRoot):
         if underscore._chalk__attr in ("chalk_window", "chalk_now"):
             # This is a special case, which can be skipped in validation.
@@ -1305,7 +1325,7 @@ def _supplemental_validate_underscore_expression(
                 f"could not find the struct field '{underscore._chalk__attr}' among the available fields [{', '.join(f.name for f in st)}]"
             )
 
-        if isinstance(parent_result, _NamespaceExpr):
+        if isinstance(parent_result, _HasOneNamespaceExpr):
             if parent_result.namespace not in FeatureSetBase.registry:
                 return None
 
@@ -1317,18 +1337,42 @@ def _supplemental_validate_underscore_expression(
                 underscore=underscore,
             )
 
+        if isinstance(parent_result, _HasManyNamespaceExpr):
+            raise _UnderscoreValidationError(
+                f"the input '{underscore._chalk__parent!r}' is a has-many, so a feature called '{underscore._chalk__attr}' cannot be extracted from it; consider using indexing notation instead, e.g. '{underscore._chalk__parent}[_.{underscore._chalk__attr}]'"
+            )
+
         return None
 
     if isinstance(underscore, UnderscoreFunction):
         if (underscore._chalk__function_name in ("max_by", "min_by") and len(underscore._chalk__args) == 2) or (
             underscore._chalk__function_name in ("max_by_n", "min_by_n") and len(underscore._chalk__args) == 3
         ):
-            _supplemental_validate_underscore_expression(
+            parent_result = _supplemental_validate_underscore_expression(
                 state=state,
                 class_namespace=class_namespace,
                 underscore=underscore._chalk__args[0],
             )
-            # TODO: second arg is on a different namespace
+
+            if parent_result is None:
+                return None  # TODO: handle windowed expressions
+
+            if not isinstance(parent_result, _HasManyNamespaceExpr):
+                raise _UnderscoreValidationError(
+                    f"the expression {underscore._chalk__args[0]} does not refer to a dataframe column on a has-many"
+                )
+
+            if parent_result.namespace not in FeatureSetBase.registry:
+                return None
+
+            parent_class_namespace = FeatureSetBase.registry[parent_result.namespace]
+
+            for arg in underscore._chalk__args[1:]:
+                _supplemental_validate_underscore_expression(
+                    state=state, class_namespace=parent_class_namespace, underscore=arg
+                )
+
+            return None
         else:
             for arg in underscore._chalk__args:
                 expr = _supplemental_validate_underscore_expression(
@@ -1336,10 +1380,82 @@ def _supplemental_validate_underscore_expression(
                     class_namespace=class_namespace,
                     underscore=arg,
                 )
-                if isinstance(expr, _NamespaceExpr):
+                if isinstance(expr, _HasOneNamespaceExpr):
                     raise _UnderscoreValidationError(
                         f"the input '{arg!r}' is a feature namespace '{expr.namespace}' which cannot be used as a scalar value"
                     )
+
+        return None
+
+    # TODO: Dominic - impl for UnderscoreCall args (we need some special casing for aggregate functions that take in UnderscoreItems)
+    if isinstance(underscore, UnderscoreCall):
+        caller = underscore._chalk__parent._chalk__parent
+        maybe_parent_result = _supplemental_validate_underscore_expression(
+            state=state,
+            class_namespace=class_namespace,
+            underscore=caller,
+        )
+        if not isinstance(underscore._chalk__parent, UnderscoreAttr):
+            return None  # TODO: Dominic - is this ever valid?
+        if underscore._chalk__parent._chalk__attr == "where":
+            if maybe_parent_result is None:
+                return None
+            if not isinstance(maybe_parent_result, _HasManyNamespaceExpr) or not isinstance(caller, UnderscoreItem):
+                raise _UnderscoreValidationError(
+                    f"Cannot call filter function `.where(...)` on non-dataframe underscore expression `{caller}` inside of underscore expression `{underscore}`"
+                )
+            if len(underscore._chalk__args) == 0:
+                raise _UnderscoreValidationError(
+                    f"Cannot call filter function `.where(...)` with no filter arguments in expression `{underscore}`"
+                )
+            if len(underscore._chalk__kwargs) != 0:
+                raise _UnderscoreValidationError(
+                    f"Cannot call filter function `.where(...)` with keyword arguments in expression `{underscore}`"
+                )
+            for arg in underscore._chalk__args:
+                expr = _supplemental_validate_underscore_expression(
+                    state=state,
+                    class_namespace=FeatureSetBase.registry[maybe_parent_result.namespace],
+                    underscore=arg,
+                )
+                if isinstance(expr, _HasOneNamespaceExpr):
+                    raise _UnderscoreValidationError(
+                        f"the input '{arg!r}' is a feature namespace '{expr.namespace}' which cannot be used as a scalar value"
+                    )
+
+        return None
+
+    if isinstance(underscore, UnderscoreItem):
+        parent_result = _supplemental_validate_underscore_expression(
+            state=state,
+            class_namespace=class_namespace,
+            underscore=underscore._chalk__parent,
+        )
+
+        if parent_result is None:
+            return None  # TODO - handle windowed expressions
+
+        if not isinstance(parent_result, _HasManyNamespaceExpr):
+            raise _UnderscoreValidationError(
+                f"the expression {underscore._chalk__parent} does not refer to a has-many feature"
+            )
+
+        if parent_result.namespace not in FeatureSetBase.registry:
+            return None
+
+        parent_class_namespace = FeatureSetBase.registry[parent_result.namespace]
+        for key_arg in underscore._chalk__key:
+            _supplemental_validate_underscore_expression(
+                state=state,
+                class_namespace=parent_class_namespace,
+                underscore=key_arg,
+            )
+
+        return parent_result
+
+    # TODO: Dominic - this should be a fallback case once we've exhaustively covered all Underscore subclasses
+    # if isinstance(underscore, Underscore):
+    #     raise _UnderscoreValidationError(f" unknown type: {type(underscore)} for {underscore}"
 
 
 def _get_printable_name(typ: Any) -> str:

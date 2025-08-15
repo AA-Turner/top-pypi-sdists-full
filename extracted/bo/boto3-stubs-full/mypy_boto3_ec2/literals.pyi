@@ -1021,6 +1021,9 @@ Ec2InstanceConnectEndpointStateType = Literal[
     "delete-complete",
     "delete-failed",
     "delete-in-progress",
+    "update-complete",
+    "update-failed",
+    "update-in-progress",
 ]
 EkPubKeyFormatType = Literal["der", "tpmt"]
 EkPubKeyTypeType = Literal["ecc-sec-p384", "rsa-2048"]
@@ -2858,6 +2861,7 @@ ServiceName = Literal[
     "batch",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

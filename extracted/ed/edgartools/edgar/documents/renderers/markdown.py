@@ -3,10 +3,10 @@ Markdown renderer for parsed documents.
 """
 
 from typing import List, Optional, Dict, Set
+
 from edgar.documents.document import Document
 from edgar.documents.nodes import Node, TextNode, HeadingNode, ParagraphNode, ListNode, ListItemNode
 from edgar.documents.table_nodes import TableNode
-from edgar.documents.types import NodeType, SemanticType
 
 
 class MarkdownRenderer:

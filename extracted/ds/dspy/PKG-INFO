@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dspy
-Version: 3.0.0
+Version: 3.0.1
 Summary: DSPy
 Author-email: Omar Khattab <okhattab@stanford.edu>
 License-Expression: MIT
@@ -33,7 +33,7 @@ Requires-Dist: cloudpickle>=3.0.0
 Requires-Dist: rich>=13.7.1
 Requires-Dist: numpy>=1.26.0
 Requires-Dist: xxhash>=3.5.0
-Requires-Dist: gepa==0.0.2
+Requires-Dist: gepa[dspy]==0.0.4
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.18.0; extra == "anthropic"
 Provides-Extra: weaviate

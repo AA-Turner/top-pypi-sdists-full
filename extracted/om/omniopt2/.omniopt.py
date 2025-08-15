@@ -9,6 +9,7 @@
 
 import sys
 import os
+import signal
 import pickle
 import re
 import math
@@ -16,7 +17,59 @@ import time
 import random
 import tempfile
 import threading
+import copy
+import functools
+from collections import Counter, defaultdict
+import types
+from typing import TypeVar, Callable, Any
+import traceback
+import inspect
+import tracemalloc
+import resource
+import psutil
 
+FORCE_EXIT: bool = False
+
+def force_exit(signal_number: Any, frame: Any) -> Any:
+    global FORCE_EXIT
+
+    if 'print_debug' in globals():
+        print_debug(f"force_exit(signal_number = {signal_number}, frame = {frame})")
+
+    print("")
+    if FORCE_EXIT:
+        print("Exiting now")
+        os._exit(0)
+    else:
+        print("Shutting down, this may take a while. Press CTRL-c again to force exit now.")
+        FORCE_EXIT = True
+        sys.exit(0)
+
+signal.signal(signal.SIGINT, force_exit)
+
+F = TypeVar("F", bound=Callable[..., object])
+
+_has_run_once = False
+_current_live_share_future = None
+
+last_progress_bar_refresh_time = 0.0
+MIN_REFRESH_INTERVAL = 1.0
+
+_last_count_time = 0
+_last_count_result: tuple[int, str] = (0, "")
+
+_total_time = 0.0
+_func_times = defaultdict(float)
+_func_mem = defaultdict(float)
+_func_call_paths = defaultdict(Counter)
+_last_mem = defaultdict(float)
+_leak_threshold_mb = 10.0
+generation_strategy_names: list = []
+default_max_range_difference: int = 1000000
+
+_function_name_cache: dict = {}
+
+experiment_parameters: dict | None = None
 arms_by_name_for_deduplication: dict = {}
 initialized_storage: bool = False
 prepared_setting_to_custom: bool = False
@@ -44,7 +97,8 @@ joined_valid_occ_types: str = ", ".join(valid_occ_types)
 SUPPORTED_MODELS: list = ["SOBOL", "FACTORIAL", "SAASBO", "BOTORCH_MODULAR", "UNIFORM", "BO_MIXED", "RANDOMFOREST", "EXTERNAL_GENERATOR", "PSEUDORANDOM", "TPE"]
 joined_supported_models: str = ", ".join(SUPPORTED_MODELS)
 
-special_col_names: list = ["arm_name", "generation_method", "trial_index", "trial_status", "generation_node", "idxs", "trial_index", "start_time", "end_time", "run_time", "exit_code", "program_string", "signal", "hostname", "submit_time", "queue_time"]
+special_col_names: list = ["arm_name", "generation_method", "trial_index", "trial_status", "generation_node", "idxs", "start_time", "end_time", "run_time", "exit_code", "program_string", "signal", "hostname", "submit_time", "queue_time", "metric_name", "mean", "sem", "worker_generator_uuid"]
+
 IGNORABLE_COLUMNS: list = ["start_time", "end_time", "hostname", "signal", "exit_code", "run_time", "program_string"] + special_col_names
 
 uncontinuable_models: list = ["RANDOMFOREST", "EXTERNAL_GENERATOR", "TPE", "PSEUDORANDOM", "HUMAN_INTERVENTION_MINIMUM"]
@@ -76,146 +130,148 @@ try:
         width=max(200, terminal_width)
     )
 
-    with console.status("[bold green]Importing logging..."):
+    def spinner(text: str) -> Any:
+        return console.status(f"[bold green]{text}", speed=0.2, refresh_per_second=6)
+
+    with spinner("Importing logging..."):
         import logging
         logging.basicConfig(level=logging.CRITICAL)
 
-    with console.status("[bold green]Importing warnings..."):
+    with spinner("Importing warnings..."):
         import warnings
 
         warnings.filterwarnings(
             "ignore",
             category=FutureWarning,
-            module="ax.modelbridge.best_model_selector"
+            module="ax.adapter.best_model_selector"
         )
 
-    with console.status("[bold green]Importing argparse..."):
+        warnings.filterwarnings(
+            "ignore",
+            message="Ax currently requires a sqlalchemy version below 2.0.*",
+        )
+
+        warnings.filterwarnings(
+            "ignore",
+            category=RuntimeWarning,
+            message="coroutine 'start_logging_daemon' was never awaited"
+        )
+
+    with spinner("Importing argparse..."):
         import argparse
 
-    with console.status("[bold green]Importing datetime..."):
+    with spinner("Importing datetime..."):
         import datetime
 
-    with console.status("[bold green]Importing dataclass..."):
+    with spinner("Importing dataclass..."):
         from dataclasses import dataclass
 
-    with console.status("[bold green]Importing hashlib..."):
-        import hashlib
-
-    with console.status("[bold green]Importing socket..."):
+    with spinner("Importing socket..."):
         import socket
 
-    with console.status("[bold green]Importing stat..."):
+    with spinner("Importing stat..."):
         import stat
 
-    with console.status("[bold green]Importing pwd..."):
+    with spinner("Importing pwd..."):
         import pwd
 
-    with console.status("[bold green]Importing signal..."):
-        import signal
-
-    with console.status("[bold green]Importing base64..."):
+    with spinner("Importing base64..."):
         import base64
 
-    with console.status("[bold green]Importing json..."):
+    with spinner("Importing json..."):
         import json
 
-    with console.status("[bold green]Importing yaml..."):
+    with spinner("Importing yaml..."):
         import yaml
 
-    with console.status("[bold green]Importing toml..."):
+    with spinner("Importing toml..."):
         import toml
 
-    with console.status("[bold green]Importing csv..."):
+    with spinner("Importing csv..."):
         import csv
 
-    with console.status("[bold green]Importing ast..."):
+    with spinner("Importing ast..."):
         import ast
 
-    with console.status("[bold green]Importing rich.table..."):
+    with spinner("Importing rich.table..."):
         from rich.table import Table
 
-    with console.status("[bold green]Importing rich print..."):
+    with spinner("Importing rich print..."):
         from rich import print
 
-    with console.status("[bold green]Importing rich.pretty..."):
+    with spinner("Importing rich.pretty..."):
         from rich.pretty import pprint
 
-    with console.status("[bold green]Importing rich.prompt..."):
+    with spinner("Importing rich.prompt..."):
         from rich.prompt import Prompt, FloatPrompt, IntPrompt
 
-    with console.status("[bold green]Importing types.FunctionType..."):
+    with spinner("Importing types.FunctionType..."):
         from types import FunctionType
 
-    with console.status("[bold green]Importing typing..."):
-        from typing import Pattern, Optional, Tuple, Any, cast, Union, TextIO, List, Dict, Type
+    with spinner("Importing typing..."):
+        from typing import Pattern, Optional, Tuple, cast, Union, TextIO, List, Dict, Type
 
-    with console.status("[bold green]Importing ThreadPoolExecutor..."):
+    with spinner("Importing ThreadPoolExecutor..."):
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    with console.status("[bold green]Importing submitit.LocalExecutor..."):
+    with spinner("Importing submitit.LocalExecutor..."):
         from submitit import LocalExecutor, AutoExecutor
 
-    with console.status("[bold green]Importing submitit.Job..."):
+    with spinner("Importing submitit.Job..."):
         from submitit import Job
 
-    with console.status("[bold green]Importing importlib.util..."):
+    with spinner("Importing importlib.util..."):
         import importlib.util
 
-    with console.status("[bold green]Importing inspect..."):
-        import inspect
-
-    with console.status("[bold green]Importing platform..."):
+    with spinner("Importing platform..."):
         import platform
 
-    with console.status("[bold green]Importing inspect frame info..."):
+    with spinner("Importing inspect frame info..."):
         from inspect import currentframe, getframeinfo
 
-    with console.status("[bold green]Importing pathlib.Path..."):
+    with spinner("Importing pathlib.Path..."):
         from pathlib import Path
 
-    with console.status("[bold green]Importing uuid..."):
+    with spinner("Importing uuid..."):
         import uuid
 
-    with console.status("[bold green]Importing traceback..."):
-        import traceback
+    #with spinner("Importing qrcode..."):
+    #    import qrcode
 
-    with console.status("[bold green]Importing cowsay..."):
+    with spinner("Importing cowsay..."):
         import cowsay
 
-    with console.status("[bold green]Importing psutil..."):
-        import psutil
-
-    with console.status("[bold green]Importing shutil..."):
+    with spinner("Importing shutil..."):
         import shutil
 
-    with console.status("[bold green]Importing itertools.combinations..."):
+    with spinner("Importing itertools.combinations..."):
         from itertools import combinations
 
-    with console.status("[bold green]Importing os.listdir..."):
+    with spinner("Importing os.listdir..."):
         from os import listdir
 
-    with console.status("[bold green]Importing os.path..."):
+    with spinner("Importing os.path..."):
         from os.path import isfile, join
 
-    with console.status("[bold green]Importing PIL.Image..."):
+    with spinner("Importing PIL.Image..."):
         from PIL import Image
 
-    with console.status("[bold green]Importing sixel..."):
+    with spinner("Importing sixel..."):
         import sixel
 
-    with console.status("[bold green]Importing subprocess..."):
+    with spinner("Importing subprocess..."):
         import subprocess
 
-    with console.status("[bold green]Importing tqdm..."):
+    with spinner("Importing tqdm..."):
         from tqdm import tqdm
 
-    with console.status("[bold green]Importing beartype..."):
+    with spinner("Importing beartype..."):
         from beartype import beartype
 
-    with console.status("[bold green]Importing statistics..."):
+    with spinner("Importing statistics..."):
         import statistics
 
-    with console.status("[bold green]Trying to import pyfiglet..."):
+    with spinner("Trying to import pyfiglet..."):
         try:
             from pyfiglet import Figlet
             figlet_loaded = True
@@ -232,11 +288,148 @@ except KeyboardInterrupt:
     print("You pressed CTRL-C while modules were loading.")
     sys.exit(17)
 
-@beartype
+def collect_runtime_stats() -> dict:
+    process = psutil.Process(os.getpid())
+    mem_info = process.memory_info()
+
+    # RLIMIT_NOFILE
+    if hasattr(resource, "RLIMIT_NOFILE"):
+        try:
+            ulimit_nofile = resource.getrlimit(resource.RLIMIT_NOFILE)
+        except Exception:
+            ulimit_nofile = (0, 0)
+    else:
+        # Windows fallback: psutil provides open file limit approximately
+        ulimit_nofile = (process.num_fds() if hasattr(process, "num_fds") else 0, 0)
+
+    # RLIMIT_AS
+    if hasattr(resource, "RLIMIT_AS"):
+        try:
+            ulimit_as = resource.getrlimit(resource.RLIMIT_AS)
+        except Exception:
+            ulimit_as = (0, 0)
+    else:
+        # Windows fallback: set to total virtual memory
+        ulimit_as = (psutil.virtual_memory().total, psutil.virtual_memory().total)
+
+    return {
+        "rss_MB": mem_info.rss / (1024 * 1024),
+        "vms_MB": mem_info.vms / (1024 * 1024),
+        "threads": threading.active_count(),
+        "open_files": len(process.open_files()),
+        "ulimit_nofile": ulimit_nofile,
+        "ulimit_as": ulimit_as,
+        "cpu_percent": process.cpu_percent(interval=0.05),
+    }
+
+def show_func_name_wrapper(func: F) -> F:
+    @functools.wraps(func)
+    def wrapper(*func_args: Any, **kwargs: Any) -> Any:
+        print(f"==== {func.__name__} START ====")
+        result = func(*func_args, **kwargs)
+        print(f"==== {func.__name__} END   ====")
+
+        return result
+
+    return wrapper  # type: ignore
+
+def log_time_and_memory_wrapper(func: F) -> F:
+    @functools.wraps(func)
+    def wrapper(*func_args: Any, **kwargs: Any) -> Any:
+        process = psutil.Process()
+        mem_before = process.memory_info().rss / (1024 * 1024)
+
+        tracemalloc.start()
+        start = time.perf_counter()
+        result = func(*func_args, **kwargs)
+        elapsed = time.perf_counter() - start
+
+        _, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+
+        mem_after = process.memory_info().rss / (1024 * 1024)
+        mem_diff = mem_after - mem_before
+        mem_peak_mb = peak / (1024 * 1024)
+
+        if elapsed >= 0.05:
+            _record_stats(func.__name__, elapsed, mem_diff, mem_after, mem_peak_mb)
+
+        _check_memory_leak(func.__name__, mem_peak_mb)
+
+        return result
+
+    return wrapper  # type: ignore
+
+def _record_stats(func_name: str, elapsed: float, mem_diff: float, mem_after: float, mem_peak: float) -> None:
+    global _total_time
+
+    current_total = _total_time
+    current_func_total = _func_times[func_name]
+    simulated_total = current_total + elapsed
+    simulated_func_total = current_func_total + elapsed
+    percent_if_added = (simulated_func_total / simulated_total) * 100 if simulated_total else 100
+
+    if percent_if_added >= 1.0:
+        _func_times[func_name] = simulated_func_total
+        _func_mem[func_name] += mem_diff
+        _total_time = simulated_total
+
+        stack = traceback.extract_stack()[:-1]
+        short_stack = [f"{f.filename.split('/')[-1]}:{f.lineno} in {f.name}" for f in stack[-5:]]
+        call_path_str = " -> ".join(short_stack)
+        _func_call_paths[func_name][call_path_str] += 1
+
+        print(
+            f"Function '{func_name}' took {elapsed:.4f}s "
+            f"(total {percent_if_added:.1f}% of tracked time)"
+        )
+        print(
+            f"Memory before: {mem_after - mem_diff:.2f} MB, after: {mem_after:.2f} MB, "
+            f"diff: {mem_diff:+.2f} MB, peak during call: {mem_peak:.2f} MB"
+        )
+
+        # NEU: Runtime Stats
+        runtime_stats = collect_runtime_stats()
+        print("=== Runtime Stats ===")
+        print(f"RSS: {runtime_stats['rss_MB']:.2f} MB, VMS: {runtime_stats['vms_MB']:.2f} MB")
+        print(f"Threads: {runtime_stats['threads']}, Open files: {runtime_stats['open_files']}")
+        print(f"ulimit nofile: {runtime_stats['ulimit_nofile']}, ulimit as: {runtime_stats['ulimit_as']}")
+        print(f"CPU %: {runtime_stats['cpu_percent']:.1f}")
+
+        print(f"!!! '{func_name}' added {percent_if_added:.1f}% of the total runtime. !!!")
+        _print_time_and_memory_functions_wrapper_stats()
+
+def _print_time_and_memory_functions_wrapper_stats() -> None:
+    if _total_time == 0:
+        return
+
+    print("=== Time Stats ===")
+    items_time = sorted(_func_times.items(), key=lambda x: -x[1])
+    for i, (name, t) in enumerate(items_time, 1):
+        percent_total = t / _total_time * 100
+        print(f"{i}. {name}: {t:.4f}s ({percent_total:.1f}%)")
+
+    print("\n=== Memory Usage Stats (Top 10 by diff) ===")
+    items_mem = sorted(_func_mem.items(), key=lambda x: -abs(x[1]))
+    for i, (name, mem) in enumerate(items_mem[:10], 1):
+        print(f"{i}. {name}: {mem:+.2f} MB total change")
+
+    print("\n=== Top 10 slowest call origins ===")
+    for name, _ in items_time[:10]:
+        print(f"\n{name}:")
+        for call_path, count in _func_call_paths[name].most_common(3):
+            print(f"  {count}×  {call_path}")
+    print("==================")
+
+def _check_memory_leak(func_name: str, current_mem: float) -> None:
+    last_mem = _last_mem[func_name]
+    if current_mem - last_mem > _leak_threshold_mb:
+        print(f"⚠ Possible memory leak detected in '{func_name}': +{current_mem - last_mem:.2f} MB since last call")
+    _last_mem[func_name] = current_mem
+
 def fool_linter(*fool_linter_args: Any) -> Any:
     return fool_linter_args
 
-@beartype
 def makedirs(p: str) -> bool:
     if not os.path.exists(p):
         try:
@@ -254,6 +447,8 @@ RESET: str = "\033[0m"
 
 uuid_regex: Pattern = re.compile(r"^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[89aAbB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$")
 
+worker_generator_uuid: str = uuid.uuid4()
+
 new_uuid: str = str(uuid.uuid4())
 run_uuid: str = os.getenv("RUN_UUID", new_uuid)
 
@@ -262,8 +457,7 @@ if not uuid_regex.match(run_uuid):
     run_uuid = new_uuid
 
 JOBS_FINISHED: int = 0
-SHOWN_LIVE_SHARE_COUNTER: int = 0
-PD_CSV_FILENAME: str = "results.csv"
+RESULTS_CSV_FILENAME: str = "results.csv"
 WORKER_PERCENTAGE_USAGE: list = []
 END_PROGRAM_RAN: bool = False
 ALREADY_SHOWN_WORKER_USAGE_OVER_TIME: bool = False
@@ -276,26 +470,39 @@ random_steps: int = 1
 progress_bar: Optional[tqdm] = None
 error_8_saved: List[str] = []
 
-@beartype
-def get_current_run_folder() -> str:
+def get_current_run_folder(name: Optional[str] = None) -> str:
+    if name is not None:
+        return f"{CURRENT_RUN_FOLDER}/{name}"
+
     return CURRENT_RUN_FOLDER
 
-with console.status("[bold green]Importing helpers..."):
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    helpers_file: str = f"{script_dir}/.helpers.py"
-    spec = importlib.util.spec_from_file_location(
-        name="helpers",
-        location=helpers_file,
-    )
-    if spec is not None and spec.loader is not None:
-        helpers = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(helpers)
-    else:
-        raise ImportError(f"Could not load module from {helpers_file}")
+def get_state_file_name(name) -> str:
+    state_files_folder = f"{get_current_run_folder()}/state_files/"
+    makedirs(state_files_folder)
 
-    dier: FunctionType = helpers.dier
-    is_equal: FunctionType = helpers.is_equal
-    is_not_equal: FunctionType = helpers.is_not_equal
+    return f"{state_files_folder}/{name}"
+
+script_dir = os.path.dirname(os.path.realpath(__file__))
+
+try:
+    with spinner("Importing helpers..."):
+        helpers_file: str = f"{script_dir}/.helpers.py"
+        spec = importlib.util.spec_from_file_location(
+            name="helpers",
+            location=helpers_file,
+        )
+        if spec is not None and spec.loader is not None:
+            helpers = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(helpers)
+        else:
+            raise ImportError(f"Could not load module from {helpers_file}")
+
+        dier: FunctionType = helpers.dier
+        is_equal: FunctionType = helpers.is_equal
+        is_not_equal: FunctionType = helpers.is_not_equal
+except KeyboardInterrupt:
+    print("You pressed CTRL-c while importing the helpers file")
+    sys.exit(0)
 
 ORCHESTRATE_TODO: dict = {}
 
@@ -311,13 +518,11 @@ class SignalTERM (Exception):
 class SignalCONT (Exception):
     pass
 
-@beartype
 def is_slurm_job() -> bool:
     if os.environ.get('SLURM_JOB_ID') is not None:
         return True
     return False
 
-@beartype
 def _sleep(t: int) -> int:
     if args is not None and not args.no_sleep:
         try:
@@ -339,7 +544,6 @@ logfile_worker_creation_logs: str = f'{log_uuid_dir}_worker_creation_logs'
 logfile_trial_index_to_param_logs: str = f'{log_uuid_dir}_trial_index_to_param_logs'
 LOGFILE_DEBUG_GET_NEXT_TRIALS: Union[str, None] = None
 
-@beartype
 def print_red(text: str) -> None:
     helpers.print_color("red", text)
 
@@ -347,13 +551,12 @@ def print_red(text: str) -> None:
 
     if get_current_run_folder():
         try:
-            with open(f"{get_current_run_folder()}/oo_errors.txt", mode="a", encoding="utf-8") as myfile:
+            with open(get_current_run_folder("oo_errors.txt"), mode="a", encoding="utf-8") as myfile:
                 myfile.write(text + "\n\n")
         except (OSError, FileNotFoundError) as e:
             helpers.print_color("red", f"Error: {e}. This may mean that the {get_current_run_folder()} was deleted during the run. Could not write '{text} to {get_current_run_folder()}/oo_errors.txt'")
             sys.exit(99)
 
-@beartype
 def _debug(msg: str, _lvl: int = 0, eee: Union[None, str, Exception] = None) -> None:
     if _lvl > 3:
         original_print(f"Cannot write _debug, error: {eee}")
@@ -371,25 +574,31 @@ def _debug(msg: str, _lvl: int = 0, eee: Union[None, str, Exception] = None) -> 
 
         _debug(msg, _lvl + 1, e)
 
-@beartype
 def _get_debug_json(time_str: str, msg: str) -> str:
     function_stack = []
-
     try:
-        stack = inspect.stack()
+        frame = inspect.currentframe().f_back  # skip _get_debug_json
+        while frame:
+            func_name = _function_name_cache.get(frame.f_code)
+            if func_name is None:
+                func_name = frame.f_code.co_name
+                _function_name_cache[frame.f_code] = func_name
 
-        for frame_info in stack[1:]:
-            if str(frame_info.function) != "<module>" and str(frame_info.function) != "print_debug":
-                if frame_info.function != "wrapper":
-                    function_stack.append({
-                        "function": frame_info.function,
-                        "line_number": frame_info.lineno
-                    })
+            if func_name not in ("<module>", "print_debug", "wrapper"):
+                function_stack.append({
+                    "function": func_name,
+                    "line_number": frame.f_lineno
+                })
+
+            frame = frame.f_back
     except (SignalUSR, SignalINT, SignalCONT):
         print_red("\n⚠ You pressed CTRL-C. This is ignored in _get_debug_json.")
-    return json.dumps({"function_stack": function_stack, "time": time_str, "msg": msg}, indent=0).replace('\r', '').replace('\n', '')
 
-@beartype
+    return json.dumps(
+        {"function_stack": function_stack, "time": time_str, "msg": msg},
+        separators=(",", ":")  # no pretty indent → smaller, faster
+    ).replace('\r', '').replace('\n', '')
+
 def print_debug(msg: str) -> None:
     original_msg = msg
 
@@ -410,7 +619,6 @@ def print_debug(msg: str) -> None:
     except Exception as e:
         original_print(f"_debug: Error trying to write log file: {e}")
 
-@beartype
 def human_time_when_larger_than_a_min(seconds: Union[int, float]) -> str:
     total_seconds = int(seconds)
 
@@ -428,7 +636,6 @@ def human_time_when_larger_than_a_min(seconds: Union[int, float]) -> str:
         parts.append(f"{secs}s")
     return f"({''.join(parts)})"
 
-@beartype
 def my_exit(_code: int = 0) -> None:
     tb = traceback.format_exc()
 
@@ -439,7 +646,7 @@ def my_exit(_code: int = 0) -> None:
 
     try:
         if (is_slurm_job() and not args.force_local_execution) and not (args.show_sixel_scatter or args.show_sixel_general or args.show_sixel_trial_index_result):
-            _sleep(5)
+            _sleep(2)
         else:
             time.sleep(2)
     except KeyboardInterrupt:
@@ -456,21 +663,27 @@ def my_exit(_code: int = 0) -> None:
 
     print(f"Wallclock-Runtime: {whole_run_time} seconds {human_time}")
 
+    if is_skip_search() and os.getenv("SKIP_SEARCH_EXIT_CODE"):
+        skip_search_exit_code = os.getenv("SKIP_SEARCH_EXIT_CODE")
+
+        try:
+            sys.exit(int(skip_search_exit_code))
+        except ValueError:
+            print(f"Trying to look for SKIP_SEARCH_EXIT_CODE failed. Exiting with original exit code {_code}")
+            sys.exit(_code)
+
     sys.exit(_code)
 
-@beartype
 def print_green(text: str) -> None:
     helpers.print_color("green", text)
 
     print_debug(text)
 
-@beartype
 def print_yellow(text: str) -> None:
     helpers.print_color("yellow", f"{text}")
 
     print_debug(text)
 
-@beartype
 def get_min_max_from_file(continue_path: str, n: int, _default_min_max: str) -> str:
     path = f"{continue_path}/result_min_max.txt"
 
@@ -489,7 +702,6 @@ def get_min_max_from_file(continue_path: str, n: int, _default_min_max: str) -> 
     print_yellow(f"Line {n} did not contain min/max, will be set to {_default_min_max}")
     return _default_min_max
 
-@beartype
 def set_max_eval(new_max_eval: int) -> None:
     global max_eval
 
@@ -497,7 +709,6 @@ def set_max_eval(new_max_eval: int) -> None:
 
     max_eval = new_max_eval
 
-@beartype
 def set_random_steps(new_steps: int) -> None:
     global random_steps
 
@@ -517,7 +728,12 @@ _DEFAULT_SPECIALS: Dict[str, Any] = {
 }
 
 class ConfigLoader:
+    runtime_debug: bool
+    show_func_name: bool
+    number_of_generators: int
     disable_previous_job_constraint: bool
+    save_to_database: bool
+    dependency: str
     run_tests_that_fail_on_taurus: bool
     num_random_steps: int
     verbose: bool
@@ -588,6 +804,7 @@ class ConfigLoader:
     max_num_of_parallel_sruns: int
     checkout_to_latest_tested_version: bool
     load_data_from_existing_jobs: List[str]
+    worker_generator_path: str
     time: str
     share_password: Optional[str]
     prettyprint: bool
@@ -610,10 +827,11 @@ class ConfigLoader:
     occ: bool
     force_choice_for_ranges: bool
     dryrun: bool
+    range_max_difference: int
+    skip_search: bool
     just_return_defaults: bool
     run_mode: str
 
-    @beartype
     def __init__(self: Any, _parsing_arguments_loader: Any) -> None:
         self.parser = argparse.ArgumentParser(
             prog="omniopt",
@@ -629,7 +847,6 @@ class ConfigLoader:
 
         self.add_arguments()
 
-    @beartype
     def add_arguments(self: Any) -> None:
         required = self.parser.add_argument_group('Required arguments', 'These options have to be set')
         required_but_choice = self.parser.add_argument_group('Required arguments that allow a choice', 'Of these arguments, one has to be set to continue')
@@ -694,6 +911,10 @@ class ConfigLoader:
         optional.add_argument('--dryrun', help='Try to do a dry run, i.e. a run for very short running jobs to test the installation of OmniOpt2 and check if environment stuff and paths and so on works properly', action='store_true', default=False)
         optional.add_argument('--db_url', type=str, default=None, help='Database URL (e.g., mysql+pymysql://user:pass@host/db), disables sqlite3 storage')
         optional.add_argument('--run_program_once', type=str, help='Path to a setup script that will run once before the main program starts.')
+        optional.add_argument('--worker_generator_path', type=str, help='Path of the run folder where this script should plug itself in as a worker points generator')
+        optional.add_argument('--save_to_database', help='Save all entries into a sqlite3 database', action='store_true', default=False)
+        optional.add_argument('--range_max_difference', help=f'Max. difference for range, default is {default_max_range_difference}', default=default_max_range_difference, type=int)
+        optional.add_argument('--skip_search', help='Skips the actual search, uses exit code 0 if not the environment variable SKIP_SEARCH_EXIT_CODE is set', action='store_true', default=False)
 
         speed.add_argument('--dont_warm_start_refitting', help='Do not keep Model weights, thus, refit for every generator (may be more accurate, but slower)', action='store_true', default=False)
         speed.add_argument('--refit_on_cv', help='Refit on Cross-Validation (helps in accuracy, but makes generating new points slower)', action='store_true', default=False)
@@ -706,6 +927,7 @@ class ConfigLoader:
         speed.add_argument('--no_transform_inputs', help='Disable input transformations', action='store_true', default=False)
         speed.add_argument('--no_normalize_y', help='Disable target normalization', action='store_true', default=False)
         speed.add_argument('--transforms', nargs='*', choices=['Cont_X_trans', 'Cont_X_trans_Y_trans'], default=[], help='Enable input/target transformations (choose one or both: Cont_X_trans, Cont_X_trans_Y_trans)')
+        speed.add_argument('--number_of_generators', help='Number of generator main scripts, only works with Slurm', type=int, default=1)
 
         slurm.add_argument('--num_parallel_jobs', help='Number of parallel SLURM jobs (default: 20)', type=int, default=20)
         slurm.add_argument('--worker_timeout', help='Timeout for SLURM jobs (i.e. for each single point to be optimized)', type=int, default=30)
@@ -720,6 +942,7 @@ class ConfigLoader:
         slurm.add_argument('--account', help='Account to be used for SLURM', type=str, default=None)
         slurm.add_argument('--gpus', help='Number of GPUs per worker', type=int, default=0)
         #slurm.add_ argument('--tasks_per_node', help='ntasks', type=int, default=1)
+        slurm.add_argument('--dependency', type=str, help='Allows slurm-dependencies, like --dependency=afterok:<slurm id> or --dependency:after:<slurm_id> or --dependency=singleton, the latter one allows to let only run job running as long as they have the same job name, and --dependency=omniopt_singleton, which allows only one OmniOpt job to be running and puts all running once into the dependency string automatically')
 
         installing.add_argument('--run_mode', help='Either local or docker', default='local', type=str)
 
@@ -737,8 +960,9 @@ class ConfigLoader:
         debug.add_argument('--show_generation_and_submission_sixel', help='Show sixel plots for generation and submission times', action='store_true', default=False)
         debug.add_argument('--just_return_defaults', help='Just return defaults in dryrun', action='store_true', default=False)
         debug.add_argument('--prettyprint', help='Shows stdout and stderr in a pretty printed format', action='store_true', default=False)
+        debug.add_argument('--runtime_debug', help='Logs which functions use most of the time', action='store_true', default=False)
+        debug.add_argument('--show_func_name', help='Show func name before each execution and when it is done', action='store_true', default=False)
 
-    @beartype
     def load_config(self: Any, config_path: str, file_format: str) -> dict:
         if not os.path.isfile(config_path):
             self._parsing_arguments_loader.stop()
@@ -756,14 +980,14 @@ class ConfigLoader:
                 if file_format == 'json':
                     return json.load(file)
             except (Exception, json.decoder.JSONDecodeError) as e:
-                print_red(f"Error parsing {file_format} file '{config_path}': {e}")
+                print_red(f"Error parsing {file_format} file '{config_path}'")
+                print_debug(f"Error parsing {file_format} file {config_path}: {e}")
                 self._parsing_arguments_loader.stop()
                 print("Exit-Code: 5")
                 sys.exit(5)
 
         return {}
 
-    @beartype
     def validate_and_convert(self: Any, config: dict, arg_defaults: dict) -> dict:
         """
         Validates the config data and converts them to the right types based on argparse defaults.
@@ -787,7 +1011,6 @@ class ConfigLoader:
 
         return converted_config
 
-    @beartype
     def merge_args_with_config(self: Any, config: Any, cli_args: Any) -> argparse.Namespace:
         """ Merge CLI args with config file args (CLI takes precedence) """
         arg_defaults = {arg.dest: arg.default for arg in self.parser._actions if arg.default is not argparse.SUPPRESS}
@@ -800,7 +1023,6 @@ class ConfigLoader:
 
         return cli_args
 
-    @beartype
     def parse_arguments(self: Any) -> argparse.Namespace:
         _args = self.parser.parse_args()
 
@@ -852,7 +1074,69 @@ class ConfigLoader:
 
         return _args
 
-@beartype
+def start_worker_generators() -> None:
+    load_existing_data_for_worker_generation_path()
+
+    with spinner("Starting generator workers"):
+        if args.worker_generator_path:
+            return
+
+        num_workers = max(0, args.number_of_generators - 1)
+
+        if shutil.which("sbatch") is None:
+            if num_workers > 1:
+                print_yellow("No sbatch, cannot start multiple generation workers")
+            return
+
+        omniopt_path = os.path.join(script_dir, "omniopt")
+        if not os.path.isfile(omniopt_path):
+            print_yellow(f"Cannot find omniopt script at {omniopt_path}")
+            return
+
+        def filter_args(_args: list, exclude_params: list) -> list:
+            return [arg for arg in _args if all(not arg.startswith(excl) for excl in exclude_params)]
+
+        exclude_params = ["--generate_all_jobs_at_once"]
+        filtered_args = filter_args(sys.argv[1:], exclude_params)
+
+        base_command = ["bash", omniopt_path] + filtered_args
+        worker_arg = f"--worker_generator_path={get_current_run_folder()}"
+
+        clean_env = copy.deepcopy(os.environ)
+        slurm_keys = [key for key in clean_env if key.upper().startswith("SLURM_")]
+        for key in slurm_keys:
+            del clean_env[key]
+
+        for i in range(num_workers):
+            try:
+                batch_script = f"""#!/bin/bash
+#SBATCH -J worker_generator_{run_uuid}
+
+{" ".join(base_command + [worker_arg])}
+"""
+
+                cmd = ["sbatch", "-N", "1"]
+                if args.gpus:
+                    cmd = cmd + ["--gres", f"gpu:{args.gpus}"]
+                result = subprocess.run(
+                    cmd,
+                    input=batch_script,
+                    env=clean_env,
+                    check=False,
+                    capture_output=True,
+                    text=True
+                )
+
+                if result.returncode != 0:
+                    print_yellow(f"Failed to start worker {i + 1}: {result.stderr.strip()}")
+                else:
+                    print(f"Started worker {i + 1} via sbatch: {result.stdout.strip()}")
+
+            except Exception as e:
+                print_yellow(f"Error starting worker {i + 1}: {e}")
+
+    return
+
 def set_global_gs_to_HUMAN_INTERVENTION_MINIMUM() -> None:
     global prepared_setting_to_custom
 
@@ -869,19 +1153,27 @@ def set_global_gs_to_HUMAN_INTERVENTION_MINIMUM() -> None:
         nodes=[node]
     )
 
-with console.status("[bold green]Parsing arguments...") as parsing_arguments_loader:
+with spinner("Parsing arguments...") as parsing_arguments_loader:
     loader = ConfigLoader(parsing_arguments_loader)
     args = loader.parse_arguments()
+
+def is_skip_search() -> bool:
+    if args.skip_search:
+        return True
+
+    if os.getenv("SKIP_SEARCH"):
+        return True
+
+    return False
 
 original_result_names = args.result_names
 
 if args.seed is not None:
-    with console.status("[bold green]Importing ax random seed..."):
+    with spinner("Importing ax random seed..."):
         from ax.utils.common.random import set_rng_seed
 
     set_rng_seed(args.seed)
 
-@beartype
 def _fatal_error(message: str, code: int) -> None:
     print_red(message)
     my_exit(code)
@@ -968,119 +1260,111 @@ if args.continue_previous_job is not None:
         args.force_choice_for_ranges = True
 
 try:
-    with console.status("[bold green]Importing torch...") as status:
+    with spinner("Importing torch...") as status:
         import torch
-    with console.status("[bold green]Importing numpy...") as status:
+    with spinner("Importing numpy...") as status:
         import numpy as np
-    with console.status("[bold green]Importing collections...") as status:
-        from collections import defaultdict
-    with console.status("[bold green]Importing ax..."):
+    with spinner("Importing ax..."):
         import ax
 
-    with console.status("[bold green]Importing ax.core.generator_run..."):
+    with spinner("Importing ax.core.generator_run..."):
         from ax.core.generator_run import GeneratorRun
 
-    with console.status("[bold green]Importing Cont_X_trans and Y_trans from ax.modelbridge.registry..."):
-        from ax.modelbridge.registry import Cont_X_trans, Y_trans
+    with spinner("Importing Cont_X_trans and Y_trans from ax.adapter.registry..."):
+        from ax.adapter.registry import Cont_X_trans, Y_trans
 
-    with console.status("[bold green]Importing ax.core.arm..."):
+    with spinner("Importing ax.core.arm..."):
         from ax.core.arm import Arm
 
-    with console.status("[bold green]Importing ax.core.objective..."):
+    with spinner("Importing ax.core.objective..."):
         from ax.core.objective import MultiObjective
 
-    with console.status("[bold green]Importing ax.core.Metric..."):
+    with spinner("Importing ax.core.Metric..."):
         from ax.core import Metric
 
-    with console.status("[bold green]Importing ax.exceptions.core..."):
+    with spinner("Importing ax.exceptions.core..."):
         import ax.exceptions.core
 
-    with console.status("[bold green]Importing ax.exceptions.generation_strategy..."):
+    with spinner("Importing ax.exceptions.generation_strategy..."):
         import ax.exceptions.generation_strategy
 
-    with console.status("[bold green]Importing CORE_DECODER_REGISTRY..."):
+    with spinner("Importing CORE_DECODER_REGISTRY..."):
         from ax.storage.json_store.registry import CORE_DECODER_REGISTRY
 
-    try:
-        with console.status("[bold green]Trying ax.generation_strategy.generation_node..."):
-            import ax.generation_strategy.generation_node
+    #try:
+    with spinner("Trying ax.generation_strategy.generation_node..."):
+        import ax.generation_strategy.generation_node
 
-        with console.status("[bold green]Importing GenerationStep, GenerationStrategy from generation_strategy..."):
-            from ax.generation_strategy.generation_strategy import GenerationStep, GenerationStrategy
+    with spinner("Importing GenerationStep, GenerationStrategy from generation_strategy..."):
+        from ax.generation_strategy.generation_strategy import GenerationStep, GenerationStrategy
 
-        with console.status("[bold green]Importing GenerationNode from generation_node..."):
-            from ax.generation_strategy.generation_node import GenerationNode
+    with spinner("Importing GenerationNode from generation_node..."):
+        from ax.generation_strategy.generation_node import GenerationNode
 
-        with console.status("[bold green]Importing ExternalGenerationNode..."):
-            from ax.generation_strategy.external_generation_node import ExternalGenerationNode
+    with spinner("Importing ExternalGenerationNode..."):
+        from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 
-        with console.status("[bold green]Importing MaxTrials..."):
-            from ax.generation_strategy.transition_criterion import MaxTrials
+    with spinner("Importing MaxTrials..."):
+        from ax.generation_strategy.transition_criterion import MaxTrials
 
-        with console.status("[bold green]Importing GeneratorSpec..."):
-            from ax.generation_strategy.model_spec import GeneratorSpec
+    with spinner("Importing GeneratorSpec..."):
+        from ax.generation_strategy.generator_spec import GeneratorSpec
 
-    except Exception:
-        with console.status("[bold green]Fallback: Importing ax.modelbridge.generation_node..."):
-            import ax.modelbridge.generation_node
+    #except Exception:
+    #    with spinner("Fallback: Importing ax.generation_strategy.generation_node..."):
+    #        import ax.generation_strategy.generation_node
 
-        with console.status("[bold green]Fallback: Importing GenerationStep, GenerationStrategy from modelbridge..."):
-            from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+    #    with spinner("Fallback: Importing GenerationStep, GenerationStrategy from ax.generation_strategy..."):
+    #        from ax.generation_strategy.generation_node import GenerationNode, GenerationStep
 
-        with console.status("[bold green]Fallback: Importing GenerationNode..."):
-            from ax.modelbridge.generation_node import GenerationNode
+    #    with spinner("Fallback: Importing ExternalGenerationNode..."):
+    #        from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 
-        with console.status("[bold green]Fallback: Importing ExternalGenerationNode..."):
-            from ax.modelbridge.external_generation_node import ExternalGenerationNode
+    #    with spinner("Fallback: Importing MaxTrials..."):
+    #        from ax.generation_strategy.transition_criterion import MaxTrials
 
-        with console.status("[bold green]Fallback: Importing MaxTrials..."):
-            from ax.modelbridge.transition_criterion import MaxTrials
+    with spinner("Importing Models from ax.generation_strategy.registry..."):
+        from ax.adapter.registry import Models
 
-        with console.status("[bold green]Fallback: Importing GeneratorSpec..."):
-            from ax.modelbridge.model_spec import GeneratorSpec
+    with spinner("Importing get_pending_observation_features..."):
+        from ax.core.utils import get_pending_observation_features
 
-    with console.status("[bold green]Importing Models from ax.modelbridge.registry..."):
-        from ax.modelbridge.registry import Models
-
-    with console.status("[bold green]Importing get_pending_observation_features..."):
-        from ax.modelbridge.modelbridge_utils import get_pending_observation_features
-
-    with console.status("[bold green]Importing load_experiment..."):
+    with spinner("Importing load_experiment..."):
         from ax.storage.json_store.load import load_experiment
 
-    with console.status("[bold green]Importing save_experiment..."):
+    with spinner("Importing save_experiment..."):
         from ax.storage.json_store.save import save_experiment
 
-    with console.status("[bold green]Importing save_experiment_to_db..."):
+    with spinner("Importing save_experiment_to_db..."):
         from ax.storage.sqa_store.save import save_experiment as save_experiment_to_db, save_generation_strategy
 
-    with console.status("[bold green]Importing TrialStatus..."):
+    with spinner("Importing TrialStatus..."):
         from ax.core.base_trial import TrialStatus
 
-    with console.status("[bold green]Importing Data..."):
+    with spinner("Importing Data..."):
         from ax.core.data import Data
 
-    with console.status("[bold green]Importing Experiment..."):
+    with spinner("Importing Experiment..."):
         from ax.core.experiment import Experiment
 
-    with console.status("[bold green]Importing parameter types..."):
+    with spinner("Importing parameter types..."):
         from ax.core.parameter import RangeParameter, FixedParameter, ChoiceParameter, ParameterType
 
-    with console.status("[bold green]Importing TParameterization..."):
+    with spinner("Importing TParameterization..."):
         from ax.core.types import TParameterization
 
-    with console.status("[bold green]Importing pandas..."):
+    with spinner("Importing pandas..."):
         import pandas as pd
 
-    with console.status("[bold green]Importing AxClient and ObjectiveProperties..."):
+    with spinner("Importing AxClient and ObjectiveProperties..."):
         from ax.service.ax_client import AxClient, ObjectiveProperties
 
-    with console.status("[bold green]Importing RandomForestRegressor..."):
+    with spinner("Importing RandomForestRegressor..."):
         from sklearn.ensemble import RandomForestRegressor
 
-    with console.status("[bold green]Importing botorch...") as status:
+    with spinner("Importing botorch...") as status:
         import botorch
-    with console.status("[bold green]Importing submitit...") as status:
+    with spinner("Importing submitit...") as status:
         import submitit
         from submitit import DebugJob, LocalJob, SlurmJob
 except ModuleNotFoundError as ee:
@@ -1108,20 +1392,21 @@ except ImportError as e:
     print(f"Failed to load module: {e}")
     my_exit(93)
 
-with console.status("[bold green]Importing ax logger...") as status:
+with spinner("Importing ax logger...") as status:
     from ax.utils.common.logger import disable_loggers
 
-with console.status("[bold green]Importing SQL-Storage-Stuff...") as status:
+with spinner("Importing SQL-Storage-Stuff...") as status:
     from ax.storage.sqa_store.db import init_engine_and_session_factory, get_engine, create_all_tables
 
-    disable_loggers(names=["ax.modelbridge.base"], level=logging.CRITICAL)
+    disable_loggers(names=["ax.adapter.base"], level=logging.CRITICAL)
+
+decoder_registry = CORE_DECODER_REGISTRY
 
 NVIDIA_SMI_LOGS_BASE = None
 global_gs: Optional[GenerationStrategy] = None
 
 @dataclass(init=False)
 class RandomForestGenerationNode(ExternalGenerationNode):
-    @beartype
     def __init__(self: Any, regressor_options: Dict[str, Any] = {}, seed: Optional[int] = None, num_samples: int = 1) -> None:
         print_debug("Initializing RandomForestGenerationNode...")
         t_init_start = time.monotonic()
@@ -1142,7 +1427,6 @@ class RandomForestGenerationNode(ExternalGenerationNode):
 
         print_debug("Initialized RandomForestGenerationNode")
 
-    @beartype
     def update_generator_state(self: Any, experiment: Experiment, data: Data) -> None:
         search_space = experiment.search_space
         parameter_names = list(search_space.parameters.keys())
@@ -1171,7 +1455,6 @@ class RandomForestGenerationNode(ExternalGenerationNode):
         else:
             self.minimize = experiment.optimization_config.objective.minimize
 
-    @beartype
     def get_next_candidate(self: Any, pending_parameters: List[TParameterization]) -> TParameterization:
         if self.parameters is None:
             raise RuntimeError("Parameters are not initialized. Call update_generator_state first.")
@@ -1194,7 +1477,6 @@ class RandomForestGenerationNode(ExternalGenerationNode):
 
         raise RuntimeError("No valid candidate found within constraints.")
 
-    @beartype
     def _is_within_constraints(self: Any, params_list: list) -> bool:
         if self.experiment.search_space.parameter_constraints:
             param_names = list(self.parameters.keys())
@@ -1208,7 +1490,6 @@ class RandomForestGenerationNode(ExternalGenerationNode):
 
         return True
 
-    @beartype
     def _separate_parameters(self: Any) -> tuple[list, dict, dict]:
         ranged_parameters = []
         fixed_values = {}
@@ -1226,7 +1507,6 @@ class RandomForestGenerationNode(ExternalGenerationNode):
 
         return ranged_parameters, fixed_values, choice_parameters
 
-    @beartype
     def _build_reverse_choice_map(self: Any, choice_parameters: dict) -> dict:
         choice_value_map = {}
         for _, param in choice_parameters.items():
@@ -1234,13 +1514,11 @@ class RandomForestGenerationNode(ExternalGenerationNode):
                 choice_value_map[value] = idx
         return {idx: value for value, idx in choice_value_map.items()}
 
-    @beartype
     def _generate_ranged_samples(self: Any, ranged_parameters: list) -> np.ndarray:
         ranged_bounds = np.array([[low, high] for _, low, high in ranged_parameters])
         unit_samples = np.random.random_sample([self.num_samples, len(ranged_bounds)])
         return ranged_bounds[:, 0] + (ranged_bounds[:, 1] - ranged_bounds[:, 0]) * unit_samples
 
-    @beartype
     def _build_all_samples(self: Any, ranged_parameters: list, ranged_samples: np.ndarray, fixed_values: dict, choice_parameters: dict) -> list:
         all_samples = []
         for sample_idx in range(self.num_samples):
@@ -1248,7 +1526,6 @@ class RandomForestGenerationNode(ExternalGenerationNode):
             all_samples.append(sample)
         return all_samples
 
-    @beartype
     def _build_single_sample(self: Any, sample_idx: int, ranged_parameters: list, ranged_samples: np.ndarray, fixed_values: dict, choice_parameters: dict) -> dict:
         sample = {}
 
@@ -1280,7 +1557,6 @@ class RandomForestGenerationNode(ExternalGenerationNode):
 
         return sample
 
-    @beartype
     def _cast_value(self: Any, param: Any, name: Any, value: Any) -> Union[int, float]:
         if isinstance(param, RangeParameter) and param.parameter_type == "INT":
             return int(round(value))
@@ -1289,14 +1565,12 @@ class RandomForestGenerationNode(ExternalGenerationNode):
 
         return self._try_convert_to_float(value, name)
 
-    @beartype
     def _try_convert_to_float(self: Any, value: Any, name: str) -> float:
         try:
             return float(value)
         except ValueError as e:
             raise ValueError(f"Parameter '{name}' has a non-numeric value: {value}") from e
 
-    @beartype
     def _build_prediction_matrix(self: Any, all_samples: list) -> np.ndarray:
         x_pred = np.zeros([self.num_samples, len(self.parameters)])
         for sample_idx, sample in enumerate(all_samples):
@@ -1304,7 +1578,6 @@ class RandomForestGenerationNode(ExternalGenerationNode):
                 x_pred[sample_idx, dim] = sample[name]
         return x_pred
 
-    @beartype
     def _format_best_sample(self: Any, best_sample: TParameterization, reverse_choice_map: dict) -> None:
         for name in best_sample.keys():
             param = self.parameters.get(name)
@@ -1313,7 +1586,8 @@ class RandomForestGenerationNode(ExternalGenerationNode):
             elif isinstance(param, ChoiceParameter):
                 best_sample[name] = str(reverse_choice_map.get(int(best_sample[name])))
 
-@beartype
+decoder_registry["RandomForestGenerationNode"] = RandomForestGenerationNode
+
 def warn_if_param_outside_of_valid_params(param: dict, _res: Any, keyname: str) -> None:
     if param["parameter_type"] == "RANGE":
         _min = param["range"][0]
@@ -1356,8 +1630,7 @@ class InteractiveCLIGenerationNode(ExternalGenerationNode):
     constraints: Optional[Any]
     fit_time_since_gen: float
 
-    @beartype
-    def __init__(                  # identical signature to the original class
+    def __init__(
         self: Any,
         node_name: str = "INTERACTIVE_GENERATOR",
     ) -> None:
@@ -1370,7 +1643,6 @@ class InteractiveCLIGenerationNode(ExternalGenerationNode):
         self.seed = int(time.time())  # deterministic seeds are pointless here
         self.fit_time_since_gen = time.monotonic() - t0
 
-    @beartype
     def update_generator_state(self: Any, experiment: Any, data: Any) -> None:
         self.data = data
         search_space = experiment.search_space
@@ -1385,7 +1657,6 @@ class InteractiveCLIGenerationNode(ExternalGenerationNode):
             ParameterType.STRING: "STRING",
         }.get(param_type, "<UNKNOWN>")
 
-    @beartype
     def _default_for_param(self: Any, name: str, param: Any) -> Any:
         # 1. explicit override
         if name.lower() in _DEFAULT_SPECIALS:
@@ -1408,7 +1679,6 @@ class InteractiveCLIGenerationNode(ExternalGenerationNode):
         # fall back
         return None
 
-    @beartype
     def _ask_user(self: Any, name: str, param: Any, default: Any) -> Any:
         if args.just_return_defaults:
             print_yellow(f"Returning defaults for '{name}' in dry-mode with --just_return_defaults")
@@ -1440,18 +1710,15 @@ class InteractiveCLIGenerationNode(ExternalGenerationNode):
 
         return self._handle_fallback(prompt_msg, default, param)
 
-    @beartype
     def _handle_fixed(self, param: Any) -> Any:
         return param.value
 
-    @beartype
     def _handle_choice(self, param: Any, default: Any, prompt_msg: str) -> Any:
         choices_str = ", ".join(f"{v}" for v in param.values)
         console.print(f"{prompt_msg} choices → {choices_str}")
         user_val = Prompt.ask("Pick choice", default=str(default))
         return param.values[int(user_val)] if user_val.isdigit() else user_val
 
-    @beartype
     def _handle_range(self, param: Any, default: Any, prompt_msg: str) -> Any:
         low, high = param.lower, param.upper
         console.print(f"{prompt_msg} range → [{low}, {high}]")
@@ -1471,12 +1738,10 @@ class InteractiveCLIGenerationNode(ExternalGenerationNode):
 
         return min(max(val, low), high)
 
-    @beartype
     def _handle_fallback(self, prompt_msg: str, default: Any, param: Any) -> Any:
         print_red(f"Unknown type detected: {param}")
         return Prompt.ask(prompt_msg, default=str(default))
 
-    @beartype
     def get_next_candidate(
         self: Any,
         pending_parameters: List[TParameterization],
@@ -1526,7 +1791,6 @@ class InteractiveCLIGenerationNode(ExternalGenerationNode):
 
 @dataclass(init=False)
 class ExternalProgramGenerationNode(ExternalGenerationNode):
-    @beartype
     def __init__(self: Any, external_generator: str = args.external_generator, node_name: str = "EXTERNAL_GENERATOR") -> None:
         print_debug("Initializing ExternalProgramGenerationNode...")
         t_init_start = time.monotonic()
@@ -1542,7 +1806,6 @@ class ExternalProgramGenerationNode(ExternalGenerationNode):
 
         print_debug(f"Initialized ExternalProgramGenerationNode in {self.fit_time_since_gen:.4f} seconds")
 
-    @beartype
     def update_generator_state(self: Any, experiment: Any, data: Any) -> None:
         print_debug("Updating generator state...")
 
@@ -1553,7 +1816,6 @@ class ExternalProgramGenerationNode(ExternalGenerationNode):
 
         print_debug("Generator state updated successfully.")
 
-    @beartype
     def _parameter_type_to_string(self: Any, param_type: Any) -> str:
         if param_type == ParameterType.INT:
             return "INT"
@@ -1568,7 +1830,6 @@ class ExternalProgramGenerationNode(ExternalGenerationNode):
 
         return ""
 
-    @beartype
     def _serialize_parameters(self: Any, params: dict) -> dict:
         serialized = {}
         for key in params.keys():
@@ -1597,7 +1858,6 @@ class ExternalProgramGenerationNode(ExternalGenerationNode):
 
         return serialized
 
-    @beartype
     def _serialize_constraints(self: Any, constraints: Optional[list]) -> Optional[list]:
         parsed_constraints = []
         if constraints and len(constraints):
@@ -1622,7 +1882,6 @@ class ExternalProgramGenerationNode(ExternalGenerationNode):
 
         return temp_dir
 
-    @beartype
     def get_next_candidate(self: Any, pending_parameters: List[TParameterization]) -> Any:
         if self.parameters is None:
             raise RuntimeError("Parameters are not initialized. Call update_generator_state first.")
@@ -1704,7 +1963,8 @@ class ExternalProgramGenerationNode(ExternalGenerationNode):
         except Exception as e:
             raise RuntimeError(f"Error getting next candidate: {e}") from e
 
-@beartype
+decoder_registry["ExternalProgramGenerationNode"] = ExternalProgramGenerationNode
+
 def append_and_read(file: str, nr: int = 0, recursion: int = 0) -> int:
     try:
         with open(file, mode='a+', encoding="utf-8") as f:
@@ -1731,7 +1991,6 @@ def append_and_read(file: str, nr: int = 0, recursion: int = 0) -> int:
 
     return 0
 
-@beartype
 def run_live_share_command(force: bool = False) -> Tuple[str, str]:
     global shown_run_live_share_command
 
@@ -1765,69 +2024,59 @@ def run_live_share_command(force: bool = False) -> Tuple[str, str]:
 
     return "", ""
 
-@beartype
-def extract_and_print_qr(text: str) -> None:
-    match = re.search(r"(https?://\S+|\b[\w.-]+@[\w.-]+\.\w+\b|\b\d{10,}\b)", text)
-    if match:
-        data = match.group(0)
-        import qrcode
+#def extract_and_print_qr(text: str) -> None:
+#    match = re.search(r"(https?://\S+|\b[\w.-]+@[\w.-]+\.\w+\b|\b\d{10,}\b)", text)
+#    if match:
+#        data = match.group(0)
+#        qr = qrcode.QRCode(box_size=1, error_correction=qrcode.constants.ERROR_CORRECT_L, border=0)
+#        qr.add_data(data)
+#        qr.make()
+#        qr.print_ascii(out=sys.stdout)
 
-        qr = qrcode.QRCode(box_size=1, error_correction=qrcode.constants.ERROR_CORRECT_L, border=0)
-        qr.add_data(data)
-        qr.make()
-        qr.print_ascii(out=sys.stdout)
+def force_live_share() -> bool:
+    if args.live_share:
+        return live_share(True)
 
-@beartype
-def live_share(force: bool = False) -> bool:
-    global SHOWN_LIVE_SHARE_COUNTER
+    return False
 
-    try:
-        if not args.live_share:
-            return False
-
-        if not get_current_run_folder():
-            return False
-
-        if SHOWN_LIVE_SHARE_COUNTER == 0:
-            stdout, stderr = run_live_share_command(force)
-
-            if stderr:
-                print_green(stderr)
-
-                extract_and_print_qr(stderr)
-
-            if stdout:
-                print_debug(f"live_share stdout: {stdout}")
-        else:
-            stdout, stderr = run_live_share_command(force)
-
-        SHOWN_LIVE_SHARE_COUNTER = SHOWN_LIVE_SHARE_COUNTER + 1
-    except KeyboardInterrupt:
+def live_share(force: bool = False, text_and_qr: bool = False) -> bool:
+    if not get_current_run_folder():
+        print(f"live_share: get_current_run_folder was empty or false: {get_current_run_folder()}")
         return False
+
+    if not args.live_share or not get_current_run_folder():
+        return False
+
+    stdout, stderr = run_live_share_command(force)
+
+    if text_and_qr:
+        if stderr:
+            print_green(stderr)
+            #extract_and_print_qr(stderr)
+        else:
+            print_red("This call should have shown the CURL, but didnt. Stderr: {stderr}, stdout: {stdout}")
+    if stdout:
+        print_debug(f"live_share stdout: {stdout}")
 
     return True
 
-@beartype
-def compute_md5_hash(filepath: str) -> Optional[str]:
-    if not os.path.exists(filepath):
-        return None
-    try:
-        hasher = hashlib.new('md5', usedforsecurity=False)
-        with open(filepath, 'rb') as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hasher.update(chunk)
-        return hasher.hexdigest()
-    except Exception as e:
-        print_red(f"Error computing MD5 for {filepath}: {e}")
-        return None
+def init_live_share() -> bool:
+    with spinner("Initializing live share..."):
+        ret = live_share(True, True)
 
-@beartype
+        return ret
+
+async def start_periodic_live_share() -> None:
+    if args.live_share and not os.environ.get("CI"):
+        while True:
+            live_share(force=False)
+            time.sleep(30)
+
 def init_storage(db_url: str) -> None:
     init_engine_and_session_factory(url=db_url, force_init=True)
     engine = get_engine()
     create_all_tables(engine)
 
-@beartype
 def try_saving_to_db() -> None:
     try:
         global initialized_storage
@@ -1851,8 +2100,6 @@ def try_saving_to_db() -> None:
     except Exception as e:
         print_debug(f"Failed trying to save sqlite3-DB: {e}")
 
-@beartype
-@beartype
 def merge_with_job_infos(pd_frame: pd.DataFrame) -> pd.DataFrame:
     job_infos_path = os.path.join(get_current_run_folder(), "job_infos.csv")
     if not os.path.exists(job_infos_path):
@@ -1879,62 +2126,91 @@ def merge_with_job_infos(pd_frame: pd.DataFrame) -> pd.DataFrame:
 
     return merged
 
-@beartype
+def reindex_trials(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ensure trial_index is sequential and arm_name unique.
+    Keep arm_name unless all parameters except 'order', 'hostname', 'queue_time' match.
+    """
+    if "trial_index" not in df.columns or "arm_name" not in df.columns:
+        return df
+
+    # Sort by something stable (queue_time if available)
+    sort_cols = ["queue_time"] if "queue_time" in df.columns else df.columns.tolist()
+    df = df.sort_values(by=sort_cols, ignore_index=True)
+
+    # Mapping from "parameter signature" to assigned arm_name
+    seen_signatures = {}
+    new_arm_names = []
+
+    for new_idx, row in df.iterrows():
+        # Create signature without 'order', 'hostname', 'queue_time', 'trial_index', 'arm_name'
+        ignore_cols = {"order", "hostname", "queue_time", "trial_index", "arm_name"}
+        signature = tuple((col, row[col]) for col in df.columns if col not in ignore_cols)
+
+        if signature in seen_signatures:
+            # Collision → make a unique name
+            base_name = seen_signatures[signature]
+            suffix = 1
+            new_name = f"{base_name}_{suffix}"
+            while new_name in new_arm_names:
+                suffix += 1
+                new_name = f"{base_name}_{suffix}"
+            new_arm_names.append(new_name)
+        else:
+            # First occurrence → use new_idx as trial index in name
+            new_name = f"{new_idx}_0"
+            seen_signatures[signature] = f"{new_idx}_0"
+            new_arm_names.append(new_name)
+
+        df.at[new_idx, "trial_index"] = new_idx
+        df.at[new_idx, "arm_name"] = new_name
+
+    return df
+
 def save_results_csv() -> Optional[str]:
     if args.dryrun:
         return None
 
-    pd_csv: str = f'{get_current_run_folder()}/{PD_CSV_FILENAME}'
-    pd_json: str = f'{get_current_run_folder()}/state_files/pd.json'
-    state_files_folder: str = f"{get_current_run_folder()}/state_files/"
+    pd_csv = get_current_run_folder(RESULTS_CSV_FILENAME)
+    pd_json = get_state_file_name('pd.json')
 
-    makedirs(state_files_folder)
+    save_experiment_state()
 
     if ax_client is None:
         return None
 
-    old_hash: Optional[str] = compute_md5_hash(pd_csv)
+    save_checkpoint()
 
     try:
         ax_client.experiment.fetch_data()
-
         pd_frame = ax_client.get_trials_data_frame()
-
         pd_frame = merge_with_job_infos(pd_frame)
+        pd_frame = reindex_trials(pd_frame)
 
         pd_frame.to_csv(pd_csv, index=False, float_format="%.30f")
 
         json_snapshot = ax_client.to_json_snapshot()
-
-        with open(pd_json, mode='w', encoding="utf-8") as json_file:
+        with open(pd_json, "w", encoding="utf-8") as json_file:
             json.dump(json_snapshot, json_file, indent=4)
 
         save_experiment(
             ax_client.experiment,
-            f"{get_current_run_folder()}/state_files/ax_client.experiment.json"
+            get_state_file_name("ax_client.experiment.json")
         )
 
-        if args.model not in uncontinuable_models:
+        if args.model not in uncontinuable_models and args.save_to_database:
             try_saving_to_db()
         else:
-            print_debug(f"Model {args.model} is an uncontinuable model, so it will not be saved to a DB")
-    except SignalUSR as e:
-        raise SignalUSR(str(e)) from e
-    except SignalCONT as e:
-        raise SignalCONT(str(e)) from e
-    except SignalINT as e:
-        raise SignalINT(str(e)) from e
+            if args.save_to_database:
+                print_debug(f"Model {args.model} is an uncontinuable model, so it will not be saved to a DB")
+
+    except (SignalUSR, SignalCONT, SignalINT) as e:
+        raise type(e)(str(e)) from e
     except Exception as e:
         print_red(f"While saving all trials as a pandas-dataframe-csv, an error occurred: {e}")
 
-    new_hash: Optional[str] = compute_md5_hash(pd_csv)
-
-    if old_hash != new_hash:
-        live_share()
-
     return pd_csv
 
-@beartype
 def add_to_phase_counter(phase: str, nr: int = 0, run_folder: str = "") -> int:
     if run_folder == "":
         run_folder = get_current_run_folder()
@@ -1954,13 +2230,12 @@ class SearchSpaceExhausted (Exception):
     pass
 
 NR_INSERTED_JOBS: int = 0
-executor: Union[LocalExecutor, AutoExecutor, None] = None
+submitit_executor: Union[LocalExecutor, AutoExecutor, None] = None
 
 NR_OF_0_RESULTS: int = 0
 
 orchestrator = None
 
-@beartype
 def print_logo() -> None:
     if os.environ.get('NO_OO_LOGO') is not None:
         return
@@ -2111,7 +2386,6 @@ global_vars["parameter_names"] = []
 
 main_pid = os.getpid()
 
-@beartype
 def set_nr_inserted_jobs(new_nr_inserted_jobs: int) -> None:
     global NR_INSERTED_JOBS
 
@@ -2119,10 +2393,9 @@ def set_nr_inserted_jobs(new_nr_inserted_jobs: int) -> None:
 
     NR_INSERTED_JOBS = new_nr_inserted_jobs
 
-@beartype
 def write_worker_usage() -> None:
     if len(WORKER_PERCENTAGE_USAGE):
-        csv_filename = f'{get_current_run_folder()}/worker_usage.csv'
+        csv_filename = get_current_run_folder('worker_usage.csv')
 
         csv_columns = ['time', 'num_parallel_jobs', 'nr_current_workers', 'percentage']
 
@@ -2134,7 +2407,6 @@ def write_worker_usage() -> None:
         if is_slurm_job():
             print_debug("WORKER_PERCENTAGE_USAGE seems to be empty. Not writing worker_usage.csv")
 
-@beartype
 def log_system_usage() -> None:
     if not get_current_run_folder():
         return
@@ -2163,14 +2435,12 @@ def log_system_usage() -> None:
 
                     writer.writerow([current_time, ram_usage_mb, cpu_usage_percent])
 
-@beartype
 def write_process_info() -> None:
     try:
         log_system_usage()
     except Exception as e:
         print_debug(f"Error retrieving process information: {str(e)}")
 
-@beartype
 def log_nr_of_workers() -> None:
     try:
         write_process_info()
@@ -2201,8 +2471,7 @@ def log_nr_of_workers() -> None:
 
     return None
 
-@beartype
-def log_what_needs_to_be_logged() -> None:
+def log_data() -> None:
     try:
         log_worker_numbers()
     except Exception as e:
@@ -2226,7 +2495,6 @@ def log_what_needs_to_be_logged() -> None:
         except Exception as e:
             print_debug(f"Error in log_nr_of_workers: {e}")
 
-@beartype
 def get_line_info() -> Any:
     try:
         stack = inspect.stack()
@@ -2257,7 +2525,6 @@ def get_line_info() -> Any:
     except Exception as e:
         return ("<exception in get_line_info>", ":", -1, ":", str(e))
 
-@beartype
 def print_image_to_cli(image_path: str, width: int) -> bool:
     print("")
 
@@ -2288,7 +2555,6 @@ def print_image_to_cli(image_path: str, width: int) -> bool:
 
     return False
 
-@beartype
 def log_message_to_file(_logfile: Union[str, None], message: str, _lvl: int = 0, eee: Union[None, str, Exception] = None) -> None:
     if not _logfile:
         return None
@@ -2310,27 +2576,21 @@ def log_message_to_file(_logfile: Union[str, None], message: str, _lvl: int = 0,
 
     return None
 
-@beartype
 def _log_trial_index_to_param(trial_index: dict, _lvl: int = 0, eee: Union[None, str, Exception] = None) -> None:
     log_message_to_file(logfile_trial_index_to_param_logs, str(trial_index), _lvl, str(eee))
 
-@beartype
 def _debug_worker_creation(msg: str, _lvl: int = 0, eee: Union[None, str, Exception] = None) -> None:
     log_message_to_file(logfile_worker_creation_logs, msg, _lvl, str(eee))
 
-@beartype
 def append_to_nvidia_smi_logs(_file: str, _host: str, result: str, _lvl: int = 0, eee: Union[None, str, Exception] = None) -> None:
     log_message_to_file(_file, result, _lvl, str(eee))
 
-@beartype
 def _debug_get_next_trials(msg: str, _lvl: int = 0, eee: Union[None, str, Exception] = None) -> None:
     log_message_to_file(LOGFILE_DEBUG_GET_NEXT_TRIALS, msg, _lvl, str(eee))
 
-@beartype
 def _debug_progressbar(msg: str, _lvl: int = 0, eee: Union[None, str, Exception] = None) -> None:
     log_message_to_file(logfile_progressbar, msg, _lvl, str(eee))
 
-@beartype
 def decode_if_base64(input_str: str) -> str:
     try:
         decoded_bytes = base64.b64decode(input_str)
@@ -2339,7 +2599,6 @@ def decode_if_base64(input_str: str) -> str:
     except Exception:
         return input_str
 
-@beartype
 def get_file_as_string(f: str) -> str:
     datafile: str = ""
     if not os.path.exists(f):
@@ -2379,7 +2638,6 @@ if not args.tests and len(global_vars["joined_run_program"]) == 0 and not args.c
 
 global_vars["experiment_name"] = args.experiment_name
 
-@beartype
 def load_global_vars(_file: str) -> None:
     global global_vars
 
@@ -2391,22 +2649,18 @@ def load_global_vars(_file: str) -> None:
     except Exception as e:
         _fatal_error(f"Error while loading old global_vars: {e}, trying to load {_file}", 44)
 
-@beartype
 def load_or_exit(filepath: str, error_msg: str, exit_code: int) -> None:
     if not os.path.exists(filepath):
         _fatal_error(error_msg, exit_code)
 
-@beartype
 def get_file_content_or_exit(filepath: str, error_msg: str, exit_code: int) -> str:
     load_or_exit(filepath, error_msg, exit_code)
     return get_file_as_string(filepath).strip()
 
-@beartype
 def check_param_or_exit(param: Any, error_msg: str, exit_code: int) -> None:
     if param is None:
         _fatal_error(error_msg, exit_code)
 
-@beartype
 def check_continue_previous_job(continue_previous_job: Optional[str]) -> dict:
     if continue_previous_job:
         load_global_vars(f"{continue_previous_job}/state_files/global_vars.json")
@@ -2420,7 +2674,6 @@ def check_continue_previous_job(continue_previous_job: Optional[str]) -> dict:
             )
     return global_vars
 
-@beartype
 def check_required_parameters(_args: Any) -> None:
     check_param_or_exit(
         _args.parameter or _args.continue_previous_job or args.calculate_pareto_front_of_job is None or len(args.calculate_pareto_front_of_job) == 0,
@@ -2438,7 +2691,6 @@ def check_required_parameters(_args: Any) -> None:
         19
     )
 
-@beartype
 def load_time_or_exit(_args: Any) -> None:
     if _args.time:
         global_vars["_time"] = _args.time
@@ -2456,7 +2708,6 @@ def load_time_or_exit(_args: Any) -> None:
         if len(args.calculate_pareto_front_of_job) == 0:
             _fatal_error("Missing --time parameter. Cannot continue.", 19)
 
-@beartype
 def load_mem_gb_or_exit(_args: Any) -> Optional[int]:
     if _args.mem_gb:
         return int(_args.mem_gb)
@@ -2476,7 +2727,6 @@ def load_mem_gb_or_exit(_args: Any) -> Optional[int]:
 
     return None
 
-@beartype
 def load_gpus_or_exit(_args: Any) -> Optional[int]:
     if _args.continue_previous_job and not _args.gpus:
         gpus_file = f"{_args.continue_previous_job}/state_files/gpus"
@@ -2489,7 +2739,6 @@ def load_gpus_or_exit(_args: Any) -> Optional[int]:
         print_yellow(f"--gpus: The contents of {gpus_file} do not contain a single number")
     return _args.gpus
 
-@beartype
 def load_max_eval_or_exit(_args: Any) -> None:
     if _args.max_eval:
         set_max_eval(_args.max_eval)
@@ -2530,21 +2779,18 @@ except KeyboardInterrupt:
     print("\n⚠ You pressed CTRL+C. Program execution halted while loading modules.")
     my_exit(0)
 
-@beartype
 def print_debug_get_next_trials(got: int, requested: int, _line: int) -> None:
     time_str: str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     msg: str = f"{time_str}, {got}, {requested}"
 
     _debug_get_next_trials(msg)
 
-@beartype
 def print_debug_progressbar(msg: str) -> None:
     time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    msg = f"{time_str}: {msg}"
+    msg = f"{time_str} ({worker_generator_uuid}): {msg}"
 
     _debug_progressbar(msg)
 
-@beartype
 def get_process_info(pid: Any) -> str:
     try:
         proc: Optional[psutil.Process] = psutil.Process(pid)
@@ -2570,7 +2816,6 @@ def get_process_info(pid: Any) -> str:
     except Exception as e:
         return f"An unexpected error occurred while retrieving process info: {str(e)}"
 
-@beartype
 def receive_usr_signal(signum: int, stack: Any) -> None:
     """Handle SIGUSR1 signal."""
     siginfo = signal.sigwaitinfo({signum})
@@ -2582,7 +2827,6 @@ def receive_usr_signal(signum: int, stack: Any) -> None:
 
     raise SignalUSR(f"USR1-signal received ({signum})")
 
-@beartype
 def receive_usr_signal_term(signum: int, stack: Any) -> None:
     """Handle SIGTERM signal (termination)."""
     siginfo = signal.sigwaitinfo({signum})
@@ -2594,7 +2838,6 @@ def receive_usr_signal_term(signum: int, stack: Any) -> None:
 
     raise SignalTERM(f"TERM-signal received ({signum})")
 
-@beartype
 def receive_signal_cont(signum: int, stack: Any) -> None:
     """Handle SIGCONT signal (continue)."""
     siginfo = signal.sigwaitinfo({signum})
@@ -2613,7 +2856,6 @@ signal.signal(signal.SIGCONT, receive_signal_cont)
 
 print_debug(f"Current PID: {os.getpid()}")
 
-@beartype
 def is_executable_in_path(executable_name: str) -> bool:
     for path in os.environ.get('PATH', '').split(':'):
         executable_path = os.path.join(path, executable_name)
@@ -2635,15 +2877,10 @@ if not SYSTEM_HAS_SBATCH:
 if SYSTEM_HAS_SBATCH and not args.force_local_execution and args.raw_samples < args.num_parallel_jobs:
     _fatal_error(f"Has --raw_samples={args.raw_samples}, but --num_parallel_jobs={args.num_parallel_jobs}. Cannot continue, since --raw_samples must be larger or equal to --num_parallel_jobs.", 48)
 
-@beartype
 def save_global_vars() -> None:
-    state_files_folder = f"{get_current_run_folder()}/state_files"
-    makedirs(state_files_folder)
-
-    with open(f'{state_files_folder}/global_vars.json', mode="w", encoding="utf-8") as f:
+    with open(get_state_file_name('global_vars.json'), mode="w", encoding="utf-8") as f:
         json.dump(global_vars, f)
 
-@beartype
 def check_slurm_job_id() -> None:
     if SYSTEM_HAS_SBATCH:
         slurm_job_id = os.environ.get('SLURM_JOB_ID')
@@ -2655,18 +2892,16 @@ def check_slurm_job_id() -> None:
                 "This may cause the system to slow down for all other users. It is recommended you run the main script in a SLURM-job."
             )
 
-@beartype
 def create_folder_and_file(folder: str) -> str:
     with console.status(f"[bold green]Creating folder {folder}..."):
         print_debug(f"create_folder_and_file({folder})")
 
         makedirs(folder)
 
-        file_path = os.path.join(folder, "results.csv")
+        file_path = os.path.join(folder, RESULTS_CSV_FILENAME)
 
         return file_path
 
-@beartype
 def get_program_code_from_out_file(f: str) -> str:
     if not os.path.exists(f):
         if f.endswith(".err"):
@@ -2690,7 +2925,6 @@ def get_program_code_from_out_file(f: str) -> str:
 
     return ""
 
-@beartype
 def get_min_or_max_column_value(pd_csv: str, column: str, _default: Union[None, int, float], _type: str = "min") -> Optional[Union[np.int64, float]]:
     if not os.path.exists(pd_csv):
         raise FileNotFoundError(f"CSV file {pd_csv} not found")
@@ -2718,7 +2952,6 @@ def get_min_or_max_column_value(pd_csv: str, column: str, _default: Union[None, 
 
     return None
 
-@beartype
 def _get_column_value(pd_csv: str, column: str, default: Union[None, float, int], mode: str) -> Tuple[Optional[Union[int, float]], bool]:
     found_in_file = False
     column_value = get_min_or_max_column_value(pd_csv, column, default, mode)
@@ -2730,7 +2963,6 @@ def _get_column_value(pd_csv: str, column: str, default: Union[None, float, int]
                 return column_value, found_in_file
     return default, found_in_file
 
-@beartype
 def get_ret_value_from_pd_csv(pd_csv: str, _type: str, _column: str, _default: Union[None, float, int]) -> Tuple[Optional[Union[int, float]], bool]:
     if not helpers.file_exists(pd_csv):
         print_red(f"'{pd_csv}' was not found")
@@ -2739,14 +2971,13 @@ def get_ret_value_from_pd_csv(pd_csv: str, _type: str, _column: str, _default: U
     mode: str = "min" if _type == "lower" else "max"
     return _get_column_value(pd_csv, _column, _default, mode)
 
-@beartype
 def get_bound_if_prev_data(_type: str, name: str, _default: Union[None, float, int]) -> Union[Tuple[Union[float, int], bool], Any]:
     ret_val = _default
 
     found_in_file = False
 
     if args.continue_previous_job:
-        pd_csv = f"{args.continue_previous_job}/{PD_CSV_FILENAME}"
+        pd_csv = f"{args.continue_previous_job}/{RESULTS_CSV_FILENAME}"
 
         ret_val, found_in_file = get_ret_value_from_pd_csv(pd_csv, _type, name, _default)
 
@@ -2755,7 +2986,6 @@ def get_bound_if_prev_data(_type: str, name: str, _default: Union[None, float, i
 
     return ret_val, False
 
-@beartype
 def switch_lower_and_upper_if_needed(name: Union[list, str], lower_bound: Union[float, int], upper_bound: Union[float, int]) -> Tuple[Union[int, float], Union[int, float]]:
     if lower_bound > upper_bound:
         print_yellow(f"Lower bound ({lower_bound}) was larger than upper bound ({upper_bound}) for parameter '{name}'. Switched them.")
@@ -2763,7 +2993,6 @@ def switch_lower_and_upper_if_needed(name: Union[list, str], lower_bound: Union[
 
     return lower_bound, upper_bound
 
-@beartype
 def round_lower_and_upper_if_type_is_int(value_type: str, lower_bound: Union[int, float], upper_bound: Union[int, float]) -> Tuple[Union[int, float], Union[int, float]]:
     if value_type == "int":
         if not helpers.looks_like_int(lower_bound):
@@ -2778,7 +3007,6 @@ def round_lower_and_upper_if_type_is_int(value_type: str, lower_bound: Union[int
 
     return lower_bound, upper_bound
 
-@beartype
 def get_bounds(this_args: Union[str, list], j: int) -> Tuple[float, float]:
     try:
         lower_bound = float(this_args[j + 2])
@@ -2792,7 +3020,6 @@ def get_bounds(this_args: Union[str, list], j: int) -> Tuple[float, float]:
 
     return lower_bound, upper_bound
 
-@beartype
 def adjust_bounds_for_value_type(value_type: str, lower_bound: Union[int, float], upper_bound: Union[int, float]) -> Union[Tuple[float, float], Tuple[int, int]]:
     lower_bound, upper_bound = round_lower_and_upper_if_type_is_int(value_type, lower_bound, upper_bound)
 
@@ -2802,7 +3029,6 @@ def adjust_bounds_for_value_type(value_type: str, lower_bound: Union[int, float]
 
     return lower_bound, upper_bound
 
-@beartype
 def generate_values(name: str, value_type: str, lower_bound: Union[int, float], upper_bound: Union[int, float]) -> list:
     if value_type == "int":
         return [str(i) for i in range(int(lower_bound), int(upper_bound) + 1)] if int(upper_bound) - int(lower_bound) + 1 <= 999 else list(dict.fromkeys([str(round(int(lower_bound) + i * (int(upper_bound) - int(lower_bound)) / 998)) for i in range(999)]))
@@ -2816,7 +3042,6 @@ def generate_values(name: str, value_type: str, lower_bound: Union[int, float], 
 
     raise ValueError("Unsupported value_type")
 
-@beartype
 def create_range_param(name: str, lower_bound: Union[float, int], upper_bound: Union[float, int], value_type: str, log_scale: bool, force_classic: bool = False) -> dict:
     if args.force_choice_for_ranges and not force_classic:
         return {
@@ -2834,7 +3059,6 @@ def create_range_param(name: str, lower_bound: Union[float, int], upper_bound: U
         "log_scale": log_scale
     }
 
-@beartype
 def handle_grid_search(name: Union[list, str], lower_bound: Union[float, int], upper_bound: Union[float, int], value_type: str) -> dict:
     if lower_bound is None or upper_bound is None:
         _fatal_error("handle_grid_search: lower_bound or upper_bound is None", 91)
@@ -2857,13 +3081,11 @@ def handle_grid_search(name: Union[list, str], lower_bound: Union[float, int], u
         "values": values_str
     }
 
-@beartype
 def get_bounds_from_previous_data(name: str, lower_bound: Union[float, int], upper_bound: Union[float, int]) -> Tuple[Union[float, int], Union[float, int]]:
     lower_bound, _ = get_bound_if_prev_data("lower", name, lower_bound)
     upper_bound, _ = get_bound_if_prev_data("upper", name, upper_bound)
     return lower_bound, upper_bound
 
-@beartype
 def check_bounds_change_due_to_previous_job(name: Union[list, str], lower_bound: Union[float, int], upper_bound: Union[float, int], search_space_reduction_warning: bool) -> bool:
     old_lower_bound = lower_bound
     old_upper_bound = upper_bound
@@ -2879,7 +3101,6 @@ def check_bounds_change_due_to_previous_job(name: Union[list, str], lower_bound:
 
     return search_space_reduction_warning
 
-@beartype
 def get_value_type_and_log_scale(this_args: Union[str, list], j: int) -> Tuple[int, str, bool]:
     skip = 5
     try:
@@ -2896,7 +3117,14 @@ def get_value_type_and_log_scale(this_args: Union[str, list], j: int) -> Tuple[i
 
     return skip, value_type, log_scale
 
-@beartype
+def check_for_too_high_differences(lower_bound: Union[int, float], upper_bound: Union[int, float]) -> None:
+    bound_diff = abs(lower_bound - upper_bound)
+
+    if bound_diff > args.range_max_difference:
+        print_red(f"The difference between {lower_bound} and {upper_bound} was too high, these large numbers can cause memory leaks. Difference was: {bound_diff}, max difference is {args.range_max_difference}")
+
+        sys.exit(235)
+
 def parse_range_param(classic_params: list, params: list, j: int, this_args: Union[str, list], name: str, search_space_reduction_warning: bool) -> Tuple[int, list, list, bool]:
     check_factorial_range()
     check_range_params_length(this_args)
@@ -2906,7 +3134,7 @@ def parse_range_param(classic_params: list, params: list, j: int, this_args: Uni
 
     lower_bound, upper_bound = get_bounds(this_args, j)
 
-    die_181_or_91_if_lower_and_upper_bound_equal_zero(lower_bound, upper_bound)
+    die_if_lower_and_upper_bound_equal_zero(lower_bound, upper_bound)
 
     lower_bound, upper_bound = switch_lower_and_upper_if_needed(name, lower_bound, upper_bound)
 
@@ -2917,6 +3145,12 @@ def parse_range_param(classic_params: list, params: list, j: int, this_args: Uni
     lower_bound, upper_bound = adjust_bounds_for_value_type(value_type, lower_bound, upper_bound)
 
     lower_bound, upper_bound = get_bounds_from_previous_data(name, lower_bound, upper_bound)
+
+    check_for_too_high_differences(lower_bound, upper_bound)
+
+    if lower_bound == upper_bound:
+        print_red(f"Lower bound {lower_bound} was equal to upper bound {upper_bound}. Please fix this. Cannot continue.")
+        my_exit(181)
 
     search_space_reduction_warning = check_bounds_change_due_to_previous_job(name, lower_bound, upper_bound, search_space_reduction_warning)
 
@@ -2933,12 +3167,10 @@ def parse_range_param(classic_params: list, params: list, j: int, this_args: Uni
     j += skip
     return j, params, classic_params, search_space_reduction_warning
 
-@beartype
 def validate_value_type(value_type: str) -> None:
     valid_value_types = ["int", "float"]
     check_if_range_types_are_invalid(value_type, valid_value_types)
 
-@beartype
 def parse_fixed_param(classic_params: list, params: list, j: int, this_args: Union[str, list], name: Union[list, str], search_space_reduction_warning: bool) -> Tuple[int, list, list, bool]:
     if len(this_args) != 3:
         _fatal_error("⚠ --parameter for type fixed must have 3 parameters: <NAME> fixed <VALUE>", 181)
@@ -2961,7 +3193,6 @@ def parse_fixed_param(classic_params: list, params: list, j: int, this_args: Uni
 
     return j, params, classic_params, search_space_reduction_warning
 
-@beartype
 def parse_choice_param(classic_params: list, params: list, j: int, this_args: Union[str, list], name: Union[list, str], search_space_reduction_warning: bool) -> Tuple[int, list, list, bool]:
     if len(this_args) != 3:
         _fatal_error("⚠ --parameter for type choice must have 3 parameters: <NAME> choice <VALUE,VALUE,VALUE,...>", 181)
@@ -2986,14 +3217,12 @@ def parse_choice_param(classic_params: list, params: list, j: int, this_args: Un
 
     return j, params, classic_params, search_space_reduction_warning
 
-@beartype
 def _parse_experiment_parameters_validate_name(name: str, invalid_names: List[str], param_names: List[str]) -> None:
     if name in invalid_names:
         _fatal_error(f"\n⚠ Name for argument is invalid: {name}. Invalid names are: {', '.join(invalid_names)}", 181)
     if name in param_names:
         _fatal_error(f"\n⚠ Parameter name '{name}' is not unique. Names for parameters must be unique!", 181)
 
-@beartype
 def _parse_experiment_parameters_get_param_type(this_args: List[Any], j: int) -> str:
     try:
         return this_args[j + 1]
@@ -3002,7 +3231,6 @@ def _parse_experiment_parameters_get_param_type(this_args: List[Any], j: int) ->
 
     return ""
 
-@beartype
 def _parse_experiment_parameters_parse_this_args(
     this_args: List[Any],
     invalid_names: List[str],
@@ -3039,8 +3267,9 @@ def _parse_experiment_parameters_parse_this_args(
 
     return j, params, classic_params, search_space_reduction_warning
 
-@beartype
-def parse_experiment_parameters() -> List[Dict[str, Any]]:
+def parse_experiment_parameters() -> None:
+    global experiment_parameters
+
     params: List[Dict[str, Any]] = []
     classic_params: List[Dict[str, Any]] = []
     param_names: List[str] = []
@@ -3065,28 +3294,24 @@ def parse_experiment_parameters() -> List[Dict[str, Any]]:
     # Remove duplicates by 'name' key preserving order
     params = list({p['name']: p for p in params}.values())
 
-    return params
+    experiment_parameters = params
 
-@beartype
 def check_factorial_range() -> None:
     if args.model and args.model == "FACTORIAL":
         _fatal_error("\n⚠ --model FACTORIAL cannot be used with range parameter", 181)
 
-@beartype
 def check_if_range_types_are_invalid(value_type: str, valid_value_types: list) -> None:
     if value_type not in valid_value_types:
         valid_value_types_string = ", ".join(valid_value_types)
         _fatal_error(f"⚠ {value_type} is not a valid value type. Valid types for range are: {valid_value_types_string}", 181)
 
-@beartype
 def check_range_params_length(this_args: Union[str, list]) -> None:
     if len(this_args) != 5 and len(this_args) != 4 and len(this_args) != 6:
         _fatal_error("\n⚠ --parameter for type range must have 4 (or 5, the last one being optional and float by default, or 6, while the last one is true or false) parameters: <NAME> range <START> <END> (<TYPE (int or float)>, <log_scale: bool>)", 181)
 
-@beartype
-def die_181_or_91_if_lower_and_upper_bound_equal_zero(lower_bound: Union[int, float], upper_bound: Union[int, float]) -> None:
+def die_if_lower_and_upper_bound_equal_zero(lower_bound: Union[int, float], upper_bound: Union[int, float]) -> None:
     if upper_bound is None or lower_bound is None:
-        _fatal_error("die_181_or_91_if_lower_and_upper_bound_equal_zero: upper_bound or lower_bound is None. Cannot continue.", 91)
+        _fatal_error("die_if_lower_and_upper_bound_equal_zero: upper_bound or lower_bound is None. Cannot continue.", 91)
     if upper_bound == lower_bound:
         if lower_bound == 0:
             _fatal_error(f"⚠ Lower bound and upper bound are equal: {lower_bound}, cannot automatically fix this, because they -0 = +0 (usually a quickfix would be to set lower_bound = -upper_bound)", 181)
@@ -3094,7 +3319,6 @@ def die_181_or_91_if_lower_and_upper_bound_equal_zero(lower_bound: Union[int, fl
         if upper_bound is not None:
             lower_bound = -upper_bound
 
-@beartype
 def format_value(value: Any, float_format: str = '.80f') -> str:
     try:
         if isinstance(value, float):
@@ -3106,7 +3330,6 @@ def format_value(value: Any, float_format: str = '.80f') -> str:
         print_red(f"⚠ Error formatting the number {value}: {e}")
         return str(value)
 
-@beartype
 def replace_parameters_in_string(
     parameters: dict,
     input_string: str,
@@ -3132,7 +3355,6 @@ def replace_parameters_in_string(
         print_red(f"\n⚠ Error: {e}")
         return ""
 
-@beartype
 def get_memory_usage() -> float:
     user_uid = os.getuid()
 
@@ -3192,7 +3414,6 @@ class MonitorProcess:
         self.running = False
         self.thread.join()
 
-@beartype
 def execute_bash_code_log_time(code: str) -> list:
     process_item = subprocess.Popen(code, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
@@ -3211,7 +3432,6 @@ def execute_bash_code_log_time(code: str) -> list:
                 real_exit_code = 1
             return [e.stdout, e.stderr, real_exit_code, signal_code]
 
-@beartype
 def execute_bash_code(code: str) -> list:
     try:
         result = subprocess.run(
@@ -3256,7 +3476,6 @@ def execute_bash_code(code: str) -> list:
 
         return [e.stdout, e.stderr, real_exit_code, signal_code]
 
-@beartype
 def get_results(input_string: Optional[Union[int, str]]) -> Optional[Union[Dict[str, Optional[float]], List[float]]]:
     if input_string is None:
         if not args.tests:
@@ -3294,20 +3513,17 @@ def get_results(input_string: Optional[Union[int, str]]) -> Optional[Union[Dict[
 
     return None
 
-@beartype
 def add_to_csv(file_path: str, new_heading: list, new_data: list) -> None:
     new_data = [helpers.to_int_when_possible(x) for x in new_data]
     formatted_data = _add_to_csv_format_data(new_data)
     _add_to_csv_with_lock(file_path, new_heading, formatted_data)
 
-@beartype
 def _add_to_csv_format_data(new_data: List[object]) -> List[object]:
     return [
         ("{:.20f}".format(x).rstrip('0').rstrip('.')) if isinstance(x, float) else x
         for x in new_data
     ]
 
-@beartype
 def _add_to_csv_with_lock(file_path: str, new_heading: list, formatted_data: list) -> None:
     lockfile = file_path + ".lock"
     if not _add_to_csv_acquire_lock(lockfile, os.path.dirname(file_path)):
@@ -3317,7 +3533,6 @@ def _add_to_csv_with_lock(file_path: str, new_heading: list, formatted_data: lis
     finally:
         _add_to_csv_release_lock(lockfile)
 
-@beartype
 def _add_to_csv_acquire_lock(lockfile: str, dir_path: str) -> bool:
     wait_time = 0.01
     max_wait = 30.0  # seconds
@@ -3336,14 +3551,12 @@ def _add_to_csv_acquire_lock(lockfile: str, dir_path: str) -> bool:
             return False
     return False
 
-@beartype
 def _add_to_csv_release_lock(lockfile: str) -> None:
     try:
         os.unlink(lockfile)
     except FileNotFoundError:
         pass
 
-@beartype
 def _add_to_csv_handle_file(file_path: str, new_heading: list, formatted_data: list) -> None:
     if not os.path.exists(file_path):
         _add_to_csv_create_new_file(file_path, new_heading, formatted_data)
@@ -3360,14 +3573,12 @@ def _add_to_csv_handle_file(file_path: str, new_heading: list, formatted_data: l
     else:
         _add_to_csv_append_row(file_path, existing_heading, new_heading, formatted_data)
 
-@beartype
 def _add_to_csv_create_new_file(file_path: str, heading: list, data: list) -> None:
     with open(file_path, 'w', encoding="utf-8", newline='') as f:
         writer = csv.writer(f)
         writer.writerow(heading)
         writer.writerow(data)
 
-@beartype
 def _add_to_csv_rewrite_file(file_path: str, rows: List[list], existing_heading: list, all_headings: list, new_heading: list, formatted_data: list) -> None:
     tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(file_path), suffix=".csv")
     with os.fdopen(tmp_fd, 'w', encoding="utf-8", newline='') as tmp_file:
@@ -3384,7 +3595,6 @@ def _add_to_csv_rewrite_file(file_path: str, rows: List[list], existing_heading:
         ])
     shutil.move(tmp_path, file_path)
 
-@beartype
 def _add_to_csv_append_row(file_path: str, existing_heading: list, new_heading: list, formatted_data: list) -> None:
     with open(file_path, 'a', encoding="utf-8", newline='') as f:
         writer = csv.writer(f)
@@ -3393,7 +3603,6 @@ def _add_to_csv_append_row(file_path: str, existing_heading: list, new_heading: 
             for h in existing_heading
         ])
 
-@beartype
 def find_file_paths(_text: str) -> List[str]:
     file_paths = []
 
@@ -3408,7 +3617,6 @@ def find_file_paths(_text: str) -> List[str]:
 
     return []
 
-@beartype
 def check_file_info(file_path: str) -> str:
     if not os.path.exists(file_path):
         if not args.tests:
@@ -3451,7 +3659,6 @@ def check_file_info(file_path: str) -> str:
 
     return string
 
-@beartype
 def find_file_paths_and_print_infos(_text: str, program_code: str) -> str:
     file_paths = find_file_paths(_text)
 
@@ -3469,7 +3676,6 @@ def find_file_paths_and_print_infos(_text: str, program_code: str) -> str:
 
     return string
 
-@beartype
 def write_failed_logs(data_dict: Optional[dict], error_description: str = "") -> None:
     headers = []
     data = []
@@ -3513,7 +3719,6 @@ def write_failed_logs(data_dict: Optional[dict], error_description: str = "") ->
     except Exception as e:
         print_red(f"Unexpected error: {e}")
 
-@beartype
 def count_defective_nodes(file_path: Union[str, None] = None, entry: Any = None) -> list:
     if file_path is None:
         file_path = os.path.join(get_current_run_folder(), "state_files", "defective_nodes")
@@ -3537,7 +3742,6 @@ def count_defective_nodes(file_path: Union[str, None] = None, entry: Any = None)
         print(f"An error has occurred: {e}")
         return []
 
-@beartype
 def test_gpu_before_evaluate(return_in_case_of_error: dict) -> Union[None, dict]:
     if SYSTEM_HAS_SBATCH and args.gpus >= 1 and args.auto_exclude_defective_hosts and not args.force_local_execution:
         try:
@@ -3554,7 +3758,6 @@ def test_gpu_before_evaluate(return_in_case_of_error: dict) -> Union[None, dict]
 
     return None
 
-@beartype
 def extract_info(data: Optional[str]) -> Tuple[List[str], List[str]]:
     if data is None:
         return [], []
@@ -3572,7 +3775,6 @@ def extract_info(data: Optional[str]) -> Tuple[List[str], List[str]]:
 
     return names, values
 
-@beartype
 def ignore_signals() -> None:
     signal.signal(signal.SIGUSR1, signal.SIG_IGN)
     signal.signal(signal.SIGUSR2, signal.SIG_IGN)
@@ -3580,7 +3782,6 @@ def ignore_signals() -> None:
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
     signal.signal(signal.SIGQUIT, signal.SIG_IGN)
 
-@beartype
 def calculate_signed_harmonic_distance(_args: Union[dict, List[Union[int, float]]]) -> Union[int, float]:
     if not _args or len(_args) == 0:
         return 0
@@ -3593,13 +3794,11 @@ def calculate_signed_harmonic_distance(_args: Union[dict, List[Union[int, float]
 
     return sign * harmonic_mean
 
-@beartype
 def calculate_signed_euclidean_distance(_args: Union[dict, List[float]]) -> float:
     _sum = sum(a ** 2 for a in _args)
     sign = -1 if any(a < 0 for a in _args) else 1
     return sign * math.sqrt(_sum)
 
-@beartype
 def calculate_signed_geometric_distance(_args: Union[dict, List[float]]) -> float:
     product: float = 1
     for a in _args:
@@ -3611,7 +3810,6 @@ def calculate_signed_geometric_distance(_args: Union[dict, List[float]]) -> floa
     geometric_mean: float = product ** (1 / len(_args)) if _args else 0
     return sign * geometric_mean
 
-@beartype
 def calculate_signed_minkowski_distance(_args: Union[dict, List[float]], p: Union[int, float] = 2) -> float:
     if p <= 0:
         raise ValueError("p must be greater than 0.")
@@ -3620,7 +3818,6 @@ def calculate_signed_minkowski_distance(_args: Union[dict, List[float]], p: Unio
     minkowski_sum: float = sum(abs(a) ** p for a in _args) ** (1 / p)
     return sign * minkowski_sum
 
-@beartype
 def calculate_signed_weighted_euclidean_distance(_args: Union[dict, List[float]], weights_string: str) -> float:
     pattern = r'^\s*-?\d+(\.\d+)?\s*(,\s*-?\d+(\.\d+)?\s*)*$'
 
@@ -3649,7 +3846,6 @@ def calculate_signed_weighted_euclidean_distance(_args: Union[dict, List[float]]
 class invalidOccType(Exception):
     pass
 
-@beartype
 def calculate_occ(_args: Optional[Union[dict, List[Union[int, float]]]]) -> Union[int, float]:
     if _args is None or len(_args) == 0:
         return VAL_IF_NOTHING_FOUND
@@ -3667,7 +3863,6 @@ def calculate_occ(_args: Optional[Union[dict, List[Union[int, float]]]]) -> Unio
 
     raise invalidOccType(f"Invalid OCC (optimization with combined criteria) type {args.occ_type}. Valid types are: {joined_valid_occ_types}")
 
-@beartype
 def get_return_in_case_of_errors() -> dict:
     return_in_case_of_error = {}
 
@@ -3682,7 +3877,6 @@ def get_return_in_case_of_errors() -> dict:
 
     return return_in_case_of_error
 
-@beartype
 def write_job_infos_csv(parameters: dict, stdout: Optional[str], program_string_with_params: str, exit_code: Optional[int], _signal: Optional[int], result: Optional[Union[Dict[str, Optional[float]], List[float], int, float]], start_time: Union[int, float], end_time: Union[int, float], run_time: Union[float, int], trial_index: int, submit_time: Union[float, int], queue_time: Union[float, int]) -> None:
     str_parameters_values = _write_job_infos_csv_parameters_to_str(parameters)
     extra_vars_names, extra_vars_values = _write_job_infos_csv_extract_extra_vars(stdout)
@@ -3698,8 +3892,8 @@ def write_job_infos_csv(parameters: dict, stdout: Optional[str], program_string_
     headline = _write_job_infos_csv_replace_none_with_str(headline)
     values = _write_job_infos_csv_replace_none_with_str(values)
 
-    headline = ["trial_index", "submit_time", "queue_time", *headline]
-    values = [str(trial_index), str(submit_time), str(queue_time), *values]
+    headline = ["trial_index", "submit_time", "queue_time", "worker_generator_uuid", *headline]
+    values = [str(trial_index), str(submit_time), str(queue_time), worker_generator_uuid, *values]
 
     run_folder = get_current_run_folder()
     if run_folder is not None and os.path.exists(run_folder):
@@ -3710,15 +3904,12 @@ def write_job_infos_csv(parameters: dict, stdout: Optional[str], program_string_
     else:
         print_debug(f"evaluate: get_current_run_folder() {run_folder} could not be found")
 
-@beartype
 def _write_job_infos_csv_parameters_to_str(parameters: dict) -> List[str]:
     return [str(v) for v in list(parameters.values())]
 
-@beartype
 def _write_job_infos_csv_extract_extra_vars(stdout: Optional[str]) -> Tuple[List[str], List[str]]:
     return extract_info(stdout)
 
-@beartype
 def _write_job_infos_csv_add_slurm_job_id(extra_vars_names: List[str], extra_vars_values: List[str]) -> Tuple[List[str], List[str]]:
     _SLURM_JOB_ID = os.getenv('SLURM_JOB_ID')
     if _SLURM_JOB_ID:
@@ -3726,7 +3917,6 @@ def _write_job_infos_csv_add_slurm_job_id(extra_vars_names: List[str], extra_var
         extra_vars_values.append(str(_SLURM_JOB_ID))
     return extra_vars_names, extra_vars_values
 
-@beartype
 def _write_job_infos_csv_build_headline(parameters_keys: List[str], extra_vars_names: List[str]) -> List[str]:
     return [
         "start_time",
@@ -3741,7 +3931,6 @@ def _write_job_infos_csv_build_headline(parameters_keys: List[str], extra_vars_n
         *extra_vars_names
     ]
 
-@beartype
 def _write_job_infos_csv_result_to_strlist(result: Optional[Union[Dict[str, Optional[float]], List[float], int, float]]) -> List[str]:
     result_values: List[str] = []
 
@@ -3756,7 +3945,6 @@ def _write_job_infos_csv_result_to_strlist(result: Optional[Union[Dict[str, Opti
 
     return result_values
 
-@beartype
 def _write_job_infos_csv_build_values(start_time: Union[int, float], end_time: Union[int, float], run_time: Union[float, int], program_string_with_params: str, str_parameters_values: List[str], result_values: List[str], exit_code: Optional[int], _signal: Optional[int], extra_vars_values: List[str]) -> List[str]:
     return [
         str(int(start_time)),
@@ -3771,7 +3959,6 @@ def _write_job_infos_csv_build_values(start_time: Union[int, float], end_time: U
         *extra_vars_values
     ]
 
-@beartype
 def _write_job_infos_csv_replace_none_with_str(elements: Optional[List[str]]) -> List[str]:
     if elements is None:
         return []
@@ -3783,9 +3970,8 @@ def _write_job_infos_csv_replace_none_with_str(elements: Optional[List[str]]) ->
             result.append(element)
     return result
 
-@beartype
 def print_evaluate_times() -> None:
-    file_path = f"{get_current_run_folder()}/job_infos.csv"
+    file_path = get_current_run_folder("job_infos.csv")
 
     if not Path(file_path).exists():
         print_debug(f"The file '{file_path}' was not found.")
@@ -3837,7 +4023,7 @@ def print_evaluate_times() -> None:
 
             console.print(table)
 
-            overview_file = f"{get_current_run_folder()}/time_overview.txt"
+            overview_file = get_current_run_folder("time_overview.txt")
             with open(overview_file, mode='w', encoding='utf-8') as overview:
                 overview.write(f"Number of evaluations: {len(time_values)} sec\n")
                 overview.write(f"Min Time: {min_time:.2f} sec\n")
@@ -3845,14 +4031,12 @@ def print_evaluate_times() -> None:
                 overview.write(f"Average Time: {avg_time:.2f} sec\n")
                 overview.write(f"Median Time: {median_time:.2f} sec\n")
 
-@beartype
 def print_debug_infos(program_string_with_params: str) -> None:
     string = find_file_paths_and_print_infos(program_string_with_params, program_string_with_params)
 
     if not args.tests:
         original_print("Debug-Infos:", string)
 
-@beartype
 def print_stdout_and_stderr(stdout: Optional[str], stderr: Optional[str]) -> None:
     if not args.tests:
         if stdout:
@@ -3865,7 +4049,6 @@ def print_stdout_and_stderr(stdout: Optional[str], stderr: Optional[str]) -> Non
         else:
             original_print("stderr was empty")
 
-@beartype
 def _evaluate_print_stuff(parameters: dict, program_string_with_params: str, stdout: Optional[str], stderr: Optional[str], exit_code: Optional[int], _signal: Optional[int], result: Optional[Union[Dict[str, Optional[float]], List[float], int, float]], start_time: Union[float, int], end_time: Union[float, int], run_time: Union[float, int], final_result: dict, trial_index: int, submit_time: Union[float, int], queue_time: Union[float, int]) -> None:
     if not args.tests:
         original_print(f"Parameters: {json.dumps(parameters)}")
@@ -3886,7 +4069,6 @@ def _evaluate_print_stuff(parameters: dict, program_string_with_params: str, std
     if not args.tests:
         original_print(f"EXIT_CODE: {exit_code}")
 
-@beartype
 def get_results_with_occ(stdout: str) -> Union[int, float, Optional[Union[Dict[str, Optional[float]], List[float]]]]:
     result = get_results(stdout)
 
@@ -3898,7 +4080,6 @@ def get_results_with_occ(stdout: str) -> Union[int, float, Optional[Union[Dict[s
 
     return result
 
-@beartype
 def get_signal_name(sig: BaseException, signal_messages: dict) -> str:
     try:
         signal_name_candidates = [k for k, v in signal_messages.items() if isinstance(sig, v)]
@@ -3910,7 +4091,6 @@ def get_signal_name(sig: BaseException, signal_messages: dict) -> str:
         signal_name = f"ERROR_IDENTIFYING_SIGNAL({e})"
     return signal_name
 
-@beartype
 def get_result_sem(stdout: Optional[str], name: str) -> Optional[float]:
     if stdout is None:
         print_red("get_result_sem: stdout is None")
@@ -3933,7 +4113,6 @@ def get_result_sem(stdout: Optional[str], name: str) -> Optional[float]:
 
     return None
 
-@beartype
 def attach_sem_to_result(stdout: str, name: str, value: Union[int, float, None, list]) -> Optional[Union[tuple, int, float, list]]:
     sem = get_result_sem(stdout, name)
     if sem:
@@ -3941,7 +4120,6 @@ def attach_sem_to_result(stdout: str, name: str, value: Union[int, float, None, 
 
     return value
 
-@beartype
 def die_for_debug_reasons() -> None:
     max_done_str = os.getenv("DIE_AFTER_THIS_NR_OF_DONE_JOBS")
     if max_done_str is not None:
@@ -3952,14 +4130,12 @@ def die_for_debug_reasons() -> None:
         except ValueError:
             print_red(f"Invalid value for DIE_AFTER_THIS_NR_OF_DONE_JOBS: '{max_done_str}', cannot be converted to int")
 
-@beartype
 def _evaluate_preprocess_parameters(parameters: dict) -> dict:
     return {
         k: (int(float(v)) if isinstance(v, (int, float, str)) and re.fullmatch(r'^\d+(\.0+)?$', str(v)) else v)
         for k, v in parameters.items()
     }
 
-@beartype
 def _evaluate_create_signal_map() -> Dict[str, type[BaseException]]:
     return {
         "USR1-signal": SignalUSR,
@@ -3967,7 +4143,6 @@ def _evaluate_create_signal_map() -> Dict[str, type[BaseException]]:
         "INT-signal": SignalINT
     }
 
-@beartype
 def sanitize_for_evaluate_handle_result(val: Optional[Union[int, float, list, tuple]]) -> Optional[Union[float, Tuple]]:
     if val is None:
         return None
@@ -3981,7 +4156,6 @@ def sanitize_for_evaluate_handle_result(val: Optional[Union[int, float, list, tu
         return val
     raise TypeError(f"Unexpected result type: {type(val)}")
 
-@beartype
 def _evaluate_handle_result(
     stdout: str,
     result: Optional[Union[int, float, dict, list]],
@@ -4010,11 +4184,9 @@ def _evaluate_handle_result(
 
     return final_result
 
-@beartype
 def is_valid_result(result: Union[int, float, Optional[Union[Dict[str, Optional[float]], List[float]]]]) -> bool:
     return result is not None and (isinstance(result, (int, float)) or (isinstance(result, list) and all(isinstance(x, (int, float)) and x is not None for x in result)) or (isinstance(result, dict) and all(isinstance(v, (int, float)) and v is not None for v in result.values())))
 
-@beartype
 def pretty_process_output(stdout_path: str, stderr_path: str, exit_code: Optional[int], result: Union[int, float, Optional[Union[Dict[str, Optional[float]], List[float]]]]) -> None:
     stdout_txt = get_file_as_string(stdout_path)
     stderr_txt = get_file_as_string(stderr_path)
@@ -4044,7 +4216,6 @@ def pretty_process_output(stdout_path: str, stderr_path: str, exit_code: Optiona
         print("\n")
         console.print("[dim]No output captured.[/dim]")
 
-@beartype
 def evaluate(parameters_with_trial_index: dict) -> Optional[Union[int, float, Dict[str, Optional[Union[int, float, Tuple]]], List[float]]]:
     parameters = parameters_with_trial_index["params"]
     trial_index = parameters_with_trial_index["trial_idx"]
@@ -4108,7 +4279,6 @@ def evaluate(parameters_with_trial_index: dict) -> Optional[Union[int, float, Di
 
     return final_result
 
-@beartype
 def custom_warning_handler(
     message: Union[Warning, str],
     category: Type[Warning],
@@ -4120,12 +4290,11 @@ def custom_warning_handler(
     warning_message = f"{category.__name__}: {message} (in {filename}, line {lineno})"
     print_debug(f"{file}:{line}: {warning_message}")
 
-@beartype
 def disable_logging() -> None:
     if args.verbose:
         return
 
-    with console.status("[bold green]Disabling logging..."):
+    with spinner("Disabling logging..."):
         logging.basicConfig(level=logging.CRITICAL)
         logging.getLogger().setLevel(logging.CRITICAL)
         logging.getLogger().disabled = True
@@ -4152,19 +4321,21 @@ def disable_logging() -> None:
             "ax.core.parameter",
             "ax.core.experiment",
 
+            "ax.service.ax_client",
+
             "ax.models.torch.botorch_modular.acquisition",
 
-            "ax.modelbridge"
-            "ax.modelbridge.base",
-            "ax.modelbridge.standardize_y",
-            "ax.modelbridge.transforms",
-            "ax.modelbridge.transforms.standardize_y",
-            "ax.modelbridge.transforms.int_to_float",
-            "ax.modelbridge.cross_validation",
-            "ax.modelbridge.dispatch_utils",
-            "ax.modelbridge.torch",
-            "ax.modelbridge.generation_node",
-            "ax.modelbridge.best_model_selector",
+            "ax.adapter"
+            "ax.adapter.base",
+            "ax.adapter.standardize_y",
+            "ax.adapter.transforms",
+            "ax.adapter.transforms.standardize_y",
+            "ax.adapter.transforms.int_to_float",
+            "ax.adapter.cross_validation",
+            "ax.adapter.dispatch_utils",
+            "ax.adapter.torch",
+            "ax.adapter.generation_node",
+            "ax.adapter.best_model_selector",
 
             "ax.generation_strategy.generation_strategy",
             "ax.generation_strategy.generation_node",
@@ -4205,9 +4376,8 @@ def disable_logging() -> None:
 
         fool_linter(f"warnings.showwarning set to {warnings.showwarning}")
 
-@beartype
 def display_failed_jobs_table() -> None:
-    failed_jobs_file = f"{get_current_run_folder()}/failed_logs"
+    failed_jobs_file = get_current_run_folder("failed_logs")
     header_file = os.path.join(failed_jobs_file, "headers.csv")
     parameters_file = os.path.join(failed_jobs_file, "parameters.csv")
 
@@ -4252,7 +4422,6 @@ def display_failed_jobs_table() -> None:
     except Exception as e:
         print_red(f"Error: {str(e)}")
 
-@beartype
 def plot_command(_command: str, tmp_file: str, _width: str = "1300") -> None:
     if not helpers.looks_like_int(_width):
         print_red(f"Error: {_width} does not look like an int")
@@ -4278,7 +4447,6 @@ def plot_command(_command: str, tmp_file: str, _width: str = "1300") -> None:
     else:
         print_debug(f"{tmp_file} not found, error: {str(error)}")
 
-@beartype
 def replace_string_with_params(input_string: str, params: list) -> str:
     try:
         replaced_string = input_string
@@ -4295,7 +4463,6 @@ def replace_string_with_params(input_string: str, params: list) -> str:
 
     return ""
 
-@beartype
 def get_best_line_and_best_result(nparray: np.ndarray, result_idx: int, maximize: bool) -> Tuple[Optional[Union[str, np.ndarray]], Optional[Union[str, np.ndarray, int, float]]]:
     best_line: Optional[str] = None
     best_result: Optional[str] = None
@@ -4319,7 +4486,6 @@ def get_best_line_and_best_result(nparray: np.ndarray, result_idx: int, maximize
 
     return best_line, best_result
 
-@beartype
 def get_res_name_is_maximized(res_name: str) -> bool:
     idx = -1
 
@@ -4343,7 +4509,6 @@ def get_res_name_is_maximized(res_name: str) -> bool:
 
     return maximize
 
-@beartype
 def get_best_params_from_csv(res_name: str = "RESULT") -> Optional[dict]:
     maximize = get_res_name_is_maximized(res_name)
 
@@ -4388,14 +4553,12 @@ def get_best_params_from_csv(res_name: str = "RESULT") -> Optional[dict]:
 
     return results
 
-@beartype
 def get_best_params(res_name: str = "RESULT") -> Optional[dict]:
     if os.path.exists(RESULT_CSV_FILE):
         return get_best_params_from_csv(res_name)
 
     return None
 
-@beartype
 def _count_sobol_or_completed(this_csv_file_path: str, _type: str) -> int:
     if _type not in ["Sobol", "COMPLETED", "SOBOL"]:
         print_red(f"_type is not in Sobol, SOBOL or COMPLETED, but is '{_type}'")
@@ -4442,49 +4605,38 @@ def _count_sobol_or_completed(this_csv_file_path: str, _type: str) -> int:
 
     return count
 
-@beartype
 def _count_sobol_steps(this_csv_file_path: str) -> int:
     return _count_sobol_or_completed(this_csv_file_path, "SOBOL")
 
-@beartype
 def _count_done_jobs(this_csv_file_path: str) -> int:
     return _count_sobol_or_completed(this_csv_file_path, "COMPLETED")
 
-@beartype
 def count_sobol_steps() -> int:
     if os.path.exists(RESULT_CSV_FILE):
         return _count_sobol_steps(RESULT_CSV_FILE)
 
     return 0
 
-@beartype
 def get_random_steps_from_prev_job() -> int:
     if not args.continue_previous_job:
         return count_sobol_steps()
 
-    prev_step_file: str = f"{args.continue_previous_job}/results.csv"
+    prev_step_file: str = f"{args.continue_previous_job}/{RESULTS_CSV_FILENAME}"
 
     if not os.path.exists(prev_step_file):
         return _count_sobol_steps(prev_step_file)
 
-    return add_to_phase_counter("random", count_sobol_steps() + _count_sobol_steps(f"{args.continue_previous_job}/results.csv"), args.continue_previous_job)
+    return add_to_phase_counter("random", count_sobol_steps() + _count_sobol_steps(f"{args.continue_previous_job}/{RESULTS_CSV_FILENAME}"), args.continue_previous_job)
 
-@beartype
 def failed_jobs(nr: int = 0) -> int:
-    state_files_folder = f"{get_current_run_folder()}/state_files/"
+    return append_and_read(get_state_file_name('failed_jobs'), nr)
 
-    makedirs(state_files_folder)
-
-    return append_and_read(f'{get_current_run_folder()}/state_files/failed_jobs', nr)
-
-@beartype
 def count_done_jobs() -> int:
     if os.path.exists(RESULT_CSV_FILE):
         return _count_done_jobs(RESULT_CSV_FILE)
 
     return 0
 
-@beartype
 def get_plot_types(x_y_combinations: list, _force: bool = False) -> list:
     plot_types: list = []
 
@@ -4516,11 +4668,9 @@ def get_plot_types(x_y_combinations: list, _force: bool = False) -> list:
 
     return plot_types
 
-@beartype
 def get_x_y_combinations_parameter_names() -> list:
     return list(combinations(global_vars["parameter_names"], 2))
 
-@beartype
 def get_plot_filename(plot: dict, _tmp: str) -> str:
     j = 0
     _fn = plot.get("filename", plot["type"])
@@ -4532,7 +4682,6 @@ def get_plot_filename(plot: dict, _tmp: str) -> str:
 
     return tmp_file
 
-@beartype
 def build_command(plot_type: str, plot: dict, _force: bool) -> str:
     maindir = os.path.dirname(os.path.realpath(__file__))
     base_command = "bash omniopt_plot" if _force else f"bash {maindir}/omniopt_plot"
@@ -4543,7 +4692,6 @@ def build_command(plot_type: str, plot: dict, _force: bool) -> str:
 
     return command
 
-@beartype
 def get_sixel_graphics_data(_pd_csv: str, _force: bool = False) -> list:
     _show_sixel_graphics = args.show_sixel_scatter or args.show_sixel_general or args.show_sixel_scatter or args.show_sixel_trial_index_result
 
@@ -4593,7 +4741,6 @@ def get_sixel_graphics_data(_pd_csv: str, _force: bool = False) -> list:
 
     return data
 
-@beartype
 def get_plot_commands(_command: str, plot: dict, _tmp: str, plot_type: str, tmp_file: str, _width: str) -> List[List[str]]:
     plot_commands: List[List[str]] = []
     if "params" in plot.keys():
@@ -4629,7 +4776,6 @@ def get_plot_commands(_command: str, plot: dict, _tmp: str, plot_type: str, tmp_
 
     return plot_commands
 
-@beartype
 def plot_sixel_imgs() -> None:
     if ci_env:
         print("Not printing sixel graphics in CI")
@@ -4647,7 +4793,6 @@ def plot_sixel_imgs() -> None:
         for command in commands:
             plot_command(*command)
 
-@beartype
 def get_crf() -> str:
     crf = get_current_run_folder()
     if crf in ["", None]:
@@ -4656,12 +4801,10 @@ def get_crf() -> str:
         return ""
     return crf
 
-@beartype
 def write_to_file(file_path: str, content: str) -> None:
     with open(file_path, mode="a+", encoding="utf-8") as text_file:
         text_file.write(content)
 
-@beartype
 def create_result_table(res_name: str, best_params: Optional[Dict[str, Any]], total_str: str, failed_error_str: str) -> Optional[Table]:
     arg_result_min_or_max_index = arg_result_names.index(res_name)
 
@@ -4690,14 +4833,12 @@ def create_result_table(res_name: str, best_params: Optional[Dict[str, Any]], to
         print_red(f"create_result_table: Error {e}")
     return None
 
-@beartype
 def print_and_write_table(table: Table, print_to_file: bool, file_path: str) -> None:
     with console.capture() as capture:
         console.print(table)
     if print_to_file:
         write_to_file(file_path, capture.get())
 
-@beartype
 def process_best_result(res_name: str, print_to_file: bool) -> int:
     best_params = get_best_params_from_csv(res_name)
     best_result = best_params.get(res_name, NO_RESULT) if best_params else NO_RESULT
@@ -4722,7 +4863,6 @@ def process_best_result(res_name: str, print_to_file: bool) -> int:
 
     return 0
 
-@beartype
 def _print_best_result(print_to_file: bool = True) -> int:
     global SHOWN_END_TABLE
 
@@ -4742,14 +4882,12 @@ def _print_best_result(print_to_file: bool = True) -> int:
 
     return 0
 
-@beartype
 def print_best_result() -> int:
     if os.path.exists(RESULT_CSV_FILE):
         return _print_best_result(True)
 
     return 0
 
-@beartype
 def show_end_table_and_save_end_files() -> int:
     print_debug("show_end_table_and_save_end_files()")
 
@@ -4786,7 +4924,6 @@ def show_end_table_and_save_end_files() -> int:
 
     return _exit
 
-@beartype
 def abandon_job(job: Job, trial_index: int, reason: str) -> bool:
     if job:
         try:
@@ -4806,14 +4943,12 @@ def abandon_job(job: Job, trial_index: int, reason: str) -> bool:
 
     return False
 
-@beartype
 def abandon_all_jobs() -> None:
     for job, trial_index in global_vars["jobs"][:]:
         abandoned = abandon_job(job, trial_index, "abandon_all_jobs was called")
         if not abandoned:
             print_debug(f"Job {job} could not be abandoned.")
 
-@beartype
 def show_pareto_or_error_msg(path_to_calculate: str, res_names: list = arg_result_names, disable_sixel_and_table: bool = False) -> None:
     if args.dryrun:
         print_debug("Not showing Pareto-frontier data with --dryrun")
@@ -4828,7 +4963,6 @@ def show_pareto_or_error_msg(path_to_calculate: str, res_names: list = arg_resul
         print_debug(f"show_pareto_frontier_data will NOT be executed because len(arg_result_names) is {len(arg_result_names)}")
     return None
 
-@beartype
 def end_program(_force: Optional[bool] = False, exit_code: Optional[int] = None) -> None:
     global END_PROGRAM_RAN
 
@@ -4881,14 +5015,13 @@ def end_program(_force: Optional[bool] = False, exit_code: Optional[int] = None)
 
     show_time_debugging_table()
 
-    live_share()
-
     if succeeded_jobs() == 0 and failed_jobs() > 0:
         _exit = 89
 
+    force_live_share()
+
     my_exit(_exit)
 
-@beartype
 def save_checkpoint(trial_nr: int = 0, eee: Union[None, str, Exception] = None) -> None:
     if trial_nr > 3:
         if eee:
@@ -4898,11 +5031,8 @@ def save_checkpoint(trial_nr: int = 0, eee: Union[None, str, Exception] = None) 
         return
 
     try:
-        state_files_folder = f"{get_current_run_folder()}/state_files/"
+        checkpoint_filepath = get_state_file_name('checkpoint.json')
 
-        makedirs(state_files_folder)
-
-        checkpoint_filepath = f'{state_files_folder}/checkpoint.json'
         if ax_client:
             ax_client.save_to_json_file(filepath=checkpoint_filepath)
         else:
@@ -4910,7 +5040,6 @@ def save_checkpoint(trial_nr: int = 0, eee: Union[None, str, Exception] = None) 
     except Exception as e:
         save_checkpoint(trial_nr + 1, e)
 
-@beartype
 def get_tmp_file_from_json(experiment_args: dict) -> str:
     _tmp_dir = "/tmp"
 
@@ -4927,7 +5056,6 @@ def get_tmp_file_from_json(experiment_args: dict) -> str:
 
     return f"/{_tmp_dir}/{k}"
 
-@beartype
 def extract_differences(old: Dict[str, Any], new: Dict[str, Any], prefix: str = "") -> List[str]:
     differences = []
     for key in old:
@@ -4943,7 +5071,6 @@ def extract_differences(old: Dict[str, Any], new: Dict[str, Any], prefix: str = 
                 differences.append(f"{prefix}{key} from {old_value} to {new_value}")
     return differences
 
-@beartype
 def compare_parameters(old_param_json: str, new_param_json: str) -> str:
     try:
         old_param = json.loads(old_param_json)
@@ -4961,7 +5088,6 @@ def compare_parameters(old_param_json: str, new_param_json: str) -> str:
     except Exception as e:
         return f"Error: {str(e)}"
 
-@beartype
 def get_ax_param_representation(data: dict) -> dict:
     if data["type"] == "range":
         parameter_type = data["value_type"].upper()
@@ -5006,7 +5132,6 @@ def get_ax_param_representation(data: dict) -> dict:
 
     return {}
 
-@beartype
 def set_torch_device_to_experiment_args(experiment_args: Union[None, dict]) -> Tuple[dict, str, str]:
     gpu_string = ""
     gpu_color = "green"
@@ -5048,22 +5173,19 @@ def set_torch_device_to_experiment_args(experiment_args: Union[None, dict]) -> T
 
     return {}, gpu_string, gpu_color
 
-@beartype
 def die_with_47_if_file_doesnt_exists(_file: str) -> None:
     if not os.path.exists(_file):
         _fatal_error(f"Cannot find {_file}", 47)
 
-@beartype
 def copy_state_files_from_previous_job(continue_previous_job: str) -> None:
     for state_file in ["submitted_jobs"]:
         old_state_file = f"{continue_previous_job}/state_files/{state_file}"
-        new_state_file = f'{get_current_run_folder()}/state_files/{state_file}'
+        new_state_file = get_state_file_name(state_file)
         die_with_47_if_file_doesnt_exists(old_state_file)
 
         if not os.path.exists(new_state_file):
             shutil.copy(old_state_file, new_state_file)
 
-@beartype
 def parse_equation_item(comparer_found: bool, item: str, parsed: list, parsed_order: list, variables: list, equation: str) -> Tuple[bool, bool, list, list]:
     return_totally = False
 
@@ -5102,7 +5224,6 @@ def parse_equation_item(comparer_found: bool, item: str, parsed: list, parsed_or
 
     return return_totally, comparer_found, parsed, parsed_order
 
-@beartype
 def is_valid_equation(expr: str, allowed_vars: list) -> bool:
     try:
         node = ast.parse(expr, mode='eval')
@@ -5168,7 +5289,6 @@ def is_valid_equation(expr: str, allowed_vars: list) -> bool:
 
     return True
 
-@beartype
 def is_ax_compatible_constraint(equation: str, variables: List[str]) -> Union[str, bool]:
     equation = equation.replace("\\*", "*")
     equation = equation.replace(" * ", "*")
@@ -5223,7 +5343,6 @@ def is_ax_compatible_constraint(equation: str, variables: List[str]) -> Union[st
 
     return True
 
-@beartype
 def check_equation(variables: list, equation: str) -> Union[str, bool]:
     print_debug(f"check_equation({variables}, {equation})")
 
@@ -5286,7 +5405,6 @@ def check_equation(variables: list, equation: str) -> Union[str, bool]:
 
     return False
 
-@beartype
 def set_objectives() -> dict:
     objectives = {}
 
@@ -5314,15 +5432,14 @@ def set_objectives() -> dict:
 
     return objectives
 
-@beartype
-def set_experiment_constraints(experiment_constraints: Optional[list], experiment_args: dict, experiment_parameters: Union[dict, list]) -> dict:
+def set_experiment_constraints(experiment_constraints: Optional[list], experiment_args: dict, _experiment_parameters: Union[dict, list]) -> dict:
     if experiment_constraints and len(experiment_constraints):
 
         experiment_args["parameter_constraints"] = []
 
         if experiment_constraints:
             for _l in range(len(experiment_constraints)):
-                variables = [item['name'] for item in experiment_parameters]
+                variables = [item['name'] for item in _experiment_parameters]
 
                 constraints_string = experiment_constraints[_l]
 
@@ -5346,33 +5463,54 @@ def set_experiment_constraints(experiment_constraints: Optional[list], experimen
 
     return experiment_args
 
-@beartype
-def replace_parameters_for_continued_jobs(parameter: Optional[list], cli_params_experiment_parameters: Optional[list], experiment_parameters: dict) -> dict:
+def replace_parameters_for_continued_jobs(parameter: Optional[list], cli_params_experiment_parameters: Optional[list]) -> None:
+    if args.worker_generator_path:
+        return None
+
+    def get_name(obj) -> Optional[str]:
+        """Extract a parameter name from dict, list, or tuple safely."""
+        if isinstance(obj, dict):
+            return obj.get("name")
+        if isinstance(obj, (list, tuple)) and len(obj) > 0 and isinstance(obj[0], str):
+            return obj[0]
+        return None
+
     if parameter and cli_params_experiment_parameters:
         for _item in cli_params_experiment_parameters:
             _replaced = False
-            for _item_id_to_overwrite in range(len(experiment_parameters["experiment"]["search_space"]["parameters"])):
-                if _item["name"] == experiment_parameters["experiment"]["search_space"]["parameters"][_item_id_to_overwrite]["name"]:
-                    old_param_json = json.dumps(experiment_parameters["experiment"]["search_space"]["parameters"][_item_id_to_overwrite])
+            item_name = get_name(_item)
+
+            for _item_id_to_overwrite, param_entry in enumerate(
+                experiment_parameters["experiment"]["search_space"]["parameters"]
+            ):
+                param_name = get_name(param_entry)
+
+                if item_name and param_name and item_name == param_name:
+                    old_param_json = json.dumps(param_entry)
 
                     experiment_parameters["experiment"]["search_space"]["parameters"][_item_id_to_overwrite] = get_ax_param_representation(_item)
 
-                    new_param_json = json.dumps(experiment_parameters["experiment"]["search_space"]["parameters"][_item_id_to_overwrite])
+                    new_param_json = json.dumps(
+                        experiment_parameters["experiment"]["search_space"]["parameters"][_item_id_to_overwrite]
+                    )
 
                     _replaced = True
 
                     compared_params = compare_parameters(old_param_json, new_param_json)
-                    if compared_params:
+                    if compared_params and not args.worker_generator_path:
                         print_yellow(compared_params)
 
             if not _replaced:
-                print_yellow(f"--parameter named {_item['name']} could not be replaced. It will be ignored, instead. You cannot change the number of parameters or their names when continuing a job, only update their values.")
+                print_yellow(
+                    f"--parameter named {item_name} could not be replaced. "
+                    "It will be ignored instead. You cannot change the number of parameters "
+                    "or their names when continuing a job, only update their values."
+                )
 
-    return experiment_parameters
+    return None
 
-@beartype
-def load_experiment_parameters_from_checkpoint_file(checkpoint_file: str, _die: bool = True) -> Optional[dict]:
-    experiment_parameters = None
+def load_experiment_parameters_from_checkpoint_file(checkpoint_file: str, _die: bool = True) -> None:
+    global experiment_parameters
 
     try:
         f = open(checkpoint_file, encoding="utf-8")
@@ -5386,9 +5524,6 @@ def load_experiment_parameters_from_checkpoint_file(checkpoint_file: str, _die: 
         if _die:
             my_exit(47)
 
-    return experiment_parameters
-
-@beartype
 def get_username() -> str:
     _user = os.getenv('USER')
 
@@ -5400,7 +5535,6 @@ def get_username() -> str:
 
     return _user
 
-@beartype
 def copy_continue_uuid() -> None:
     source_file = os.path.join(args.continue_previous_job, "state_files", "run_uuid")
     destination_file = os.path.join(get_current_run_folder(), "state_files", "continue_from_run_uuid")
@@ -5414,20 +5548,17 @@ def copy_continue_uuid() -> None:
     else:
         print_debug(f"copy_continue_uuid: Source file does not exist: {source_file}")
 
-@beartype
-def load_ax_client_from_experiment_parameters(experiment_parameters: dict) -> None:
+def load_ax_client_from_experiment_parameters() -> None:
+    #pprint(experiment_parameters)
     global ax_client
+
     tmp_file_path = get_tmp_file_from_json(experiment_parameters)
     ax_client = AxClient.load_from_json_file(tmp_file_path)
     ax_client = cast(AxClient, ax_client)
     os.unlink(tmp_file_path)
 
-@beartype
-def save_checkpoint_for_continued(experiment_parameters: dict) -> None:
-    state_files_folder = f"{get_current_run_folder()}/state_files"
-    checkpoint_filepath = f'{state_files_folder}/checkpoint.json'
-
-    makedirs(state_files_folder)
+def save_checkpoint_for_continued() -> None:
+    checkpoint_filepath = get_state_file_name('checkpoint.json')
 
     with open(checkpoint_filepath, mode="w", encoding="utf-8") as outfile:
         json.dump(experiment_parameters, outfile)
@@ -5435,8 +5566,7 @@ def save_checkpoint_for_continued(experiment_parameters: dict) -> None:
     if not os.path.exists(checkpoint_filepath):
         _fatal_error(f"{checkpoint_filepath} not found. Cannot continue_previous_job without.", 47)
 
-@beartype
-def load_original_generation_strategy(experiment_parameters: dict, original_ax_client_file: str) -> dict:
+def load_original_generation_strategy(original_ax_client_file: str) -> None:
     with open(original_ax_client_file, encoding="utf-8") as f:
         loaded_original_ax_client_json = json.load(f)
         original_generation_strategy = loaded_original_ax_client_json["generation_strategy"]
@@ -5444,103 +5574,140 @@ def load_original_generation_strategy(experiment_parameters: dict, original_ax_c
         if original_generation_strategy:
             experiment_parameters["generation_strategy"] = original_generation_strategy
 
-    return experiment_parameters
+def wait_for_checkpoint_file(checkpoint_file: str) -> None:
+    start_time = time.time()
 
-@beartype
-def get_experiment_parameters(_params: list) -> Optional[Tuple[AxClient, Union[list, dict], dict, str, str]]:
-    cli_params_experiment_parameters, experiment_parameters = _params
+    while not os.path.exists(checkpoint_file):
+        elapsed = int(time.time() - start_time)
+        console.print(f"[yellow]Waiting for file {checkpoint_file}... {elapsed} seconds[/yellow]", end="\r")
+        time.sleep(1)
 
-    continue_previous_job = args.continue_previous_job
-    parameter = args.parameter
+    elapsed = int(time.time() - start_time)
+    console.print(f"[green]Checkpoint file found after {elapsed} seconds[/green]   ")
 
-    experiment_constraints = get_constraints()
-
+def __get_experiment_parameters__check_ax_client() -> None:
     if not ax_client:
         _fatal_error("Something went wrong with the ax_client", 9)
-        return None
 
-    gpu_string = ""
-    gpu_color = "green"
+def validate_experiment_parameters() -> None:
+    if experiment_parameters is None:
+        print_red("Error: experiment_parameters is None.")
+        my_exit(95)
 
-    experiment_args = None
+    if not isinstance(experiment_parameters, dict):
+        print_red(f"Error: experiment_parameters is not a dict: {type(experiment_parameters).__name__}")
+        my_exit(95)
+
+    path_checks = [
+        ("experiment", experiment_parameters),
+        ("search_space", experiment_parameters.get("experiment")),
+        ("parameters", experiment_parameters.get("experiment", {}).get("search_space")),
+    ]
+
+    for key, current_level in path_checks:
+        if not isinstance(current_level, dict) or key not in current_level:
+            print_red(f"Error: Missing key '{key}' at level: {current_level}")
+            my_exit(95)
+
+def __get_experiment_parameters__load_from_checkpoint(continue_previous_job: str, cli_params_experiment_parameters: Optional[list]) -> Tuple[Any, str, str]:
+    print_debug(f"Load from checkpoint: {continue_previous_job}")
+
+    checkpoint_file = f"{continue_previous_job}/state_files/checkpoint.json"
+    checkpoint_parameters_filepath = f"{continue_previous_job}/state_files/checkpoint.json.parameters.json"
+    original_ax_client_file = get_state_file_name("original_ax_client_before_loading_tmp_one.json")
+
+    if args.worker_generator_path:
+        wait_for_checkpoint_file(checkpoint_parameters_filepath)
+
+    die_with_47_if_file_doesnt_exists(checkpoint_parameters_filepath)
+
+    if args.worker_generator_path:
+        wait_for_checkpoint_file(checkpoint_file)
+
+    die_with_47_if_file_doesnt_exists(checkpoint_file)
+
+    load_experiment_parameters_from_checkpoint_file(checkpoint_file)
+    experiment_args, gpu_string, gpu_color = set_torch_device_to_experiment_args(None)
+
+    copy_state_files_from_previous_job(continue_previous_job)
+
+    validate_experiment_parameters()
+
+    replace_parameters_for_continued_jobs(args.parameter, cli_params_experiment_parameters)
+
+    ax_client.save_to_json_file(filepath=original_ax_client_file)
+
+    load_original_generation_strategy(original_ax_client_file)
+    load_ax_client_from_experiment_parameters()
+    save_checkpoint_for_continued()
+
+    with open(get_current_run_folder("checkpoint_load_source"), mode='w', encoding="utf-8") as f:
+        print(f"Continuation from checkpoint {continue_previous_job}", file=f)
+
+    if not args.worker_generator_path:
+        copy_continue_uuid()
+    else:
+        print_debug(f"Not copying continue uuid because this is not a new job, because --worker_generator_path {args.worker_generator_path} is not a new job")
+
+    experiment_constraints = get_constraints()
+    if experiment_constraints:
+        experiment_args = set_experiment_constraints(
+            experiment_constraints,
+            experiment_args,
+            experiment_parameters["experiment"]["search_space"]["parameters"]
+        )
+
+    return experiment_args, gpu_string, gpu_color
+
+def __get_experiment_parameters__create_new_experiment() -> Tuple[dict, str, str]:
+    objectives = set_objectives()
+
+    experiment_args = {
+        "name": global_vars["experiment_name"],
+        "parameters": experiment_parameters,
+        "objectives": objectives,
+        "choose_generation_strategy_kwargs": {
+            "num_trials": max_eval,
+            "num_initialization_trials": num_parallel_jobs,
+            "use_batch_trials": True,
+            "max_parallelism_override": -1,
+            "random_seed": args.seed
+        },
+    }
+
+    if args.seed:
+        experiment_args["choose_generation_strategy_kwargs"]["random_seed"] = args.seed
+
+    experiment_args, gpu_string, gpu_color = set_torch_device_to_experiment_args(experiment_args)
+    experiment_args = set_experiment_constraints(get_constraints(), experiment_args, experiment_parameters)
+
+    try:
+        ax_client.create_experiment(**experiment_args)
+        new_metrics = [Metric(k) for k in arg_result_names if k not in ax_client.metric_names]
+        ax_client.experiment.add_tracking_metrics(new_metrics)
+    except AssertionError as error:
+        _fatal_error(f"An error has occurred while creating the experiment (0): {error}. This can happen when you have invalid parameter constraints.", 102)
+    except ValueError as error:
+        _fatal_error(f"An error has occurred while creating the experiment (1): {error}", 49)
+    except TypeError as error:
+        _fatal_error(f"An error has occurred while creating the experiment (2): {error}. This is probably a bug in OmniOpt2.", 49)
+    except ax.exceptions.core.UserInputError as error:
+        _fatal_error(f"An error occurred while creating the experiment (3): {error}", 49)
+
+    return experiment_args, gpu_string, gpu_color
+
+def get_experiment_parameters(cli_params_experiment_parameters: Optional[list]) -> Optional[Tuple[AxClient, dict, str, str]]:
+    continue_previous_job = args.worker_generator_path or args.continue_previous_job
+
+    __get_experiment_parameters__check_ax_client()
 
     if continue_previous_job:
-        print_debug(f"Load from checkpoint: {continue_previous_job}")
-
-        checkpoint_file: str = f"{continue_previous_job}/state_files/checkpoint.json"
-        checkpoint_parameters_filepath: str = f"{continue_previous_job}/state_files/checkpoint.json.parameters.json"
-        original_ax_client_file: str = f"{get_current_run_folder()}/state_files/original_ax_client_before_loading_tmp_one.json"
-
-        die_with_47_if_file_doesnt_exists(checkpoint_parameters_filepath)
-        die_with_47_if_file_doesnt_exists(checkpoint_file)
-
-        experiment_parameters = load_experiment_parameters_from_checkpoint_file(checkpoint_file)
-
-        experiment_args, gpu_string, gpu_color = set_torch_device_to_experiment_args(experiment_args)
-
-        copy_state_files_from_previous_job(continue_previous_job)
-
-        if experiment_parameters is None or "experiment" not in experiment_parameters or "search_space" not in experiment_parameters["experiment"] or "parameters" not in experiment_parameters["experiment"]["search_space"]:
-            print_red(f"Either, experiment_parameters was empty or it had no path to experiment/search_space/parameters: {experiment_parameters}")
-            my_exit(95)
-        else:
-            replace_parameters_for_continued_jobs(parameter, cli_params_experiment_parameters, experiment_parameters)
-
-            ax_client.save_to_json_file(filepath=original_ax_client_file)
-
-            experiment_parameters = load_original_generation_strategy(experiment_parameters, original_ax_client_file)
-
-            load_ax_client_from_experiment_parameters(experiment_parameters)
-
-            save_checkpoint_for_continued(experiment_parameters)
-
-            with open(f'{get_current_run_folder()}/checkpoint_load_source', mode='w', encoding="utf-8") as f:
-                print(f"Continuation from checkpoint {continue_previous_job}", file=f)
-
-            copy_continue_uuid()
-
-            if experiment_constraints:
-                experiment_args = set_experiment_constraints(experiment_constraints, experiment_args, experiment_parameters["experiment"]["search_space"]["parameters"])
+        experiment_args, gpu_string, gpu_color = __get_experiment_parameters__load_from_checkpoint(continue_previous_job, cli_params_experiment_parameters)
     else:
-        objectives = set_objectives()
+        experiment_args, gpu_string, gpu_color = __get_experiment_parameters__create_new_experiment()
 
-        experiment_args = {
-            "name": global_vars["experiment_name"],
-            "parameters": experiment_parameters,
-            "objectives": objectives,
-            "choose_generation_strategy_kwargs": {
-                "num_trials": max_eval,
-                "num_initialization_trials": num_parallel_jobs,
-                "use_batch_trials": True,
-                "max_parallelism_override": -1,
-                "random_seed": args.seed
-            },
-        }
+    return ax_client, experiment_args, gpu_string, gpu_color
 
-        if args.seed:
-            experiment_args["choose_generation_strategy_kwargs"]["random_seed"] = args.seed
-
-        experiment_args, gpu_string, gpu_color = set_torch_device_to_experiment_args(experiment_args)
-
-        experiment_args = set_experiment_constraints(experiment_constraints, experiment_args, experiment_parameters)
-
-        try:
-            ax_client.create_experiment(**experiment_args)
-
-            new_metrics = [Metric(k) for k in arg_result_names if k not in ax_client.metric_names]
-            ax_client.experiment.add_tracking_metrics(new_metrics)
-        except AssertionError as error:
-            _fatal_error(f"An error has occurred while creating the experiment (0): {error}. This can happen when you have invalid parameter constraints.", 102)
-        except ValueError as error:
-            _fatal_error(f"An error has occurred while creating the experiment (1): {error}", 49)
-        except TypeError as error:
-            _fatal_error(f"An error has occurred while creating the experiment (2): {error}. This is probably a bug in OmniOpt2.", 49)
-        except ax.exceptions.core.UserInputError as error:
-            _fatal_error(f"An error occurred while creating the experiment (3): {error}", 49)
-
-    return ax_client, experiment_parameters, experiment_args, gpu_string, gpu_color
-
-@beartype
 def get_type_short(typename: str) -> str:
     if typename == "RangeParameter":
         return "range"
@@ -5550,7 +5717,6 @@ def get_type_short(typename: str) -> str:
 
     return typename
 
-@beartype
 def parse_single_experiment_parameter_table(classic_params: Optional[Union[list, dict]]) -> list:
     rows: list = []
 
@@ -5617,7 +5783,6 @@ def parse_single_experiment_parameter_table(classic_params: Optional[Union[list,
 
     return rows
 
-@beartype
 def print_non_ax_parameter_constraints_table() -> None:
     if not post_generation_constraints:
         return None
@@ -5647,7 +5812,6 @@ def print_non_ax_parameter_constraints_table() -> None:
 
     return None
 
-@beartype
 def print_ax_parameter_constraints_table(experiment_args: dict) -> None:
     if not (experiment_args is not None and "parameter_constraints" in experiment_args and len(experiment_args["parameter_constraints"])):
         return None
@@ -5669,7 +5833,7 @@ def print_ax_parameter_constraints_table(experiment_args: dict) -> None:
 
     console.print(table)
 
-    fn = f"{get_current_run_folder()}/constraints.txt"
+    fn = get_current_run_folder("constraints.txt")
     try:
         with open(fn, mode="w", encoding="utf-8") as text_file:
             text_file.write(table_str)
@@ -5678,7 +5842,6 @@ def print_ax_parameter_constraints_table(experiment_args: dict) -> None:
 
     return None
 
-@beartype
 def print_result_names_overview_table() -> None:
     if not ax_client:
         _fatal_error("Tried to access ax_client in print_result_names_overview_table, but it failed, because the ax_client was not defined.", 101)
@@ -5724,7 +5887,6 @@ def print_result_names_overview_table() -> None:
 
     return None
 
-@beartype
 def print_experiment_param_table_to_file(filtered_columns: list, filtered_data: list) -> None:
     table = Table(header_style="bold", title="Experiment parameters")
     for column in filtered_columns:
@@ -5740,7 +5902,7 @@ def print_experiment_param_table_to_file(filtered_columns: list, filtered_data: 
 
     table_str = capture.get()
 
-    fn = f"{get_current_run_folder()}/parameters.txt"
+    fn = get_current_run_folder("parameters.txt")
 
     try:
         with open(fn, mode="w", encoding="utf-8") as text_file:
@@ -5748,7 +5910,6 @@ def print_experiment_param_table_to_file(filtered_columns: list, filtered_data: 
     except FileNotFoundError as e:
         print_red(f"Error trying to write file {fn}: {e}")
 
-@beartype
 def print_experiment_parameters_table(classic_param: Optional[Union[list, dict]]) -> None:
     if not classic_param:
         print_red("Cannot determine classic_param. No parameter table will be shown.")
@@ -5779,7 +5940,6 @@ def print_experiment_parameters_table(classic_param: Optional[Union[list, dict]]
 
     print_experiment_param_table_to_file(filtered_columns, filtered_data)
 
-@beartype
 def print_overview_tables(classic_params: Optional[Union[list, dict]], experiment_args: dict) -> None:
     print_experiment_parameters_table(classic_params)
 
@@ -5788,32 +5948,39 @@ def print_overview_tables(classic_params: Optional[Union[list, dict]], experimen
 
     print_result_names_overview_table()
 
-@beartype
-def update_progress_bar(_progress_bar: Any, nr: int) -> None:
-    #print(f"update_progress_bar(_progress_bar, {nr})")
-    #traceback.print_stack()
+def update_progress_bar(nr: int) -> None:
+    try:
+        progress_bar.update(nr)
+    except Exception as e:
+        print(f"Error updating progress bar: {e}")
 
-    _progress_bar.update(nr)
-
-@beartype
-def get_current_model() -> str:
+def get_current_model_name() -> str:
     if overwritten_to_random:
         return "Random*"
 
     if ax_client:
-        gs_model = ax_client.generation_strategy.model
+        try:
+            if args.generation_strategy:
+                idx = getattr(ax_client.generation_strategy, "current_step_index", None)
+                if isinstance(idx, int):
+                    if 0 <= idx < len(generation_strategy_names):
+                        gs_model = generation_strategy_names[int(idx)]
+                    else:
+                        gs_model = "unknown model"
+                else:
+                    gs_model = "unknown model"
+            else:
+                gs_model = getattr(ax_client.generation_strategy, "current_node_name", "unknown model")
 
-        if gs_model:
-            return str(gs_model.model)
+            if gs_model:
+                return str(gs_model)
 
-        gs_model = ax_client.generation_strategy.current_node_name
-
-        if gs_model:
-            return str(gs_model)
+        except Exception as e:
+            print_red(f"[WARN] Could not get current model name: {e}")
+            return "error reading model name"
 
     return "initializing model"
 
-@beartype
 def get_best_params_str(res_name: str = "RESULT") -> str:
     if count_done_jobs() >= 0:
         best_params = get_best_params(res_name)
@@ -5826,7 +5993,6 @@ def get_best_params_str(res_name: str = "RESULT") -> str:
                     return f"{res_name}: {best_result_int_if_possible}"
     return ""
 
-@beartype
 def state_from_job(job: Union[str, Job]) -> str:
     job_string = f'{job}'
     match = re.search(r'state="([^"]+)"', job_string)
@@ -5840,71 +6006,89 @@ def state_from_job(job: Union[str, Job]) -> str:
 
     return state
 
-@beartype
 def get_workers_string() -> str:
-    string = ""
+    stats = _get_workers_string_collect_stats()
+    string_keys, string_values, total_sum = _get_workers_string_format_keys_values(stats)
 
-    string_keys: list = []
-    string_values: list = []
+    if not (string_keys and string_values):
+        return ""
 
-    stats: dict = {}
+    nr_current_workers, nr_current_workers_errmsg = count_jobs_in_squeue()
 
+    if args.generate_all_jobs_at_once:
+        return _get_workers_string_all_at_once(string_keys, string_values, total_sum)
+
+    return _get_workers_string_dynamic(
+        string_keys,
+        string_values,
+        total_sum,
+        nr_current_workers,
+        nr_current_workers_errmsg
+    )
+
+def _get_workers_string_collect_stats() -> dict:
+    stats = {}
     for job, _ in global_vars["jobs"][:]:
         state = state_from_job(job)
+        stats[state] = stats.get(state, 0) + 1
+    return stats
 
-        if state not in stats.keys():
-            stats[state] = 0
-        stats[state] += 1
+def _get_workers_string_format_keys_values(stats: dict) -> tuple[list, list, int]:
+    string_keys = []
+    string_values = []
+    total_sum = 0
 
-    _sum = 0
+    for key, value in stats.items():
+        string_keys.append(key.lower()[0] if args.abbreviate_job_names else key.lower())
+        string_values.append(str(value))
+        total_sum += int(value)
 
-    for key in stats.keys():
-        if args.abbreviate_job_names:
-            string_keys.append(key.lower()[0])
-        else:
-            string_keys.append(key.lower())
-        string_values.append(str(stats[key]))
+    return string_keys, string_values, total_sum
 
-        _sum = _sum + int(stats[key])
+def _get_workers_string_all_at_once(keys: list, values: list, total_sum: int) -> str:
+    _keys = "/".join(keys)
+    _values = "/".join(values)
+    return f"{_keys} {_values} = ∑{total_sum}/{num_parallel_jobs}"
 
-    if len(string_keys) and len(string_values):
-        _keys = "/".join(string_keys)
-        _values = "/".join(string_values)
+def _get_workers_string_dynamic(
+    keys: list,
+    values: list,
+    total_sum: int,
+    nr_current_workers: int,
+    nr_current_workers_errmsg: str
+) -> str:
+    _keys = "/".join(keys)
+    _values = "/".join(values)
 
-        if len(_keys):
-            nr_current_workers, nr_current_workers_errmsg = count_jobs_in_squeue()
-            if args.generate_all_jobs_at_once:
-                string = f"{_keys} {_values} = ∑{_sum}/{num_parallel_jobs}"
-            else:
-                if nr_current_workers_errmsg == "":
-                    percentage = round((nr_current_workers / num_parallel_jobs) * 100)
-                    _sum_and_percentage = ""
-                    if num_parallel_jobs > 1:
-                        _sum_and_percentage = f"∑{_sum} ({percentage}%/{num_parallel_jobs})"
-                    string = f"{_keys} {_values}{_sum_and_percentage}"
-                else:
-                    print_debug(f"get_workers_string: {nr_current_workers_errmsg}")
-                    string = f"{_keys} {_values} = ∑{_sum}/{num_parallel_jobs}"
+    if nr_current_workers_errmsg == "":
+        percentage = round((nr_current_workers / num_parallel_jobs) * 100)
+        _sum_and_percentage = ""
+        if num_parallel_jobs > 1:
+            _sum_and_percentage = f"∑{total_sum} ({percentage}%/{num_parallel_jobs})"
+        return f"{_keys} {_values}{_sum_and_percentage}"
 
-    return string
+    print_debug(f"get_workers_string: {nr_current_workers_errmsg}")
+    return f"{_keys} {_values} = ∑{total_sum}/{num_parallel_jobs}"
 
-@beartype
 def submitted_jobs(nr: int = 0) -> int:
-    state_files_folder = f"{get_current_run_folder()}/state_files/"
-    makedirs(state_files_folder)
-    return append_and_read(f'{get_current_run_folder()}/state_files/submitted_jobs', nr)
+    return append_and_read(get_state_file_name('submitted_jobs'), nr)
 
-@beartype
-def count_jobs_in_squeue() -> Tuple[int, str]:
+def count_jobs_in_squeue() -> tuple[int, str]:
+    global _last_count_time, _last_count_result
+
+    now = time.time()
+    if _last_count_result != (0, "") and now - _last_count_time < 15:
+        return _last_count_result
+
     _len = len(global_vars["jobs"])
 
     if shutil.which('squeue') is None:
-        return _len, "count_jobs_in_squeue: squeue not found"
+        _last_count_result = (_len, "count_jobs_in_squeue: squeue not found")
+        _last_count_time = now
+        return _last_count_result
 
     experiment_name = global_vars["experiment_name"]
-
     job_pattern = re.compile(rf"{experiment_name}_{run_uuid}_[a-f0-9-]+")
-
     err_msg = ""
 
     try:
@@ -5915,22 +6099,26 @@ def count_jobs_in_squeue() -> Tuple[int, str]:
             check=True,
             text=True
         )
-
         if "slurm_load_jobs error" in result.stderr:
-            return _len, "Detected slurm_load_jobs error in stderr."
+            _last_count_result = (_len, "Detected slurm_load_jobs error in stderr.")
+            _last_count_time = now
+            return _last_count_result
 
         jobs = result.stdout.splitlines()
         job_count = sum(1 for job in jobs if job_pattern.match(job))
-        return job_count, ""
+        _last_count_result = (job_count, "")
+        _last_count_time = now
+        return _last_count_result
 
     except subprocess.CalledProcessError:
         err_msg = "count_jobs_in_squeue: Error while executing squeue."
     except FileNotFoundError:
         err_msg = "count_jobs_in_squeue: squeue is not available on this host."
 
-    return -1, err_msg
+    _last_count_result = (-1, err_msg)
+    _last_count_time = now
+    return _last_count_result
 
-@beartype
 def log_worker_numbers() -> None:
     if is_slurm_job():
         nr_current_workers, nr_current_workers_errmsg = count_jobs_in_squeue()
@@ -5951,18 +6139,14 @@ def log_worker_numbers() -> None:
         if len(WORKER_PERCENTAGE_USAGE) == 0 or WORKER_PERCENTAGE_USAGE[len(WORKER_PERCENTAGE_USAGE) - 1] != this_values:
             WORKER_PERCENTAGE_USAGE.append(this_values)
 
-@beartype
 def get_slurm_in_brackets(in_brackets: list) -> list:
     if is_slurm_job():
-        log_worker_numbers()
-
         workers_strings = get_workers_string()
         if workers_strings:
             in_brackets.append(workers_strings)
 
     return in_brackets
 
-@beartype
 def get_types_of_errors_string() -> str:
     types_of_errors_str = ""
 
@@ -5973,21 +6157,19 @@ def get_types_of_errors_string() -> str:
 
     return types_of_errors_str
 
-@beartype
 def capitalized_string(s: str) -> str:
     return s[0].upper() + s[1:] if s else ""
 
-@beartype
 def get_desc_progress_text(new_msgs: List[str] = []) -> str:
     global progress_bar_length
 
-    current_model = get_current_model()
+    current_model_name = get_current_model_name()
 
-    if current_model == "SobolGenerator":
-        current_model = "Sobol"
+    if current_model_name == "SobolGenerator":
+        current_model_name = "Sobol"
 
     in_brackets = []
-    in_brackets.append(current_model)
+    in_brackets.append(current_model_name)
     in_brackets.extend(_get_desc_progress_text_failed_jobs())
     in_brackets.extend(_get_desc_progress_text_best_params())
     in_brackets = get_slurm_in_brackets(in_brackets)
@@ -6010,13 +6192,11 @@ def get_desc_progress_text(new_msgs: List[str] = []) -> str:
 
     return capitalized
 
-@beartype
 def _get_desc_progress_text_failed_jobs() -> List[str]:
     if failed_jobs():
         return [f"{helpers.bcolors.red}failed: {failed_jobs()}{get_types_of_errors_string()}{helpers.bcolors.endc}"]
     return []
 
-@beartype
 def _get_desc_progress_text_best_params() -> List[str]:
     best_params_res = [
         get_best_params_str(res_name) for res_name in arg_result_names if get_best_params_str(res_name)
@@ -6028,7 +6208,6 @@ def _get_desc_progress_text_best_params() -> List[str]:
 
     return []
 
-@beartype
 def _get_desc_progress_text_submitted_jobs() -> List[str]:
     result = []
     if submitted_jobs():
@@ -6037,27 +6216,29 @@ def _get_desc_progress_text_submitted_jobs() -> List[str]:
             result.append(f"max_eval: {max_eval}")
     return result
 
-@beartype
 def _get_desc_progress_text_new_msgs(new_msgs: List[str]) -> List[str]:
     return [msg for msg in new_msgs if msg]
 
-@beartype
-def progressbar_description(new_msgs: List[str] = []) -> None:
+def progressbar_description(new_msgs: Union[str, List[str]] = []) -> None:
     global last_progress_bar_desc
+    global last_progress_bar_refresh_time
+
+    if isinstance(new_msgs, str):
+        new_msgs = [new_msgs]
 
     desc = get_desc_progress_text(new_msgs)
     print_debug_progressbar(desc)
 
     if progress_bar is not None:
-        if last_progress_bar_desc != desc:
+        now = time.time()
+        if last_progress_bar_desc != desc and (now - last_progress_bar_refresh_time) >= MIN_REFRESH_INTERVAL:
             progress_bar.set_description_str(desc)
             progress_bar.refresh()
-
             last_progress_bar_desc = desc
+            last_progress_bar_refresh_time = now
+    else:
+        print_red("Cannot update progress bar! It is None.")
 
-    live_share()
-
-@beartype
 def clean_completed_jobs() -> None:
     job_states_to_be_removed = ["early_stopped", "abandoned", "cancelled", "timeout", "interrupted", "failed", "preempted", "node_fail", "boot_fail"]
     job_states_to_be_ignored = ["ready", "completed", "unknown", "pending", "running", "completing", "out_of_memory", "requeued", "resv_del_hold"]
@@ -6076,7 +6257,6 @@ def clean_completed_jobs() -> None:
 
             print_red(f"Job {job}, state not in ['{job_states_to_be_removed_string}'], which would be removed from the job list, or ['{job_states_to_be_ignored_string}'], which would be ignored: {_state}")
 
-@beartype
 def simulate_load_data_from_existing_run_folders(_paths: List[str]) -> int:
     _counter: int = 0
 
@@ -6086,11 +6266,6 @@ def simulate_load_data_from_existing_run_folders(_paths: List[str]) -> int:
         if not os.path.exists(this_path_json):
             print_red(f"{this_path_json} does not exist, cannot load data from it")
             return 0
-
-        decoder_registry = CORE_DECODER_REGISTRY
-
-        decoder_registry["RandomForestGenerationNode"] = RandomForestGenerationNode
-        decoder_registry["ExternalProgramGenerationNode"] = ExternalProgramGenerationNode
 
         try:
             old_experiments = load_experiment(this_path_json, CORE_DECODER_REGISTRY)
@@ -6111,7 +6286,6 @@ def simulate_load_data_from_existing_run_folders(_paths: List[str]) -> int:
 
     return _counter
 
-@beartype
 def get_nr_of_imported_jobs() -> int:
     nr_jobs: int = 0
 
@@ -6120,12 +6294,10 @@ def get_nr_of_imported_jobs() -> int:
 
     return nr_jobs
 
-@beartype
 def load_existing_job_data_into_ax_client() -> None:
     nr_of_imported_jobs = get_nr_of_imported_jobs()
     set_nr_inserted_jobs(NR_INSERTED_JOBS + nr_of_imported_jobs)
 
-@beartype
 def parse_parameter_type_error(_error_message: Union[str, None]) -> Optional[dict]:
     if not _error_message:
         return None
@@ -6174,7 +6346,7 @@ def parse_csv(csv_path: str) -> Tuple[List, List]:
                 results = {}
 
                 for col, value in row.items():
-                    if col in special_col_names:
+                    if col in special_col_names or col.startswith("OO_Info_"):
                         continue
 
                     if col in arg_result_names:
@@ -6187,13 +6359,15 @@ def parse_csv(csv_path: str) -> Tuple[List, List]:
 
     return arm_params_list, results_list
 
-@beartype
 def get_generation_node_for_index(
     this_csv_file_path: str,
     arm_params_list: List[Dict[str, Any]],
     results_list: List[Dict[str, Any]],
-    index: int
+    index: int,
+    __status: Any,
+    base_str: str
 ) -> str:
+    __status.update(f"{base_str}: Getting generation node")
     try:
         if not _get_generation_node_for_index_index_valid(index, arm_params_list, results_list):
             return "MANUAL"
@@ -6201,15 +6375,19 @@ def get_generation_node_for_index(
         target_arm_params = arm_params_list[index]
         target_result = results_list[index]
 
+        __status.update(f"{base_str}: Getting generation node and combining dictionaries")
         target_combined = _get_generation_node_for_index_combine_dicts(target_arm_params, target_result)
 
+        __status.update(f"{base_str}: Getting generation node and finding index for generation node")
         generation_node = _get_generation_node_for_index_find_generation_node(this_csv_file_path, target_combined)
+
+        __status.update(f"{base_str}: Got generation node")
+
         return generation_node
     except Exception as e:
         print(f"Error while get_generation_node_for_index: {e}")
         return "MANUAL"
 
-@beartype
 def _get_generation_node_for_index_index_valid(
     index: int,
     arm_params_list: List[Dict[str, Any]],
@@ -6217,7 +6395,6 @@ def _get_generation_node_for_index_index_valid(
 ) -> bool:
     return 0 <= index < len(arm_params_list) and index < len(results_list)
 
-@beartype
 def _get_generation_node_for_index_combine_dicts(
     dict1: Dict[str, Any],
     dict2: Dict[str, Any]
@@ -6227,7 +6404,6 @@ def _get_generation_node_for_index_combine_dicts(
     combined.update(dict2)
     return combined
 
-@beartype
 def _get_generation_node_for_index_find_generation_node(
     csv_file_path: str,
     target_combined: Dict[str, Any]
@@ -6243,7 +6419,6 @@ def _get_generation_node_for_index_find_generation_node(
 
     return "MANUAL"
 
-@beartype
 def _get_generation_node_for_index_row_matches(
     row: Dict[str, str],
     target_combined: Dict[str, Any]
@@ -6262,7 +6437,6 @@ def _get_generation_node_for_index_row_matches(
 
     return True
 
-@beartype
 def _get_generation_node_for_index_floats_match(
     val: Union[int, float],
     row_val_str: str,
@@ -6274,60 +6448,66 @@ def _get_generation_node_for_index_floats_match(
         return False
     return abs(row_val_num - val) <= tolerance
 
-@beartype
-def insert_jobs_from_csv(this_csv_file_path: str, experiment_parameters: Optional[Union[List[Any], dict]]) -> None:
-    if not os.path.exists(this_csv_file_path):
-        print_red(f"--load_data_from_existing_jobs: Cannot find {this_csv_file_path}")
+def insert_jobs_from_csv(this_csv_file_path: str) -> None:
+    with spinner(f"Inserting job into CSV from {this_csv_file_path}") as __status:
+        this_csv_file_path = this_csv_file_path.replace("//", "/")
 
-        return
+        if not os.path.exists(this_csv_file_path):
+            print_red(f"--load_data_from_existing_jobs: Cannot find {this_csv_file_path}")
 
-    def validate_and_convert_params(experiment_parameters: Optional[Union[List[Any], Dict[Any, Any]]], arm_params: Dict) -> Dict:
-        corrected_params: Dict[Any, Any] = {}
+            return
 
-        if experiment_parameters is not None:
-            for param in experiment_parameters:
-                name = param["name"]
-                expected_type = param.get("value_type", "str")
+        def validate_and_convert_params(arm_params: Dict) -> Dict:
+            corrected_params: Dict[Any, Any] = {}
 
-                if name not in arm_params:
-                    continue
+            if experiment_parameters is not None:
+                for param in experiment_parameters:
+                    name = param["name"]
+                    expected_type = param.get("value_type", "str")
 
-                value = arm_params[name]
+                    if name not in arm_params:
+                        continue
 
-                try:
-                    if param["type"] == "range":
-                        if expected_type == "int":
-                            corrected_params[name] = int(value)
-                        elif expected_type == "float":
-                            corrected_params[name] = float(value)
-                    elif param["type"] == "choice":
-                        corrected_params[name] = str(value)
-                except (ValueError, TypeError):
-                    corrected_params[name] = None
+                    value = arm_params[name]
 
-        return corrected_params
+                    try:
+                        if param["type"] == "range":
+                            if expected_type == "int":
+                                corrected_params[name] = int(value)
+                            elif expected_type == "float":
+                                corrected_params[name] = float(value)
+                        elif param["type"] == "choice":
+                            corrected_params[name] = str(value)
+                    except (ValueError, TypeError):
+                        corrected_params[name] = None
 
-    arm_params_list, results_list = parse_csv(this_csv_file_path)
+            return corrected_params
 
-    cnt = 0
+        arm_params_list, results_list = parse_csv(this_csv_file_path)
 
-    err_msgs = []
+        cnt = 0
 
-    with console.status("[bold green]Loading existing jobs into ax_client...") as __status:
+        err_msgs = []
+
         i = 0
         for arm_params, result in zip(arm_params_list, results_list):
-            __status.update(f"[bold green]Loading existing jobs from {this_csv_file_path} into ax_client")
-            arm_params = validate_and_convert_params(experiment_parameters, arm_params)
+            base_str = f"[bold green]Loading job {i}/{len(results_list)} from {this_csv_file_path} into ax_client, result: {result}"
+            __status.update(base_str)
+            if not args.worker_generator_path:
+                arm_params = validate_and_convert_params(arm_params)
 
             try:
-                gen_node_name = get_generation_node_for_index(this_csv_file_path, arm_params_list, results_list, i)
+                gen_node_name = get_generation_node_for_index(this_csv_file_path, arm_params_list, results_list, i, __status, base_str)
 
-                if insert_job_into_ax_client(arm_params, result, gen_node_name):
-                    cnt += 1
+                if len(result):
+                    if insert_job_into_ax_client(arm_params, result, gen_node_name, __status, base_str):
+                        cnt += 1
 
-                    print_debug(f"Inserted one job from {this_csv_file_path}, arm_params: {arm_params}, results: {result}")
+                        print_debug(f"Inserted one job from {this_csv_file_path}, arm_params: {arm_params}, results: {result}")
+                    else:
+                        print_red(f"Failed to insert one job from {this_csv_file_path}, arm_params: {arm_params}, results: {result}")
                 else:
-                    print_red(f"Failed to insert one job from {this_csv_file_path}, arm_params: {arm_params}, results: {result}")
+                    print_yellow("Encountered job without a result")
             except ValueError as e:
                 err_msg = f"Failed to insert job(s) from {this_csv_file_path} into ax_client. This can happen when the csv file has different parameters or results as the main job one's or other imported jobs. Error: {e}"
                 if err_msg not in err_msgs:
@@ -6336,70 +6516,121 @@ def insert_jobs_from_csv(this_csv_file_path: str, experiment_parameters: Optiona
 
             i = i + 1
 
-    if cnt:
-        if cnt == 1:
-            print_yellow(f"Inserted one job from {this_csv_file_path}")
-        else:
-            print_yellow(f"Inserted {cnt} jobs from {this_csv_file_path}")
+        if cnt:
+            if cnt == 1:
+                print_yellow(f"Inserted one job from {this_csv_file_path}")
+            else:
+                print_yellow(f"Inserted {cnt} jobs from {this_csv_file_path}")
 
-    set_max_eval(max_eval + cnt)
-    set_nr_inserted_jobs(NR_INSERTED_JOBS + cnt)
+        if not args.worker_generator_path:
+            set_max_eval(max_eval + cnt)
+            set_nr_inserted_jobs(NR_INSERTED_JOBS + cnt)
 
-@beartype
-def insert_job_into_ax_client(arm_params: dict, result: dict, new_job_type: str = "MANUAL") -> bool:
-    done_converting = False
+def __insert_job_into_ax_client__update_status(__status: Optional[Any], base_str: Optional[str], new_text: str) -> None:
+    if __status and base_str:
+        __status.update(f"{base_str}: {new_text}")
 
+def __insert_job_into_ax_client__check_ax_client() -> None:
     if ax_client is None or not ax_client:
         _fatal_error("insert_job_into_ax_client: ax_client was not defined where it should have been", 101)
 
+def __insert_job_into_ax_client__attach_trial(arm_params: dict) -> Tuple[Any, int]:
+    new_trial = ax_client.attach_trial(arm_params)
+    if not isinstance(new_trial, tuple) or len(new_trial) < 2:
+        raise RuntimeError("attach_trial didn't return the expected tuple")
+    return new_trial
+
+def __insert_job_into_ax_client__get_trial(trial_idx: int) -> Any:
+    trial = ax_client.experiment.trials.get(trial_idx)
+    if trial is None:
+        raise RuntimeError(f"Trial with index {trial_idx} not found")
+    return trial
+
+def __insert_job_into_ax_client__create_generator_run(arm_params: dict, trial_idx: int, new_job_type: str) -> GeneratorRun:
+    arm = Arm(parameters=arm_params, name=f'{trial_idx}_0')
+    return GeneratorRun(arms=[arm], generation_node_name=new_job_type)
+
+def __insert_job_into_ax_client__complete_trial_if_result(trial_idx: int, result: dict, __status: Optional[Any], base_str: Optional[str]) -> None:
+    if f"{result}" != "":
+        __insert_job_into_ax_client__update_status(__status, base_str, "Completing trial")
+        is_ok = True
+
+        for keyname in result.keys():
+            if result[keyname] == "":
+                is_ok = False
+
+        if is_ok:
+            ax_client.complete_trial(trial_index=trial_idx, raw_data=result)
+            __insert_job_into_ax_client__update_status(__status, base_str, "Completed trial")
+        else:
+            print_debug("Empty job encountered")
+    else:
+        __insert_job_into_ax_client__update_status(__status, base_str, "Found trial without result. Not adding it.")
+
+def __insert_job_into_ax_client__save_results_if_needed(__status: Optional[Any], base_str: Optional[str]) -> None:
+    if not args.worker_generator_path:
+        __insert_job_into_ax_client__update_status(__status, base_str, f"Saving {RESULTS_CSV_FILENAME}")
+        save_results_csv()
+        __insert_job_into_ax_client__update_status(__status, base_str, f"Saved {RESULTS_CSV_FILENAME}")
+
+def __insert_job_into_ax_client__handle_type_error(e: Exception, arm_params: dict) -> bool:
+    parsed_error = parse_parameter_type_error(e)
+    if parsed_error is not None:
+        param = parsed_error["parameter_name"]
+        expected_type = parsed_error["expected_type"]
+        current_type = parsed_error["current_type"]
+
+        if expected_type == "int" and type(arm_params[param]).__name__ != "int":
+            print_yellow(f"converted parameter {param} type {current_type} to {expected_type}")
+            arm_params[param] = int(arm_params[param])
+        elif expected_type == "float" and type(arm_params[param]).__name__ != "float":
+            print_yellow(f"converted parameter {param} type {current_type} to {expected_type}")
+            arm_params[param] = float(arm_params[param])
+        return True
+
+    print_red("Could not parse error while trying to insert_job_into_ax_client")
+    return False
+
+def insert_job_into_ax_client(
+    arm_params: dict,
+    result: dict,
+    new_job_type: str = "MANUAL",
+    __status: Optional[Any] = None,
+    base_str: str = None
+) -> bool:
+    __insert_job_into_ax_client__check_ax_client()
+
+    done_converting = False
     while not done_converting:
         try:
+            __insert_job_into_ax_client__update_status(__status, base_str, "Checking ax client")
             if ax_client is None:
                 return False
 
-            new_trial = ax_client.attach_trial(arm_params)
-            if not isinstance(new_trial, tuple) or len(new_trial) < 2:
-                raise RuntimeError("attach_trial didn't return the expected tuple")
+            __insert_job_into_ax_client__update_status(__status, base_str, "Attaching new trial")
+            _, new_trial_idx = __insert_job_into_ax_client__attach_trial(arm_params)
 
-            new_trial_idx = new_trial[1]
+            __insert_job_into_ax_client__update_status(__status, base_str, "Getting new trial")
+            trial = __insert_job_into_ax_client__get_trial(new_trial_idx)
+            __insert_job_into_ax_client__update_status(__status, base_str, "Got new trial")
 
-            trial = ax_client.experiment.trials.get(new_trial_idx)
-            if trial is None:
-                raise RuntimeError(f"Trial with index {new_trial_idx} not found")
-
-            arm = Arm(parameters=arm_params, name=f'{new_trial_idx}_0')
-            manual_generator_run = GeneratorRun(arms=[arm], generation_node_name=new_job_type)
-
+            __insert_job_into_ax_client__update_status(__status, base_str, "Creating new arm")
+            manual_generator_run = __insert_job_into_ax_client__create_generator_run(arm_params, new_trial_idx, new_job_type)
             trial._generator_run = manual_generator_run
-
             fool_linter(trial._generator_run)
 
-            ax_client.complete_trial(trial_index=new_trial_idx, raw_data=result)
-
+            __insert_job_into_ax_client__complete_trial_if_result(new_trial_idx, result, __status, base_str)
             done_converting = True
-            save_results_csv()
 
+            __insert_job_into_ax_client__save_results_if_needed(__status, base_str)
             return True
+
         except ax.exceptions.core.UnsupportedError as e:
-            parsed_error = parse_parameter_type_error(e)
-
-            if parsed_error is not None:
-                error_expected_type = parsed_error["expected_type"]
-                error_current_type = parsed_error["current_type"]
-                error_param_name = parsed_error["parameter_name"]
-
-                if error_expected_type == "int" and type(arm_params[error_param_name]).__name__ != "int":
-                    print_yellow(f"converted parameter {error_param_name} type {error_current_type} to {error_expected_type}")
-                    arm_params[error_param_name] = int(arm_params[error_param_name])
-                elif error_expected_type == "float" and type(arm_params[error_param_name]).__name__ != "float":
-                    print_yellow(f"converted parameter {error_param_name} type {error_current_type} to {error_expected_type}")
-                    arm_params[error_param_name] = float(arm_params[error_param_name])
-            else:
-                print_red("Could not parse error while trying to insert_job_into_ax_client")
+            if not __insert_job_into_ax_client__handle_type_error(e, arm_params):
+                break
 
     return False
 
-@beartype
 def get_first_line_of_file(file_paths: List[str]) -> str:
     first_line: str = ""
     if len(file_paths):
@@ -6416,7 +6647,6 @@ def get_first_line_of_file(file_paths: List[str]) -> str:
 
     return first_line
 
-@beartype
 def find_exec_errors(errors: List[str], file_as_string: str, file_paths: List[str]) -> List[str]:
     if "Exec format error" in file_as_string:
         current_platform = platform.machine()
@@ -6432,7 +6662,6 @@ def find_exec_errors(errors: List[str], file_as_string: str, file_paths: List[st
 
     return errors
 
-@beartype
 def check_for_basic_string_errors(file_as_string: str, first_line: str, file_paths: List[str], program_code: str) -> List[str]:
     errors: List[str] = []
 
@@ -6458,7 +6687,6 @@ def check_for_basic_string_errors(file_as_string: str, first_line: str, file_pat
 
     return errors
 
-@beartype
 def get_base_errors() -> list:
     base_errors: list = [
         "Segmentation fault",
@@ -6469,7 +6697,6 @@ def get_base_errors() -> list:
 
     return base_errors
 
-@beartype
 def check_for_base_errors(file_as_string: str) -> list:
     errors: list = []
     for err in get_base_errors():
@@ -6483,7 +6710,6 @@ def check_for_base_errors(file_as_string: str) -> list:
             print_red(f"Wrong type, should be list or string, is {type(err)}")
     return errors
 
-@beartype
 def get_exit_codes() -> dict:
     return {
         "3": "Command Invoked Cannot Execute - Permission problem or command is not an executable",
@@ -6523,7 +6749,6 @@ def get_exit_codes() -> dict:
         "159": "Terminated by SIGSYS - Termination by the SIGSYS signal"
     }
 
-@beartype
 def check_for_non_zero_exit_codes(file_as_string: str) -> List[str]:
     errors: List[str] = []
     for r in range(1, 255):
@@ -6536,7 +6761,6 @@ def check_for_non_zero_exit_codes(file_as_string: str) -> List[str]:
             errors.append(_error)
     return errors
 
-@beartype
 def get_python_errors() -> List[List[str]]:
     synerr: str = "Python syntax error detected. Check log file."
 
@@ -6609,7 +6833,6 @@ def get_python_errors() -> List[List[str]]:
         ["fatal error", "A general fatal error occurred (non-specific). See logs."],
     ]
 
-@beartype
 def get_first_line_of_file_that_contains_string(stdout_path: str, s: str) -> str:
     stdout_path = check_alternate_path(stdout_path)
     if not os.path.exists(stdout_path):
@@ -6637,7 +6860,6 @@ def get_first_line_of_file_that_contains_string(stdout_path: str, s: str) -> str
 
     return ""
 
-@beartype
 def check_for_python_errors(stdout_path: str, file_as_string: str) -> List[str]:
     stdout_path = check_alternate_path(stdout_path)
     errors: List[str] = []
@@ -6655,7 +6877,6 @@ def check_for_python_errors(stdout_path: str, file_as_string: str) -> List[str]:
 
     return errors
 
-@beartype
 def get_errors_from_outfile(stdout_path: str) -> List[str]:
     stdout_path = check_alternate_path(stdout_path)
     file_as_string = get_file_as_string(stdout_path)
@@ -6692,7 +6913,6 @@ def get_errors_from_outfile(stdout_path: str) -> List[str]:
 
     return errors
 
-@beartype
 def print_outfile_analyzed(stdout_path: str) -> None:
     stdout_path = check_alternate_path(stdout_path)
     errors = get_errors_from_outfile(stdout_path)
@@ -6717,14 +6937,13 @@ def print_outfile_analyzed(stdout_path: str) -> None:
 
     if len(_strs):
         try:
-            with open(f'{get_current_run_folder()}/evaluation_errors.log', mode="a+", encoding="utf-8") as error_file:
+            with open(get_current_run_folder('evaluation_errors.log'), mode="a+", encoding="utf-8") as error_file:
                 error_file.write(out_files_string)
         except Exception as e:
             print_debug(f"Error occurred while writing to evaluation_errors.log: {e}")
 
         print_red(out_files_string)
 
-@beartype
 def get_parameters_from_outfile(stdout_path: str) -> Union[None, dict, str]:
     stdout_path = check_alternate_path(stdout_path)
     try:
@@ -6742,7 +6961,6 @@ def get_parameters_from_outfile(stdout_path: str) -> Union[None, dict, str]:
 
     return None
 
-@beartype
 def get_hostname_from_outfile(stdout_path: Optional[str]) -> Optional[str]:
     if stdout_path is None:
         return None
@@ -6760,7 +6978,6 @@ def get_hostname_from_outfile(stdout_path: Optional[str]) -> Optional[str]:
         print(f"There was an error: {e}")
         return None
 
-@beartype
 def add_to_global_error_list(msg: str) -> None:
     crf = get_current_run_folder()
 
@@ -6778,16 +6995,14 @@ def add_to_global_error_list(msg: str) -> None:
             with open(error_file_path, mode='w', encoding="utf-8") as file:
                 file.write(f"{msg}\n")
 
-@beartype
 def read_errors_from_file() -> list:
-    error_file_path = f'{get_current_run_folder()}/result_errors.log'
+    error_file_path = get_current_run_folder('result_errors.log')
     if os.path.exists(error_file_path):
         with open(error_file_path, mode='r', encoding="utf-8") as file:
             errors = file.readlines()
         return [error.strip() for error in errors]
     return []
 
-@beartype
 def mark_trial_as_failed(trial_index: int, _trial: Any) -> None:
     print_debug(f"Marking trial {_trial} as failed")
     try:
@@ -6803,7 +7018,6 @@ def mark_trial_as_failed(trial_index: int, _trial: Any) -> None:
 
     return None
 
-@beartype
 def _finish_job_core_helper_check_valid_result(result: Union[None, list, int, float, tuple]) -> bool:
     possible_val_not_found_values = [
         VAL_IF_NOTHING_FOUND,
@@ -6814,7 +7028,6 @@ def _finish_job_core_helper_check_valid_result(result: Union[None, list, int, fl
     values_to_check = result if isinstance(result, list) else [result]
     return result is not None and all(r not in possible_val_not_found_values for r in values_to_check)
 
-@beartype
 def _finish_job_core_helper_complete_trial(trial_index: int, raw_result: dict) -> None:
     if ax_client is None:
         print_red("ax_client is not defined in _finish_job_core_helper_complete_trial")
@@ -6834,23 +7047,17 @@ def _finish_job_core_helper_complete_trial(trial_index: int, raw_result: dict) -
 
     return None
 
-@beartype
 def _finish_job_core_helper_mark_success(_trial: ax.core.trial.Trial, result: Union[float, int, tuple]) -> None:
     print_debug(f"Marking trial {_trial} as completed")
     _trial.mark_completed(unsafe=True)
 
     succeeded_jobs(1)
 
-    progressbar_description([f"new result: {result}"])
-    update_progress_bar(progress_bar, 1)
-
-    log_what_needs_to_be_logged()
+    progressbar_description(f"new result: {result}")
+    update_progress_bar(1)
 
     save_results_csv()
 
-    live_share()
-
-@beartype
 def _finish_job_core_helper_mark_failure(job: Any, trial_index: int, _trial: Any) -> None:
     if ax_client is None:
         print_red("ax_client is not defined in _finish_job_core_helper_mark_failure")
@@ -6859,7 +7066,7 @@ def _finish_job_core_helper_mark_failure(job: Any, trial_index: int, _trial: Any
     print_debug(f"Counting job {job} as failed, because the result is {job.result() if job else 'None'}")
     if job:
         try:
-            progressbar_description(["job_failed"])
+            progressbar_description("job_failed")
             ax_client.log_trial_failure(trial_index=trial_index)
             _trial.mark_failed(unsafe=True)
         except Exception as e:
@@ -6872,7 +7079,6 @@ def _finish_job_core_helper_mark_failure(job: Any, trial_index: int, _trial: Any
 
     return None
 
-@beartype
 def finish_job_core(job: Any, trial_index: int, this_jobs_finished: int) -> int:
     die_for_debug_reasons()
 
@@ -6905,9 +7111,10 @@ def finish_job_core(job: Any, trial_index: int, this_jobs_finished: int) -> int:
     print_debug(f"finish_job_core: removing job {job}, trial_index: {trial_index}")
     global_vars["jobs"].remove((job, trial_index))
 
+    force_live_share()
+
     return this_jobs_finished
 
-@beartype
 def _finish_previous_jobs_helper_handle_failed_job(job: Any, trial_index: int) -> None:
     if ax_client is None:
         print_red("ax_client is not defined in _finish_job_core_helper_mark_failure")
@@ -6915,7 +7122,7 @@ def _finish_previous_jobs_helper_handle_failed_job(job: Any, trial_index: int) -
 
     if job:
         try:
-            progressbar_description(["job_failed"])
+            progressbar_description("job_failed")
             _trial = ax_client.get_trial(trial_index)
             ax_client.log_trial_failure(trial_index=trial_index)
             mark_trial_as_failed(trial_index, _trial)
@@ -6933,7 +7140,6 @@ def _finish_previous_jobs_helper_handle_failed_job(job: Any, trial_index: int) -
 
     return None
 
-@beartype
 def _finish_previous_jobs_helper_handle_exception(job: Any, trial_index: int, error: Exception) -> int:
     if "None for metric" in str(error):
         print_red(
@@ -6946,7 +7152,6 @@ def _finish_previous_jobs_helper_handle_exception(job: Any, trial_index: int, er
     _finish_previous_jobs_helper_handle_failed_job(job, trial_index)
     return 1
 
-@beartype
 def _finish_previous_jobs_helper_process_job(job: Any, trial_index: int, this_jobs_finished: int) -> int:
     try:
         this_jobs_finished = finish_job_core(job, trial_index, this_jobs_finished)
@@ -6959,7 +7164,6 @@ def _finish_previous_jobs_helper_process_job(job: Any, trial_index: int, this_jo
         this_jobs_finished += _finish_previous_jobs_helper_handle_exception(job, trial_index, error)
     return this_jobs_finished
 
-@beartype
 def _finish_previous_jobs_helper_check_and_process(job: Any, trial_index: int, this_jobs_finished: int) -> int:
     if job is None:
         print_debug(f"finish_previous_jobs: job {job} is None")
@@ -6973,13 +7177,11 @@ def _finish_previous_jobs_helper_check_and_process(job: Any, trial_index: int, t
 
     return this_jobs_finished
 
-@beartype
 def _finish_previous_jobs_helper_wrapper(__args: Tuple[Any, int]) -> int:
     job, trial_index = __args
     return _finish_previous_jobs_helper_check_and_process(job, trial_index, 0)
 
-@beartype
-def finish_previous_jobs(new_msgs: List[str]) -> None:
+def finish_previous_jobs(new_msgs: List[str] = []) -> None:
     global JOBS_FINISHED
 
     if not ax_client:
@@ -7012,6 +7214,7 @@ def finish_previous_jobs(new_msgs: List[str]) -> None:
     print_debug(f"Finishing jobs took {finishing_jobs_runtime} second(s)")
 
     save_results_csv()
+
     save_checkpoint()
 
     if this_jobs_finished > 0:
@@ -7021,7 +7224,6 @@ def finish_previous_jobs(new_msgs: List[str]) -> None:
     clean_completed_jobs()
     return None
 
-@beartype
 def get_alt_path_for_orchestrator(stdout_path: str) -> Optional[str]:
     stdout_path = check_alternate_path(stdout_path)
     alt_path = None
@@ -7032,7 +7234,6 @@ def get_alt_path_for_orchestrator(stdout_path: str) -> Optional[str]:
 
     return alt_path
 
-@beartype
 def check_orchestrator(stdout_path: str, trial_index: int) -> Optional[List[str]]:
     stdout_path = check_alternate_path(stdout_path)
     if not orchestrator or "errors" not in orchestrator:
@@ -7044,7 +7245,6 @@ def check_orchestrator(stdout_path: str, trial_index: int) -> Optional[List[str]
 
     return _check_orchestrator_find_behaviors(stdout, orchestrator["errors"])
 
-@beartype
 def _check_orchestrator_read_stdout_with_fallback(stdout_path: str, trial_index: int) -> Optional[str]:
     stdout_path = check_alternate_path(stdout_path)
     try:
@@ -7061,7 +7261,6 @@ def _check_orchestrator_read_stdout_with_fallback(stdout_path: str, trial_index:
         _check_orchestrator_register_missing_file(stdout_path, trial_index)
         return None
 
-@beartype
 def _check_orchestrator_register_missing_file(stdout_path: str, trial_index: int) -> None:
     stdout_path = check_alternate_path(stdout_path)
     if stdout_path not in ORCHESTRATE_TODO:
@@ -7070,7 +7269,6 @@ def _check_orchestrator_register_missing_file(stdout_path: str, trial_index: int
     else:
         print_red(f"File not found: {stdout_path}, not trying again")
 
-@beartype
 def _check_orchestrator_find_behaviors(stdout: str, errors: List[Dict[str, Any]]) -> List[str]:
     behaviors: List[str] = []
     stdout_lower = stdout.lower()
@@ -7088,7 +7286,6 @@ def _check_orchestrator_find_behaviors(stdout: str, errors: List[Dict[str, Any]]
 
     return behaviors
 
-@beartype
 def get_exit_code_from_stderr_or_stdout_path(stderr_path: str, stdout_path: str) -> Optional[int]:
     def extract_last_exit_code(path: str) -> Optional[int]:
         try:
@@ -7106,7 +7303,6 @@ def get_exit_code_from_stderr_or_stdout_path(stderr_path: str, stdout_path: str)
 
     return extract_last_exit_code(stderr_path)
 
-@beartype
 def pretty_print_job_output(job: Job) -> None:
     stdout_path = get_stderr_or_stdout_from_job(job, "stdout")
     stderr_path = get_stderr_or_stdout_from_job(job, "stderr")
@@ -7115,7 +7311,6 @@ def pretty_print_job_output(job: Job) -> None:
 
     pretty_process_output(stdout_path, stderr_path, exit_code, result)
 
-@beartype
 def get_stderr_or_stdout_from_job(job: Job, path_type: str) -> str:
     if path_type == "stderr":
         _path = str(job.paths.stderr.resolve())
@@ -7133,7 +7328,6 @@ def get_stderr_or_stdout_from_job(job: Job, path_type: str) -> str:
 
     return _path
 
-@beartype
 def orchestrate_job(job: Job, trial_index: int) -> None:
     stdout_path = get_stderr_or_stdout_from_job(job, "stdout")
     stderr_path = get_stderr_or_stdout_from_job(job, "stderr")
@@ -7150,7 +7344,6 @@ def orchestrate_job(job: Job, trial_index: int) -> None:
         if old_behavs is not None:
             del ORCHESTRATE_TODO[todo_stdout_file]
 
-@beartype
 def is_already_in_defective_nodes(hostname: str) -> bool:
     file_path = os.path.join(get_current_run_folder(), "state_files", "defective_nodes")
 
@@ -7171,10 +7364,22 @@ def is_already_in_defective_nodes(hostname: str) -> bool:
 
     return False
 
-@beartype
-def orchestrator_start_trial(params_from_out_file: Union[dict, str], trial_index: int) -> None:
-    if executor and ax_client:
-        new_job = executor.submit(evaluate, {"params": params_from_out_file, "trial_idx": trial_index, "submit_time": int(time.time())})
+def submit_new_job(parameters: Union[dict, str], trial_index: int) -> Any:
+    print_debug(f"Submitting new job for trial_index {trial_index}, parameters {parameters}")
+
+    start = time.time()
+
+    new_job = submitit_executor.submit(evaluate, {"params": parameters, "trial_idx": trial_index, "submit_time": int(time.time())})
+
+    elapsed = time.time() - start
+
+    print_debug(f"Done submitting new job, took {elapsed} seconds")
+
+    return new_job
+
+def orchestrator_start_trial(parameters: Union[dict, str], trial_index: int) -> None:
+    if submitit_executor and ax_client:
+        new_job = submit_new_job(parameters, trial_index)
         submitted_jobs(1)
 
         _trial = ax_client.get_trial(trial_index)
@@ -7188,9 +7393,8 @@ def orchestrator_start_trial(params_from_out_file: Union[dict, str], trial_index
         print_debug(f"orchestrator_start_trial: appending job {new_job} to global_vars['jobs'], trial_index: {trial_index}")
         global_vars["jobs"].append((new_job, trial_index))
     else:
-        _fatal_error("executor or ax_client could not be found properly", 9)
+        _fatal_error("submitit_executor or ax_client could not be found properly", 9)
 
-@beartype
 def handle_exclude_node(stdout_path: str, hostname_from_out_file: Union[None, str]) -> None:
     stdout_path = check_alternate_path(stdout_path)
     if hostname_from_out_file:
@@ -7202,16 +7406,14 @@ def handle_exclude_node(stdout_path: str, hostname_from_out_file: Union[None, st
     else:
         print_red(f"Cannot do ExcludeNode because the host could not be determined from {stdout_path}")
 
-@beartype
 def handle_restart(stdout_path: str, trial_index: int) -> None:
     stdout_path = check_alternate_path(stdout_path)
-    params_from_out_file = get_parameters_from_outfile(stdout_path)
-    if params_from_out_file:
-        orchestrator_start_trial(params_from_out_file, trial_index)
+    parameters = get_parameters_from_outfile(stdout_path)
+    if parameters:
+        orchestrator_start_trial(parameters, trial_index)
     else:
         print(f"Could not determine parameters from outfile {stdout_path} for restarting job")
 
-@beartype
 def check_alternate_path(path: str) -> str:
     if os.path.exists(path):
         return path
@@ -7225,7 +7427,6 @@ def check_alternate_path(path: str) -> str:
         return alt_path
     return path
 
-@beartype
 def handle_restart_on_different_node(stdout_path: str, hostname_from_out_file: Union[None, str], trial_index: int) -> None:
     stdout_path = check_alternate_path(stdout_path)
     if hostname_from_out_file:
@@ -7238,7 +7439,6 @@ def handle_restart_on_different_node(stdout_path: str, hostname_from_out_file: U
     else:
         print_red(f"Cannot do RestartOnDifferentNode because the host could not be determined from {stdout_path}")
 
-@beartype
 def _orchestrate(stdout_path: str, trial_index: int) -> None:
     stdout_path = check_alternate_path(stdout_path)
 
@@ -7262,7 +7462,6 @@ def _orchestrate(stdout_path: str, trial_index: int) -> None:
         else:
             _fatal_error(f"Orchestrator: {behav} not yet implemented!", 210)
 
-@beartype
 def write_continue_run_uuid_to_file() -> None:
     if args.continue_previous_job:
         continue_dir = args.continue_previous_job
@@ -7272,15 +7471,15 @@ def write_continue_run_uuid_to_file() -> None:
 
             write_state_file("uuid_of_continued_run", str(continue_from_uuid))
 
-@beartype
 def save_state_files() -> None:
     if len(args.calculate_pareto_front_of_job) == 0:
-        with console.status("[bold green]Saving state files..."):
+        with spinner("Saving state files..."):
             write_state_file("joined_run_program", global_vars["joined_run_program"])
             write_state_file("experiment_name", global_vars["experiment_name"])
             write_state_file("mem_gb", str(global_vars["mem_gb"]))
             write_state_file("max_eval", str(max_eval))
             write_state_file("gpus", str(args.gpus))
+            write_state_file("model", str(args.model))
             write_state_file("time", str(global_vars["_time"]))
             write_state_file("run.sh", "omniopt '" + " ".join(sys.argv[1:]) + "'")
             write_state_file("run_uuid", str(run_uuid))
@@ -7296,7 +7495,6 @@ def save_state_files() -> None:
             if args.force_choice_for_ranges:
                 write_state_file("force_choice_for_ranges", str(args.main_process_gb))
 
-@beartype
 def execute_evaluation(_params: list) -> Optional[int]:
     print_debug(f"execute_evaluation({_params})")
     trial_index, parameters, trial_counter, phase = _params
@@ -7305,8 +7503,8 @@ def execute_evaluation(_params: list) -> Optional[int]:
 
         return None
 
-    if not executor:
-        _fatal_error("executor could not be found", 9)
+    if not submitit_executor:
+        _fatal_error("submitit_executor could not be found", 9)
 
         return None
 
@@ -7324,19 +7522,16 @@ def execute_evaluation(_params: list) -> Optional[int]:
 
     try:
         initialize_job_environment()
-        new_job = executor.submit(evaluate, {"params": parameters, "trial_idx": trial_index, "submit_time": int(time.time())})
+        new_job = submit_new_job(parameters, trial_index)
         submitted_jobs(1)
 
         print_debug(f"execute_evaluation: appending job {new_job} to global_vars['jobs'], trial_index: {trial_index}")
         global_vars["jobs"].append((new_job, trial_index))
 
-        if is_slurm_job() and not args.force_local_execution:
-            _sleep(1)
-
         mark_trial_stage("mark_running", "Marking the trial as running failed")
         trial_counter += 1
 
-        progressbar_description(["started new job"])
+        progressbar_description("started new job")
 
         save_results_csv()
     except submitit.core.utils.FailedJobError as error:
@@ -7350,29 +7545,25 @@ def execute_evaluation(_params: list) -> Optional[int]:
     add_to_phase_counter(phase, 1)
     return trial_counter
 
-@beartype
 def initialize_job_environment() -> None:
-    progressbar_description(["starting new job"])
+    progressbar_description("starting new job")
     set_sbatch_environment()
     exclude_defective_nodes()
 
-@beartype
 def set_sbatch_environment() -> None:
     if args.reservation:
         os.environ['SBATCH_RESERVATION'] = args.reservation
     if args.account:
         os.environ['SBATCH_ACCOUNT'] = args.account
 
-@beartype
 def exclude_defective_nodes() -> None:
     excluded_string: str = ",".join(count_defective_nodes())
     if len(excluded_string) > 1:
-        if executor:
-            executor.update_parameters(exclude=excluded_string)
+        if submitit_executor:
+            submitit_executor.update_parameters(exclude=excluded_string)
         else:
-            _fatal_error("executor could not be found", 9)
+            _fatal_error("submitit_executor could not be found", 9)
 
-@beartype
 def handle_failed_job(error: Union[None, Exception, str], trial_index: int, new_job: Optional[Job]) -> None:
     if "QOSMinGRES" in str(error) and args.gpus == 0:
         print_red("\n⚠ It seems like, on the chosen partition, you need at least one GPU. Use --gpus=1 (or more) as parameter.")
@@ -7395,7 +7586,6 @@ def handle_failed_job(error: Union[None, Exception, str], trial_index: int, new_
 
     return None
 
-@beartype
 def cancel_failed_job(trial_index: int, new_job: Job) -> None:
     print_debug("Trying to cancel job that failed")
     if new_job:
@@ -7411,30 +7601,23 @@ def cancel_failed_job(trial_index: int, new_job: Job) -> None:
         print_debug(f"cancel_failed_job: removing job {new_job}, trial_index: {trial_index}")
         global_vars["jobs"].remove((new_job, trial_index))
         print_debug("Removed failed job")
-        save_checkpoint()
         save_results_csv()
     else:
         print_debug("cancel_failed_job: new_job was undefined")
 
-@beartype
 def handle_exit_signal() -> None:
     print_red("\n⚠ Detected signal. Will exit.")
     end_program(False, 1)
 
-@beartype
 def handle_generic_error(e: Union[Exception, str]) -> None:
     tb = traceback.format_exc()
     print(tb)
     print_red(f"\n⚠ Starting job failed with error: {e}")
 
-@beartype
 def succeeded_jobs(nr: int = 0) -> int:
-    state_files_folder = f"{get_current_run_folder()}/state_files/"
-    makedirs(state_files_folder)
-    return append_and_read(f'{get_current_run_folder()}/state_files/succeeded_jobs', nr)
+    return append_and_read(get_state_file_name('succeeded_jobs'), nr)
 
-@beartype
-def show_debug_table_for_break_run_search(_name: str, _max_eval: Optional[int], _progress_bar: Any, _ret: Any) -> None:
+def show_debug_table_for_break_run_search(_name: str, _max_eval: Optional[int]) -> None:
     table = Table(show_header=True, header_style="bold", title=f"break_run_search for {_name}")
 
     headers = ["Variable", "Value"]
@@ -7448,9 +7631,8 @@ def show_debug_table_for_break_run_search(_name: str, _max_eval: Optional[int], 
         ("failed_jobs()", failed_jobs()),
         ("count_done_jobs()", count_done_jobs()),
         ("_max_eval", _max_eval),
-        ("_progress_bar.total", _progress_bar.total),
-        ("NR_INSERTED_JOBS", NR_INSERTED_JOBS),
-        ("_ret", _ret)
+        ("progress_bar.total", progress_bar.total),
+        ("NR_INSERTED_JOBS", NR_INSERTED_JOBS)
     ]
 
     for row in rows:
@@ -7458,8 +7640,7 @@ def show_debug_table_for_break_run_search(_name: str, _max_eval: Optional[int], 
 
     console.print(table)
 
-@beartype
-def break_run_search(_name: str, _max_eval: Optional[int], _progress_bar: Any) -> bool:
+def break_run_search(_name: str, _max_eval: Optional[int]) -> bool:
     _ret = False
 
     _counted_done_jobs = count_done_jobs()
@@ -7473,9 +7654,13 @@ def break_run_search(_name: str, _max_eval: Optional[int], _progress_bar: Any) -
 
     conditions = [
         (lambda: (_counted_done_jobs - _failed_jobs) >= max_eval, f"1. _counted_done_jobs {_counted_done_jobs} - (_failed_jobs {_failed_jobs}) >= max_eval {max_eval}"),
-        (lambda: (_submitted_jobs - _failed_jobs) >= _progress_bar.total + 1, f"2. _submitted_jobs {_submitted_jobs} - _failed_jobs {_failed_jobs} >= _progress_bar.total {_progress_bar.total} + 1"),
         (lambda: max_failed_jobs < _failed_jobs, f"3. max_failed_jobs {max_failed_jobs} < failed_jobs {_failed_jobs}"),
     ]
+
+    if progress_bar is not None:
+        conditions.append(
+            (lambda: (_submitted_jobs - _failed_jobs) >= progress_bar.total + 1, f"2. _submitted_jobs {_submitted_jobs} - _failed_jobs {_failed_jobs} >= progress_bar.total {progress_bar.total} + 1"),
+        )
 
     if _max_eval:
         conditions.append((lambda: succeeded_jobs() >= _max_eval + 1, f"4. succeeded_jobs() {succeeded_jobs()} >= _max_eval {_max_eval} + 1"),)
@@ -7489,11 +7674,10 @@ def break_run_search(_name: str, _max_eval: Optional[int], _progress_bar: Any) -
             _ret = True
 
     if args.verbose_break_run_search_table:
-        show_debug_table_for_break_run_search(_name, _max_eval, _progress_bar, _ret)
+        show_debug_table_for_break_run_search(_name, _max_eval, _ret)
 
     return _ret
 
-@beartype
 def _calculate_nr_of_jobs_to_get(simulated_jobs: int, currently_running_jobs: int) -> int:
     """Calculates the number of jobs to retrieve."""
     return min(
@@ -7502,13 +7686,11 @@ def _calculate_nr_of_jobs_to_get(simulated_jobs: int, currently_running_jobs: in
         num_parallel_jobs - currently_running_jobs
     )
 
-@beartype
 def remove_extra_spaces(text: str) -> str:
     if not isinstance(text, str):
         raise ValueError("Input must be a string")
     return re.sub(r'\s+', ' ', text).strip()
 
-@beartype
 def _get_trials_message(nr_of_jobs_to_get: int, full_nr_of_jobs_to_get: int, trial_durations: List[float]) -> str:
     """Generates the appropriate message for the number of trials being retrieved."""
     ret = ""
@@ -7546,7 +7728,6 @@ def _get_trials_message(nr_of_jobs_to_get: int, full_nr_of_jobs_to_get: int, tri
 
     return ret
 
-@beartype
 def has_no_post_generation_constraints_or_matches_constraints(_post_generation_constraints: list, params: dict) -> bool:
     if not _post_generation_constraints or len(_post_generation_constraints) == 0:
         return True
@@ -7569,7 +7750,6 @@ def has_no_post_generation_constraints_or_matches_constraints(_post_generation_c
 
     return True
 
-@beartype
 def die_101_if_no_ax_client_or_experiment_or_gs() -> None:
     if ax_client is None:
         _fatal_error("Error: ax_client is not defined", 101)
@@ -7578,60 +7758,76 @@ def die_101_if_no_ax_client_or_experiment_or_gs() -> None:
     elif global_gs is None:
         _fatal_error("Error: global_gs is not defined", 101)
 
-@beartype
 def deduplicated_arm(arm: Any) -> bool:
     if arm.name in arms_by_name_for_deduplication:
         return True
 
     return False
 
-@beartype
 def get_batched_arms(nr_of_jobs_to_get: int) -> list:
     batched_arms: list = []
     attempts = 0
 
     if global_gs is None:
         _fatal_error("Global generation strategy is not set. This is a bug in OmniOpt2.", 107)
-
         return []
 
     if ax_client is None:
         print_red("get_batched_arms: ax_client was None")
         return []
 
+    # Experiment-Status laden
+    load_experiment_state()
+
     while len(batched_arms) != nr_of_jobs_to_get:
         if attempts > args.max_attempts_for_generation:
-            print_debug(f"_fetch_next_trials: Stopped after {attempts} attempts: could not generate enough arms "
+            print_debug(f"get_batched_arms: Stopped after {attempts} attempts: could not generate enough arms "
                         f"(got {len(batched_arms)} out of {nr_of_jobs_to_get}).")
             break
 
         remaining = nr_of_jobs_to_get - len(batched_arms)
-        print_debug(f"_fetch_next_trials: Attempt {attempts + 1}: requesting {remaining} more arm(s).")
+        print_debug(f"get_batched_arms: Attempt {attempts + 1}: requesting {remaining} more arm(s).")
 
+        #print("get pending observations")
         pending_observations = get_pending_observation_features(experiment=ax_client.experiment)
+        #print("got pending observations")
 
+        #print("getting global_gs.gen()")
         batched_generator_run = global_gs.gen(
             experiment=ax_client.experiment,
             n=remaining,
             pending_observations=pending_observations
         )
+        #print(f"got global_gs.gen(): {batched_generator_run}")
 
+        # Inline rekursiv entpacken bis flach
+        depth = 0
+        path = "batched_generator_run"
+        while isinstance(batched_generator_run, (list, tuple)) and len(batched_generator_run) > 0:
+            #print(f"Depth {depth}, path {path}, type {type(batched_generator_run).__name__}, length {len(batched_generator_run)}: {batched_generator_run}")
+            batched_generator_run = batched_generator_run[0]
+            path += "[0]"
+            depth += 1
+
+        #print(f"Final flat object at depth {depth}, path {path}: {batched_generator_run} (type {type(batched_generator_run).__name__})")
+
+        #print("got new arms")
         new_arms = batched_generator_run.arms
+        #print(f"new_arms: {new_arms}")
         if not new_arms:
-            print_debug("_fetch_next_trials: No new arms were generated in this attempt.")
+            print_debug("get_batched_arms: No new arms were generated in this attempt.")
         else:
-            print_debug(f"_fetch_next_trials: Generated {len(new_arms)} new arm(s), wanted {nr_of_jobs_to_get}.")
+            print_debug(f"get_batched_arms: Generated {len(new_arms)} new arm(s), wanted {nr_of_jobs_to_get}.")
 
         batched_arms.extend(new_arms)
         attempts += 1
 
-    print_debug(f"_fetch_next_trials: Finished with {len(batched_arms)} arm(s) after {attempts} attempt(s).")
+    print_debug(f"get_batched_arms: Finished with {len(batched_arms)} arm(s) after {attempts} attempt(s).")
 
     save_results_csv()
 
     return batched_arms
 
-@beartype
 def _fetch_next_trials(nr_of_jobs_to_get: int, recursion: bool = False) -> Tuple[Dict[int, Any], bool]:
     die_101_if_no_ax_client_or_experiment_or_gs()
 
@@ -7643,7 +7839,6 @@ def _fetch_next_trials(nr_of_jobs_to_get: int, recursion: bool = False) -> Tuple
 
     return _generate_trials(nr_of_jobs_to_get, recursion)
 
-@beartype
 def _generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
     trials_dict: Dict[int, Any] = {}
     trial_durations: List[float] = []
@@ -7658,8 +7853,16 @@ def _generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
                 if cnt >= n:
                     break
 
+                # 🔹 Erzeuge einen komplett neuen Arm, damit Ax den Namen vergibt
+                try:
+                    arm = Arm(parameters=arm.parameters)
+                except Exception as arm_err:
+                    print_red(f"Error while creating new Arm: {arm_err}")
+                    retries += 1
+                    continue
+
                 print_debug(f"Fetching trial {cnt + 1}/{n}...")
-                progressbar_description([_get_trials_message(cnt + 1, n, trial_durations)])
+                progressbar_description(_get_trials_message(cnt + 1, n, trial_durations))
 
                 try:
                     result = _create_and_handle_trial(arm)
@@ -7677,7 +7880,7 @@ def _generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
                     cnt += 1
                     trials_dict[trial_index] = arm.parameters
 
-                save_results_csv()
+        save_results_csv()
 
         return _finalize_generation(trials_dict, cnt, n, start_time)
 
@@ -7687,7 +7890,6 @@ def _generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
 class TrialRejected(Exception):
     pass
 
-@beartype
 def _create_and_handle_trial(arm: Any) -> Optional[Tuple[int, float, bool]]:
     if ax_client is None:
         print_red("ax_client is None in _create_and_handle_trial")
@@ -7730,7 +7932,6 @@ def _create_and_handle_trial(arm: Any) -> Optional[Tuple[int, float, bool]]:
     end = time.time()
     return trial_index, float(end - start), True
 
-@beartype
 def _finalize_generation(trials_dict: Dict[int, Any], cnt: int, requested: int, start_time: float) -> Tuple[Dict[int, Any], bool]:
     total_time = time.time() - start_time
 
@@ -7738,11 +7939,10 @@ def _finalize_generation(trials_dict: Dict[int, Any], cnt: int, requested: int, 
     log_nr_gen_jobs.append(cnt)
 
     avg_time_str = f"{total_time / cnt:.2f} s/job" if cnt else "n/a"
-    progressbar_description([f"requested {requested} jobs, got {cnt}, {avg_time_str}"])
+    progressbar_description(f"requested {requested} jobs, got {cnt}, {avg_time_str}")
 
     return trials_dict, False
 
-@beartype
 def _handle_generation_failure(
     e: Exception,
     requested: int,
@@ -7767,16 +7967,16 @@ def _handle_generation_failure(
             set_global_gs_to_random()
             return _fetch_next_trials(requested, True)
 
+    print_red(f"_handle_generation_failure: General Exception: {e}")
+
     return {}, True
 
-@beartype
 def _print_exhaustion_warning(e: Exception, recursion: bool) -> None:
     if not recursion and args.revert_to_random_when_seemingly_exhausted:
         print_yellow(f"\n⚠Error 8: {e} From now (done jobs: {count_done_jobs()}) on, random points will be generated.")
     else:
         print_red(f"\n⚠Error 8: {e}")
 
-@beartype
 def get_model_kwargs() -> dict:
     if 'Cont_X_trans_Y_trans' in args.transforms:
         return {
@@ -7790,7 +7990,6 @@ def get_model_kwargs() -> dict:
 
     return {}
 
-@beartype
 def get_model_gen_kwargs() -> dict:
     return {
         "model_gen_options": {
@@ -7817,7 +8016,6 @@ def get_model_gen_kwargs() -> dict:
         "fit_out_of_design": args.fit_out_of_design
     }
 
-@beartype
 def set_global_gs_to_random() -> None:
     global global_gs
     global overwritten_to_random
@@ -7827,7 +8025,7 @@ def set_global_gs_to_random() -> None:
         nodes=[
             GenerationNode(
                 node_name="Sobol",
-                model_specs=[
+                generator_specs=[
                     GeneratorSpec(
                         Models.SOBOL,
                         model_gen_kwargs=get_model_gen_kwargs()
@@ -7841,7 +8039,6 @@ def set_global_gs_to_random() -> None:
 
     print_debug(f"New global_gs: {global_gs}")
 
-@beartype
 def save_table_as_text(table: Table, filepath: str) -> None:
     try:
         with open(filepath, "w", encoding="utf-8") as file:
@@ -7854,16 +8051,12 @@ def save_table_as_text(table: Table, filepath: str) -> None:
     except Exception as e:
         print_debug(f"save_table_as_text: error at writing the file '{filepath}': {e}")
 
-@beartype
 def show_time_debugging_table() -> None:
     if not args.dryrun:
         generate_time_table_rich()
         generate_job_submit_table_rich()
         plot_times_for_creation_and_submission()
 
-        live_share()
-
-@beartype
 def generate_time_table_rich() -> None:
     if not isinstance(log_gen_times, list):
         print_debug("generate_time_table_rich: Error: log_gen_times is not a list.")
@@ -7922,7 +8115,6 @@ def generate_time_table_rich() -> None:
     filepath = os.path.join(folder, filename)
     save_table_as_text(table, filepath)
 
-@beartype
 def validate_job_submit_data(durations: List[float], job_counts: List[int]) -> bool:
     if not durations or not job_counts:
         print_debug("No durations or job counts to display.")
@@ -7934,7 +8126,6 @@ def validate_job_submit_data(durations: List[float], job_counts: List[int]) -> b
 
     return True
 
-@beartype
 def convert_durations_to_float(raw_durations: List) -> List[float] | None:
     try:
         return [float(val) for val in raw_durations]
@@ -7942,7 +8133,6 @@ def convert_durations_to_float(raw_durations: List) -> List[float] | None:
         print_debug(f"Invalid float in durations: {e}")
         return None
 
-@beartype
 def convert_job_counts_to_int(raw_counts: List) -> List[int] | None:
     try:
         return [int(val) for val in raw_counts]
@@ -7950,7 +8140,6 @@ def convert_job_counts_to_int(raw_counts: List) -> List[int] | None:
         print_debug(f"Invalid int in job counts: {e}")
         return None
 
-@beartype
 def build_job_submission_table(durations: List[float], job_counts: List[int]) -> Table:
     table = Table(show_header=True, header_style="bold", title="Job submission durations")
     table.add_column("Batch", justify="right")
@@ -7971,13 +8160,11 @@ def build_job_submission_table(durations: List[float], job_counts: List[int]) ->
 
     return table
 
-@beartype
 def export_table_to_file(table: Table, filename: str) -> None:
     folder = get_current_run_folder()
     filepath = os.path.join(folder, filename)
     save_table_as_text(table, filepath)
 
-@beartype
 def generate_job_submit_table_rich() -> None:
     if not isinstance(job_submit_durations, list) or not isinstance(job_submit_nrs, list):
         print_debug("job_submit_durations or job_submit_nrs is not a list.")
@@ -7999,7 +8186,6 @@ def generate_job_submit_table_rich() -> None:
 
     export_table_to_file(table, "job_submit_durations.txt")
 
-@beartype
 def plot_times_for_creation_and_submission() -> None:
     if not args.show_generation_and_submission_sixel:
         return
@@ -8020,7 +8206,6 @@ def plot_times_for_creation_and_submission() -> None:
         title="Model Generation Times vs Number of Jobs"
     )
 
-@beartype
 def plot_times_vs_jobs_sixel(
     times: List[float],
     job_counts: List[int],
@@ -8029,7 +8214,7 @@ def plot_times_vs_jobs_sixel(
     title: str = "Times vs Jobs"
 ) -> None:
     if not times or not job_counts or len(times) != len(job_counts):
-        print("[italic yellow]No valid data or mismatched lengths to plot.[/]")
+        print("[italic yellow]plot_times_vs_jobs_sixel: No valid data or mismatched lengths to plot.[/]")
         return
 
     if not supports_sixel():
@@ -8059,19 +8244,14 @@ def plot_times_vs_jobs_sixel(
 
     plt.close(fig)
 
-@beartype
 def _handle_linalg_error(error: Union[None, str, Exception]) -> None:
     """Handles the np.linalg.LinAlgError based on the model being used."""
-    if args.model and args.model.upper() in ["THOMPSON", "EMPIRICAL_BAYES_THOMPSON"]:
-        print_red(f"Error: {error}. This may happen because the THOMPSON model is used. Try another one.")
-    else:
-        print_red(f"Error: {error}")
+    print_red(f"Error: {error}")
 
-@beartype
 def _get_next_trials(nr_of_jobs_to_get: int) -> Tuple[Union[None, dict], bool]:
     finish_previous_jobs(["finishing jobs (_get_next_trials)"])
 
-    if break_run_search("_get_next_trials", max_eval, progress_bar) or nr_of_jobs_to_get == 0:
+    if break_run_search("_get_next_trials", max_eval) or nr_of_jobs_to_get == 0:
         return {}, True
 
     try:
@@ -8099,7 +8279,6 @@ def _get_next_trials(nr_of_jobs_to_get: int) -> Tuple[Union[None, dict], bool]:
 
         return None, True
 
-@beartype
 def get_next_nr_steps(_num_parallel_jobs: int, _max_eval: int) -> int:
     if not SYSTEM_HAS_SBATCH:
         return 1
@@ -8171,21 +8350,20 @@ def get_next_nr_steps(_num_parallel_jobs: int, _max_eval: int) -> int:
 
     table_str = capture.get()
 
-    with open(f"{get_current_run_folder()}/get_next_nr_steps_tables.txt", mode="a", encoding="utf-8") as text_file:
+    with open(get_current_run_folder("get_next_nr_steps_tables.txt"), mode="a", encoding="utf-8") as text_file:
         text_file.write(table_str)
 
     return requested
 
-@beartype
-def select_model(model_arg: Any) -> ax.modelbridge.registry.Generators:
+def select_model(model_arg: Any) -> ax.adapter.registry.Generators:
     """Selects the model based on user input or defaults to BOTORCH_MODULAR."""
-    available_models = list(ax.modelbridge.registry.Generators.__members__.keys())
-    chosen_model = ax.modelbridge.registry.Generators.BOTORCH_MODULAR
+    available_models = list(ax.adapter.registry.Generators.__members__.keys())
+    chosen_model = ax.adapter.registry.Generators.BOTORCH_MODULAR
 
     if model_arg:
         model_upper = str(model_arg).upper()
         if model_upper in available_models:
-            chosen_model = ax.modelbridge.registry.Generators.__members__[model_upper]
+            chosen_model = ax.adapter.registry.Generators.__members__[model_upper]
         else:
             print_red(f"⚠ Cannot use {model_arg}. Available models are: {', '.join(available_models)}. Using BOTORCH_MODULAR instead.")
 
@@ -8194,67 +8372,73 @@ def select_model(model_arg: Any) -> ax.modelbridge.registry.Generators:
 
     return chosen_model
 
-@beartype
-def get_matching_model_name(model_name: str) -> Optional[str]:
-    if not isinstance(model_name, str):
-        return None
-    if not isinstance(SUPPORTED_MODELS, (list, set, tuple)):
-        return None
-
-    model_name_lower = model_name.lower()
-    model_map = {m.lower(): m for m in SUPPORTED_MODELS}
-
-    return model_map.get(model_name_lower, None)
-
-@beartype
-def parse_generation_strategy_string(gen_strat_str: str) -> Tuple[list, int]:
-    gen_strat_list = []
-
-    cleaned_string = re.sub(r"\s+", "", gen_strat_str)
-    splitted_by_comma = cleaned_string.split(",")
-
-    sum_nr = 0
-
-    for s in splitted_by_comma:
-        if "=" in s:
-            if s.count("=") == 1:
-                model_name, nr = s.split("=")
-                matching_model = get_matching_model_name(model_name)
-
-                if matching_model in uncontinuable_models:
-                    _fatal_error(f"Model {matching_model} is not valid for custom generation strategy.", 56)
-
-                if matching_model:
-                    gen_strat_list.append({matching_model: nr})
-                    sum_nr += int(nr)
-                else:
-                    print(f"'{model_name}' not found in SUPPORTED_MODELS")
-                    my_exit(123)
-            else:
-                print(f"There can only be one '=' in the gen_strat_str's element '{s}'")
-                my_exit(123)
-        else:
-            print(f"'{s}' does not contain '='")
-            my_exit(123)
-
-    return gen_strat_list, sum_nr
-
-@beartype
-def print_generation_strategy(generation_strategy_array: list) -> None:
+def print_generation_strategy(generation_strategy_array: list[dict[str, int]]) -> None:
     table = Table(header_style="bold", title="Generation Strategy")
-
     table.add_column("Generation Strategy")
     table.add_column("Number of Generations")
 
-    for gs_element in generation_strategy_array:
-        model_name, num_generations = next(iter(gs_element.items()))
+    for elem in generation_strategy_array:
+        model_name, num_generations = list(elem.items())[0]
         table.add_row(model_name, str(num_generations))
 
     console.print(table)
 
-@beartype
+def get_model_from_name(name: str) -> Any:
+    name = name.lower()
+    for gen in ax.adapter.registry.Generators:
+        if gen.name.lower() == name:
+            return gen
+    raise ValueError(f"Unknown or unsupported model: {name}")
+
+def get_name_from_model(model) -> Optional[str]:
+    if not isinstance(SUPPORTED_MODELS, (list, set, tuple)):
+        return None
+
+    model_str = model.value if hasattr(model, "value") else str(model)
+
+    model_str_lower = model_str.lower()
+    model_map = {m.lower(): m for m in SUPPORTED_MODELS}
+
+    return model_map.get(model_str_lower, None)
+
+def parse_generation_strategy_string(gen_strat_str: str) -> tuple[list[dict[str, int]], int]:
+    gen_strat_list = []
+    sum_nr = 0
+
+    cleaned_string = re.sub(r"\s+", "", gen_strat_str)
+    splitted_by_comma = cleaned_string.split(",")
+
+    for s in splitted_by_comma:
+        if "=" not in s:
+            print(f"'{s}' does not contain '='")
+            my_exit(123)
+        if s.count("=") != 1:
+            print(f"There can only be one '=' in the gen_strat_str's element '{s}'")
+            my_exit(123)
+
+        model_name, nr_str = s.split("=")
+        matching_model = get_name_from_model(model_name)
+
+        if matching_model in uncontinuable_models:
+            _fatal_error(f"Model {matching_model} is not valid for custom generation strategy.", 56)
+
+        if not matching_model:
+            print(f"'{model_name}' not found in SUPPORTED_MODELS")
+            my_exit(123)
+
+        try:
+            nr = int(nr_str)
+        except ValueError:
+            print(f"Invalid number of generations '{nr_str}' for model '{model_name}'")
+            my_exit(123)
+
+        gen_strat_list.append({matching_model: nr})
+        sum_nr += nr
+
+    return gen_strat_list, sum_nr
+
 def write_state_file(name: str, var: str) -> None:
-    file_path = f"{get_current_run_folder()}/state_files/{name}"
+    file_path = get_state_file_name(name)
 
     if os.path.isdir(file_path):
         _fatal_error(f"{file_path} is a dir. Must be a file.", 246)
@@ -8267,24 +8451,40 @@ def write_state_file(name: str, var: str) -> None:
     except Exception as e:
         print_red(f"Failed writing '{file_path}': {e}")
 
-@beartype
+def get_state_file_content(name: str, run_folder: str = get_current_run_folder()) -> str:
+    if args.continue_previous_job:
+        run_folder = args.continue_previous_job
+
+    file_path = f"{run_folder}/state_files/{name}"
+
+    if os.path.isdir(file_path):
+        _fatal_error(f"{file_path} is a dir. Must be a file.", 247)
+
+    if not os.path.exists(file_path):
+        print_red(f"State file '{file_path}' does not exist.")
+        return ""
+
+    try:
+        with open(file_path, mode="r", encoding="utf-8") as f:
+            return f.read().replace("\n", "").replace("\r", "")
+    except Exception as e:
+        print_red(f"Failed reading '{file_path}': {e}")
+        return ""
+
 def get_chosen_model() -> str:
     chosen_model = args.model
 
     if args.continue_previous_job and chosen_model is None:
-        continue_model_file = f"{args.continue_previous_job}/state_files/model"
+        chosen_model = get_state_file_content("model")
+
+        write_state_file("model", str(chosen_model))
 
         found_model = False
 
-        if os.path.exists(continue_model_file):
-            chosen_model = open(continue_model_file, mode="r", encoding="utf-8").readline().strip()
-
-            if chosen_model not in SUPPORTED_MODELS:
-                print_red(f"Wrong model >{chosen_model}< in {continue_model_file}.")
-            else:
-                found_model = True
+        if chosen_model not in SUPPORTED_MODELS:
+            print_red(f"Wrong model >{chosen_model}<.")
         else:
-            print_red(f"Cannot find model under >{continue_model_file}<.")
+            found_model = True
 
         if not found_model:
             if args.model is not None:
@@ -8298,7 +8498,6 @@ def get_chosen_model() -> str:
 
     return chosen_model
 
-@beartype
 def continue_not_supported_on_custom_generation_strategy() -> None:
     if args.continue_previous_job:
         generation_strategy_file = f"{args.continue_previous_job}/state_files/custom_generation_strategy"
@@ -8306,7 +8505,6 @@ def continue_not_supported_on_custom_generation_strategy() -> None:
         if os.path.exists(generation_strategy_file):
             _fatal_error("Trying to continue a job which was started with --generation_strategy. This is currently not possible.", 247)
 
-@beartype
 def get_step_name(model_name: str, nr: int) -> str:
     this_step_name = f"{model_name} for {nr} step"
     if nr != 1:
@@ -8314,7 +8512,6 @@ def get_step_name(model_name: str, nr: int) -> str:
 
     return this_step_name
 
-@beartype
 def join_with_comma_and_then(items: list) -> str:
     length = len(items)
 
@@ -8329,7 +8526,6 @@ def join_with_comma_and_then(items: list) -> str:
 
     return ", ".join(items[:-1]) + " and then " + items[-1]
 
-@beartype
 def get_torch_device_str() -> str:
     try:
         if torch.cuda.is_available():
@@ -8342,100 +8538,76 @@ def get_torch_device_str() -> str:
         print_debug(f"Error detecting device: {e}")
         return "cpu"
 
-@beartype
 def create_node(model_name: str, threshold: int, next_model_name: Optional[str]) -> Union[RandomForestGenerationNode, GenerationNode]:
     if model_name == "RANDOMFOREST":
         if len(arg_result_names) != 1:
             _fatal_error("Currently, RANDOMFOREST does not support Multi-Objective-Optimization", 251)
-
-        node = RandomForestGenerationNode(
+        return RandomForestGenerationNode(
             num_samples=threshold,
-            regressor_options={
-                "n_estimators": args.n_estimators_randomforest
-            },
+            regressor_options={"n_estimators": args.n_estimators_randomforest},
             seed=args.seed
         )
 
-        return node
+    target_model = next_model_name if next_model_name is not None else model_name
 
     if model_name == "TPE":
         if len(arg_result_names) != 1:
             _fatal_error(f"Has {len(arg_result_names)} results. TPE currently only supports single-objective-optimization.", 108)
+        return ExternalProgramGenerationNode(external_generator=f"python3 {script_dir}/.tpe.py", node_name="EXTERNAL_GENERATOR")
 
-        node = ExternalProgramGenerationNode(f"python3 {script_dir}/.tpe.py", "TPE")
+    external_generators = {
+        "PSEUDORANDOM": f"python3 {script_dir}/.random_generator.py",
+        "EXTERNAL_GENERATOR": args.external_generator
+    }
 
-        return node
+    if next_model_name in ["PSEUDORANDOM", "EXTERNAL_GENERATOR", "TPE"]:
+        target_model = "EXTERNAL_GENERATOR"
 
-    if model_name == "PSEUDORANDOM":
-        node = ExternalProgramGenerationNode(f"python3 {script_dir}/.random_generator.py", "PSEUDORANDOM")
-
-        return node
-
-    if model_name == "EXTERNAL_GENERATOR":
-        if args.external_generator is None or args.external_generator == "":
+    if model_name in external_generators:
+        cmd = external_generators[model_name]
+        if model_name == "EXTERNAL_GENERATOR" and not cmd:
             _fatal_error("--external_generator is missing. Cannot create points for EXTERNAL_GENERATOR without it.", 204)
+        return ExternalProgramGenerationNode(external_generator=cmd, node_name="EXTERNAL_GENERATOR")
 
-        node = ExternalProgramGenerationNode(args.external_generator)
-
-        return node
-
-    if next_model_name is not None:
-        trans_crit = [
-            MaxTrials(
-                threshold=threshold,
-                block_transition_if_unmet=True,
-                transition_to=next_model_name,
-                count_only_trials_with_data=True
-            )
-        ]
-    else:
-        trans_crit = [
-            MaxTrials(
-                threshold=threshold,
-                block_transition_if_unmet=True,
-                transition_to=model_name,
-                count_only_trials_with_data=True
-            )
-        ]
+    trans_crit = [
+        MaxTrials(
+            threshold=threshold,
+            block_transition_if_unmet=True,
+            transition_to=target_model,
+            count_only_trials_with_data=True
+        )
+    ]
 
     selected_model = select_model(model_name)
 
-    if model_name.lower() == "sobol":
-        model_spec = [
-            GeneratorSpec(
-                selected_model,
-                model_gen_kwargs=get_model_gen_kwargs()
-            )
-        ]
-    else:
-        model_spec = [
-            GeneratorSpec(
-                selected_model,
-                model_kwargs=get_model_kwargs(),
-                model_gen_kwargs=get_model_gen_kwargs()
-            )
-        ]
+    kwargs = {
+        "model_gen_kwargs": get_model_gen_kwargs()
+    }
+    if model_name.lower() != "sobol":
+        kwargs["model_kwargs"] = get_model_kwargs()
+
+    model_spec = [GeneratorSpec(selected_model, **kwargs)]
 
     res = GenerationNode(
         node_name=model_name,
-        model_specs=model_spec,
+        generator_specs=model_spec,
         transition_criteria=trans_crit
     )
 
     return res
 
-@beartype
 def get_optimizer_kwargs() -> dict:
     return {
         "sequential": False
     }
 
-@beartype
-def create_systematic_step(model: Any, _num_trials: int = -1, index: Optional[int] = None) -> GenerationStep:
-    step = GenerationStep(
-        model=model,
+def create_step(model_name: str, _num_trials: int = -1, index: Optional[int] = None) -> GenerationStep:
+    model_enum = get_model_from_name(model_name)
+
+    return GenerationStep(
+        generator=model_enum,   # ✅ neue API
         num_trials=_num_trials,
-        max_parallelism=(1000 * max_eval + 1000),
+        max_parallelism=1000 * max_eval + 1000,
         model_kwargs=get_model_kwargs(),
         model_gen_kwargs=get_model_gen_kwargs(),
         should_deduplicate=True,
@@ -8443,104 +8615,133 @@ def create_systematic_step(model: Any, _num_trials: int = -1, index: Optional[in
         index=index
     )
 
-    return step
 
-@beartype
 def set_global_generation_strategy() -> None:
-    global global_gs, generation_strategy_human_readable
-
-    args_generation_strategy = args.generation_strategy
-
-    continue_not_supported_on_custom_generation_strategy()
-
-    gs_names: list = []
-    gs_nodes: list = []
-
-    if args_generation_strategy is None:
-        num_imported_jobs: int = get_nr_of_imported_jobs()
-        set_max_eval(max_eval + num_imported_jobs)
-        set_random_steps(random_steps or 0)
-
-        if max_eval is None:
-            set_max_eval(max(1, random_steps))
-
-        chosen_model = get_chosen_model()
-
-        if chosen_model == "SOBOL":
-            set_random_steps(max_eval)
-
-        if random_steps >= 1:
-            next_node_name = None
-            if max_eval - random_steps and chosen_model:
-                next_node_name = chosen_model
-
-            gs_names.append(get_step_name("SOBOL", random_steps))
-            gs_nodes.append(create_node("SOBOL", random_steps, next_node_name))
-
-        write_state_file("model", str(chosen_model))
-
-        if chosen_model != "SOBOL" and max_eval > random_steps:
-            this_node = create_node(chosen_model, max_eval - random_steps, None)
-
-            gs_names.append(get_step_name(chosen_model, max_eval - random_steps))
-            gs_nodes.append(this_node)
-
-        generation_strategy_human_readable = join_with_comma_and_then(gs_names)
+    with spinner("Setting global generation strategy"):
+        continue_not_supported_on_custom_generation_strategy()
 
         try:
-            global_gs = GenerationStrategy(
-                name="+".join(gs_names),
-                nodes=gs_nodes
-            )
-        except ax.exceptions.generation_strategy.GenerationStrategyMisconfiguredException as e:
-            print_red(f"Error: {e}\ngs_names: {gs_names}\ngs_nodes: {gs_nodes}")
+            if args.generation_strategy is None:
+                setup_default_generation_strategy()
+            else:
+                setup_custom_generation_strategy()
+        except Exception as e:
+            print_red(f"Unexpected error in generation strategy setup: {e}")
+            my_exit(111)
 
-            my_exit(55)
-    else:
-        generation_strategy_array, new_max_eval = parse_generation_strategy_string(args_generation_strategy)
+    if global_gs is None:
+        print_red("global_gs is None after setup!")
+        my_exit(111)
 
-        new_max_eval_plus_inserted_jobs = new_max_eval + get_nr_of_imported_jobs()
 
-        if max_eval < new_max_eval_plus_inserted_jobs:
-            print_yellow(f"--generation_strategy {args_generation_strategy.upper()} has, in sum, more tasks than --max_eval {max_eval}. max_eval will be set to {new_max_eval_plus_inserted_jobs}.")
-            set_max_eval(new_max_eval_plus_inserted_jobs)
+def setup_default_generation_strategy() -> None:
+    global generation_strategy_human_readable
 
-        print_generation_strategy(generation_strategy_array)
+    generation_strategy_nodes: list = []
 
-        start_index = int(len(generation_strategy_array) / 2)
+    num_imported_jobs = get_nr_of_imported_jobs()
 
-        steps: list = []
+    set_max_eval(max_eval + num_imported_jobs)
+    set_random_steps(random_steps or 0)
 
-        for gs_element in generation_strategy_array:
+    if max_eval is None:
+        set_max_eval(max(1, random_steps))
+
+    chosen_model = get_chosen_model()
+    print_debug(f"Chosen model: {chosen_model}")
+
+    if chosen_model == "SOBOL":
+        set_random_steps(max_eval)
+
+    if random_steps > num_imported_jobs:
+        add_sobol_node_if_needed(generation_strategy_nodes, generation_strategy_names, chosen_model)
+
+    remaining = max_eval - random_steps + num_imported_jobs
+
+    add_main_node_if_needed(generation_strategy_nodes, generation_strategy_names, chosen_model, remaining)
+
+    generation_strategy_human_readable = join_with_comma_and_then(generation_strategy_names)
+    print_debug(f"Generation strategy human readable: {generation_strategy_human_readable}")
+
+    try:
+        global global_gs
+        global_gs = GenerationStrategy(
+            name="+".join(generation_strategy_names),
+            nodes=generation_strategy_nodes
+        )
+    except ax.exceptions.generation_strategy.GenerationStrategyMisconfiguredException as e:
+        print_red(f"Error creating GenerationStrategy: {e}\nnames: {generation_strategy_names}\nnodes: {generation_strategy_nodes}")
+        my_exit(111)
+
+
+def add_sobol_node_if_needed(nodes: list, names: list, chosen_model: str) -> None:
+    if random_steps >= 1:
+        next_node_name = None
+        if max_eval - random_steps and chosen_model:
+            next_node_name = chosen_model
+        step_name = get_step_name("SOBOL", random_steps)
+        nodes.append(create_node("SOBOL", random_steps, next_node_name))
+        names.append(step_name)
+        print_debug(f"Added SOBOL node: {step_name}")
+
+
+def add_main_node_if_needed(nodes: list, names: list, chosen_model: str, remaining: int) -> None:
+    if chosen_model != "SOBOL" and remaining > 0:
+        node = create_node(chosen_model, remaining, None)
+        nodes.append(node)
+        step_name = get_step_name(chosen_model, remaining)
+        names.append(step_name)
+        print_debug(f"Added main node: {step_name}")
+
+
+def setup_custom_generation_strategy() -> None:
+    generation_strategy_array, new_max_eval = parse_generation_strategy_string(args.generation_strategy)
+    new_max_eval_plus_jobs = new_max_eval + get_nr_of_imported_jobs()
+
+    if max_eval < new_max_eval_plus_jobs:
+        print_yellow(f"--generation_strategy {args.generation_strategy.upper()} has more tasks than --max_eval {max_eval}. Updating max_eval to {new_max_eval_plus_jobs}.")
+        set_max_eval(new_max_eval_plus_jobs)
+
+    print_generation_strategy(generation_strategy_array)
+    start_index = int(len(generation_strategy_array) / 2)
+    steps: list = []
+
+    for gs_element in generation_strategy_array:
+        try:
             model_name = list(gs_element.keys())[0]
+            num_trials = int(gs_element[model_name])
+            step_node = create_step(model_name, num_trials, start_index)
+            step_name = get_step_name(model_name, num_trials)
+            steps.append(step_node)
+            generation_strategy_names.append(step_name)
+            print_debug(f"Added custom step: {step_name}")
+            start_index += 1
+        except Exception as e:
+            print_red(f"Error creating step for {gs_element}: {e}")
+            my_exit(111)
 
-            nr = int(gs_element[model_name])
+    write_state_file("custom_generation_strategy", args.generation_strategy)
 
-            gs_elem = create_systematic_step(select_model(model_name), nr, start_index)
-            steps.append(gs_elem)
-
-            gs_names.append(get_step_name(model_name, nr))
-
-            start_index = start_index + 1
-
-        write_state_file("custom_generation_strategy", args_generation_strategy)
-
+    global global_gs, generation_strategy_human_readable
+    try:
         global_gs = GenerationStrategy(steps=steps)
+        generation_strategy_human_readable = join_with_comma_and_then(generation_strategy_names)
+    except Exception as e:
+        print_red(f"Failed to create custom GenerationStrategy: {e}")
+        my_exit(111)
 
-        generation_strategy_human_readable = join_with_comma_and_then(gs_names)
 
-@beartype
-def wait_for_jobs_or_break(_max_eval: Optional[int], _progress_bar: Any) -> bool:
+def wait_for_jobs_or_break(_max_eval: Optional[int]) -> bool:
     while len(global_vars["jobs"]) > num_parallel_jobs:
         finish_previous_jobs([f"finishing previous jobs ({len(global_vars['jobs'])})"])
 
-        if break_run_search("create_and_execute_next_runs", _max_eval, _progress_bar):
+        if break_run_search("create_and_execute_next_runs", _max_eval):
             return True
 
         if is_slurm_job() and not args.force_local_execution:
-            _sleep(5)
+            _sleep(1)
 
-    if break_run_search("create_and_execute_next_runs", _max_eval, _progress_bar):
+    if break_run_search("create_and_execute_next_runs", _max_eval):
         return True
 
     if _max_eval is not None and (JOBS_FINISHED - NR_INSERTED_JOBS) >= _max_eval:
@@ -8548,34 +8749,28 @@ def wait_for_jobs_or_break(_max_eval: Optional[int], _progress_bar: Any) -> bool
 
     return False
 
-@beartype
-def handle_optimization_completion(optimization_complete: bool) -> bool:
-    if optimization_complete:
-        return True
-    return False
-
-@beartype
 def execute_trials(
     trial_index_to_param: dict,
     phase: Optional[str],
     _max_eval: Optional[int],
-    _progress_bar: Any
 ) -> None:
     index_param_list: List[List[Any]] = []
     i: int = 1
 
     for trial_index, parameters in trial_index_to_param.items():
-        if wait_for_jobs_or_break(_max_eval, _progress_bar):
+        if wait_for_jobs_or_break(_max_eval):
             break
-        if break_run_search("create_and_execute_next_runs", _max_eval, _progress_bar):
+        if break_run_search("create_and_execute_next_runs", _max_eval):
             break
 
-        progressbar_description([f"eval #{i}/{len(trial_index_to_param.items())} start"])
+        progressbar_description(f"eval #{i}/{len(trial_index_to_param.items())} start")
         _args = [trial_index, parameters, i, phase]
         index_param_list.append(_args)
         i += 1
 
         save_results_csv()
+
+    save_results_csv()
 
     start_time = time.time()
 
@@ -8600,7 +8795,6 @@ def execute_trials(
     job_submit_durations.append(duration)
     job_submit_nrs.append(cnt)
 
-@beartype
 def handle_exceptions_create_and_execute_next_runs(e: Exception) -> int:
     if isinstance(e, TypeError):
         print_red(f"Error 1: {e}")
@@ -8621,8 +8815,7 @@ def handle_exceptions_create_and_execute_next_runs(e: Exception) -> int:
         end_program(False, 87)
     return 0
 
-@beartype
-def create_and_execute_next_runs(next_nr_steps: int, phase: Optional[str], _max_eval: Optional[int], _progress_bar: Any) -> int:
+def create_and_execute_next_runs(next_nr_steps: int, phase: Optional[str], _max_eval: Optional[int]) -> int:
     if next_nr_steps == 0:
         print_debug(f"Warning: create_and_execute_next_runs(next_nr_steps: {next_nr_steps}, phase: {phase}, _max_eval: {_max_eval}, progress_bar)")
         return 0
@@ -8631,7 +8824,7 @@ def create_and_execute_next_runs(next_nr_steps: int, phase: Optional[str], _max_
     done_optimizing: bool = False
 
     try:
-        done_optimizing, trial_index_to_param = _create_and_execute_next_runs_run_loop(_max_eval, phase, _progress_bar)
+        done_optimizing, trial_index_to_param = _create_and_execute_next_runs_run_loop(_max_eval, phase)
         _create_and_execute_next_runs_finish(done_optimizing)
     except Exception as e:
         stacktrace = traceback.format_exc()
@@ -8640,8 +8833,7 @@ def create_and_execute_next_runs(next_nr_steps: int, phase: Optional[str], _max_
 
     return _create_and_execute_next_runs_return_value(trial_index_to_param)
 
-@beartype
-def _create_and_execute_next_runs_run_loop(_max_eval: Optional[int], phase: Optional[str], _progress_bar: Any) -> Tuple[bool, Optional[Dict]]:
+def _create_and_execute_next_runs_run_loop(_max_eval: Optional[int], phase: Optional[str]) -> Tuple[bool, Optional[Dict]]:
     done_optimizing = False
     trial_index_to_param: Optional[Dict] = None
 
@@ -8653,13 +8845,12 @@ def _create_and_execute_next_runs_run_loop(_max_eval: Optional[int], phase: Opti
     range_nr = new_nr_of_jobs_to_get
     get_next_trials_nr = 1
 
-    if getattr(args, "generate_all_jobs_at_once", False):
+    if getattr(args, "generate_all_jobs_at_once", False) or args.worker_generator_path:
         range_nr = 1
         get_next_trials_nr = new_nr_of_jobs_to_get
 
     for _ in range(range_nr):
-        trial_index_to_param, optimization_complete = _get_next_trials(get_next_trials_nr)
-        done_optimizing = handle_optimization_completion(optimization_complete)
+        trial_index_to_param, done_optimizing = _get_next_trials(get_next_trials_nr)
         if done_optimizing:
             continue
 
@@ -8668,8 +8859,12 @@ def _create_and_execute_next_runs_run_loop(_max_eval: Optional[int], phase: Opti
 
             filtered_trial_index_to_param = {k: v for k, v in trial_index_to_param.items() if k not in abandoned_trial_indices}
 
+            if is_skip_search():
+                print_yellow("Skipping search part")
+                return True, {}
+
             if len(filtered_trial_index_to_param):
-                execute_trials(filtered_trial_index_to_param, phase, _max_eval, _progress_bar)
+                execute_trials(filtered_trial_index_to_param, phase, _max_eval)
             else:
                 if nr_jobs_before_removing_abandoned > 0:
                     print_debug(f"Could not get jobs. They've been deleted by abandoned_trial_indices: {abandoned_trial_indices}")
@@ -8680,13 +8875,12 @@ def _create_and_execute_next_runs_run_loop(_max_eval: Optional[int], phase: Opti
 
     return done_optimizing, trial_index_to_param
 
-@beartype
 def _create_and_execute_next_runs_finish(done_optimizing: bool) -> None:
     finish_previous_jobs(["finishing jobs"])
+
     if done_optimizing:
         end_program(False, 0)
 
-@beartype
 def _create_and_execute_next_runs_return_value(trial_index_to_param: Optional[Dict]) -> int:
     try:
         if trial_index_to_param:
@@ -8700,9 +8894,8 @@ def _create_and_execute_next_runs_return_value(trial_index_to_param: Optional[Di
         print_debug(f"Warning: create_and_execute_next_runs encountered an exception: {e}. Returning 0.")
         return 0
 
-@beartype
 def get_number_of_steps(_max_eval: int) -> int:
-    with console.status("[bold green]Calculating number of steps..."):
+    with spinner("Calculating number of steps..."):
         _random_steps = args.num_random_steps
 
         already_done_random_steps = get_random_steps_from_prev_job()
@@ -8721,19 +8914,18 @@ def get_number_of_steps(_max_eval: int) -> int:
 
         return _random_steps
 
-@beartype
 def _set_global_executor() -> None:
-    global executor
+    global submitit_executor
 
     log_folder: str = f'{get_current_run_folder()}/single_runs/%j'
     subjob_uuid = str(uuid.uuid4())
 
     if args.force_local_execution:
-        executor = LocalExecutor(folder=log_folder)
+        submitit_executor = LocalExecutor(folder=log_folder)
     else:
-        executor = AutoExecutor(folder=log_folder)
+        submitit_executor = AutoExecutor(folder=log_folder)
 
-    if executor:
+    if submitit_executor:
         params = {
             "name": f'{global_vars["experiment_name"]}_{run_uuid}_{subjob_uuid}',
             "timeout_min": args.worker_timeout,
@@ -8747,16 +8939,15 @@ def _set_global_executor() -> None:
             "exclude": args.exclude,
         }
 
-        executor.update_parameters(**params)
+        submitit_executor.update_parameters(**params)
 
-        print_debug("executor.update_parameters(\n" + json.dumps(params, indent=4) + "\n)")
+        print_debug("submitit_executor.update_parameters(\n" + json.dumps(params, indent=4) + "\n)")
 
         if args.exclude:
             print_yellow(f"Excluding the following nodes: {args.exclude}")
     else:
-        _fatal_error("executor could not be found", 9)
+        _fatal_error("submitit_executor could not be found", 9)
 
-@beartype
 def set_global_executor() -> None:
     try:
         _set_global_executor()
@@ -8766,7 +8957,6 @@ def set_global_executor() -> None:
     except (IsADirectoryError, PermissionError, FileNotFoundError) as e:
         print_red(f"Error trying to set_global_executor: {e}")
 
-@beartype
 def execute_nvidia_smi() -> None:
     if not IS_NVIDIA_SMI_SYSTEM:
         print_debug("Cannot find nvidia-smi. Cannot take GPU logs")
@@ -8806,33 +8996,27 @@ def execute_nvidia_smi() -> None:
         if is_slurm_job() and not args.force_local_execution:
             _sleep(30)
 
-@beartype
 def start_nvidia_smi_thread() -> None:
     if IS_NVIDIA_SMI_SYSTEM:
         nvidia_smi_thread = threading.Thread(target=execute_nvidia_smi, daemon=True)
         nvidia_smi_thread.start()
 
-@beartype
-def run_search(_progress_bar: Any) -> bool:
+def run_search() -> bool:
     global NR_OF_0_RESULTS
     NR_OF_0_RESULTS = 0
 
-    log_what_needs_to_be_logged()
     write_process_info()
 
     while (submitted_jobs() - failed_jobs()) <= max_eval:
-        log_what_needs_to_be_logged()
         wait_for_jobs_to_complete()
-        finish_previous_jobs([])
+        finish_previous_jobs()
 
-        if should_break_search(_progress_bar):
+        if should_break_search():
             break
 
         next_nr_steps: int = get_next_nr_steps(num_parallel_jobs, max_eval)
 
-        nr_of_items = execute_next_steps(next_nr_steps, _progress_bar)
-
-        log_worker_status(nr_of_items, next_nr_steps)
+        nr_of_items = execute_next_steps(next_nr_steps)
 
         finish_previous_jobs([f"finishing previous jobs ({len(global_vars['jobs'])})"])
 
@@ -8842,45 +9026,54 @@ def run_search(_progress_bar: Any) -> bool:
             wait_for_jobs_to_complete()
             raise SearchSpaceExhausted("Search space exhausted")
 
-        log_what_needs_to_be_logged()
-
     finalize_jobs()
-    log_what_needs_to_be_logged()
 
     return False
 
-@beartype
-def should_break_search(_progress_bar: Any) -> bool:
-    return (break_run_search("run_search", max_eval, _progress_bar) or (JOBS_FINISHED - NR_INSERTED_JOBS) >= max_eval)
+async def start_logging_daemon() -> None:
+    while True:
+        log_data()
+        time.sleep(30)
 
-@beartype
-def execute_next_steps(next_nr_steps: int, _progress_bar: Any) -> int:
+def should_break_search() -> bool:
+    ret = False
+
+    if not args.worker_generator_path:
+        ret = (break_run_search("run_search", max_eval) or (JOBS_FINISHED - NR_INSERTED_JOBS) >= max_eval)
+    else:
+        print_debug("should_break_search: False because --worker_generator_path was set")
+
+    print_debug(f"should_break_search: {ret}")
+
+    return ret
+
+def execute_next_steps(next_nr_steps: int) -> int:
     if next_nr_steps:
         print_debug(f"trying to get {next_nr_steps} next steps (current done: {count_done_jobs()}, max: {max_eval})")
-        nr_of_items = create_and_execute_next_runs(next_nr_steps, "systematic", max_eval, _progress_bar)
+        nr_of_items = create_and_execute_next_runs(next_nr_steps, "systematic", max_eval)
+
+        log_worker_status(nr_of_items, next_nr_steps)
+
         return nr_of_items
     return 0
 
-@beartype
 def log_worker_status(nr_of_items: int, next_nr_steps: int) -> None:
     nr_current_workers, nr_current_workers_errmsg = count_jobs_in_squeue()
     if nr_current_workers_errmsg:
         print_debug(f"log_worker_status: {nr_current_workers_errmsg}")
     _debug_worker_creation(f"{int(time.time())}, {nr_current_workers}, {nr_of_items}, {next_nr_steps}")
 
-@beartype
 def handle_slurm_execution() -> None:
     if is_slurm_job() and not args.force_local_execution:
         _sleep(1)
 
-@beartype
 def check_search_space_exhaustion(nr_of_items: int) -> bool:
     global NR_OF_0_RESULTS
 
     if nr_of_items == 0 and len(global_vars["jobs"]) == 0:
         NR_OF_0_RESULTS += 1
         _wrn = f"found {NR_OF_0_RESULTS} zero-jobs (max: {args.max_nr_of_zero_results})"
-        progressbar_description([_wrn])
+        progressbar_description(_wrn)
         print_debug(_wrn)
     else:
         NR_OF_0_RESULTS = 0
@@ -8888,63 +9081,50 @@ def check_search_space_exhaustion(nr_of_items: int) -> bool:
     if NR_OF_0_RESULTS >= args.max_nr_of_zero_results:
         _wrn = f"{NR_OF_0_RESULTS} empty jobs (>= {args.max_nr_of_zero_results})"
         print_debug(_wrn)
-        progressbar_description([_wrn])
-
-        live_share()
+        progressbar_description(_wrn)
 
         return True
 
     return False
 
-@beartype
 def finalize_jobs() -> None:
     while len(global_vars["jobs"]):
         wait_for_jobs_to_complete()
 
         jobs_left = len(global_vars['jobs'])
 
-        if jobs_left == 1:
-            finish_previous_jobs([f"waiting for {jobs_left} job)"])
-        else:
-            finish_previous_jobs([f"waiting for {jobs_left} jobs)"])
+        finish_previous_jobs([f"waiting for {jobs_left} job{'' if jobs_left == 1 else 's'})"])
 
         handle_slurm_execution()
 
-@beartype
 def go_through_jobs_that_are_not_completed_yet() -> None:
     print_debug(f"Waiting for jobs to finish (currently, len(global_vars['jobs']) = {len(global_vars['jobs'])}")
 
     nr_jobs_left = len(global_vars['jobs'])
     if nr_jobs_left == 1:
-        progressbar_description([f"waiting for {nr_jobs_left} job"])
+        progressbar_description(f"waiting for {nr_jobs_left} job")
     else:
-        progressbar_description([f"waiting for {nr_jobs_left} jobs"])
+        progressbar_description(f"waiting for {nr_jobs_left} jobs")
 
     if is_slurm_job() and not args.force_local_execution:
-        _sleep(5)
+        _sleep(0.5)
 
     jobs_left = len(global_vars['jobs'])
 
-    if jobs_left == 1:
-        finish_previous_jobs([f"waiting for {jobs_left} job"])
-    else:
-        finish_previous_jobs([f"waiting for {jobs_left} jobs"])
+    finish_previous_jobs([f"waiting for {jobs_left} job{'s' if jobs_left != 1 else ''}"])
 
     clean_completed_jobs()
 
-@beartype
 def wait_for_jobs_to_complete() -> None:
     while len(global_vars["jobs"]):
         go_through_jobs_that_are_not_completed_yet()
 
-@beartype
 def die_orchestrator_exit_code_206(_test: bool) -> None:
     if _test:
         print_yellow("Not exiting, because _test was True")
     else:
         my_exit(206)
 
-@beartype
 def parse_orchestrator_file(_f: str, _test: bool = False) -> Union[dict, None]:
     if os.path.exists(_f):
         with open(_f, mode='r', encoding="utf-8") as file:
@@ -8994,9 +9174,8 @@ def parse_orchestrator_file(_f: str, _test: bool = False) -> Union[dict, None]:
 
     return None
 
-@beartype
 def set_orchestrator() -> None:
-    with console.status("[bold green]Setting orchestrator..."):
+    with spinner("Setting orchestrator..."):
         global orchestrator
 
         if args.orchestrator_file:
@@ -9005,37 +9184,31 @@ def set_orchestrator() -> None:
             else:
                 print_yellow("--orchestrator_file will be ignored on non-sbatch-systems.")
 
-@beartype
 def check_if_has_random_steps() -> None:
     if (not args.continue_previous_job and "--continue" not in sys.argv) and (args.num_random_steps == 0 or not args.num_random_steps) and args.model not in ["EXTERNAL_GENERATOR", "SOBOL", "PSEUDORANDOM"]:
         _fatal_error("You have no random steps set. This is only allowed in continued jobs. To start, you need either some random steps, or a continued run.", 233)
 
-@beartype
 def add_exclude_to_defective_nodes() -> None:
-    with console.status("[bold green]Adding excluded nodes..."):
+    with spinner("Adding excluded nodes..."):
         if args.exclude:
             entries = [entry.strip() for entry in args.exclude.split(',')]
 
             for entry in entries:
                 count_defective_nodes(None, entry)
 
-@beartype
 def check_max_eval(_max_eval: int) -> None:
-    with console.status("[bold green]Checking max_eval..."):
+    with spinner("Checking max_eval..."):
         if not _max_eval:
             _fatal_error("--max_eval needs to be set!", 19)
 
-@beartype
 def parse_parameters() -> Any:
-    experiment_parameters = None
     cli_params_experiment_parameters = None
     if args.parameter:
-        experiment_parameters = parse_experiment_parameters()
+        parse_experiment_parameters()
         cli_params_experiment_parameters = experiment_parameters
 
-    return experiment_parameters, cli_params_experiment_parameters
+    return cli_params_experiment_parameters
 
-@beartype
 def create_pareto_front_table(idxs: List[int], metric_x: str, metric_y: str) -> Table:
     table = Table(title=f"Pareto-Front for {metric_y}/{metric_x}:", show_lines=True)
 
@@ -9056,12 +9229,10 @@ def create_pareto_front_table(idxs: List[int], metric_x: str, metric_y: str) -> 
 
     return table
 
-@beartype
 def _pareto_front_table_read_csv() -> List[Dict[str, str]]:
     with open(RESULT_CSV_FILE, mode="r", encoding="utf-8", newline="") as f:
         return list(csv.DictReader(f))
 
-@beartype
 def _pareto_front_table_filter_rows(rows: List[Dict[str, str]], idxs: List[int]) -> List[Dict[str, str]]:
     result = []
     for row in rows:
@@ -9074,7 +9245,6 @@ def _pareto_front_table_filter_rows(rows: List[Dict[str, str]], idxs: List[int])
             result.append(row)
     return result
 
-@beartype
 def _pareto_front_table_get_columns(first_row: Dict[str, str]) -> Tuple[List[str], List[str]]:
     all_columns = list(first_row.keys())
     ignored_cols = set(special_col_names) - {"trial_index"}
@@ -9083,21 +9253,18 @@ def _pareto_front_table_get_columns(first_row: Dict[str, str]) -> Tuple[List[str
     result_cols = [col for col in arg_result_names if col in all_columns]
     return param_cols, result_cols
 
-@beartype
 def _pareto_front_table_add_headers(table: Table, param_cols: List[str], result_cols: List[str]) -> None:
     for col in param_cols:
         table.add_column(col, justify="center")
     for col in result_cols:
         table.add_column(Text(f"{col}", style="cyan"), justify="center")
 
-@beartype
 def _pareto_front_table_add_rows(table: Table, rows: List[Dict[str, str]], param_cols: List[str], result_cols: List[str]) -> None:
     for row in rows:
         values = [str(helpers.to_int_when_possible(row[col])) for col in param_cols]
         result_values = [Text(str(helpers.to_int_when_possible(row[col])), style="cyan") for col in result_cols]
         table.add_row(*values, *result_values, style="bold green")
 
-@beartype
 def pareto_front_as_rich_table(idxs: list, metric_x: str, metric_y: str) -> Optional[Table]:
     if not os.path.exists(RESULT_CSV_FILE):
         print_debug(f"pareto_front_as_rich_table: File '{RESULT_CSV_FILE}' not found")
@@ -9105,7 +9272,6 @@ def pareto_front_as_rich_table(idxs: list, metric_x: str, metric_y: str) -> Opti
 
     return create_pareto_front_table(idxs, metric_x, metric_y)
 
-@beartype
 def supports_sixel() -> bool:
     term = os.environ.get("TERM", "").lower()
     if "xterm" in term or "mlterm" in term:
@@ -9120,7 +9286,6 @@ def supports_sixel() -> bool:
 
     return False
 
-@beartype
 def plot_pareto_frontier_sixel(data: Any, x_metric: str, y_metric: str) -> None:
     if data is None:
         print("[italic yellow]The data seems to be empty. Cannot plot pareto frontier.[/]")
@@ -9155,12 +9320,10 @@ def plot_pareto_frontier_sixel(data: Any, x_metric: str, y_metric: str) -> None:
 
     plt.close(fig)
 
-@beartype
 def _pareto_front_general_validate_shapes(x: np.ndarray, y: np.ndarray) -> None:
     if x.shape != y.shape:
         raise ValueError("Input arrays x and y must have the same shape.")
 
-@beartype
 def _pareto_front_general_compare(
     xi: float, yi: float, xj: float, yj: float,
     x_minimize: bool, y_minimize: bool
@@ -9172,7 +9335,6 @@ def _pareto_front_general_compare(
 
     return bool(x_better_eq and y_better_eq and (x_strictly_better or y_strictly_better))
 
-@beartype
 def _pareto_front_general_find_dominated(
     x: np.ndarray, y: np.ndarray, x_minimize: bool, y_minimize: bool
 ) -> np.ndarray:
@@ -9190,7 +9352,6 @@ def _pareto_front_general_find_dominated(
 
     return is_dominated
 
-@beartype
 def pareto_front_general(
     x: np.ndarray,
     y: np.ndarray,
@@ -9205,9 +9366,8 @@ def pareto_front_general(
         print("Error in pareto_front_general:", str(e))
         return np.array([], dtype=int)
 
-@beartype
 def _pareto_front_aggregate_data(path_to_calculate: str) -> Optional[Dict[Tuple[int, str], Dict[str, Dict[str, float]]]]:
-    results_csv_file = f"{path_to_calculate}/results.csv"
+    results_csv_file = f"{path_to_calculate}/{RESULTS_CSV_FILENAME}"
     result_names_file = f"{path_to_calculate}/result_names.txt"
 
     if not os.path.exists(results_csv_file) or not os.path.exists(result_names_file):
@@ -9234,7 +9394,6 @@ def _pareto_front_aggregate_data(path_to_calculate: str) -> Optional[Dict[Tuple[
 
     return records
 
-@beartype
 def _pareto_front_filter_complete_points(
     path_to_calculate: str,
     records: Dict[Tuple[int, str], Dict[str, Dict[str, float]]],
@@ -9252,7 +9411,6 @@ def _pareto_front_filter_complete_points(
         raise ValueError(f"No full data points with both objectives found in {path_to_calculate}.")
     return points
 
-@beartype
 def _pareto_front_transform_objectives(
     points: List[Tuple[Any, float, float]],
     primary_name: str,
@@ -9276,7 +9434,6 @@ def _pareto_front_transform_objectives(
 
     return x, y
 
-@beartype
 def _pareto_front_select_pareto_points(
     x: np.ndarray,
     y: np.ndarray,
@@ -9299,7 +9456,7 @@ def _pareto_front_build_return_structure(
     primary_name: str,
     secondary_name: str
 ) -> dict:
-    results_csv_file = f"{path_to_calculate}/results.csv"
+    results_csv_file = f"{path_to_calculate}/{RESULTS_CSV_FILENAME}"
     result_names_file = f"{path_to_calculate}/result_names.txt"
 
     with open(result_names_file, mode="r", encoding="utf-8") as f:
@@ -9357,7 +9514,6 @@ def _pareto_front_build_return_structure(
 
     return ret
 
-@beartype
 def get_pareto_frontier_points(
     path_to_calculate: str,
     primary_objective: str,
@@ -9379,7 +9535,109 @@ def get_pareto_frontier_points(
 
     return result
 
-@beartype
+def save_experiment_state() -> None:
+    try:
+        if ax_client is None or ax_client.experiment is None:
+            print_red("save_experiment_state: ax_client or ax_client.experiment is None, cannot save.")
+            return
+        state_path = get_current_run_folder("experiment_state.json")
+        ax_client.save_to_json_file(state_path)
+    except Exception as e:
+        print(f"Error saving experiment state: {e}")
+
+def wait_for_state_file(state_path: str, min_size: int = 5, max_wait_seconds: int = 60) -> bool:
+    try:
+        if not os.path.exists(state_path):
+            print(f"[ERROR] File '{state_path}' does not exist.")
+            return False
+
+        i = 0
+        while True:
+            try:
+                file_size = os.path.getsize(state_path)
+            except OSError as e:
+                print_debug(f"[ERROR] File '{state_path}' cannot be read: {e}")
+                return False
+
+            if file_size >= min_size:
+                print_debug(f"[INFO] File '{state_path}' is now large enough ({file_size} Bytes).")
+                return True
+
+            if i >= max_wait_seconds:
+                print_debug(f"[ERROR] Timeout: File '{state_path}' was not larger than {min_size} bytes after waiting for {max_wait_seconds} seconds.")
+                return False
+
+            print_debug(f"\r[yellow] File '{state_path}' is too small ({file_size} Bytes), waiting ... {i}s")
+            sys.stdout.flush()
+            time.sleep(1)
+            i += 1
+
+    except Exception as e:
+        print_red(f"[ERROR] Unexpected error: {e}")
+        return False
+
+def load_json_with_retry(state_path: str, timeout: int = 30, retry_interval: int = 1) -> Optional[dict]:
+    start_time = time.time()
+
+    while True:
+        if not os.path.exists(state_path):
+            print_debug(f"load_json_with_retry(state_path = {state_path}, timeout = {timeout}, retry_interval: {retry_interval}): File does not exist: {state_path}")
+
+        try:
+            with open(state_path, mode="r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data
+        except Exception as e:
+            elapsed = time.time() - start_time
+            if elapsed >= timeout:
+                print_debug(f"\nCould not load valid JSON after {elapsed} second of trying on path {state_path}: {e}")
+                return None
+
+            print_debug(f"Wait for valid JSON {state_path}... error: {e}")
+            time.sleep(retry_interval)
+
+    return None
+
+def load_experiment_state() -> None:
+    global ax_client
+    state_path = get_current_run_folder("experiment_state.json")
+
+    if not os.path.exists(state_path):
+        print(f"State file {state_path} does not exist, starting fresh")
+        return
+
+    if args.worker_generator_path:
+        if not wait_for_state_file(state_path):
+            my_exit(188)
+
+    data = load_json_with_retry(state_path)
+
+    if data is None:
+        print(f"Could not read valid JSON from {state_path}")
+        return
+
+    try:
+        arms_seen = {}
+        for arm in data.get("arms", []):
+            name = arm.get("name")
+            sig = arm.get("parameters")  # grobe Signatur
+            if not name:
+                continue
+            if name in arms_seen and arms_seen[name] != sig:
+                new_name = f"{name}_{uuid.uuid4().hex[:6]}"
+                print(f"Renaming conflicting arm '{name}' -> '{new_name}'")
+                arm["name"] = new_name
+            arms_seen[name] = sig
+
+        # Gefilterten Zustand speichern und laden
+        temp_path = state_path + ".no_conflicts.json"
+        with open(temp_path, encoding="utf-8", mode="w") as f:
+            json.dump(data, f)
+
+        ax_client = AxClient.load_from_json_file(temp_path)
+    except Exception as e:
+        print(f"Error loading experiment state: {e}")
+
 def sanitize_json(obj: Any) -> Any:
     if isinstance(obj, float):
         if math.isnan(obj) or math.isinf(obj):
@@ -9391,7 +9649,6 @@ def sanitize_json(obj: Any) -> Any:
         return [sanitize_json(x) for x in obj]
     return obj
 
-@beartype
 def set_arg_min_or_max_if_required(path_to_calculate: str) -> None:
     global arg_result_names
     global arg_result_min_or_max
@@ -9427,7 +9684,6 @@ def set_arg_min_or_max_if_required(path_to_calculate: str) -> None:
         arg_result_names = _found_result_names
         arg_result_min_or_max = _found_result_min_max
 
-@beartype
 def get_calculated_frontier(path_to_calculate: str, metric_x: str, metric_y: str, x_minimize: bool, y_minimize: bool, res_names: list) -> Any:
     try:
         state_dir = os.path.join(get_current_run_folder(), "state_files")
@@ -9465,7 +9721,6 @@ def get_calculated_frontier(path_to_calculate: str, metric_x: str, metric_y: str
         print_red(f"Error in get_calculated_frontier: {str(e)}")
         return None
 
-@beartype
 def live_share_after_pareto() -> None:
     if args.calculate_pareto_front_of_job is not None or args.live_share:
         if not args.live_share:
@@ -9480,11 +9735,7 @@ def live_share_after_pareto() -> None:
                     print_debug(f"Error reading {live_share_file}: {e}")
                     args.live_share = False
 
-        global SHOWN_LIVE_SHARE_COUNTER
-
-        SHOWN_LIVE_SHARE_COUNTER = 1
-
-        live_share(True)
+        force_live_share()
 
 def get_result_minimize_flag(path_to_calculate: str, resname: str) -> bool:
     result_names_path = os.path.join(path_to_calculate, "result_names.txt")
@@ -9518,7 +9769,6 @@ def get_result_minimize_flag(path_to_calculate: str, resname: str) -> bool:
 
     return minmax[index] == "min"
 
-@beartype
 def get_pareto_front_data(path_to_calculate: str, res_names: list) -> dict:
     pareto_front_data: dict = {}
 
@@ -9547,7 +9797,6 @@ def get_pareto_front_data(path_to_calculate: str, res_names: list) -> dict:
 
     return pareto_front_data
 
-@beartype
 def show_pareto_frontier_data(path_to_calculate: str, res_names: list, disable_sixel_and_table: bool = False) -> None:
     if len(res_names) <= 1:
         print_debug(f"--result_names (has {len(res_names)} entries) must be at least 2.")
@@ -9588,17 +9837,16 @@ def show_pareto_frontier_data(path_to_calculate: str, res_names: list, disable_s
                     else:
                         print(f"Not showing Pareto-front-table for {path_to_calculate}")
 
-                with open(f"{get_current_run_folder()}/pareto_front_table.txt", mode="a", encoding="utf-8") as text_file:
+                with open(get_current_run_folder("pareto_front_table.txt"), mode="a", encoding="utf-8") as text_file:
                     with console.capture() as capture:
                         console.print(rich_table)
                     text_file.write(capture.get())
 
-    with open(f"{get_current_run_folder()}/pareto_idxs.json", mode="w", encoding="utf-8") as pareto_idxs_json_handle:
+    with open(get_current_run_folder("pareto_idxs.json"), mode="w", encoding="utf-8") as pareto_idxs_json_handle:
         json.dump(pareto_points, pareto_idxs_json_handle)
 
     live_share_after_pareto()
 
-@beartype
 def show_available_hardware_and_generation_strategy_string(gpu_string: str, gpu_color: str) -> None:
     cpu_count = os.cpu_count()
 
@@ -9614,7 +9862,6 @@ def show_available_hardware_and_generation_strategy_string(gpu_string: str, gpu_
     else:
         print_green(f"You have {cpu_count} CPUs available for the main process. {gs_string}")
 
-@beartype
 def write_args_overview_table() -> None:
     table = Table(title="Arguments Overview")
     table.add_column("Key", justify="left", style="bold")
@@ -9630,10 +9877,9 @@ def write_args_overview_table() -> None:
 
     table_str = capture.get()
 
-    with open(f"{get_current_run_folder()}/args_overview.txt", mode="w", encoding="utf-8") as text_file:
+    with open(get_current_run_folder("args_overview.txt"), mode="w", encoding="utf-8") as text_file:
         text_file.write(table_str)
 
-@beartype
 def show_experiment_overview_table() -> None:
     table = Table(title="Experiment overview", show_header=True)
 
@@ -9670,24 +9916,23 @@ def show_experiment_overview_table() -> None:
 
     table_str = capture.get()
 
-    with open(f"{get_current_run_folder()}/experiment_overview.txt", mode="w", encoding="utf-8") as text_file:
+    with open(get_current_run_folder("experiment_overview.txt"), mode="w", encoding="utf-8") as text_file:
         text_file.write(table_str)
 
-@beartype
 def write_files_and_show_overviews() -> None:
-    write_state_file("num_random_steps", str(args.num_random_steps))
-    set_global_executor()
-    load_existing_job_data_into_ax_client()
-    write_args_overview_table()
-    show_experiment_overview_table()
-    save_global_vars()
-    write_process_info()
-    write_continue_run_uuid_to_file()
+    with spinner("Write files and show overview"):
+        write_state_file("num_random_steps", str(args.num_random_steps))
+        set_global_executor()
+        load_existing_job_data_into_ax_client()
+        write_args_overview_table()
+        show_experiment_overview_table()
+        save_global_vars()
+        write_process_info()
+        write_continue_run_uuid_to_file()
 
-@beartype
 def write_git_version() -> None:
-    with console.status("[bold green]Writing git info file..."):
-        folder = f"{get_current_run_folder()}/"
+    with spinner("Writing git information"):
+        folder = get_current_run_folder()
         os.makedirs(folder, exist_ok=True)
         file_path = os.path.join(folder, "git_version")
 
@@ -9709,25 +9954,22 @@ def write_git_version() -> None:
         except subprocess.CalledProcessError:
             pass
 
-@beartype
 def write_job_start_file() -> None:
-    with console.status("[bold green]Writing job_start_time file..."):
-        fn = f'{get_current_run_folder()}/job_start_time.txt'
+    with spinner("Writing job_start_time file..."):
+        fn = get_current_run_folder("job_start_time.txt")
         try:
             with open(fn, mode='w', encoding="utf-8") as f:
                 f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         except Exception as e:
             print_red(f"Error trying to write {fn}: {e}")
 
-@beartype
 def write_live_share_file_if_needed() -> None:
-    with console.status("[bold green]Writing live_share file if it is present..."):
+    with spinner("Writing live_share file if it is present..."):
         if args.live_share:
             write_state_file("live_share", "1\n")
 
-@beartype
 def write_username_statefile() -> None:
-    with console.status("[bold green]Writing username state file..."):
+    with spinner("Writing username state file..."):
         _path = get_current_run_folder()
         if args.username:
             file_path = f"{_path}/state_files/username"
@@ -9739,9 +9981,8 @@ def write_username_statefile() -> None:
             except Exception as e:
                 print_red(f"Error writing to file: {e}")
 
-@beartype
 def write_revert_to_random_when_seemingly_exhausted_file() -> None:
-    with console.status("[bold green]Writing revert_to_random_when_seemingly_exhausted file ..."):
+    with spinner("Writing revert_to_random_when_seemingly_exhausted file ..."):
         _path = get_current_run_folder()
         file_path = f"{_path}/state_files/revert_to_random_when_seemingly_exhausted"
 
@@ -9752,7 +9993,6 @@ def write_revert_to_random_when_seemingly_exhausted_file() -> None:
         except Exception as e:
             print_red(f"Error writing to file: {e}")
 
-@beartype
 def debug_vars_unused_by_python_for_linter() -> None:
     print_debug(
         f"partition: {args.partition}, "
@@ -9764,7 +10004,6 @@ def debug_vars_unused_by_python_for_linter() -> None:
         f"run_mode: {args.run_mode}"
     )
 
-@beartype
 def get_constraints() -> list:
     constraints_list: List[str] = []
 
@@ -9779,15 +10018,12 @@ def get_constraints() -> list:
 
     return constraints_list
 
-@beartype
 def _has_explicit_constraints() -> bool:
     return bool(args.experiment_constraints)
 
-@beartype
 def _should_load_previous_constraints() -> bool:
     return bool(args.continue_previous_job and not args.disable_previous_job_constraint and (args.experiment_constraints is None or not len(args.experiment_constraints)))
 
-@beartype
 def _load_previous_constraints(job_path: str) -> list:
     constraint_file = os.path.join(job_path, "state_files", "constraints")
 
@@ -9803,13 +10039,11 @@ def _load_previous_constraints(job_path: str) -> list:
 
     return [encoded_constraints]
 
-@beartype
 def _normalize_constraints_list(constraints_list: list) -> List[str]:
     if isinstance(constraints_list, list) and len(constraints_list) == 1 and isinstance(constraints_list[0], list):
         return constraints_list[0]
     return constraints_list
 
-@beartype
 def _load_experiment_json(continue_previous_job_path: str) -> dict:
     experiment_json_data = {}
 
@@ -9826,7 +10060,6 @@ def _load_experiment_json(continue_previous_job_path: str) -> dict:
 
     return experiment_json_data
 
-@beartype
 def _filter_valid_constraints(constraints: List[str]) -> List[str]:
     global global_param_names
 
@@ -9861,7 +10094,6 @@ def _filter_valid_constraints(constraints: List[str]) -> List[str]:
 
     return final_constraints_list
 
-@beartype
 def load_username_to_args(path_to_calculate: str) -> None:
     if not path_to_calculate:
         return
@@ -9874,7 +10106,6 @@ def load_username_to_args(path_to_calculate: str) -> None:
         except Exception as e:
             print_red(f"Error reading from file: {e}")
 
-@beartype
 def find_results_paths(base_path: str) -> list:
     if not os.path.exists(base_path):
         raise FileNotFoundError(f"Path not found: {base_path}")
@@ -9882,21 +10113,20 @@ def find_results_paths(base_path: str) -> list:
     if not os.path.isdir(base_path):
         raise NotADirectoryError(f"No directory: {base_path}")
 
-    direct_result_file = os.path.join(base_path, "results.csv")
+    direct_result_file = os.path.join(base_path, RESULTS_CSV_FILENAME)
     if os.path.isfile(direct_result_file):
         return [base_path]
 
     found_paths = []
 
     if "DO_NOT_SEARCH_FOLDERS_FOR_RESULTS_CSV" not in os.environ:
-        with console.status("[bold green]Searching for subfolders with results.csv..."):
+        with spinner(f"Searching for subfolders with {RESULTS_CSV_FILENAME}..."):
             for root, _, files in os.walk(base_path):
-                if "results.csv" in files:
+                if RESULTS_CSV_FILENAME in files:
                     found_paths.append(root)
 
     return list(set(found_paths))
 
-@beartype
 def post_job_calculate_pareto_front() -> None:
     if not args.calculate_pareto_front_of_job:
         return
@@ -9927,7 +10157,6 @@ def post_job_calculate_pareto_front() -> None:
 
     my_exit(0)
 
-@beartype
 def job_calculate_pareto_front(path_to_calculate: str, disable_sixel_and_table: bool = False) -> bool:
     pf_start_time = time.time()
 
@@ -9957,7 +10186,7 @@ def job_calculate_pareto_front(path_to_calculate: str, disable_sixel_and_table: 
         print_red(f"The checkpoint file '{checkpoint_file}' does not exist")
         return False
 
-    RESULT_CSV_FILE = f"{path_to_calculate}/results.csv"
+    RESULT_CSV_FILE = f"{path_to_calculate}/{RESULTS_CSV_FILENAME}"
     if not os.path.exists(RESULT_CSV_FILE):
         print_red(f"{RESULT_CSV_FILE} not found")
         return False
@@ -9991,7 +10220,7 @@ def job_calculate_pareto_front(path_to_calculate: str, disable_sixel_and_table: 
 
     arg_result_names = res_names
 
-    experiment_parameters = load_experiment_parameters_from_checkpoint_file(checkpoint_file, False)
+    load_experiment_parameters_from_checkpoint_file(checkpoint_file, False)
 
     if experiment_parameters is None:
         return False
@@ -10004,7 +10233,6 @@ def job_calculate_pareto_front(path_to_calculate: str, disable_sixel_and_table: 
 
     return True
 
-@beartype
 def set_arg_states_from_continue() -> None:
     if args.continue_previous_job and not args.num_random_steps:
         num_random_steps_file = f"{args.continue_previous_job}/state_files/num_random_steps"
@@ -10018,29 +10246,26 @@ def set_arg_states_from_continue() -> None:
         if os.path.exists(f"{args.continue_previous_job}/state_files/revert_to_random_when_seemingly_exhausted"):
             args.revert_to_random_when_seemingly_exhausted = True
 
-@beartype
 def write_result_min_max_file() -> None:
-    with console.status("[bold green]Writing result min/max file..."):
+    with spinner("Writing result min/max file..."):
         try:
-            fn = f"{get_current_run_folder()}/result_min_max.txt"
+            fn = get_current_run_folder("result_min_max.txt")
             with open(fn, mode="a", encoding="utf-8") as myfile:
                 for rarg in arg_result_min_or_max:
                     original_print(rarg, file=myfile)
         except Exception as e:
             print_red(f"Error trying to open file '{fn}': {e}")
 
-@beartype
 def write_result_names_file() -> None:
-    with console.status("[bold green]Writing result names file..."):
+    with spinner("Writing result names file..."):
         try:
-            fn = f"{get_current_run_folder()}/result_names.txt"
+            fn = get_current_run_folder("result_names.txt")
             with open(fn, mode="a", encoding="utf-8") as myfile:
                 for rarg in arg_result_names:
                     original_print(rarg, file=myfile)
         except Exception as e:
             print_red(f"Error trying to open file '{fn}': {e}")
 
-@beartype
 def run_program_once(params=None) -> None:
     if not args.run_program_once:
         print_debug("[yellow]No setup script specified (run_program_once). Skipping setup.[/yellow]")
@@ -10055,8 +10280,7 @@ def run_program_once(params=None) -> None:
             placeholder = f"%({k})"
             command_str = command_str.replace(placeholder, str(v))
 
-        with console.status("[bold green]Running setup script...[/bold green]", spinner="dots"):
-            console.log(f"Executing command: [cyan]{command_str}[/cyan]")
+        with spinner(f"Executing command: [cyan]{command_str}[/cyan]"):
             result = subprocess.run(command_str, shell=True, check=True)
             if result.returncode == 0:
                 console.log("[bold green]Setup script completed successfully ✅[/bold green]")
@@ -10066,8 +10290,7 @@ def run_program_once(params=None) -> None:
                 my_exit(57)
 
     elif isinstance(args.run_program_once, (list, tuple)):
-        with console.status("[bold green]Running setup script (list)...[/bold green]", spinner="dots"):
-            console.log(f"Executing command list: [cyan]{args.run_program_once}[/cyan]")
+        with spinner("run_program_once: Executing command list: [cyan]{args.run_program_once}[/cyan]"):
             result = subprocess.run(args.run_program_once, check=True)
             if result.returncode == 0:
                 console.log("[bold green]Setup script completed successfully ✅[/bold green]")
@@ -10081,7 +10304,15 @@ def run_program_once(params=None) -> None:
 
         my_exit(57)
 
-@beartype
+def show_omniopt_call() -> None:
+    def remove_ui_url(arg_str):
+        return re.sub(r'(?:--ui_url(?:=\S+)?(?:\s+\S+)?)', '', arg_str).strip()
+
+    original_argv = " ".join(sys.argv[1:])
+    cleaned = remove_ui_url(original_argv)
+
+    original_print(oo_call + " " + cleaned)
+
 def main() -> None:
     global RESULT_CSV_FILE, ax_client, LOGFILE_DEBUG_GET_NEXT_TRIALS
 
@@ -10089,7 +10320,8 @@ def main() -> None:
 
     log_worker_creation()
 
-    original_print(oo_call + " " + " ".join(sys.argv[1:]))
+    show_omniopt_call()
+
     check_slurm_job_id()
 
     debug_vars_unused_by_python_for_linter()
@@ -10135,8 +10367,8 @@ def main() -> None:
     initialize_nvidia_logs()
     write_ui_url_if_present()
 
-    LOGFILE_DEBUG_GET_NEXT_TRIALS = f'{get_current_run_folder()}/get_next_trials.csv'
-    experiment_parameters, cli_params_experiment_parameters = parse_parameters()
+    LOGFILE_DEBUG_GET_NEXT_TRIALS = get_current_run_folder('get_next_trials.csv')
+    cli_params_experiment_parameters = parse_parameters()
 
     write_live_share_file_if_needed()
 
@@ -10161,16 +10393,17 @@ def main() -> None:
 
     initialize_ax_client()
 
-    exp_params = get_experiment_parameters([
-        cli_params_experiment_parameters,
-        experiment_parameters,
-    ])
+    exp_params = get_experiment_parameters(cli_params_experiment_parameters)
 
     if exp_params is not None:
-        ax_client, experiment_parameters, experiment_args, gpu_string, gpu_color = exp_params
+        ax_client, experiment_args, gpu_string, gpu_color = exp_params
         print_debug(f"experiment_parameters: {experiment_parameters}")
 
         set_orchestrator()
+
+        init_live_share()
+
+        start_periodic_live_share()
 
         show_available_hardware_and_generation_strategy_string(gpu_string, gpu_color)
 
@@ -10179,22 +10412,25 @@ def main() -> None:
         if args.external_generator:
             original_print(f"External-Generator: {decode_if_base64(args.external_generator)}")
 
-        checkpoint_parameters_filepath = f"{get_current_run_folder()}/state_files/checkpoint.json.parameters.json"
-        save_experiment_parameters(checkpoint_parameters_filepath, experiment_parameters)
+        checkpoint_parameters_filepath = get_state_file_name("checkpoint.json.parameters.json")
+        save_experiment_parameters(checkpoint_parameters_filepath)
 
         print_overview_tables(experiment_parameters, experiment_args)
 
         write_files_and_show_overviews()
 
+        #if args.continue_previous_job:
+        #    insert_jobs_from_csv(f"{args.continue_previous_job}/{RESULTS_CSV_FILENAME}")
+
         for existing_run in args.load_data_from_existing_jobs:
-            insert_jobs_from_csv(f"{existing_run}/results.csv".replace("//", "/"), experiment_parameters)
+            insert_jobs_from_csv(f"{existing_run}/{RESULTS_CSV_FILENAME}")
 
             set_global_generation_strategy()
 
+        start_worker_generators()
+
         try:
             run_search_with_progress_bar()
-
-            live_share()
 
             time.sleep(2)
         except ax.exceptions.core.UnsupportedError:
@@ -10204,14 +10440,25 @@ def main() -> None:
     else:
         print_red("exp_params is None!")
 
-@beartype
+def load_existing_data_for_worker_generation_path() -> None:
+    if args.worker_generator_path:
+        with spinner("Loading existing data for worker generators"):
+            if not os.path.exists(args.worker_generator_path):
+                print_red(f"Cannot continue. '--worker_generator_path {args.worker_generator_path}' does not exist.")
+                my_exit(96)
+
+            if not os.path.exists(f"{args.worker_generator_path}/{RESULTS_CSV_FILENAME}"):
+                print_red(f"Cannot continue. '--worker_generator_path {args.worker_generator_path}' does not exist.")
+                my_exit(96)
+
+            insert_jobs_from_csv(f"{args.worker_generator_path}/{RESULTS_CSV_FILENAME}")
+
 def log_worker_creation() -> None:
-    with console.status("[bold green]Writing worker creation log..."):
+    with spinner("Writing worker creation log..."):
         _debug_worker_creation("time, nr_workers, got, requested, phase")
 
-@beartype
 def set_run_folder() -> None:
-    with console.status("[bold green]Setting run folder..."):
+    with spinner("Setting run folder..."):
         global CURRENT_RUN_FOLDER
 
         # Ensure run_dir is an absolute path
@@ -10219,45 +10466,47 @@ def set_run_folder() -> None:
         if not os.path.isabs(run_dir):
             run_dir = os.path.abspath(run_dir)
 
-        RUN_FOLDER_NUMBER: int = 0
-        CURRENT_RUN_FOLDER = f"{run_dir}/{global_vars['experiment_name']}/{RUN_FOLDER_NUMBER}"
+        if args.worker_generator_path:
+            print_yellow(f"set_run_folder: Using {args.worker_generator_path} as worker-generation path, will append additional worker to it")
 
-        while os.path.exists(CURRENT_RUN_FOLDER):
-            RUN_FOLDER_NUMBER += 1
+            CURRENT_RUN_FOLDER = args.worker_generator_path
+
+            if not os.path.exists(CURRENT_RUN_FOLDER):
+                print_red(f"Cannot join worker generator: --worker_generator_path {args.worker_generator_path} is not a valid directory")
+
+                my_exit(96)
+
+        else:
+            RUN_FOLDER_NUMBER: int = 0
             CURRENT_RUN_FOLDER = f"{run_dir}/{global_vars['experiment_name']}/{RUN_FOLDER_NUMBER}"
 
-@beartype
+            while os.path.exists(CURRENT_RUN_FOLDER):
+                RUN_FOLDER_NUMBER += 1
+                CURRENT_RUN_FOLDER = f"{run_dir}/{global_vars['experiment_name']}/{RUN_FOLDER_NUMBER}"
+
 def print_run_info() -> None:
-    with console.status("[bold green]Printing run info..."):
-        console.print(f"[bold]Run-folder[/bold]: [underline]{get_current_run_folder()}[/underline]")
-        if args.continue_previous_job:
-            original_print(f"Continuation from {args.continue_previous_job}")
+    console.print(f"[bold]Run-folder[/bold]: [underline]{get_current_run_folder()}[/underline]")
+    if args.continue_previous_job:
+        original_print(f"Continuation from {args.continue_previous_job}")
 
-@beartype
 def initialize_nvidia_logs() -> None:
-    with console.status("[bold green]Initializing NVIDIA-Logs..."):
-        global NVIDIA_SMI_LOGS_BASE
-        NVIDIA_SMI_LOGS_BASE = f'{get_current_run_folder()}/gpu_usage_'
+    global NVIDIA_SMI_LOGS_BASE
+    NVIDIA_SMI_LOGS_BASE = get_current_run_folder('gpu_usage_')
 
-@beartype
 def write_ui_url_if_present() -> None:
-    with console.status("[bold green]Writing ui_url file if it is present..."):
-        if args.ui_url:
-            with open(f"{get_current_run_folder()}/ui_url.txt", mode="a", encoding="utf-8") as myfile:
-                myfile.write(decode_if_base64(args.ui_url))
+    if args.ui_url:
+        with open(get_current_run_folder("ui_url.txt"), mode="a", encoding="utf-8") as myfile:
+            myfile.write(decode_if_base64(args.ui_url))
 
-@beartype
 def handle_random_steps() -> None:
-    with console.status("[bold green]Handling random steps..."):
-        if args.parameter and args.continue_previous_job and random_steps <= 0:
-            print(f"A parameter has been reset, but the earlier job already had its random phase. To look at the new search space, {args.num_random_steps} random steps will be executed.")
-            set_random_steps(args.num_random_steps)
+    if args.parameter and args.continue_previous_job and random_steps <= 0:
+        print(f"A parameter has been reset, but the earlier job already had its random phase. To look at the new search space, {args.num_random_steps} random steps will be executed.")
+        set_random_steps(args.num_random_steps)
 
-@beartype
 def initialize_ax_client() -> None:
     global ax_client
 
-    with console.status("[bold green]Initializing ax_client..."):
+    with spinner("Initializing ax_client..."):
         ax_client = AxClient(
             verbose_logging=args.verbose,
             enforce_sequential_optimization=False,
@@ -10266,7 +10515,6 @@ def initialize_ax_client() -> None:
 
         ax_client = cast(AxClient, ax_client)
 
-@beartype
 def get_generation_strategy_string() -> str:
     if generation_strategy_human_readable:
         return f"Generation strategy: {generation_strategy_human_readable}."
@@ -10283,32 +10531,29 @@ class NpEncoder(json.JSONEncoder):
             return obj.tolist()
         return super(NpEncoder, self).default(obj)
 
-@beartype
-def save_experiment_parameters(filepath: str, experiment_parameters: Union[list, dict]) -> None:
+def save_experiment_parameters(filepath: str) -> None:
     with open(filepath, mode="w", encoding="utf-8") as outfile:
         json.dump(experiment_parameters, outfile, cls=NpEncoder)
 
-@beartype
 def run_search_with_progress_bar() -> None:
-    live_share()
+    global progress_bar
 
     disable_tqdm = args.disable_tqdm or ci_env
 
     total_jobs = max_eval
 
     with tqdm(total=total_jobs, disable=disable_tqdm, ascii="░▒█") as _progress_bar:
-        write_process_info()
-        global progress_bar
         progress_bar = _progress_bar
+        write_process_info()
 
-        progressbar_description(["Started OmniOpt2 run..."])
-        update_progress_bar(progress_bar, count_done_jobs() + NR_INSERTED_JOBS)
+        progressbar_description("Started OmniOpt2 run...")
 
-        run_search(progress_bar)
+        update_progress_bar(count_done_jobs() + NR_INSERTED_JOBS)
+
+        run_search()
 
     wait_for_jobs_to_complete()
 
-@beartype
 def complex_tests(_program_name: str, wanted_stderr: str, wanted_exit_code: int, wanted_signal: Union[int, None], res_is_none: bool = False) -> int:
     #print_yellow(f"Test suite: {_program_name}")
 
@@ -10356,14 +10601,12 @@ def complex_tests(_program_name: str, wanted_stderr: str, wanted_exit_code: int,
 
         return 1
 
-@beartype
 def get_files_in_dir(mypath: str) -> list:
     print_debug("get_files_in_dir")
     onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
 
     return [f"{mypath}/{s}" for s in onlyfiles]
 
-@beartype
 def test_find_paths(program_code: str) -> int:
     print_debug(f"test_find_paths({program_code})")
     nr_errors: int = 0
@@ -10392,7 +10635,6 @@ def test_find_paths(program_code: str) -> int:
 
     return nr_errors
 
-@beartype
 def run_tests() -> None:
     print_red("This should be red")
     print_yellow("This should be yellow")
@@ -10403,7 +10645,7 @@ def run_tests() -> None:
     nr_errors: int = 0
 
     try:
-        ie = is_equal('get_min_or_max_column_value(".tests/_plot_example_runs/ten_params/0/IDONTEVENEXIST/results.csv", "result", -123, "min")', str(get_min_or_max_column_value(".tests/_plot_example_runs/ten_params/0/IDONTEVENEXIST/results.csv", 'result', -123, "min")), '-123')
+        ie = is_equal(f'get_min_or_max_column_value(".tests/_plot_example_runs/ten_params/0/IDONTEVENEXIST/{RESULTS_CSV_FILENAME}", "result", -123, "min")', str(get_min_or_max_column_value(f".tests/_plot_example_runs/ten_params/0/IDONTEVENEXIST/{RESULTS_CSV_FILENAME}", 'result', -123, "min")), '-123')
 
         if not ie:
             nr_errors += 1
@@ -10493,8 +10735,8 @@ def run_tests() -> None:
     nr_errors += is_equal("rounded_lower", rounded_lower, -124)
     nr_errors += is_equal("rounded_upper", rounded_upper, 124)
 
-    nr_errors += is_equal('get_min_or_max_column_value(".tests/_plot_example_runs/ten_params/0/results.csv", "result", -123, "min")', str(get_min_or_max_column_value(".tests/_plot_example_runs/ten_params/0/results.csv", 'result', -123, "min")), '17143005390319.627')
-    nr_errors += is_equal('get_min_or_max_column_value(".tests/_plot_example_runs/ten_params/0/results.csv", "result", -123, "max")', str(get_min_or_max_column_value(".tests/_plot_example_runs/ten_params/0/results.csv", 'result', -123, "max")), '9.865416064838896e+29')
+    nr_errors += is_equal(f'get_min_or_max_column_value(".tests/_plot_example_runs/ten_params/0/{RESULTS_CSV_FILENAME}", "result", -123, "min")', str(get_min_or_max_column_value(f".tests/_plot_example_runs/ten_params/0/{RESULTS_CSV_FILENAME}", 'result', -123, "min")), '17143005390319.627')
+    nr_errors += is_equal(f'get_min_or_max_column_value(".tests/_plot_example_runs/ten_params/0/{RESULTS_CSV_FILENAME}", "result", -123, "max")', str(get_min_or_max_column_value(f".tests/_plot_example_runs/ten_params/0/{RESULTS_CSV_FILENAME}", 'result', -123, "max")), '9.865416064838896e+29')
 
     nr_errors += is_equal('get_file_as_string("/i/do/not/exist/ANYWHERE/EVER")', get_file_as_string("/i/do/not/exist/ANYWHERE/EVER"), "")
 
@@ -10549,10 +10791,10 @@ def run_tests() -> None:
         "n_clusters"
     ]
 
-    got: str = json.dumps(get_sixel_graphics_data('.gui/_share_test_case/test_user/ClusteredStatisticalTestDriftDetectionMethod_NOAAWeather/0/results.csv', True))
+    got: str = json.dumps(get_sixel_graphics_data(f'.gui/_share_test_case/test_user/ClusteredStatisticalTestDriftDetectionMethod_NOAAWeather/0/{RESULTS_CSV_FILENAME}', True))
     expected: str = '[["bash omniopt_plot --run_dir  --plot_type=trial_index_result", {"type": "trial_index_result", "min_done_jobs": 2}, "/plots/", "trial_index_result", "/plots//trial_index_result.png", "1200"], ["bash omniopt_plot --run_dir  --plot_type=scatter --dpi=76", {"type": "scatter", "params": "--bubblesize=50 --allow_axes %0 --allow_axes %1", "iterate_through": [["n_samples", "confidence"], ["n_samples", "feature_proportion"], ["n_samples", "n_clusters"], ["confidence", "feature_proportion"], ["confidence", "n_clusters"], ["feature_proportion", "n_clusters"]], "dpi": 76, "filename": "plot_%0_%1_%2"}, "/plots/", "scatter", "/plots//plot_%0_%1_%2.png", "1200"], ["bash omniopt_plot --run_dir  --plot_type=general", {"type": "general"}, "/plots/", "general", "/plots//general.png", "1200"]]'
 
-    nr_errors += is_equal('get_sixel_graphics_data(".gui/_share_test_case/test_user/ClusteredStatisticalTestDriftDetectionMethod_NOAAWeather/0/results.csv", True)', got, expected)
+    nr_errors += is_equal(f'get_sixel_graphics_data(".gui/_share_test_case/test_user/ClusteredStatisticalTestDriftDetectionMethod_NOAAWeather/0/{RESULTS_CSV_FILENAME}", True)', got, expected)
 
     nr_errors += is_equal('get_hostname_from_outfile("")', get_hostname_from_outfile(''), None)
 
@@ -10640,7 +10882,7 @@ Exit-Code: 159
         ["get_program_code_from_out_file('/etc/doesntexist')", ""],
         ["get_type_short('RangeParameter')", "range"],
         ["get_type_short('ChoiceParameter')", "choice"],
-        ["create_and_execute_next_runs(0, None, None, None)", 0]
+        ["create_and_execute_next_runs(0, None, None)", 0]
     ]
 
     for _item in equal:
@@ -10769,11 +11011,14 @@ Exit-Code: 159
 
     my_exit(nr_errors)
 
-@beartype
 def main_outside() -> None:
     print(f"Run-UUID: {run_uuid}")
 
+    auto_wrap_namespace(globals())
+
     print_logo()
+
+    start_logging_daemon()
 
     fool_linter(args.num_cpus_main_job)
     fool_linter(args.flame_graph)
@@ -10808,7 +11053,41 @@ def main_outside() -> None:
             else:
                 end_program(True)
 
+def auto_wrap_namespace(namespace: Any) -> Any:
+    enable_beartype = any(os.getenv(v) for v in ("ENABLE_BEARTYPE", "CI"))
+
+    excluded_functions = {
+        "log_time_and_memory_wrapper",
+        "collect_runtime_stats",
+        "_print_time_and_memory_functions_wrapper_stats",
+        "print",
+        "_record_stats",
+        "_open",
+        "_check_memory_leak",
+        "start_periodic_live_share",
+        "start_logging_daemon",
+        "get_current_run_folder",
+        "show_func_name_wrapper"
+    }
+
+    for name, obj in list(namespace.items()):
+        if (isinstance(obj, types.FunctionType) and name not in excluded_functions):
+            wrapped = obj
+            if enable_beartype:
+                wrapped = beartype(wrapped)
+
+            if args.runtime_debug:
+                wrapped = log_time_and_memory_wrapper(wrapped)
+
+            if args.show_func_name:
+                wrapped = show_func_name_wrapper(wrapped)
+
+            namespace[name] = wrapped
+
+    return namespace
+
 if __name__ == "__main__":
+
     try:
         main_outside()
     except (SignalUSR, SignalINT, SignalCONT) as e:

@@ -38,8 +38,8 @@ class Trigger:
         return self._trigger_number
 
     def __init__(self, device: 'Device', trigger_number: int):
-        self._device = device
-        self._trigger_number = trigger_number
+        self._device: 'Device' = device
+        self._trigger_number: int = trigger_number
 
     def enable(
             self,

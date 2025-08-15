@@ -43,6 +43,8 @@ __all__ = (
     "ComputeType",
     "ConnectionAliasStateType",
     "ConnectionStateType",
+    "CustomImageProtocolType",
+    "CustomWorkspaceImageImportStateType",
     "DataReplicationType",
     "DedicatedTenancyAccountTypeType",
     "DedicatedTenancyModificationStateEnumType",
@@ -62,6 +64,7 @@ __all__ = (
     "DescribeWorkspacesPoolsFilterOperatorType",
     "EndpointEncryptionModeType",
     "ImageAssociatedResourceTypeType",
+    "ImageComputeTypeType",
     "ImageTypeType",
     "InternetFallbackProtocolType",
     "ListAccountLinksPaginatorName",
@@ -69,9 +72,11 @@ __all__ = (
     "LogUploadEnumType",
     "ModificationResourceEnumType",
     "ModificationStateEnumType",
+    "OSVersionType",
     "OperatingSystemNameType",
     "OperatingSystemTypeType",
     "PaginatorName",
+    "PlatformType",
     "PoolsRunningModeType",
     "ProtocolType",
     "ReconnectEnumType",
@@ -171,6 +176,8 @@ ComputeType = Literal[
 ]
 ConnectionAliasStateType = Literal["CREATED", "CREATING", "DELETING"]
 ConnectionStateType = Literal["CONNECTED", "DISCONNECTED", "UNKNOWN"]
+CustomImageProtocolType = Literal["BYOP", "DCV", "PCOIP"]
+CustomWorkspaceImageImportStateType = Literal["COMPLETED", "ERROR", "IN_PROGRESS", "PENDING"]
 DataReplicationType = Literal["NO_REPLICATION", "PRIMARY_AS_SOURCE"]
 DedicatedTenancyAccountTypeType = Literal["SOURCE_ACCOUNT", "TARGET_ACCOUNT"]
 DedicatedTenancyModificationStateEnumType = Literal["COMPLETED", "FAILED", "PENDING"]
@@ -196,6 +203,7 @@ DescribeWorkspacesPoolsFilterOperatorType = Literal[
 ]
 EndpointEncryptionModeType = Literal["FIPS_VALIDATED", "STANDARD_TLS"]
 ImageAssociatedResourceTypeType = Literal["APPLICATION"]
+ImageComputeTypeType = Literal["BASE", "GRAPHICS_G4DN"]
 ImageTypeType = Literal["OWNED", "SHARED"]
 InternetFallbackProtocolType = Literal["PCOIP"]
 ListAccountLinksPaginatorName = Literal["list_account_links"]
@@ -203,6 +211,7 @@ ListAvailableManagementCidrRangesPaginatorName = Literal["list_available_managem
 LogUploadEnumType = Literal["DISABLED", "ENABLED"]
 ModificationResourceEnumType = Literal["COMPUTE_TYPE", "ROOT_VOLUME", "USER_VOLUME"]
 ModificationStateEnumType = Literal["UPDATE_INITIATED", "UPDATE_IN_PROGRESS"]
+OSVersionType = Literal["Windows_10", "Windows_11"]
 OperatingSystemNameType = Literal[
     "AMAZON_LINUX_2",
     "RHEL_8",
@@ -219,6 +228,7 @@ OperatingSystemNameType = Literal[
     "WINDOWS_SERVER_2022",
 ]
 OperatingSystemTypeType = Literal["LINUX", "WINDOWS"]
+PlatformType = Literal["WINDOWS"]
 PoolsRunningModeType = Literal["ALWAYS_ON", "AUTO_STOP"]
 ProtocolType = Literal["PCOIP", "WSP"]
 ReconnectEnumType = Literal["DISABLED", "ENABLED"]
@@ -420,6 +430,7 @@ ServiceName = Literal[
     "batch",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

@@ -32,8 +32,8 @@ class Lockstep:
         return self._lockstep_group_id
 
     def __init__(self, device: 'Device', lockstep_group_id: int):
-        self._device = device
-        self._lockstep_group_id = lockstep_group_id
+        self._device: 'Device' = device
+        self._lockstep_group_id: int = lockstep_group_id
 
     def enable(
             self,

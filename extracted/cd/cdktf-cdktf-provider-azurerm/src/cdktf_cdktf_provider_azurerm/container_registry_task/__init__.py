@@ -1,7 +1,7 @@
 r'''
 # `azurerm_container_registry_task`
 
-Refer to the Terraform Registry for docs: [`azurerm_container_registry_task`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task).
+Refer to the Terraform Registry for docs: [`azurerm_container_registry_task`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ContainerRegistryTask(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.containerRegistryTask.ContainerRegistryTask",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task azurerm_container_registry_task}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task azurerm_container_registry_task}.'''
 
     def __init__(
         self,
@@ -79,30 +79,30 @@ class ContainerRegistryTask(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task azurerm_container_registry_task} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task azurerm_container_registry_task} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param container_registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#container_registry_id ContainerRegistryTask#container_registry_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.
-        :param agent_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#agent_pool_name ContainerRegistryTask#agent_pool_name}.
-        :param agent_setting: agent_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#agent_setting ContainerRegistryTask#agent_setting}
-        :param base_image_trigger: base_image_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#base_image_trigger ContainerRegistryTask#base_image_trigger}
-        :param docker_step: docker_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#docker_step ContainerRegistryTask#docker_step}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.
-        :param encoded_step: encoded_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#encoded_step ContainerRegistryTask#encoded_step}
-        :param file_step: file_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#file_step ContainerRegistryTask#file_step}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#id ContainerRegistryTask#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#identity ContainerRegistryTask#identity}
-        :param is_system_task: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#is_system_task ContainerRegistryTask#is_system_task}.
-        :param log_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#log_template ContainerRegistryTask#log_template}.
-        :param platform: platform block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#platform ContainerRegistryTask#platform}
-        :param registry_credential: registry_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#registry_credential ContainerRegistryTask#registry_credential}
-        :param source_trigger: source_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#source_trigger ContainerRegistryTask#source_trigger}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#tags ContainerRegistryTask#tags}.
-        :param timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#timeout_in_seconds ContainerRegistryTask#timeout_in_seconds}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#timeouts ContainerRegistryTask#timeouts}
-        :param timer_trigger: timer_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#timer_trigger ContainerRegistryTask#timer_trigger}
+        :param container_registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#container_registry_id ContainerRegistryTask#container_registry_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.
+        :param agent_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#agent_pool_name ContainerRegistryTask#agent_pool_name}.
+        :param agent_setting: agent_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#agent_setting ContainerRegistryTask#agent_setting}
+        :param base_image_trigger: base_image_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#base_image_trigger ContainerRegistryTask#base_image_trigger}
+        :param docker_step: docker_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#docker_step ContainerRegistryTask#docker_step}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.
+        :param encoded_step: encoded_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#encoded_step ContainerRegistryTask#encoded_step}
+        :param file_step: file_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#file_step ContainerRegistryTask#file_step}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#id ContainerRegistryTask#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#identity ContainerRegistryTask#identity}
+        :param is_system_task: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#is_system_task ContainerRegistryTask#is_system_task}.
+        :param log_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#log_template ContainerRegistryTask#log_template}.
+        :param platform: platform block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#platform ContainerRegistryTask#platform}
+        :param registry_credential: registry_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#registry_credential ContainerRegistryTask#registry_credential}
+        :param source_trigger: source_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#source_trigger ContainerRegistryTask#source_trigger}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#tags ContainerRegistryTask#tags}.
+        :param timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#timeout_in_seconds ContainerRegistryTask#timeout_in_seconds}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#timeouts ContainerRegistryTask#timeouts}
+        :param timer_trigger: timer_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#timer_trigger ContainerRegistryTask#timer_trigger}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -160,7 +160,7 @@ class ContainerRegistryTask(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ContainerRegistryTask to import.
-        :param import_from_id: The id of the existing ContainerRegistryTask that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ContainerRegistryTask that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ContainerRegistryTask to import is found.
         '''
         if __debug__:
@@ -174,7 +174,7 @@ class ContainerRegistryTask(
     @jsii.member(jsii_name="putAgentSetting")
     def put_agent_setting(self, *, cpu: jsii.Number) -> None:
         '''
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#cpu ContainerRegistryTask#cpu}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#cpu ContainerRegistryTask#cpu}.
         '''
         value = ContainerRegistryTaskAgentSetting(cpu=cpu)
 
@@ -191,11 +191,11 @@ class ContainerRegistryTask(
         update_trigger_payload_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#type ContainerRegistryTask#type}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.
-        :param update_trigger_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#update_trigger_endpoint ContainerRegistryTask#update_trigger_endpoint}.
-        :param update_trigger_payload_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#update_trigger_payload_type ContainerRegistryTask#update_trigger_payload_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#type ContainerRegistryTask#type}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.
+        :param update_trigger_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#update_trigger_endpoint ContainerRegistryTask#update_trigger_endpoint}.
+        :param update_trigger_payload_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#update_trigger_payload_type ContainerRegistryTask#update_trigger_payload_type}.
         '''
         value = ContainerRegistryTaskBaseImageTrigger(
             name=name,
@@ -222,15 +222,15 @@ class ContainerRegistryTask(
         target: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param context_access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.
-        :param context_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.
-        :param dockerfile_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#dockerfile_path ContainerRegistryTask#dockerfile_path}.
-        :param arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#arguments ContainerRegistryTask#arguments}.
-        :param cache_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#cache_enabled ContainerRegistryTask#cache_enabled}.
-        :param image_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#image_names ContainerRegistryTask#image_names}.
-        :param push_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#push_enabled ContainerRegistryTask#push_enabled}.
-        :param secret_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#secret_arguments ContainerRegistryTask#secret_arguments}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#target ContainerRegistryTask#target}.
+        :param context_access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.
+        :param context_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.
+        :param dockerfile_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#dockerfile_path ContainerRegistryTask#dockerfile_path}.
+        :param arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#arguments ContainerRegistryTask#arguments}.
+        :param cache_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#cache_enabled ContainerRegistryTask#cache_enabled}.
+        :param image_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#image_names ContainerRegistryTask#image_names}.
+        :param push_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#push_enabled ContainerRegistryTask#push_enabled}.
+        :param secret_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#secret_arguments ContainerRegistryTask#secret_arguments}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#target ContainerRegistryTask#target}.
         '''
         value = ContainerRegistryTaskDockerStep(
             context_access_token=context_access_token,
@@ -258,12 +258,12 @@ class ContainerRegistryTask(
         values: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param task_content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#task_content ContainerRegistryTask#task_content}.
-        :param context_access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.
-        :param context_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.
-        :param secret_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#secret_values ContainerRegistryTask#secret_values}.
-        :param value_content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#value_content ContainerRegistryTask#value_content}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#values ContainerRegistryTask#values}.
+        :param task_content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#task_content ContainerRegistryTask#task_content}.
+        :param context_access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.
+        :param context_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.
+        :param secret_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#secret_values ContainerRegistryTask#secret_values}.
+        :param value_content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#value_content ContainerRegistryTask#value_content}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#values ContainerRegistryTask#values}.
         '''
         value = ContainerRegistryTaskEncodedStep(
             task_content=task_content,
@@ -288,12 +288,12 @@ class ContainerRegistryTask(
         values: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param task_file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#task_file_path ContainerRegistryTask#task_file_path}.
-        :param context_access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.
-        :param context_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.
-        :param secret_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#secret_values ContainerRegistryTask#secret_values}.
-        :param value_file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#value_file_path ContainerRegistryTask#value_file_path}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#values ContainerRegistryTask#values}.
+        :param task_file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#task_file_path ContainerRegistryTask#task_file_path}.
+        :param context_access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.
+        :param context_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.
+        :param secret_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#secret_values ContainerRegistryTask#secret_values}.
+        :param value_file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#value_file_path ContainerRegistryTask#value_file_path}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#values ContainerRegistryTask#values}.
         '''
         value = ContainerRegistryTaskFileStep(
             task_file_path=task_file_path,
@@ -314,8 +314,8 @@ class ContainerRegistryTask(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#type ContainerRegistryTask#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#identity_ids ContainerRegistryTask#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#type ContainerRegistryTask#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#identity_ids ContainerRegistryTask#identity_ids}.
         '''
         value = ContainerRegistryTaskIdentity(type=type, identity_ids=identity_ids)
 
@@ -330,9 +330,9 @@ class ContainerRegistryTask(
         variant: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#os ContainerRegistryTask#os}.
-        :param architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#architecture ContainerRegistryTask#architecture}.
-        :param variant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#variant ContainerRegistryTask#variant}.
+        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#os ContainerRegistryTask#os}.
+        :param architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#architecture ContainerRegistryTask#architecture}.
+        :param variant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#variant ContainerRegistryTask#variant}.
         '''
         value = ContainerRegistryTaskPlatform(
             os=os, architecture=architecture, variant=variant
@@ -348,8 +348,8 @@ class ContainerRegistryTask(
         source: typing.Optional[typing.Union["ContainerRegistryTaskRegistryCredentialSource", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom: custom block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#custom ContainerRegistryTask#custom}
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#source ContainerRegistryTask#source}
+        :param custom: custom block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#custom ContainerRegistryTask#custom}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#source ContainerRegistryTask#source}
         '''
         value = ContainerRegistryTaskRegistryCredential(custom=custom, source=source)
 
@@ -378,10 +378,10 @@ class ContainerRegistryTask(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#create ContainerRegistryTask#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#delete ContainerRegistryTask#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#read ContainerRegistryTask#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#update ContainerRegistryTask#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#create ContainerRegistryTask#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#delete ContainerRegistryTask#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#read ContainerRegistryTask#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#update ContainerRegistryTask#update}.
         '''
         value = ContainerRegistryTaskTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -787,7 +787,7 @@ class ContainerRegistryTask(
 class ContainerRegistryTaskAgentSetting:
     def __init__(self, *, cpu: jsii.Number) -> None:
         '''
-        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#cpu ContainerRegistryTask#cpu}.
+        :param cpu: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#cpu ContainerRegistryTask#cpu}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__343ece96c41e09b502d179fc6cb9a6abb17414a4dad50b3cfad01049c32fa9ff)
@@ -798,7 +798,7 @@ class ContainerRegistryTaskAgentSetting:
 
     @builtins.property
     def cpu(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#cpu ContainerRegistryTask#cpu}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#cpu ContainerRegistryTask#cpu}.'''
         result = self._values.get("cpu")
         assert result is not None, "Required property 'cpu' is missing"
         return typing.cast(jsii.Number, result)
@@ -890,11 +890,11 @@ class ContainerRegistryTaskBaseImageTrigger:
         update_trigger_payload_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#type ContainerRegistryTask#type}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.
-        :param update_trigger_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#update_trigger_endpoint ContainerRegistryTask#update_trigger_endpoint}.
-        :param update_trigger_payload_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#update_trigger_payload_type ContainerRegistryTask#update_trigger_payload_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#type ContainerRegistryTask#type}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.
+        :param update_trigger_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#update_trigger_endpoint ContainerRegistryTask#update_trigger_endpoint}.
+        :param update_trigger_payload_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#update_trigger_payload_type ContainerRegistryTask#update_trigger_payload_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__941b5ab429c66cc7170d132ef15b827a0df8361d85527646bd5a7349f172fa77)
@@ -916,14 +916,14 @@ class ContainerRegistryTaskBaseImageTrigger:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#type ContainerRegistryTask#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#type ContainerRegistryTask#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -932,19 +932,19 @@ class ContainerRegistryTaskBaseImageTrigger:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def update_trigger_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#update_trigger_endpoint ContainerRegistryTask#update_trigger_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#update_trigger_endpoint ContainerRegistryTask#update_trigger_endpoint}.'''
         result = self._values.get("update_trigger_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update_trigger_payload_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#update_trigger_payload_type ContainerRegistryTask#update_trigger_payload_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#update_trigger_payload_type ContainerRegistryTask#update_trigger_payload_type}.'''
         result = self._values.get("update_trigger_payload_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1171,26 +1171,26 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param container_registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#container_registry_id ContainerRegistryTask#container_registry_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.
-        :param agent_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#agent_pool_name ContainerRegistryTask#agent_pool_name}.
-        :param agent_setting: agent_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#agent_setting ContainerRegistryTask#agent_setting}
-        :param base_image_trigger: base_image_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#base_image_trigger ContainerRegistryTask#base_image_trigger}
-        :param docker_step: docker_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#docker_step ContainerRegistryTask#docker_step}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.
-        :param encoded_step: encoded_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#encoded_step ContainerRegistryTask#encoded_step}
-        :param file_step: file_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#file_step ContainerRegistryTask#file_step}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#id ContainerRegistryTask#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#identity ContainerRegistryTask#identity}
-        :param is_system_task: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#is_system_task ContainerRegistryTask#is_system_task}.
-        :param log_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#log_template ContainerRegistryTask#log_template}.
-        :param platform: platform block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#platform ContainerRegistryTask#platform}
-        :param registry_credential: registry_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#registry_credential ContainerRegistryTask#registry_credential}
-        :param source_trigger: source_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#source_trigger ContainerRegistryTask#source_trigger}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#tags ContainerRegistryTask#tags}.
-        :param timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#timeout_in_seconds ContainerRegistryTask#timeout_in_seconds}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#timeouts ContainerRegistryTask#timeouts}
-        :param timer_trigger: timer_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#timer_trigger ContainerRegistryTask#timer_trigger}
+        :param container_registry_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#container_registry_id ContainerRegistryTask#container_registry_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.
+        :param agent_pool_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#agent_pool_name ContainerRegistryTask#agent_pool_name}.
+        :param agent_setting: agent_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#agent_setting ContainerRegistryTask#agent_setting}
+        :param base_image_trigger: base_image_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#base_image_trigger ContainerRegistryTask#base_image_trigger}
+        :param docker_step: docker_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#docker_step ContainerRegistryTask#docker_step}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.
+        :param encoded_step: encoded_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#encoded_step ContainerRegistryTask#encoded_step}
+        :param file_step: file_step block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#file_step ContainerRegistryTask#file_step}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#id ContainerRegistryTask#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#identity ContainerRegistryTask#identity}
+        :param is_system_task: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#is_system_task ContainerRegistryTask#is_system_task}.
+        :param log_template: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#log_template ContainerRegistryTask#log_template}.
+        :param platform: platform block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#platform ContainerRegistryTask#platform}
+        :param registry_credential: registry_credential block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#registry_credential ContainerRegistryTask#registry_credential}
+        :param source_trigger: source_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#source_trigger ContainerRegistryTask#source_trigger}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#tags ContainerRegistryTask#tags}.
+        :param timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#timeout_in_seconds ContainerRegistryTask#timeout_in_seconds}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#timeouts ContainerRegistryTask#timeouts}
+        :param timer_trigger: timer_trigger block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#timer_trigger ContainerRegistryTask#timer_trigger}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1362,21 +1362,21 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def container_registry_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#container_registry_id ContainerRegistryTask#container_registry_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#container_registry_id ContainerRegistryTask#container_registry_id}.'''
         result = self._values.get("container_registry_id")
         assert result is not None, "Required property 'container_registry_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def agent_pool_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#agent_pool_name ContainerRegistryTask#agent_pool_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#agent_pool_name ContainerRegistryTask#agent_pool_name}.'''
         result = self._values.get("agent_pool_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1384,7 +1384,7 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def agent_setting(self) -> typing.Optional[ContainerRegistryTaskAgentSetting]:
         '''agent_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#agent_setting ContainerRegistryTask#agent_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#agent_setting ContainerRegistryTask#agent_setting}
         '''
         result = self._values.get("agent_setting")
         return typing.cast(typing.Optional[ContainerRegistryTaskAgentSetting], result)
@@ -1395,7 +1395,7 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ContainerRegistryTaskBaseImageTrigger]:
         '''base_image_trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#base_image_trigger ContainerRegistryTask#base_image_trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#base_image_trigger ContainerRegistryTask#base_image_trigger}
         '''
         result = self._values.get("base_image_trigger")
         return typing.cast(typing.Optional[ContainerRegistryTaskBaseImageTrigger], result)
@@ -1404,7 +1404,7 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def docker_step(self) -> typing.Optional["ContainerRegistryTaskDockerStep"]:
         '''docker_step block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#docker_step ContainerRegistryTask#docker_step}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#docker_step ContainerRegistryTask#docker_step}
         '''
         result = self._values.get("docker_step")
         return typing.cast(typing.Optional["ContainerRegistryTaskDockerStep"], result)
@@ -1413,7 +1413,7 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1421,7 +1421,7 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encoded_step(self) -> typing.Optional["ContainerRegistryTaskEncodedStep"]:
         '''encoded_step block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#encoded_step ContainerRegistryTask#encoded_step}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#encoded_step ContainerRegistryTask#encoded_step}
         '''
         result = self._values.get("encoded_step")
         return typing.cast(typing.Optional["ContainerRegistryTaskEncodedStep"], result)
@@ -1430,14 +1430,14 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def file_step(self) -> typing.Optional["ContainerRegistryTaskFileStep"]:
         '''file_step block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#file_step ContainerRegistryTask#file_step}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#file_step ContainerRegistryTask#file_step}
         '''
         result = self._values.get("file_step")
         return typing.cast(typing.Optional["ContainerRegistryTaskFileStep"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#id ContainerRegistryTask#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#id ContainerRegistryTask#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1449,7 +1449,7 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["ContainerRegistryTaskIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#identity ContainerRegistryTask#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#identity ContainerRegistryTask#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["ContainerRegistryTaskIdentity"], result)
@@ -1458,13 +1458,13 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def is_system_task(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#is_system_task ContainerRegistryTask#is_system_task}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#is_system_task ContainerRegistryTask#is_system_task}.'''
         result = self._values.get("is_system_task")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def log_template(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#log_template ContainerRegistryTask#log_template}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#log_template ContainerRegistryTask#log_template}.'''
         result = self._values.get("log_template")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1472,7 +1472,7 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def platform(self) -> typing.Optional["ContainerRegistryTaskPlatform"]:
         '''platform block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#platform ContainerRegistryTask#platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#platform ContainerRegistryTask#platform}
         '''
         result = self._values.get("platform")
         return typing.cast(typing.Optional["ContainerRegistryTaskPlatform"], result)
@@ -1483,7 +1483,7 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ContainerRegistryTaskRegistryCredential"]:
         '''registry_credential block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#registry_credential ContainerRegistryTask#registry_credential}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#registry_credential ContainerRegistryTask#registry_credential}
         '''
         result = self._values.get("registry_credential")
         return typing.cast(typing.Optional["ContainerRegistryTaskRegistryCredential"], result)
@@ -1494,20 +1494,20 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerRegistryTaskSourceTrigger"]]]:
         '''source_trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#source_trigger ContainerRegistryTask#source_trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#source_trigger ContainerRegistryTask#source_trigger}
         '''
         result = self._values.get("source_trigger")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerRegistryTaskSourceTrigger"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#tags ContainerRegistryTask#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#tags ContainerRegistryTask#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#timeout_in_seconds ContainerRegistryTask#timeout_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#timeout_in_seconds ContainerRegistryTask#timeout_in_seconds}.'''
         result = self._values.get("timeout_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1515,7 +1515,7 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ContainerRegistryTaskTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#timeouts ContainerRegistryTask#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#timeouts ContainerRegistryTask#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ContainerRegistryTaskTimeouts"], result)
@@ -1526,7 +1526,7 @@ class ContainerRegistryTaskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerRegistryTaskTimerTrigger"]]]:
         '''timer_trigger block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#timer_trigger ContainerRegistryTask#timer_trigger}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#timer_trigger ContainerRegistryTask#timer_trigger}
         '''
         result = self._values.get("timer_trigger")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerRegistryTaskTimerTrigger"]]], result)
@@ -1573,15 +1573,15 @@ class ContainerRegistryTaskDockerStep:
         target: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param context_access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.
-        :param context_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.
-        :param dockerfile_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#dockerfile_path ContainerRegistryTask#dockerfile_path}.
-        :param arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#arguments ContainerRegistryTask#arguments}.
-        :param cache_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#cache_enabled ContainerRegistryTask#cache_enabled}.
-        :param image_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#image_names ContainerRegistryTask#image_names}.
-        :param push_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#push_enabled ContainerRegistryTask#push_enabled}.
-        :param secret_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#secret_arguments ContainerRegistryTask#secret_arguments}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#target ContainerRegistryTask#target}.
+        :param context_access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.
+        :param context_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.
+        :param dockerfile_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#dockerfile_path ContainerRegistryTask#dockerfile_path}.
+        :param arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#arguments ContainerRegistryTask#arguments}.
+        :param cache_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#cache_enabled ContainerRegistryTask#cache_enabled}.
+        :param image_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#image_names ContainerRegistryTask#image_names}.
+        :param push_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#push_enabled ContainerRegistryTask#push_enabled}.
+        :param secret_arguments: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#secret_arguments ContainerRegistryTask#secret_arguments}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#target ContainerRegistryTask#target}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81a4cddb725f0ec00f75aa8ad68cd2a21e3c8c426e5aba67907ec3eb31b06c80)
@@ -1614,28 +1614,28 @@ class ContainerRegistryTaskDockerStep:
 
     @builtins.property
     def context_access_token(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.'''
         result = self._values.get("context_access_token")
         assert result is not None, "Required property 'context_access_token' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def context_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.'''
         result = self._values.get("context_path")
         assert result is not None, "Required property 'context_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def dockerfile_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#dockerfile_path ContainerRegistryTask#dockerfile_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#dockerfile_path ContainerRegistryTask#dockerfile_path}.'''
         result = self._values.get("dockerfile_path")
         assert result is not None, "Required property 'dockerfile_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def arguments(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#arguments ContainerRegistryTask#arguments}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#arguments ContainerRegistryTask#arguments}.'''
         result = self._values.get("arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1643,13 +1643,13 @@ class ContainerRegistryTaskDockerStep:
     def cache_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#cache_enabled ContainerRegistryTask#cache_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#cache_enabled ContainerRegistryTask#cache_enabled}.'''
         result = self._values.get("cache_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def image_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#image_names ContainerRegistryTask#image_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#image_names ContainerRegistryTask#image_names}.'''
         result = self._values.get("image_names")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1657,7 +1657,7 @@ class ContainerRegistryTaskDockerStep:
     def push_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#push_enabled ContainerRegistryTask#push_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#push_enabled ContainerRegistryTask#push_enabled}.'''
         result = self._values.get("push_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1665,13 +1665,13 @@ class ContainerRegistryTaskDockerStep:
     def secret_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#secret_arguments ContainerRegistryTask#secret_arguments}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#secret_arguments ContainerRegistryTask#secret_arguments}.'''
         result = self._values.get("secret_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def target(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#target ContainerRegistryTask#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#target ContainerRegistryTask#target}.'''
         result = self._values.get("target")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1941,12 +1941,12 @@ class ContainerRegistryTaskEncodedStep:
         values: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param task_content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#task_content ContainerRegistryTask#task_content}.
-        :param context_access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.
-        :param context_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.
-        :param secret_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#secret_values ContainerRegistryTask#secret_values}.
-        :param value_content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#value_content ContainerRegistryTask#value_content}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#values ContainerRegistryTask#values}.
+        :param task_content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#task_content ContainerRegistryTask#task_content}.
+        :param context_access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.
+        :param context_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.
+        :param secret_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#secret_values ContainerRegistryTask#secret_values}.
+        :param value_content: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#value_content ContainerRegistryTask#value_content}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#values ContainerRegistryTask#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cd2d7c7b2a9deeb58a460b41eadc1bb8e5944b06aee0c85557cdde3d6b6c51e2)
@@ -1972,20 +1972,20 @@ class ContainerRegistryTaskEncodedStep:
 
     @builtins.property
     def task_content(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#task_content ContainerRegistryTask#task_content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#task_content ContainerRegistryTask#task_content}.'''
         result = self._values.get("task_content")
         assert result is not None, "Required property 'task_content' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def context_access_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.'''
         result = self._values.get("context_access_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def context_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.'''
         result = self._values.get("context_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1993,19 +1993,19 @@ class ContainerRegistryTaskEncodedStep:
     def secret_values(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#secret_values ContainerRegistryTask#secret_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#secret_values ContainerRegistryTask#secret_values}.'''
         result = self._values.get("secret_values")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def value_content(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#value_content ContainerRegistryTask#value_content}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#value_content ContainerRegistryTask#value_content}.'''
         result = self._values.get("value_content")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#values ContainerRegistryTask#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#values ContainerRegistryTask#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2207,12 +2207,12 @@ class ContainerRegistryTaskFileStep:
         values: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param task_file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#task_file_path ContainerRegistryTask#task_file_path}.
-        :param context_access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.
-        :param context_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.
-        :param secret_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#secret_values ContainerRegistryTask#secret_values}.
-        :param value_file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#value_file_path ContainerRegistryTask#value_file_path}.
-        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#values ContainerRegistryTask#values}.
+        :param task_file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#task_file_path ContainerRegistryTask#task_file_path}.
+        :param context_access_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.
+        :param context_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.
+        :param secret_values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#secret_values ContainerRegistryTask#secret_values}.
+        :param value_file_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#value_file_path ContainerRegistryTask#value_file_path}.
+        :param values: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#values ContainerRegistryTask#values}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5eeeaf8c0e78e74b0c2bc4afa4b08526974bab3d2a8d75f96617ca19e03be1c3)
@@ -2238,20 +2238,20 @@ class ContainerRegistryTaskFileStep:
 
     @builtins.property
     def task_file_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#task_file_path ContainerRegistryTask#task_file_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#task_file_path ContainerRegistryTask#task_file_path}.'''
         result = self._values.get("task_file_path")
         assert result is not None, "Required property 'task_file_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def context_access_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_access_token ContainerRegistryTask#context_access_token}.'''
         result = self._values.get("context_access_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def context_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#context_path ContainerRegistryTask#context_path}.'''
         result = self._values.get("context_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2259,19 +2259,19 @@ class ContainerRegistryTaskFileStep:
     def secret_values(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#secret_values ContainerRegistryTask#secret_values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#secret_values ContainerRegistryTask#secret_values}.'''
         result = self._values.get("secret_values")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def value_file_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#value_file_path ContainerRegistryTask#value_file_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#value_file_path ContainerRegistryTask#value_file_path}.'''
         result = self._values.get("value_file_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def values(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#values ContainerRegistryTask#values}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#values ContainerRegistryTask#values}.'''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2462,8 +2462,8 @@ class ContainerRegistryTaskIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#type ContainerRegistryTask#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#identity_ids ContainerRegistryTask#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#type ContainerRegistryTask#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#identity_ids ContainerRegistryTask#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac8e5f6d04d631c02393ce2724036db15a37bd219baf1fc17e8d8a8eae7bb13e)
@@ -2477,14 +2477,14 @@ class ContainerRegistryTaskIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#type ContainerRegistryTask#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#type ContainerRegistryTask#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#identity_ids ContainerRegistryTask#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#identity_ids ContainerRegistryTask#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2598,9 +2598,9 @@ class ContainerRegistryTaskPlatform:
         variant: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#os ContainerRegistryTask#os}.
-        :param architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#architecture ContainerRegistryTask#architecture}.
-        :param variant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#variant ContainerRegistryTask#variant}.
+        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#os ContainerRegistryTask#os}.
+        :param architecture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#architecture ContainerRegistryTask#architecture}.
+        :param variant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#variant ContainerRegistryTask#variant}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5c88ff75fb6e805833fce44040ab0ac810672d9031ae20ed06773c9538b44519)
@@ -2617,20 +2617,20 @@ class ContainerRegistryTaskPlatform:
 
     @builtins.property
     def os(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#os ContainerRegistryTask#os}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#os ContainerRegistryTask#os}.'''
         result = self._values.get("os")
         assert result is not None, "Required property 'os' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def architecture(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#architecture ContainerRegistryTask#architecture}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#architecture ContainerRegistryTask#architecture}.'''
         result = self._values.get("architecture")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def variant(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#variant ContainerRegistryTask#variant}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#variant ContainerRegistryTask#variant}.'''
         result = self._values.get("variant")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2754,8 +2754,8 @@ class ContainerRegistryTaskRegistryCredential:
         source: typing.Optional[typing.Union["ContainerRegistryTaskRegistryCredentialSource", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom: custom block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#custom ContainerRegistryTask#custom}
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#source ContainerRegistryTask#source}
+        :param custom: custom block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#custom ContainerRegistryTask#custom}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#source ContainerRegistryTask#source}
         '''
         if isinstance(source, dict):
             source = ContainerRegistryTaskRegistryCredentialSource(**source)
@@ -2775,7 +2775,7 @@ class ContainerRegistryTaskRegistryCredential:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerRegistryTaskRegistryCredentialCustom"]]]:
         '''custom block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#custom ContainerRegistryTask#custom}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#custom ContainerRegistryTask#custom}
         '''
         result = self._values.get("custom")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerRegistryTaskRegistryCredentialCustom"]]], result)
@@ -2786,7 +2786,7 @@ class ContainerRegistryTaskRegistryCredential:
     ) -> typing.Optional["ContainerRegistryTaskRegistryCredentialSource"]:
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#source ContainerRegistryTask#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#source ContainerRegistryTask#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional["ContainerRegistryTaskRegistryCredentialSource"], result)
@@ -2823,10 +2823,10 @@ class ContainerRegistryTaskRegistryCredentialCustom:
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param login_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#login_server ContainerRegistryTask#login_server}.
-        :param identity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#identity ContainerRegistryTask#identity}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#password ContainerRegistryTask#password}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#username ContainerRegistryTask#username}.
+        :param login_server: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#login_server ContainerRegistryTask#login_server}.
+        :param identity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#identity ContainerRegistryTask#identity}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#password ContainerRegistryTask#password}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#username ContainerRegistryTask#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__974ab38de78f589875ef1aff9507b870958437372140761f797166246588f461)
@@ -2846,26 +2846,26 @@ class ContainerRegistryTaskRegistryCredentialCustom:
 
     @builtins.property
     def login_server(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#login_server ContainerRegistryTask#login_server}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#login_server ContainerRegistryTask#login_server}.'''
         result = self._values.get("login_server")
         assert result is not None, "Required property 'login_server' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#identity ContainerRegistryTask#identity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#identity ContainerRegistryTask#identity}.'''
         result = self._values.get("identity")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#password ContainerRegistryTask#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#password ContainerRegistryTask#password}.'''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def username(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#username ContainerRegistryTask#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#username ContainerRegistryTask#username}.'''
         result = self._values.get("username")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3134,7 +3134,7 @@ class ContainerRegistryTaskRegistryCredentialOutputReference(
     @jsii.member(jsii_name="putSource")
     def put_source(self, *, login_mode: builtins.str) -> None:
         '''
-        :param login_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#login_mode ContainerRegistryTask#login_mode}.
+        :param login_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#login_mode ContainerRegistryTask#login_mode}.
         '''
         value = ContainerRegistryTaskRegistryCredentialSource(login_mode=login_mode)
 
@@ -3198,7 +3198,7 @@ class ContainerRegistryTaskRegistryCredentialOutputReference(
 class ContainerRegistryTaskRegistryCredentialSource:
     def __init__(self, *, login_mode: builtins.str) -> None:
         '''
-        :param login_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#login_mode ContainerRegistryTask#login_mode}.
+        :param login_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#login_mode ContainerRegistryTask#login_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__249aa9db1270b19364f7a1f0897ce303d30a0b2be875511d79608cc795bec4fb)
@@ -3209,7 +3209,7 @@ class ContainerRegistryTaskRegistryCredentialSource:
 
     @builtins.property
     def login_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#login_mode ContainerRegistryTask#login_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#login_mode ContainerRegistryTask#login_mode}.'''
         result = self._values.get("login_mode")
         assert result is not None, "Required property 'login_mode' is missing"
         return typing.cast(builtins.str, result)
@@ -3307,13 +3307,13 @@ class ContainerRegistryTaskSourceTrigger:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#events ContainerRegistryTask#events}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.
-        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#repository_url ContainerRegistryTask#repository_url}.
-        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#source_type ContainerRegistryTask#source_type}.
-        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#authentication ContainerRegistryTask#authentication}
-        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#branch ContainerRegistryTask#branch}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.
+        :param events: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#events ContainerRegistryTask#events}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.
+        :param repository_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#repository_url ContainerRegistryTask#repository_url}.
+        :param source_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#source_type ContainerRegistryTask#source_type}.
+        :param authentication: authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#authentication ContainerRegistryTask#authentication}
+        :param branch: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#branch ContainerRegistryTask#branch}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.
         '''
         if isinstance(authentication, dict):
             authentication = ContainerRegistryTaskSourceTriggerAuthentication(**authentication)
@@ -3341,28 +3341,28 @@ class ContainerRegistryTaskSourceTrigger:
 
     @builtins.property
     def events(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#events ContainerRegistryTask#events}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#events ContainerRegistryTask#events}.'''
         result = self._values.get("events")
         assert result is not None, "Required property 'events' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def repository_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#repository_url ContainerRegistryTask#repository_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#repository_url ContainerRegistryTask#repository_url}.'''
         result = self._values.get("repository_url")
         assert result is not None, "Required property 'repository_url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#source_type ContainerRegistryTask#source_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#source_type ContainerRegistryTask#source_type}.'''
         result = self._values.get("source_type")
         assert result is not None, "Required property 'source_type' is missing"
         return typing.cast(builtins.str, result)
@@ -3373,14 +3373,14 @@ class ContainerRegistryTaskSourceTrigger:
     ) -> typing.Optional["ContainerRegistryTaskSourceTriggerAuthentication"]:
         '''authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#authentication ContainerRegistryTask#authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#authentication ContainerRegistryTask#authentication}
         '''
         result = self._values.get("authentication")
         return typing.cast(typing.Optional["ContainerRegistryTaskSourceTriggerAuthentication"], result)
 
     @builtins.property
     def branch(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#branch ContainerRegistryTask#branch}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#branch ContainerRegistryTask#branch}.'''
         result = self._values.get("branch")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3388,7 +3388,7 @@ class ContainerRegistryTaskSourceTrigger:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3426,11 +3426,11 @@ class ContainerRegistryTaskSourceTriggerAuthentication:
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#token ContainerRegistryTask#token}.
-        :param token_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#token_type ContainerRegistryTask#token_type}.
-        :param expire_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#expire_in_seconds ContainerRegistryTask#expire_in_seconds}.
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#refresh_token ContainerRegistryTask#refresh_token}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#scope ContainerRegistryTask#scope}.
+        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#token ContainerRegistryTask#token}.
+        :param token_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#token_type ContainerRegistryTask#token_type}.
+        :param expire_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#expire_in_seconds ContainerRegistryTask#expire_in_seconds}.
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#refresh_token ContainerRegistryTask#refresh_token}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#scope ContainerRegistryTask#scope}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__471438e7c0d9a6eaeefc117fd4b1735fb94e95e1305d61a29734c0af18810fe7)
@@ -3452,33 +3452,33 @@ class ContainerRegistryTaskSourceTriggerAuthentication:
 
     @builtins.property
     def token(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#token ContainerRegistryTask#token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#token ContainerRegistryTask#token}.'''
         result = self._values.get("token")
         assert result is not None, "Required property 'token' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def token_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#token_type ContainerRegistryTask#token_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#token_type ContainerRegistryTask#token_type}.'''
         result = self._values.get("token_type")
         assert result is not None, "Required property 'token_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def expire_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#expire_in_seconds ContainerRegistryTask#expire_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#expire_in_seconds ContainerRegistryTask#expire_in_seconds}.'''
         result = self._values.get("expire_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def refresh_token(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#refresh_token ContainerRegistryTask#refresh_token}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#refresh_token ContainerRegistryTask#refresh_token}.'''
         result = self._values.get("refresh_token")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scope(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#scope ContainerRegistryTask#scope}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#scope ContainerRegistryTask#scope}.'''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3759,11 +3759,11 @@ class ContainerRegistryTaskSourceTriggerOutputReference(
         scope: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#token ContainerRegistryTask#token}.
-        :param token_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#token_type ContainerRegistryTask#token_type}.
-        :param expire_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#expire_in_seconds ContainerRegistryTask#expire_in_seconds}.
-        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#refresh_token ContainerRegistryTask#refresh_token}.
-        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#scope ContainerRegistryTask#scope}.
+        :param token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#token ContainerRegistryTask#token}.
+        :param token_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#token_type ContainerRegistryTask#token_type}.
+        :param expire_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#expire_in_seconds ContainerRegistryTask#expire_in_seconds}.
+        :param refresh_token: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#refresh_token ContainerRegistryTask#refresh_token}.
+        :param scope: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#scope ContainerRegistryTask#scope}.
         '''
         value = ContainerRegistryTaskSourceTriggerAuthentication(
             token=token,
@@ -3946,10 +3946,10 @@ class ContainerRegistryTaskTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#create ContainerRegistryTask#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#delete ContainerRegistryTask#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#read ContainerRegistryTask#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#update ContainerRegistryTask#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#create ContainerRegistryTask#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#delete ContainerRegistryTask#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#read ContainerRegistryTask#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#update ContainerRegistryTask#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16e09c783492b92e9f08b507088a77305fe9c4037041ce9edf75ba97f15fa61d)
@@ -3969,25 +3969,25 @@ class ContainerRegistryTaskTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#create ContainerRegistryTask#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#create ContainerRegistryTask#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#delete ContainerRegistryTask#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#delete ContainerRegistryTask#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#read ContainerRegistryTask#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#read ContainerRegistryTask#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#update ContainerRegistryTask#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#update ContainerRegistryTask#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4139,9 +4139,9 @@ class ContainerRegistryTaskTimerTrigger:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.
-        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#schedule ContainerRegistryTask#schedule}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.
+        :param schedule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#schedule ContainerRegistryTask#schedule}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f9a39d9724c218aca9bb27e99dc12cb133b1e5ae7c3e9c15492ecbad92c171e)
@@ -4157,14 +4157,14 @@ class ContainerRegistryTaskTimerTrigger:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#name ContainerRegistryTask#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def schedule(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#schedule ContainerRegistryTask#schedule}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#schedule ContainerRegistryTask#schedule}.'''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
         return typing.cast(builtins.str, result)
@@ -4173,7 +4173,7 @@ class ContainerRegistryTaskTimerTrigger:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/container_registry_task#enabled ContainerRegistryTask#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 

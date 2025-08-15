@@ -1,52 +1,52 @@
-from orionis.services.log.log_service import LoggerService
+from orionis.services.log.log_service import Logger
 from orionis.support.facades.logger import Log
 from orionis.test.cases.asynchronous import AsyncTestCase
 
-class TestLoggerService(AsyncTestCase):
+class TestLogger(AsyncTestCase):
 
     async def testHasInfoMethod(self):
         """
-        Checks if the LoggerService class has an 'info' method.
+        Checks if the Logger class has an 'info' method.
 
         Returns
         -------
         None
             This test passes if the 'info' method exists, otherwise it fails.
         """
-        self.assertTrue(hasattr(LoggerService, "info"))
+        self.assertTrue(hasattr(Logger, "info"))
 
     async def testHasErrorMethod(self):
         """
-        Checks if the LoggerService class has an 'error' method.
+        Checks if the Logger class has an 'error' method.
 
         Returns
         -------
         None
             This test passes if the 'error' method exists, otherwise it fails.
         """
-        self.assertTrue(hasattr(LoggerService, "error"))
+        self.assertTrue(hasattr(Logger, "error"))
 
     async def testHasWarningMethod(self):
         """
-        Checks if the LoggerService class has a 'warning' method.
+        Checks if the Logger class has a 'warning' method.
 
         Returns
         -------
         None
             This test passes if the 'warning' method exists, otherwise it fails.
         """
-        self.assertTrue(hasattr(LoggerService, "warning"))
+        self.assertTrue(hasattr(Logger, "warning"))
 
     async def testHasDebugMethod(self):
         """
-        Checks if the LoggerService class has a 'debug' method.
+        Checks if the Logger class has a 'debug' method.
 
         Returns
         -------
         None
             This test passes if the 'debug' method exists, otherwise it fails.
         """
-        self.assertTrue(hasattr(LoggerService, "debug"))
+        self.assertTrue(hasattr(Logger, "debug"))
 
     async def testLoggerWritesInfo(self):
         """

@@ -1,19 +1,21 @@
 import argparse
 import os
-from pathlib import Path
+import re
 import time
+from pathlib import Path
 from typing import List, Optional
 from orionis.app import Orionis
 from orionis.console.args.argument import CLIArgument
 from orionis.console.base.command import BaseCommand
 from orionis.console.base.contracts.command import IBaseCommand
+from orionis.console.contracts.reactor import IReactor
 from orionis.console.output.contracts.console import IConsole
 from orionis.console.output.contracts.executor import IExecutor
 from orionis.foundation.contracts.application import IApplication
 from orionis.services.introspection.modules.reflection import ReflectionModule
-import re
+from orionis.services.log.contracts.log_service import ILogger
 
-class Reactor:
+class Reactor(IReactor):
 
     def __init__(
         self,
@@ -63,11 +65,69 @@ class Reactor:
         # Automatically discover and load command classes from the console commands directory
         self.__loadCommands(str(self.__app.path('console_commands')), self.__root)
 
+        # Load core command classes provided by the Orionis framework
+        self.__loadCoreCommands()
+
         # Initialize the executor for command output management
         self.__executer: IExecutor = self.__app.make('x-orionis.console.output.executor')
 
         # Initialize the console for command output
         self.__console: IConsole = self.__app.make('x-orionis.console.output.console')
+
+        # Initialize the logger service for logging command execution details
+        self.__logger: ILogger = self.__app.make('x-orionis.services.log.log_service')
+
+    def __loadCoreCommands(self) -> None:
+        """
+        Loads and registers core command classes provided by the Orionis framework.
+
+        This method is responsible for discovering and registering core command classes
+        that are bundled with the Orionis framework itself (such as version, help, etc.).
+        These commands are essential for the framework's operation and are made available
+        to the command registry so they can be executed like any other user-defined command.
+
+        The method imports the required core command classes, validates their structure,
+        and registers them in the internal command registry. Each command is checked for
+        required attributes such as `timestamps`, `signature`, `description`, and `arguments`
+        to ensure proper integration and discoverability.
+
+        Returns
+        -------
+        None
+            This method does not return any value. All discovered core commands are
+            registered internally in the reactor's command registry for later lookup
+            and execution.
+        """
+
+        # Import the core command class for version
+        from orionis.console.commands.version import VersionCommand
+        from orionis.console.commands.help import HelpCommand
+        from orionis.console.commands.test import TestCommand
+
+        # List of core command classes to load (extend this list as more core commands are added)
+        core_commands = [
+            VersionCommand,
+            HelpCommand,
+            TestCommand
+        ]
+
+        # Iterate through the core command classes and register them
+        for obj in core_commands:
+
+            # Validate and extract required command attributes
+            timestamp = self.__ensureTimestamps(obj)
+            signature = self.__ensureSignature(obj)
+            description = self.__ensureDescription(obj)
+            args = self.__ensureArguments(obj)
+
+            # Register the command in the internal registry with all its metadata
+            self.__commands[signature] = {
+                "class": obj,
+                "timestamps": timestamp,
+                "signature": signature,
+                "description": description,
+                "args": args
+            }
 
     def __loadCommands(self, commands_path: str, root_path: str) -> None:
         """
@@ -337,6 +397,33 @@ class Reactor:
         # Return the configured ArgumentParser
         return arg_parser
 
+    def info(self) -> List[dict]:
+        """
+        Retrieves a list of all registered commands with their metadata.
+
+        This method returns a list of dictionaries, each containing information about
+        a registered command, including its signature, description, and whether it has
+        timestamps enabled. This is useful for introspection and displaying available
+        commands to the user.
+
+        Returns
+        -------
+        List[dict]
+            A list of dictionaries representing the registered commands, where each dictionary
+            contains the command's signature, description, and timestamps status.
+        """
+
+        # Prepare a list to hold command information
+        commands_info = []
+        for command in self.__commands.values():
+            commands_info.append({
+                "signature": command.get("signature"),
+                "description": command.get("description"),
+            })
+
+        # Return the sorted list of command information by signature
+        return sorted(commands_info, key=lambda x: x["signature"].lower())
+
     def call(
         self,
         signature: str,
@@ -418,9 +505,12 @@ class Reactor:
             output =  self.__app.call(command_instance, 'handle')
 
             # Log the command execution completion with DONE state
+            elapsed_time = round(time.perf_counter() - start_time, 2)
             if timestamps:
-                elapsed_time = round(time.perf_counter() - start_time, 2)
                 self.__executer.done(program=signature, time=f"{elapsed_time}s")
+
+            # Log the command execution success
+            self.__logger.info(f"Command '{signature}' executed successfully in ({elapsed_time}) seconds.")
 
             # If the command has a return value or output, return it
             if output is not None:
@@ -431,7 +521,10 @@ class Reactor:
             # Display the error message in the console
             self.__console.error(f"An error occurred while executing command '{signature}': {e}", timestamp=False)
 
+            # Log the error in the logger service
+            self.__logger.error(f"Command '{signature}' execution failed: {e}")
+
             # Log the command execution failure with ERROR state
+            elapsed_time = round(time.perf_counter() - start_time, 2)
             if timestamps:
-                elapsed_time = round(time.perf_counter() - start_time, 2)
                 self.__executer.fail(program=signature, time=f"{elapsed_time}s")

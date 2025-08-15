@@ -616,8 +616,8 @@ def test_soft_errors(tmp_path: Path, mocker: MockerFixture) -> None:
 def _check_file_read_write(txt_file: Path) -> None:
     for _ in range(3):
         uuid = str(uuid4())
-        txt_file.write_text(uuid)
-        assert txt_file.read_text() == uuid
+        txt_file.write_text(uuid, encoding="utf-8")
+        assert txt_file.read_text(encoding="utf-8") == uuid
 
 
 @pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
@@ -691,7 +691,8 @@ def test_subclass_compatibility(tmp_path: Path) -> None:
             my_param: int = 0,
             **kwargs: dict[str, Any],  # noqa: ARG002
         ) -> None:
-            super().__init__(lock_file, timeout, mode, thread_local, blocking=True, is_singleton=True)
+            super().__init__(lock_file, timeout, mode, thread_local, is_singleton=True)
+            self.blocking = True
             self.my_param = my_param
 
     lock_path = tmp_path / "a"
@@ -814,3 +815,24 @@ def test_file_lock_positional_argument(tmp_path: Path) -> None:
     lock_path = tmp_path / "a"
     lock = FilePathLock(str(lock_path))
     assert lock.lock_file == str(lock_path) + ".lock"
+
+
+@pytest.mark.parametrize(
+    ("lock_type", "expected_exc"),
+    [
+        (SoftFileLock, TimeoutError),
+        (FileLock, TimeoutError) if sys.platform == "win32" else (FileLock, PermissionError),
+    ],
+)
+def test_mtime_zero_exit_branch(
+    lock_type: type[BaseFileLock], expected_exc: type[BaseException], tmp_path: Path
+) -> None:
+    p = tmp_path / "z.lock"
+    p.touch()
+    Path(p).chmod(0o444)
+    os.utime(p, (0, 0))
+
+    lock = lock_type(str(p))
+
+    with pytest.raises(expected_exc):
+        lock.acquire(timeout=0)

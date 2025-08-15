@@ -1,7 +1,7 @@
 r'''
 # `azurerm_subscription_cost_management_view`
 
-Refer to the Terraform Registry for docs: [`azurerm_subscription_cost_management_view`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view).
+Refer to the Terraform Registry for docs: [`azurerm_subscription_cost_management_view`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SubscriptionCostManagementView(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.subscriptionCostManagementView.SubscriptionCostManagementView",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view azurerm_subscription_cost_management_view}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view azurerm_subscription_cost_management_view}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class SubscriptionCostManagementView(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view azurerm_subscription_cost_management_view} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view azurerm_subscription_cost_management_view} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param accumulated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#accumulated SubscriptionCostManagementView#accumulated}.
-        :param chart_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#chart_type SubscriptionCostManagementView#chart_type}.
-        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#dataset SubscriptionCostManagementView#dataset}
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#display_name SubscriptionCostManagementView#display_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.
-        :param report_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#report_type SubscriptionCostManagementView#report_type}.
-        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#subscription_id SubscriptionCostManagementView#subscription_id}.
-        :param timeframe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#timeframe SubscriptionCostManagementView#timeframe}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#id SubscriptionCostManagementView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kpi: kpi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#kpi SubscriptionCostManagementView#kpi}
-        :param pivot: pivot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#pivot SubscriptionCostManagementView#pivot}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#timeouts SubscriptionCostManagementView#timeouts}
+        :param accumulated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#accumulated SubscriptionCostManagementView#accumulated}.
+        :param chart_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#chart_type SubscriptionCostManagementView#chart_type}.
+        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#dataset SubscriptionCostManagementView#dataset}
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#display_name SubscriptionCostManagementView#display_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.
+        :param report_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#report_type SubscriptionCostManagementView#report_type}.
+        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#subscription_id SubscriptionCostManagementView#subscription_id}.
+        :param timeframe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#timeframe SubscriptionCostManagementView#timeframe}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#id SubscriptionCostManagementView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kpi: kpi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#kpi SubscriptionCostManagementView#kpi}
+        :param pivot: pivot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#pivot SubscriptionCostManagementView#pivot}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#timeouts SubscriptionCostManagementView#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class SubscriptionCostManagementView(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SubscriptionCostManagementView to import.
-        :param import_from_id: The id of the existing SubscriptionCostManagementView that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SubscriptionCostManagementView that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SubscriptionCostManagementView to import is found.
         '''
         if __debug__:
@@ -157,10 +157,10 @@ class SubscriptionCostManagementView(
         sorting: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SubscriptionCostManagementViewDatasetSorting", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param aggregation: aggregation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#aggregation SubscriptionCostManagementView#aggregation}
-        :param granularity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#granularity SubscriptionCostManagementView#granularity}.
-        :param grouping: grouping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#grouping SubscriptionCostManagementView#grouping}
-        :param sorting: sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#sorting SubscriptionCostManagementView#sorting}
+        :param aggregation: aggregation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#aggregation SubscriptionCostManagementView#aggregation}
+        :param granularity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#granularity SubscriptionCostManagementView#granularity}.
+        :param grouping: grouping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#grouping SubscriptionCostManagementView#grouping}
+        :param sorting: sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#sorting SubscriptionCostManagementView#sorting}
         '''
         value = SubscriptionCostManagementViewDataset(
             aggregation=aggregation,
@@ -207,10 +207,10 @@ class SubscriptionCostManagementView(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#create SubscriptionCostManagementView#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#delete SubscriptionCostManagementView#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#read SubscriptionCostManagementView#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#update SubscriptionCostManagementView#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#create SubscriptionCostManagementView#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#delete SubscriptionCostManagementView#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#read SubscriptionCostManagementView#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#update SubscriptionCostManagementView#update}.
         '''
         value = SubscriptionCostManagementViewTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -492,18 +492,18 @@ class SubscriptionCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param accumulated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#accumulated SubscriptionCostManagementView#accumulated}.
-        :param chart_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#chart_type SubscriptionCostManagementView#chart_type}.
-        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#dataset SubscriptionCostManagementView#dataset}
-        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#display_name SubscriptionCostManagementView#display_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.
-        :param report_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#report_type SubscriptionCostManagementView#report_type}.
-        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#subscription_id SubscriptionCostManagementView#subscription_id}.
-        :param timeframe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#timeframe SubscriptionCostManagementView#timeframe}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#id SubscriptionCostManagementView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kpi: kpi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#kpi SubscriptionCostManagementView#kpi}
-        :param pivot: pivot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#pivot SubscriptionCostManagementView#pivot}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#timeouts SubscriptionCostManagementView#timeouts}
+        :param accumulated: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#accumulated SubscriptionCostManagementView#accumulated}.
+        :param chart_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#chart_type SubscriptionCostManagementView#chart_type}.
+        :param dataset: dataset block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#dataset SubscriptionCostManagementView#dataset}
+        :param display_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#display_name SubscriptionCostManagementView#display_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.
+        :param report_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#report_type SubscriptionCostManagementView#report_type}.
+        :param subscription_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#subscription_id SubscriptionCostManagementView#subscription_id}.
+        :param timeframe: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#timeframe SubscriptionCostManagementView#timeframe}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#id SubscriptionCostManagementView#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kpi: kpi block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#kpi SubscriptionCostManagementView#kpi}
+        :param pivot: pivot block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#pivot SubscriptionCostManagementView#pivot}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#timeouts SubscriptionCostManagementView#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -631,14 +631,14 @@ class SubscriptionCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def accumulated(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#accumulated SubscriptionCostManagementView#accumulated}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#accumulated SubscriptionCostManagementView#accumulated}.'''
         result = self._values.get("accumulated")
         assert result is not None, "Required property 'accumulated' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def chart_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#chart_type SubscriptionCostManagementView#chart_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#chart_type SubscriptionCostManagementView#chart_type}.'''
         result = self._values.get("chart_type")
         assert result is not None, "Required property 'chart_type' is missing"
         return typing.cast(builtins.str, result)
@@ -647,7 +647,7 @@ class SubscriptionCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def dataset(self) -> "SubscriptionCostManagementViewDataset":
         '''dataset block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#dataset SubscriptionCostManagementView#dataset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#dataset SubscriptionCostManagementView#dataset}
         '''
         result = self._values.get("dataset")
         assert result is not None, "Required property 'dataset' is missing"
@@ -655,42 +655,42 @@ class SubscriptionCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def display_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#display_name SubscriptionCostManagementView#display_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#display_name SubscriptionCostManagementView#display_name}.'''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def report_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#report_type SubscriptionCostManagementView#report_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#report_type SubscriptionCostManagementView#report_type}.'''
         result = self._values.get("report_type")
         assert result is not None, "Required property 'report_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subscription_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#subscription_id SubscriptionCostManagementView#subscription_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#subscription_id SubscriptionCostManagementView#subscription_id}.'''
         result = self._values.get("subscription_id")
         assert result is not None, "Required property 'subscription_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def timeframe(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#timeframe SubscriptionCostManagementView#timeframe}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#timeframe SubscriptionCostManagementView#timeframe}.'''
         result = self._values.get("timeframe")
         assert result is not None, "Required property 'timeframe' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#id SubscriptionCostManagementView#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#id SubscriptionCostManagementView#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -704,7 +704,7 @@ class SubscriptionCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionCostManagementViewKpi"]]]:
         '''kpi block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#kpi SubscriptionCostManagementView#kpi}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#kpi SubscriptionCostManagementView#kpi}
         '''
         result = self._values.get("kpi")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionCostManagementViewKpi"]]], result)
@@ -715,7 +715,7 @@ class SubscriptionCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionCostManagementViewPivot"]]]:
         '''pivot block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#pivot SubscriptionCostManagementView#pivot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#pivot SubscriptionCostManagementView#pivot}
         '''
         result = self._values.get("pivot")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionCostManagementViewPivot"]]], result)
@@ -724,7 +724,7 @@ class SubscriptionCostManagementViewConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def timeouts(self) -> typing.Optional["SubscriptionCostManagementViewTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#timeouts SubscriptionCostManagementView#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#timeouts SubscriptionCostManagementView#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SubscriptionCostManagementViewTimeouts"], result)
@@ -761,10 +761,10 @@ class SubscriptionCostManagementViewDataset:
         sorting: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SubscriptionCostManagementViewDatasetSorting", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param aggregation: aggregation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#aggregation SubscriptionCostManagementView#aggregation}
-        :param granularity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#granularity SubscriptionCostManagementView#granularity}.
-        :param grouping: grouping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#grouping SubscriptionCostManagementView#grouping}
-        :param sorting: sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#sorting SubscriptionCostManagementView#sorting}
+        :param aggregation: aggregation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#aggregation SubscriptionCostManagementView#aggregation}
+        :param granularity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#granularity SubscriptionCostManagementView#granularity}.
+        :param grouping: grouping block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#grouping SubscriptionCostManagementView#grouping}
+        :param sorting: sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#sorting SubscriptionCostManagementView#sorting}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05bb3fa2e95c10600b1fc10c07ed8420161b93aa8cc92a5a1fc9581561ad4976)
@@ -787,7 +787,7 @@ class SubscriptionCostManagementViewDataset:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionCostManagementViewDatasetAggregation"]]:
         '''aggregation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#aggregation SubscriptionCostManagementView#aggregation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#aggregation SubscriptionCostManagementView#aggregation}
         '''
         result = self._values.get("aggregation")
         assert result is not None, "Required property 'aggregation' is missing"
@@ -795,7 +795,7 @@ class SubscriptionCostManagementViewDataset:
 
     @builtins.property
     def granularity(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#granularity SubscriptionCostManagementView#granularity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#granularity SubscriptionCostManagementView#granularity}.'''
         result = self._values.get("granularity")
         assert result is not None, "Required property 'granularity' is missing"
         return typing.cast(builtins.str, result)
@@ -806,7 +806,7 @@ class SubscriptionCostManagementViewDataset:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionCostManagementViewDatasetGrouping"]]]:
         '''grouping block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#grouping SubscriptionCostManagementView#grouping}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#grouping SubscriptionCostManagementView#grouping}
         '''
         result = self._values.get("grouping")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionCostManagementViewDatasetGrouping"]]], result)
@@ -817,7 +817,7 @@ class SubscriptionCostManagementViewDataset:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionCostManagementViewDatasetSorting"]]]:
         '''sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#sorting SubscriptionCostManagementView#sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#sorting SubscriptionCostManagementView#sorting}
         '''
         result = self._values.get("sorting")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SubscriptionCostManagementViewDatasetSorting"]]], result)
@@ -842,8 +842,8 @@ class SubscriptionCostManagementViewDataset:
 class SubscriptionCostManagementViewDatasetAggregation:
     def __init__(self, *, column_name: builtins.str, name: builtins.str) -> None:
         '''
-        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#column_name SubscriptionCostManagementView#column_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.
+        :param column_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#column_name SubscriptionCostManagementView#column_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e325d6ea44dd044571786cc1901662aad04e2ec9dd90d9b8f5b2c0fe5fe9ef7b)
@@ -856,14 +856,14 @@ class SubscriptionCostManagementViewDatasetAggregation:
 
     @builtins.property
     def column_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#column_name SubscriptionCostManagementView#column_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#column_name SubscriptionCostManagementView#column_name}.'''
         result = self._values.get("column_name")
         assert result is not None, "Required property 'column_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1059,8 +1059,8 @@ class SubscriptionCostManagementViewDatasetAggregationOutputReference(
 class SubscriptionCostManagementViewDatasetGrouping:
     def __init__(self, *, name: builtins.str, type: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#type SubscriptionCostManagementView#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#type SubscriptionCostManagementView#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d8708a3f28b676ba8434c346ade492b21a39002ce0648f7a819459b9b6bc327a)
@@ -1073,14 +1073,14 @@ class SubscriptionCostManagementViewDatasetGrouping:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#type SubscriptionCostManagementView#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#type SubscriptionCostManagementView#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1412,8 +1412,8 @@ class SubscriptionCostManagementViewDatasetOutputReference(
 class SubscriptionCostManagementViewDatasetSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#direction SubscriptionCostManagementView#direction}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.
+        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#direction SubscriptionCostManagementView#direction}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac84bd003f92013b89d876f5d6b6930914d92ead1c6798f02a2fd0361883f087)
@@ -1426,14 +1426,14 @@ class SubscriptionCostManagementViewDatasetSorting:
 
     @builtins.property
     def direction(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#direction SubscriptionCostManagementView#direction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#direction SubscriptionCostManagementView#direction}.'''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1629,7 +1629,7 @@ class SubscriptionCostManagementViewDatasetSortingOutputReference(
 class SubscriptionCostManagementViewKpi:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#type SubscriptionCostManagementView#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#type SubscriptionCostManagementView#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__34418fc23c8e08bafb30718d548c7708f2bae86475fd0207ae17f263f79c64e0)
@@ -1640,7 +1640,7 @@ class SubscriptionCostManagementViewKpi:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#type SubscriptionCostManagementView#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#type SubscriptionCostManagementView#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1819,8 +1819,8 @@ class SubscriptionCostManagementViewKpiOutputReference(
 class SubscriptionCostManagementViewPivot:
     def __init__(self, *, name: builtins.str, type: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#type SubscriptionCostManagementView#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#type SubscriptionCostManagementView#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__09cb9680fa1dd29f4a2adcf84ee5d74afb77bc99d6c79fea8f7d7a4206333b21)
@@ -1833,14 +1833,14 @@ class SubscriptionCostManagementViewPivot:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#name SubscriptionCostManagementView#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#type SubscriptionCostManagementView#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#type SubscriptionCostManagementView#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -2048,10 +2048,10 @@ class SubscriptionCostManagementViewTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#create SubscriptionCostManagementView#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#delete SubscriptionCostManagementView#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#read SubscriptionCostManagementView#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#update SubscriptionCostManagementView#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#create SubscriptionCostManagementView#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#delete SubscriptionCostManagementView#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#read SubscriptionCostManagementView#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#update SubscriptionCostManagementView#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f4ba3841664bfd43ec4c0bae6205c305d0c0ca8d22cc0e08f356be8beda75c3)
@@ -2071,25 +2071,25 @@ class SubscriptionCostManagementViewTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#create SubscriptionCostManagementView#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#create SubscriptionCostManagementView#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#delete SubscriptionCostManagementView#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#delete SubscriptionCostManagementView#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#read SubscriptionCostManagementView#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#read SubscriptionCostManagementView#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/subscription_cost_management_view#update SubscriptionCostManagementView#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/subscription_cost_management_view#update SubscriptionCostManagementView#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

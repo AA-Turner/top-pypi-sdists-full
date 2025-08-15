@@ -3,16 +3,17 @@ Streaming parser for large HTML documents.
 """
 
 import io
-from typing import Iterator, Optional, Dict, Any, List, Callable
+from typing import Dict, Any
+
 from lxml import etree
 from lxml.html import HtmlElement
 
 from edgar.documents.config import ParserConfig
 from edgar.documents.document import Document, DocumentMetadata
-from edgar.documents.nodes import Node, DocumentNode, HeadingNode, ParagraphNode, TextNode, SectionNode, ContainerNode
-from edgar.documents.table_nodes import TableNode
-from edgar.documents.types import NodeType, SemanticType
 from edgar.documents.exceptions import HTMLParsingError, DocumentTooLargeError
+from edgar.documents.nodes import DocumentNode, HeadingNode, ParagraphNode, TextNode, SectionNode, ContainerNode
+from edgar.documents.table_nodes import TableNode
+from edgar.documents.types import SemanticType
 
 
 class StreamingParser:

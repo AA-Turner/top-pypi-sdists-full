@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_ces_alarmrule`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_ces_alarmrule`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_ces_alarmrule`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CesAlarmrule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.cesAlarmrule.CesAlarmrule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule opentelekomcloud_ces_alarmrule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule opentelekomcloud_ces_alarmrule}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class CesAlarmrule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule opentelekomcloud_ces_alarmrule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule opentelekomcloud_ces_alarmrule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param alarm_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_name CesAlarmrule#alarm_name}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#condition CesAlarmrule#condition}
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#metric CesAlarmrule#metric}
-        :param alarm_action_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_action_enabled CesAlarmrule#alarm_action_enabled}.
-        :param alarm_actions: alarm_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_actions CesAlarmrule#alarm_actions}
-        :param alarm_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_description CesAlarmrule#alarm_description}.
-        :param alarm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_enabled CesAlarmrule#alarm_enabled}.
-        :param alarm_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_level CesAlarmrule#alarm_level}.
-        :param alarm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_type CesAlarmrule#alarm_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#id CesAlarmrule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ok_actions: ok_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#ok_actions CesAlarmrule#ok_actions}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#timeouts CesAlarmrule#timeouts}
+        :param alarm_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_name CesAlarmrule#alarm_name}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#condition CesAlarmrule#condition}
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#metric CesAlarmrule#metric}
+        :param alarm_action_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_action_enabled CesAlarmrule#alarm_action_enabled}.
+        :param alarm_actions: alarm_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_actions CesAlarmrule#alarm_actions}
+        :param alarm_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_description CesAlarmrule#alarm_description}.
+        :param alarm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_enabled CesAlarmrule#alarm_enabled}.
+        :param alarm_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_level CesAlarmrule#alarm_level}.
+        :param alarm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_type CesAlarmrule#alarm_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#id CesAlarmrule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ok_actions: ok_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#ok_actions CesAlarmrule#ok_actions}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#timeouts CesAlarmrule#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class CesAlarmrule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CesAlarmrule to import.
-        :param import_from_id: The id of the existing CesAlarmrule that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CesAlarmrule that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CesAlarmrule to import is found.
         '''
         if __debug__:
@@ -173,13 +173,13 @@ class CesAlarmrule(
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param comparison_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#comparison_operator CesAlarmrule#comparison_operator}.
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#count CesAlarmrule#count}.
-        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#filter CesAlarmrule#filter}.
-        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#period CesAlarmrule#period}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#value CesAlarmrule#value}.
-        :param alarm_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_frequency CesAlarmrule#alarm_frequency}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#unit CesAlarmrule#unit}.
+        :param comparison_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#comparison_operator CesAlarmrule#comparison_operator}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#count CesAlarmrule#count}.
+        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#filter CesAlarmrule#filter}.
+        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#period CesAlarmrule#period}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#value CesAlarmrule#value}.
+        :param alarm_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_frequency CesAlarmrule#alarm_frequency}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#unit CesAlarmrule#unit}.
         '''
         value_ = CesAlarmruleCondition(
             comparison_operator=comparison_operator,
@@ -202,9 +202,9 @@ class CesAlarmrule(
         dimensions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CesAlarmruleMetricDimensions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#metric_name CesAlarmrule#metric_name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#namespace CesAlarmrule#namespace}.
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#dimensions CesAlarmrule#dimensions}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#metric_name CesAlarmrule#metric_name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#namespace CesAlarmrule#namespace}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#dimensions CesAlarmrule#dimensions}
         '''
         value = CesAlarmruleMetric(
             metric_name=metric_name, namespace=namespace, dimensions=dimensions
@@ -234,9 +234,9 @@ class CesAlarmrule(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#create CesAlarmrule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#delete CesAlarmrule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#update CesAlarmrule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#create CesAlarmrule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#delete CesAlarmrule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#update CesAlarmrule#update}.
         '''
         value = CesAlarmruleTimeouts(create=create, delete=delete, update=update)
 
@@ -502,8 +502,8 @@ class CesAlarmruleAlarmActions:
         type: builtins.str,
     ) -> None:
         '''
-        :param notification_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#notification_list CesAlarmrule#notification_list}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#type CesAlarmrule#type}.
+        :param notification_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#notification_list CesAlarmrule#notification_list}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#type CesAlarmrule#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__257b150c4ba5499c3749da4aac01fa9a5cc0d9e425b51cb7275cde608dfd2d49)
@@ -516,14 +516,14 @@ class CesAlarmruleAlarmActions:
 
     @builtins.property
     def notification_list(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#notification_list CesAlarmrule#notification_list}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#notification_list CesAlarmrule#notification_list}.'''
         result = self._values.get("notification_list")
         assert result is not None, "Required property 'notification_list' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#type CesAlarmrule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#type CesAlarmrule#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -734,13 +734,13 @@ class CesAlarmruleCondition:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param comparison_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#comparison_operator CesAlarmrule#comparison_operator}.
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#count CesAlarmrule#count}.
-        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#filter CesAlarmrule#filter}.
-        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#period CesAlarmrule#period}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#value CesAlarmrule#value}.
-        :param alarm_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_frequency CesAlarmrule#alarm_frequency}.
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#unit CesAlarmrule#unit}.
+        :param comparison_operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#comparison_operator CesAlarmrule#comparison_operator}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#count CesAlarmrule#count}.
+        :param filter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#filter CesAlarmrule#filter}.
+        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#period CesAlarmrule#period}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#value CesAlarmrule#value}.
+        :param alarm_frequency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_frequency CesAlarmrule#alarm_frequency}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#unit CesAlarmrule#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0299c17c09638f67ba8176b0369c4e0400b295f757cfc007031fe0a632c8673c)
@@ -765,48 +765,48 @@ class CesAlarmruleCondition:
 
     @builtins.property
     def comparison_operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#comparison_operator CesAlarmrule#comparison_operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#comparison_operator CesAlarmrule#comparison_operator}.'''
         result = self._values.get("comparison_operator")
         assert result is not None, "Required property 'comparison_operator' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#count CesAlarmrule#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#count CesAlarmrule#count}.'''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def filter(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#filter CesAlarmrule#filter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#filter CesAlarmrule#filter}.'''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def period(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#period CesAlarmrule#period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#period CesAlarmrule#period}.'''
         result = self._values.get("period")
         assert result is not None, "Required property 'period' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#value CesAlarmrule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#value CesAlarmrule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def alarm_frequency(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_frequency CesAlarmrule#alarm_frequency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_frequency CesAlarmrule#alarm_frequency}.'''
         result = self._values.get("alarm_frequency")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#unit CesAlarmrule#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#unit CesAlarmrule#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1039,18 +1039,18 @@ class CesAlarmruleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param alarm_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_name CesAlarmrule#alarm_name}.
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#condition CesAlarmrule#condition}
-        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#metric CesAlarmrule#metric}
-        :param alarm_action_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_action_enabled CesAlarmrule#alarm_action_enabled}.
-        :param alarm_actions: alarm_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_actions CesAlarmrule#alarm_actions}
-        :param alarm_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_description CesAlarmrule#alarm_description}.
-        :param alarm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_enabled CesAlarmrule#alarm_enabled}.
-        :param alarm_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_level CesAlarmrule#alarm_level}.
-        :param alarm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_type CesAlarmrule#alarm_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#id CesAlarmrule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ok_actions: ok_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#ok_actions CesAlarmrule#ok_actions}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#timeouts CesAlarmrule#timeouts}
+        :param alarm_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_name CesAlarmrule#alarm_name}.
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#condition CesAlarmrule#condition}
+        :param metric: metric block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#metric CesAlarmrule#metric}
+        :param alarm_action_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_action_enabled CesAlarmrule#alarm_action_enabled}.
+        :param alarm_actions: alarm_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_actions CesAlarmrule#alarm_actions}
+        :param alarm_description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_description CesAlarmrule#alarm_description}.
+        :param alarm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_enabled CesAlarmrule#alarm_enabled}.
+        :param alarm_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_level CesAlarmrule#alarm_level}.
+        :param alarm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_type CesAlarmrule#alarm_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#id CesAlarmrule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ok_actions: ok_actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#ok_actions CesAlarmrule#ok_actions}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#timeouts CesAlarmrule#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1185,7 +1185,7 @@ class CesAlarmruleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def alarm_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_name CesAlarmrule#alarm_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_name CesAlarmrule#alarm_name}.'''
         result = self._values.get("alarm_name")
         assert result is not None, "Required property 'alarm_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1194,7 +1194,7 @@ class CesAlarmruleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def condition(self) -> CesAlarmruleCondition:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#condition CesAlarmrule#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#condition CesAlarmrule#condition}
         '''
         result = self._values.get("condition")
         assert result is not None, "Required property 'condition' is missing"
@@ -1204,7 +1204,7 @@ class CesAlarmruleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metric(self) -> "CesAlarmruleMetric":
         '''metric block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#metric CesAlarmrule#metric}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#metric CesAlarmrule#metric}
         '''
         result = self._values.get("metric")
         assert result is not None, "Required property 'metric' is missing"
@@ -1214,7 +1214,7 @@ class CesAlarmruleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def alarm_action_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_action_enabled CesAlarmrule#alarm_action_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_action_enabled CesAlarmrule#alarm_action_enabled}.'''
         result = self._values.get("alarm_action_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1224,14 +1224,14 @@ class CesAlarmruleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[CesAlarmruleAlarmActions]]]:
         '''alarm_actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_actions CesAlarmrule#alarm_actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_actions CesAlarmrule#alarm_actions}
         '''
         result = self._values.get("alarm_actions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[CesAlarmruleAlarmActions]]], result)
 
     @builtins.property
     def alarm_description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_description CesAlarmrule#alarm_description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_description CesAlarmrule#alarm_description}.'''
         result = self._values.get("alarm_description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1239,25 +1239,25 @@ class CesAlarmruleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def alarm_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_enabled CesAlarmrule#alarm_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_enabled CesAlarmrule#alarm_enabled}.'''
         result = self._values.get("alarm_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def alarm_level(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_level CesAlarmrule#alarm_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_level CesAlarmrule#alarm_level}.'''
         result = self._values.get("alarm_level")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def alarm_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#alarm_type CesAlarmrule#alarm_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#alarm_type CesAlarmrule#alarm_type}.'''
         result = self._values.get("alarm_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#id CesAlarmrule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#id CesAlarmrule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1271,7 +1271,7 @@ class CesAlarmruleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CesAlarmruleOkActions"]]]:
         '''ok_actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#ok_actions CesAlarmrule#ok_actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#ok_actions CesAlarmrule#ok_actions}
         '''
         result = self._values.get("ok_actions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CesAlarmruleOkActions"]]], result)
@@ -1280,7 +1280,7 @@ class CesAlarmruleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CesAlarmruleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#timeouts CesAlarmrule#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#timeouts CesAlarmrule#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CesAlarmruleTimeouts"], result)
@@ -1315,9 +1315,9 @@ class CesAlarmruleMetric:
         dimensions: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CesAlarmruleMetricDimensions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#metric_name CesAlarmrule#metric_name}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#namespace CesAlarmrule#namespace}.
-        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#dimensions CesAlarmrule#dimensions}
+        :param metric_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#metric_name CesAlarmrule#metric_name}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#namespace CesAlarmrule#namespace}.
+        :param dimensions: dimensions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#dimensions CesAlarmrule#dimensions}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0c388e6179d065874cca48762f38e87dc9d9c464179ea80fe451bc20418f4be3)
@@ -1333,14 +1333,14 @@ class CesAlarmruleMetric:
 
     @builtins.property
     def metric_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#metric_name CesAlarmrule#metric_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#metric_name CesAlarmrule#metric_name}.'''
         result = self._values.get("metric_name")
         assert result is not None, "Required property 'metric_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def namespace(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#namespace CesAlarmrule#namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#namespace CesAlarmrule#namespace}.'''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
         return typing.cast(builtins.str, result)
@@ -1351,7 +1351,7 @@ class CesAlarmruleMetric:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CesAlarmruleMetricDimensions"]]]:
         '''dimensions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#dimensions CesAlarmrule#dimensions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#dimensions CesAlarmrule#dimensions}
         '''
         result = self._values.get("dimensions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CesAlarmruleMetricDimensions"]]], result)
@@ -1376,8 +1376,8 @@ class CesAlarmruleMetric:
 class CesAlarmruleMetricDimensions:
     def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#name CesAlarmrule#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#value CesAlarmrule#value}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#name CesAlarmrule#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#value CesAlarmrule#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__727a292c01d16ed6ca60a67e760090e6bf5c165da1528d79e9239b002fa17a9c)
@@ -1390,14 +1390,14 @@ class CesAlarmruleMetricDimensions:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#name CesAlarmrule#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#name CesAlarmrule#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#value CesAlarmrule#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#value CesAlarmrule#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1691,8 +1691,8 @@ class CesAlarmruleOkActions:
         type: builtins.str,
     ) -> None:
         '''
-        :param notification_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#notification_list CesAlarmrule#notification_list}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#type CesAlarmrule#type}.
+        :param notification_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#notification_list CesAlarmrule#notification_list}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#type CesAlarmrule#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2682659244fc1a06ee3f972f5d22f9200c4ca8af9d8ba80188bd55729903dd8c)
@@ -1705,14 +1705,14 @@ class CesAlarmruleOkActions:
 
     @builtins.property
     def notification_list(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#notification_list CesAlarmrule#notification_list}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#notification_list CesAlarmrule#notification_list}.'''
         result = self._values.get("notification_list")
         assert result is not None, "Required property 'notification_list' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#type CesAlarmrule#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#type CesAlarmrule#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1911,9 +1911,9 @@ class CesAlarmruleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#create CesAlarmrule#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#delete CesAlarmrule#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#update CesAlarmrule#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#create CesAlarmrule#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#delete CesAlarmrule#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#update CesAlarmrule#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8b204629b245cd8be16bb11836fa517497efaaae4a99a51f900e0203fd150e17)
@@ -1930,19 +1930,19 @@ class CesAlarmruleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#create CesAlarmrule#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#create CesAlarmrule#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#delete CesAlarmrule#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#delete CesAlarmrule#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/ces_alarmrule#update CesAlarmrule#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/ces_alarmrule#update CesAlarmrule#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

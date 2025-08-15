@@ -32,7 +32,7 @@ class ServoTuner:
         """
         Creates instance of ServoTuner for the given axis.
         """
-        self._axis = axis
+        self._axis: Axis = axis
 
     def get_startup_paramset(
             self

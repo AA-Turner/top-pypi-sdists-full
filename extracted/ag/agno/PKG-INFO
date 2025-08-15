@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 1.7.10
+Version: 1.7.11
 Summary: Agno: a lightweight library for building Multi-Agent Systems
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License: Copyright (c) Agno, Inc.
@@ -549,6 +549,8 @@ Provides-Extra: daytona
 Requires-Dist: daytona; extra == "daytona"
 Provides-Extra: oxylabs
 Requires-Dist: oxylabs; extra == "oxylabs"
+Provides-Extra: trafilatura
+Requires-Dist: trafilatura; extra == "trafilatura"
 Provides-Extra: sql
 Requires-Dist: sqlalchemy; extra == "sql"
 Provides-Extra: postgres
@@ -664,6 +666,7 @@ Requires-Dist: agno[zep]; extra == "tools"
 Requires-Dist: agno[mem0]; extra == "tools"
 Requires-Dist: agno[google_bigquery]; extra == "tools"
 Requires-Dist: agno[psycopg]; extra == "tools"
+Requires-Dist: agno[trafilatura]; extra == "tools"
 Provides-Extra: storage
 Requires-Dist: agno[sql]; extra == "storage"
 Requires-Dist: agno[postgres]; extra == "storage"

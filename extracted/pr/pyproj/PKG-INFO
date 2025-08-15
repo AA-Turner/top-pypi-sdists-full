@@ -1,11 +1,11 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pyproj
-Version: 3.7.1
+Version: 3.7.2
 Summary: Python interface to PROJ (cartographic projections and coordinate transformations library)
 Home-page: https://github.com/pyproj4/pyproj
 Author-email: Jeff Whitaker <jeffrey.s.whitaker@noaa.gov>
 Maintainer: pyproj contributors
-License: MIT
+License-Expression: MIT
 Project-URL: homepage, https://pyproj4.github.io/pyproj/
 Project-URL: documentation, https://pyproj4.github.io/pyproj/
 Project-URL: repository, https://github.com/pyproj4/pyproj
@@ -13,24 +13,25 @@ Project-URL: changelog, https://pyproj4.github.io/pyproj/stable/history.html
 Keywords: GIS,map,geospatial,coordinate-systems,coordinate-transformation,cartographic-projection,geodesic
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE_proj
 Requires-Dist: certifi
 Dynamic: home-page
+Dynamic: license-file
 
 ![Pyproj logo](https://raw.githubusercontent.com/pyproj4/pyproj/main/docs/media/logo.png)
 
@@ -45,7 +46,6 @@ Python interface to [PROJ](http://proj.org) (cartographic projections and coordi
 <a href="https://badge.fury.io/py/pyproj"><img alt="PyPI" src="https://badge.fury.io/py/pyproj.svg"></a>
 <a href="https://pepy.tech/project/pyproj"><img alt="Downloads" src="https://pepy.tech/badge/pyproj"></a>
 <a href="https://anaconda.org/conda-forge/pyproj"><img alt="Anaconda-Server Badge" src="https://anaconda.org/conda-forge/pyproj/badges/version.svg"></a>
-<a href="https://github.com/python/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
 <a href="https://github.com/pre-commit/pre-commit"><img alt="pre-commit" src="https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white"></a>
 <a href="https://zenodo.org/badge/latestdoi/28607354"><img alt="DOI" src="https://zenodo.org/badge/28607354.svg"></a>
 </p>

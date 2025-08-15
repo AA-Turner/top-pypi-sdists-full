@@ -10,8 +10,14 @@ from ..device_db_source_type import DeviceDbSourceType
 class SetDeviceDbSourceRequest:
 
     source_type: DeviceDbSourceType = next(first for first in DeviceDbSourceType)
+    """
+    Whether the source is a web service or a local DB file.
+    """
 
     url_or_file_path: Optional[str] = None
+    """
+    The URL of the web service or path to the local DB file.
+    """
 
     @staticmethod
     def zero_values() -> 'SetDeviceDbSourceRequest':

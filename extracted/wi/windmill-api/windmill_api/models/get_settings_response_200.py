@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -7,6 +7,9 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.get_settings_response_200_ai_config import GetSettingsResponse200AiConfig
+    from ..models.get_settings_response_200_auto_add_instance_groups_roles import (
+        GetSettingsResponse200AutoAddInstanceGroupsRoles,
+    )
     from ..models.get_settings_response_200_default_scripts import GetSettingsResponse200DefaultScripts
     from ..models.get_settings_response_200_deploy_ui import GetSettingsResponse200DeployUi
     from ..models.get_settings_response_200_ducklake import GetSettingsResponse200Ducklake
@@ -34,6 +37,8 @@ class GetSettingsResponse200:
         auto_invite_domain (Union[Unset, str]):
         auto_invite_operator (Union[Unset, bool]):
         auto_add (Union[Unset, bool]):
+        auto_add_instance_groups (Union[Unset, List[str]]):
+        auto_add_instance_groups_roles (Union[Unset, GetSettingsResponse200AutoAddInstanceGroupsRoles]):
         plan (Union[Unset, str]):
         customer_id (Union[Unset, str]):
         webhook (Union[Unset, str]):
@@ -64,6 +69,8 @@ class GetSettingsResponse200:
     auto_invite_domain: Union[Unset, str] = UNSET
     auto_invite_operator: Union[Unset, bool] = UNSET
     auto_add: Union[Unset, bool] = UNSET
+    auto_add_instance_groups: Union[Unset, List[str]] = UNSET
+    auto_add_instance_groups_roles: Union[Unset, "GetSettingsResponse200AutoAddInstanceGroupsRoles"] = UNSET
     plan: Union[Unset, str] = UNSET
     customer_id: Union[Unset, str] = UNSET
     webhook: Union[Unset, str] = UNSET
@@ -94,6 +101,14 @@ class GetSettingsResponse200:
         auto_invite_domain = self.auto_invite_domain
         auto_invite_operator = self.auto_invite_operator
         auto_add = self.auto_add
+        auto_add_instance_groups: Union[Unset, List[str]] = UNSET
+        if not isinstance(self.auto_add_instance_groups, Unset):
+            auto_add_instance_groups = self.auto_add_instance_groups
+
+        auto_add_instance_groups_roles: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.auto_add_instance_groups_roles, Unset):
+            auto_add_instance_groups_roles = self.auto_add_instance_groups_roles.to_dict()
+
         plan = self.plan
         customer_id = self.customer_id
         webhook = self.webhook
@@ -161,6 +176,10 @@ class GetSettingsResponse200:
             field_dict["auto_invite_operator"] = auto_invite_operator
         if auto_add is not UNSET:
             field_dict["auto_add"] = auto_add
+        if auto_add_instance_groups is not UNSET:
+            field_dict["auto_add_instance_groups"] = auto_add_instance_groups
+        if auto_add_instance_groups_roles is not UNSET:
+            field_dict["auto_add_instance_groups_roles"] = auto_add_instance_groups_roles
         if plan is not UNSET:
             field_dict["plan"] = plan
         if customer_id is not UNSET:
@@ -199,6 +218,9 @@ class GetSettingsResponse200:
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         from ..models.get_settings_response_200_ai_config import GetSettingsResponse200AiConfig
+        from ..models.get_settings_response_200_auto_add_instance_groups_roles import (
+            GetSettingsResponse200AutoAddInstanceGroupsRoles,
+        )
         from ..models.get_settings_response_200_default_scripts import GetSettingsResponse200DefaultScripts
         from ..models.get_settings_response_200_deploy_ui import GetSettingsResponse200DeployUi
         from ..models.get_settings_response_200_ducklake import GetSettingsResponse200Ducklake
@@ -231,6 +253,17 @@ class GetSettingsResponse200:
         auto_invite_operator = d.pop("auto_invite_operator", UNSET)
 
         auto_add = d.pop("auto_add", UNSET)
+
+        auto_add_instance_groups = cast(List[str], d.pop("auto_add_instance_groups", UNSET))
+
+        _auto_add_instance_groups_roles = d.pop("auto_add_instance_groups_roles", UNSET)
+        auto_add_instance_groups_roles: Union[Unset, GetSettingsResponse200AutoAddInstanceGroupsRoles]
+        if isinstance(_auto_add_instance_groups_roles, Unset):
+            auto_add_instance_groups_roles = UNSET
+        else:
+            auto_add_instance_groups_roles = GetSettingsResponse200AutoAddInstanceGroupsRoles.from_dict(
+                _auto_add_instance_groups_roles
+            )
 
         plan = d.pop("plan", UNSET)
 
@@ -318,6 +351,8 @@ class GetSettingsResponse200:
             auto_invite_domain=auto_invite_domain,
             auto_invite_operator=auto_invite_operator,
             auto_add=auto_add,
+            auto_add_instance_groups=auto_add_instance_groups,
+            auto_add_instance_groups_roles=auto_add_instance_groups_roles,
             plan=plan,
             customer_id=customer_id,
             webhook=webhook,

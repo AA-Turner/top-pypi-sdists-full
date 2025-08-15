@@ -5,11 +5,13 @@ company-formatted HTML tables.
 """
 
 import re
-from typing import Optional, List, Dict, Union, Tuple
-import pandas as pd
 from dataclasses import dataclass
-from edgar.files.html import Document, TableNode, TableCell
-from edgar.files.tables import ProcessedTable, is_number
+from typing import Optional, Union
+
+import pandas as pd
+
+from edgar.files.html import Document, TableNode
+from edgar.files.tables import ProcessedTable
 
 
 @dataclass

@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_vpcep_service_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_vpcep_service_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_vpcep_service_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class VpcepServiceV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.vpcepServiceV1.VpcepServiceV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1 opentelekomcloud_vpcep_service_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1 opentelekomcloud_vpcep_service_v1}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class VpcepServiceV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1 opentelekomcloud_vpcep_service_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1 opentelekomcloud_vpcep_service_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param port: port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#port VpcepServiceV1#port}
-        :param port_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#port_id VpcepServiceV1#port_id}.
-        :param server_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#server_type VpcepServiceV1#server_type}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#vpc_id VpcepServiceV1#vpc_id}.
-        :param approval_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#approval_enabled VpcepServiceV1#approval_enabled}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#description VpcepServiceV1#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#id VpcepServiceV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#name VpcepServiceV1#name}.
-        :param pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#pool_id VpcepServiceV1#pool_id}.
-        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#service_type VpcepServiceV1#service_type}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#tags VpcepServiceV1#tags}.
-        :param tcp_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#tcp_proxy VpcepServiceV1#tcp_proxy}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#timeouts VpcepServiceV1#timeouts}
-        :param vip_port_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#vip_port_id VpcepServiceV1#vip_port_id}.
-        :param whitelist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#whitelist VpcepServiceV1#whitelist}.
+        :param port: port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#port VpcepServiceV1#port}
+        :param port_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#port_id VpcepServiceV1#port_id}.
+        :param server_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#server_type VpcepServiceV1#server_type}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#vpc_id VpcepServiceV1#vpc_id}.
+        :param approval_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#approval_enabled VpcepServiceV1#approval_enabled}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#description VpcepServiceV1#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#id VpcepServiceV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#name VpcepServiceV1#name}.
+        :param pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#pool_id VpcepServiceV1#pool_id}.
+        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#service_type VpcepServiceV1#service_type}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#tags VpcepServiceV1#tags}.
+        :param tcp_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#tcp_proxy VpcepServiceV1#tcp_proxy}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#timeouts VpcepServiceV1#timeouts}
+        :param vip_port_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#vip_port_id VpcepServiceV1#vip_port_id}.
+        :param whitelist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#whitelist VpcepServiceV1#whitelist}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class VpcepServiceV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the VpcepServiceV1 to import.
-        :param import_from_id: The id of the existing VpcepServiceV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing VpcepServiceV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the VpcepServiceV1 to import is found.
         '''
         if __debug__:
@@ -172,7 +172,7 @@ class VpcepServiceV1(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, default: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#default VpcepServiceV1#default}.
+        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#default VpcepServiceV1#default}.
         '''
         value = VpcepServiceV1Timeouts(default=default)
 
@@ -561,21 +561,21 @@ class VpcepServiceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param port: port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#port VpcepServiceV1#port}
-        :param port_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#port_id VpcepServiceV1#port_id}.
-        :param server_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#server_type VpcepServiceV1#server_type}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#vpc_id VpcepServiceV1#vpc_id}.
-        :param approval_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#approval_enabled VpcepServiceV1#approval_enabled}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#description VpcepServiceV1#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#id VpcepServiceV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#name VpcepServiceV1#name}.
-        :param pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#pool_id VpcepServiceV1#pool_id}.
-        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#service_type VpcepServiceV1#service_type}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#tags VpcepServiceV1#tags}.
-        :param tcp_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#tcp_proxy VpcepServiceV1#tcp_proxy}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#timeouts VpcepServiceV1#timeouts}
-        :param vip_port_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#vip_port_id VpcepServiceV1#vip_port_id}.
-        :param whitelist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#whitelist VpcepServiceV1#whitelist}.
+        :param port: port block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#port VpcepServiceV1#port}
+        :param port_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#port_id VpcepServiceV1#port_id}.
+        :param server_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#server_type VpcepServiceV1#server_type}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#vpc_id VpcepServiceV1#vpc_id}.
+        :param approval_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#approval_enabled VpcepServiceV1#approval_enabled}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#description VpcepServiceV1#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#id VpcepServiceV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#name VpcepServiceV1#name}.
+        :param pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#pool_id VpcepServiceV1#pool_id}.
+        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#service_type VpcepServiceV1#service_type}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#tags VpcepServiceV1#tags}.
+        :param tcp_proxy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#tcp_proxy VpcepServiceV1#tcp_proxy}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#timeouts VpcepServiceV1#timeouts}
+        :param vip_port_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#vip_port_id VpcepServiceV1#vip_port_id}.
+        :param whitelist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#whitelist VpcepServiceV1#whitelist}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -718,7 +718,7 @@ class VpcepServiceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VpcepServiceV1Port"]]:
         '''port block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#port VpcepServiceV1#port}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#port VpcepServiceV1#port}
         '''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
@@ -726,21 +726,21 @@ class VpcepServiceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def port_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#port_id VpcepServiceV1#port_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#port_id VpcepServiceV1#port_id}.'''
         result = self._values.get("port_id")
         assert result is not None, "Required property 'port_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def server_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#server_type VpcepServiceV1#server_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#server_type VpcepServiceV1#server_type}.'''
         result = self._values.get("server_type")
         assert result is not None, "Required property 'server_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#vpc_id VpcepServiceV1#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#vpc_id VpcepServiceV1#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)
@@ -749,19 +749,19 @@ class VpcepServiceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def approval_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#approval_enabled VpcepServiceV1#approval_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#approval_enabled VpcepServiceV1#approval_enabled}.'''
         result = self._values.get("approval_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#description VpcepServiceV1#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#description VpcepServiceV1#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#id VpcepServiceV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#id VpcepServiceV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -771,31 +771,31 @@ class VpcepServiceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#name VpcepServiceV1#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#name VpcepServiceV1#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pool_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#pool_id VpcepServiceV1#pool_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#pool_id VpcepServiceV1#pool_id}.'''
         result = self._values.get("pool_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#service_type VpcepServiceV1#service_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#service_type VpcepServiceV1#service_type}.'''
         result = self._values.get("service_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#tags VpcepServiceV1#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#tags VpcepServiceV1#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tcp_proxy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#tcp_proxy VpcepServiceV1#tcp_proxy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#tcp_proxy VpcepServiceV1#tcp_proxy}.'''
         result = self._values.get("tcp_proxy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -803,20 +803,20 @@ class VpcepServiceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["VpcepServiceV1Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#timeouts VpcepServiceV1#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#timeouts VpcepServiceV1#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["VpcepServiceV1Timeouts"], result)
 
     @builtins.property
     def vip_port_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#vip_port_id VpcepServiceV1#vip_port_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#vip_port_id VpcepServiceV1#vip_port_id}.'''
         result = self._values.get("vip_port_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def whitelist(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#whitelist VpcepServiceV1#whitelist}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#whitelist VpcepServiceV1#whitelist}.'''
         result = self._values.get("whitelist")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1018,9 +1018,9 @@ class VpcepServiceV1Port:
         protocol: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#client_port VpcepServiceV1#client_port}.
-        :param server_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#server_port VpcepServiceV1#server_port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#protocol VpcepServiceV1#protocol}.
+        :param client_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#client_port VpcepServiceV1#client_port}.
+        :param server_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#server_port VpcepServiceV1#server_port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#protocol VpcepServiceV1#protocol}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__830740458dc51e65206096f61ebb1fb496c0f840706e0f1b926bc87bd67676af)
@@ -1036,21 +1036,21 @@ class VpcepServiceV1Port:
 
     @builtins.property
     def client_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#client_port VpcepServiceV1#client_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#client_port VpcepServiceV1#client_port}.'''
         result = self._values.get("client_port")
         assert result is not None, "Required property 'client_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def server_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#server_port VpcepServiceV1#server_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#server_port VpcepServiceV1#server_port}.'''
         result = self._values.get("server_port")
         assert result is not None, "Required property 'server_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#protocol VpcepServiceV1#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#protocol VpcepServiceV1#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1263,7 +1263,7 @@ class VpcepServiceV1PortOutputReference(
 class VpcepServiceV1Timeouts:
     def __init__(self, *, default: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#default VpcepServiceV1#default}.
+        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#default VpcepServiceV1#default}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f02f0e66ae9d7d1ef474db51de2a0581c713f1b5b9600ee608b5b13dcd62cf5f)
@@ -1274,7 +1274,7 @@ class VpcepServiceV1Timeouts:
 
     @builtins.property
     def default(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/vpcep_service_v1#default VpcepServiceV1#default}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/vpcep_service_v1#default VpcepServiceV1#default}.'''
         result = self._values.get("default")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -22,7 +22,7 @@ class Transport:
         return self._transport_id
 
     def __init__(self, transport_id: int):
-        self._transport_id = transport_id
+        self._transport_id: int = transport_id
 
     @staticmethod
     def open() -> 'Transport':

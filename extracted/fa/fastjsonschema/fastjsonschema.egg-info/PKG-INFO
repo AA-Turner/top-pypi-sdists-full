@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fastjsonschema
-Version: 2.21.1
+Version: 2.21.2
 Summary: Fastest Python implementation of JSON schema
 Home-page: https://github.com/horejsek/python-fastjsonschema
 Author: Michal Horejsek
@@ -36,6 +36,15 @@ Requires-Dist: pytest; extra == "devel"
 Requires-Dist: pytest-benchmark; extra == "devel"
 Requires-Dist: pytest-cache; extra == "devel"
 Requires-Dist: validictory; extra == "devel"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: summary
 
 ===========================
 Fast JSON schema for Python

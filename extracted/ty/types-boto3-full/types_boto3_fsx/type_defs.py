@@ -1912,6 +1912,7 @@ class AdministrativeActionPaginatorTypeDef(TypedDict):
     TargetSnapshotValues: NotRequired[SnapshotPaginatorTypeDef]
     TotalTransferBytes: NotRequired[int]
     RemainingTransferBytes: NotRequired[int]
+    Message: NotRequired[str]
 
 
 class DescribeVolumesResponsePaginatorTypeDef(TypedDict):
@@ -1931,6 +1932,7 @@ class AdministrativeActionTypeDef(TypedDict):
     TargetSnapshotValues: NotRequired[SnapshotTypeDef]
     TotalTransferBytes: NotRequired[int]
     RemainingTransferBytes: NotRequired[int]
+    Message: NotRequired[str]
 
 
 class CreateVolumeFromBackupResponseTypeDef(TypedDict):

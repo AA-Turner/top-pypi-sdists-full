@@ -83,9 +83,9 @@ def update_execution_status(
         orby_client.call_grpc_channel(
             execution_stub.UpdateExecution, request, metadata=metadata
         )
-        logger.info(f"Updated execution {execution_id} to status {status}")
+        logger.info(f"Updated execution to status {status}")
     except Exception as e:
-        logger.error(f"Failed to update execution {execution_id}: {e}")
+        logger.error(f"Failed to update execution: {e}")
         raise
 
 

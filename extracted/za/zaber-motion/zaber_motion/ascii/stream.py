@@ -61,9 +61,9 @@ class Stream:
         return self._io
 
     def __init__(self, device: 'Device', stream_id: int):
-        self._device = device
-        self._stream_id = stream_id
-        self._io = StreamIo(device, stream_id)
+        self._device: 'Device' = device
+        self._stream_id: int = stream_id
+        self._io: StreamIo = StreamIo(device, stream_id)
 
     def setup_live_composite(
             self,

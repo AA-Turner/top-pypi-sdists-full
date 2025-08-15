@@ -1,6 +1,6 @@
 import sys
 
-from code_loader.contract.datasetclasses import LeapData  # type: ignore
+from code_loader.contract.datasetclasses import LeapData
 
 from typing import Optional
 
@@ -15,5 +15,5 @@ def visualize(leap_data: LeapData, title: Optional[str] = None) -> None:
 
     if not title:
         title = f"Leap {leap_data.type.name} Visualization"
-    vis_function(leap_data, title)
+    vis_function(leap_data, title)  # type: ignore[operator]
 

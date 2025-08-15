@@ -82,6 +82,147 @@ compute_bit_value(integer_t uuid) {
     return bv;
 }
 
+/*
+To calculate area under a line segment within unit square at origin.
+This is used by BOXER.
+*/
+
+static inline_macro double
+sgarea(const double x1, const double y1, const double x2, const double y2) {
+    double xlo, xhi, ylo, yhi, xtop;
+    double dx, dy, det, sgn_dx;
+
+    dx = x2 - x1;
+    dy = y2 - y1;
+
+    /* Trap vertical line */
+    if (dx == 0) {
+        return 0.0;
+    }
+
+    if (dx < 0) {
+        sgn_dx = -1.0;
+        xlo = x2;
+        xhi = x1;
+    } else {
+        sgn_dx = 1.0;
+        xlo = x1;
+        xhi = x2;
+    }
+
+    /* And determine the bounds ignoring y for now */
+    if (xlo >= 1.0 || xhi <= 0.0) {
+        return 0.0;
+    }
+
+    xlo = MAX(xlo, 0.0);
+    xhi = MIN(xhi, 1.0);
+
+    /* Now look at y */
+    double slope = dy / dx;
+    ylo = y1 + slope * (xlo - x1);
+    yhi = y1 + slope * (xhi - x1);
+
+    /* Alternative code that may be more stable under certain circumstances */
+    /*
+        if (xlo < 0.0) {
+            xlo = 0.0;
+            ylo = y1 + (dy / dx) * (xlo - x1);
+        } else {
+            ylo = (sgn_dx > 0.0) ? y1 : y2;
+        }
+
+        if (xhi > 1.0) {
+            xhi = 1.0;
+            yhi = y1 + (dy / dx) * (xhi - x1);
+        } else {
+            yhi = (sgn_dx > 0.0) ? y2 : y1;
+        }
+    */
+
+    /* Trap segment entirely below axis */
+    if (ylo <= 0.0 && yhi <= 0.0) {
+        return 0.0;
+    }
+
+    /* There are four possibilities: both y below 1, both y above 1 and
+       one of each. */
+    if (ylo >= 1.0 && yhi >= 1.0) {
+        /* Line segment is entirely above square */
+        return sgn_dx * (xhi - xlo);
+    }
+
+    det = x1 * y2 - y1 * x2;
+
+    /* Adjust bounds if segment crosses axis (to exclude anything below
+       axis) */
+    if (ylo < 0.0) {
+        ylo = 0.0;
+        xlo = det / dy;
+    }
+
+    if (yhi < 0.0) {
+        yhi = 0.0;
+        xhi = det / dy;
+    }
+
+    if (ylo <= 1.0) {
+        if (yhi <= 1.0) {
+            /* Segment is entirely within the square.
+               The case of zero slope will end up here. */
+            return sgn_dx * 0.5 * (xhi - xlo) * (yhi + ylo);
+        }
+
+        /* Otherwise, it must cross the top of the square */
+        xtop = (dx + det) / dy;
+        return sgn_dx * (0.5 * (xtop - xlo) * (1.0 + ylo) + xhi - xtop);
+    }
+
+    xtop = (dx + det) / dy;
+    return sgn_dx * (0.5 * (xhi - xtop) * (1.0 + yhi) + xtop - xlo);
+}
+
+/**
+ compute area of box overlap
+
+ Calculate the area common to input clockwise polygon x(n), y(n) with
+ square (is, js) to (is+1, js+1).
+ This version is for a quadrilateral.
+
+ Used by do_square_kernel.
+*/
+
+double
+boxer(double is, double js, const double x[4], const double y[4]) {
+    integer_t i;
+    double sum;
+    double px[4], py[4];
+
+    assert(x);
+    assert(y);
+
+    is -= 0.5;
+    js -= 0.5;
+    /* Set up coords relative to unit square at origin Note that the
+       +0.5s were added when this code was included in DRIZZLE */
+
+    for (i = 0; i < 4; ++i) {
+        px[i] = x[i] - is;
+        py[i] = y[i] - js;
+    }
+
+    /* For each line in the polygon (or at this stage, input
+       quadrilateral) calculate the area common to the unit square
+       (allow negative area for subsequent `vector' addition of
+       subareas). */
+    sum = 0.0;
+    for (i = 0; i < 4; ++i) {
+        sum += sgarea(px[i], py[i], px[(i + 1) & 0x3], py[(i + 1) & 0x3]);
+    }
+
+    return sum;
+}
+
 /** ---------------------------------------------------------------------------
  * Compute area of box overlap. Calculate the area common to input clockwise
  * polygon x(n), y(n) with square (is, js) to (is+1, js+1). This version is for
@@ -163,8 +304,7 @@ compute_area(double is, double js, const double x[4], const double y[4]) {
                              * segment inside the square
                              */
                             width = segment[1][0] - segment[0][0];
-                            area += 0.5 * width *
-                                    ((1.0 + delta[0]) + (1.0 + delta[1]));
+                            area += 0.5 * width * (2.0 + delta[0] + delta[1]);
                         }
                     }
 
@@ -192,14 +332,14 @@ compute_area(double is, double js, const double x[4], const double y[4]) {
                             width = segment[1][0] - midpoint[0];
                             /* Delta[0] is at the crossing point and thus zero
                              */
-                            area += 0.5 * width * (1.0 + (1.0 + delta[1]));
+                            area += 0.5 * width * (2.0 + delta[1]);
                         } else {
                             width = segment[1][0] - midpoint[0];
                             area += width;
                             width = midpoint[0] - segment[0][0];
                             /* Delta[1] is at the crossing point and thus zero
                              */
-                            area += 0.5 * width * ((1.0 + delta[0]) + 1.0);
+                            area += 0.5 * width * (2.0 + delta[0]);
                         }
 
                     } else {
@@ -750,9 +890,9 @@ do_kernel_turbo(struct driz_param_t *p) {
 int
 do_kernel_square(struct driz_param_t *p) {
     integer_t bv, i, j, ii, jj, min_ii, max_ii, min_jj, max_jj, nhit;
-    integer_t osize[2];
+    integer_t osize[2], mapsize[2];
     float scale2, vc, d, dow;
-    double dh, jaco, tem, dover, w;
+    double dh, jaco, dover, w;
     double xin[4], yin[4], xout[4], yout[4];
 
     struct scanner s;
@@ -773,6 +913,8 @@ do_kernel_square(struct driz_param_t *p) {
 
     /* This is the outer loop over all the lines in the input image */
     get_dimensions(p->output_data, osize);
+    get_dimensions(p->pixmap, mapsize);
+
     for (j = ymin; j <= ymax; ++j) {
         /* Check the overlap with the output */
         n = get_scanline_limits(&s, j, &xmin, &xmax);
@@ -793,40 +935,51 @@ do_kernel_square(struct driz_param_t *p) {
         }
 
         /* Set the input corner positions */
-
         yin[1] = yin[0] = (double)j + dh;
         yin[3] = yin[2] = (double)j - dh;
 
         for (i = xmin; i <= xmax; ++i) {
             nhit = 0;
 
-            xin[3] = xin[0] = (double)i - dh;
-            xin[2] = xin[1] = (double)i + dh;
+            // xin[3] = xin[0] = (double)i - dh;
+            // xin[2] = xin[1] = (double)i + dh;
 
-            for (ii = 0; ii < 4; ++ii) {
-                if (interpolate_point(p, xin[ii], yin[ii], xout + ii,
-                                      yout + ii)) {
+            // for (ii = 0; ii < 4; ++ii) {
+            //     if (interpolate_point(p, xin[ii], yin[ii], xout + ii,
+            //                           yout + ii)) {
+            //         goto _miss;
+            //     }
+            // }
+
+            /* Assuming we don't need to extrapolate, call a more
+             * efficient interpolator that takes advantage of the fact
+             * that pixfrac<1 and that we are using a square grid.
+             */
+            if (i > 0 && i < mapsize[0] - 2 && j > 0 && j < mapsize[1] - 2) {
+                if (interpolate_four_points(p, i, j, dh, xout, xout + 1,
+                                            xout + 2, xout + 3, yout, yout + 1,
+                                            yout + 2, yout + 3))
                     goto _miss;
+            } else {
+                xin[3] = xin[0] = (double)i - dh;
+                xin[2] = xin[1] = (double)i + dh;
+                for (ii = 0; ii < 4; ++ii) {
+                    if (interpolate_point(p, xin[ii], yin[ii], xout + ii,
+                                          yout + ii))
+                        goto _miss;
                 }
             }
 
-            /* Work out the area of the quadrilateral on the output grid.
-               Note that this expression expects the points to be in clockwise
-               order */
+            /* Work out the area of the quadrilateral on the output
+             * grid.  If the points are in clockwise order we get a
+             * postive area.  If they are in anticlockwise order, jaco
+             * will be negative, but so will the areas computed by
+             * boxer, so it doesn't actually matter once we divide it
+             * out.
+             */
 
             jaco = 0.5f * ((xout[1] - xout[3]) * (yout[0] - yout[2]) -
                            (xout[0] - xout[2]) * (yout[1] - yout[3]));
-
-            if (jaco < 0.0) {
-                jaco *= -1.0;
-                /* Swap */
-                tem = xout[1];
-                xout[1] = xout[3];
-                xout[3] = tem;
-                tem = yout[1];
-                yout[1] = yout[3];
-                yout[3] = tem;
-            }
 
             /* Allow for stretching because of scale change */
             d = get_pixel(p->data, i, j) * scale2;
@@ -834,9 +987,9 @@ do_kernel_square(struct driz_param_t *p) {
             /* Scale the weighting mask by the scale factor and inversely by
                the Jacobian to ensure conservation of weight in the output */
             if (p->weights) {
-                w = get_pixel(p->weights, i, j) * p->weight_scale;
+                w = get_pixel(p->weights, i, j) * p->weight_scale / jaco;
             } else {
-                w = 1.0;
+                w = 1.0 / jaco;
             }
 
             /* Loop over output pixels which could be affected */
@@ -847,21 +1000,22 @@ do_kernel_square(struct driz_param_t *p) {
 
             for (jj = min_jj; jj <= max_jj; ++jj) {
                 for (ii = min_ii; ii <= max_ii; ++ii) {
-                    /* Call compute_area to calculate overlap */
-                    dover = compute_area((double)ii, (double)jj, xout, yout);
+                    /* Call boxer to calculate overlap */
+                    // dover = compute_area((double)ii, (double)jj, xout, yout);
+                    dover = boxer((double)ii, (double)jj, xout, yout);
 
-                    if (dover > 0.0) {
+                    /* Could be positive or negative, depending on the sign of
+                     * jaco */
+                    if (dover != 0.0) {
                         vc = get_pixel(p->output_counts, ii, jj);
 
-                        /* Re-normalise the area overlap using the Jacobian */
-                        dover /= jaco;
                         dow = (float)(dover * w);
 
                         /* Count the hits */
                         ++nhit;
 
                         /* If we are creating or modifying the context image we
-                           do so here */
+                            do so here */
                         if (p->output_context && dow > 0.0) {
                             set_bit(p->output_context, ii, jj, bv);
                         }

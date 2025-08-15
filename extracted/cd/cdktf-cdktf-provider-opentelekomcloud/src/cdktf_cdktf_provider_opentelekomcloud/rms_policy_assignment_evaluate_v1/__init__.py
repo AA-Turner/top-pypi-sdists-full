@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_rms_policy_assignment_evaluate_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_rms_policy_assignment_evaluate_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rms_policy_assignment_evaluate_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_rms_policy_assignment_evaluate_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rms_policy_assignment_evaluate_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RmsPolicyAssignmentEvaluateV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.rmsPolicyAssignmentEvaluateV1.RmsPolicyAssignmentEvaluateV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rms_policy_assignment_evaluate_v1 opentelekomcloud_rms_policy_assignment_evaluate_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rms_policy_assignment_evaluate_v1 opentelekomcloud_rms_policy_assignment_evaluate_v1}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class RmsPolicyAssignmentEvaluateV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rms_policy_assignment_evaluate_v1 opentelekomcloud_rms_policy_assignment_evaluate_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rms_policy_assignment_evaluate_v1 opentelekomcloud_rms_policy_assignment_evaluate_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param policy_assignment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rms_policy_assignment_evaluate_v1#policy_assignment_id RmsPolicyAssignmentEvaluateV1#policy_assignment_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rms_policy_assignment_evaluate_v1#id RmsPolicyAssignmentEvaluateV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policy_assignment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rms_policy_assignment_evaluate_v1#policy_assignment_id RmsPolicyAssignmentEvaluateV1#policy_assignment_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rms_policy_assignment_evaluate_v1#id RmsPolicyAssignmentEvaluateV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class RmsPolicyAssignmentEvaluateV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RmsPolicyAssignmentEvaluateV1 to import.
-        :param import_from_id: The id of the existing RmsPolicyAssignmentEvaluateV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rms_policy_assignment_evaluate_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RmsPolicyAssignmentEvaluateV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rms_policy_assignment_evaluate_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RmsPolicyAssignmentEvaluateV1 to import is found.
         '''
         if __debug__:
@@ -206,8 +206,8 @@ class RmsPolicyAssignmentEvaluateV1Config(_cdktf_9a9027ec.TerraformMetaArguments
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param policy_assignment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rms_policy_assignment_evaluate_v1#policy_assignment_id RmsPolicyAssignmentEvaluateV1#policy_assignment_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rms_policy_assignment_evaluate_v1#id RmsPolicyAssignmentEvaluateV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param policy_assignment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rms_policy_assignment_evaluate_v1#policy_assignment_id RmsPolicyAssignmentEvaluateV1#policy_assignment_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rms_policy_assignment_evaluate_v1#id RmsPolicyAssignmentEvaluateV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -308,14 +308,14 @@ class RmsPolicyAssignmentEvaluateV1Config(_cdktf_9a9027ec.TerraformMetaArguments
 
     @builtins.property
     def policy_assignment_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rms_policy_assignment_evaluate_v1#policy_assignment_id RmsPolicyAssignmentEvaluateV1#policy_assignment_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rms_policy_assignment_evaluate_v1#policy_assignment_id RmsPolicyAssignmentEvaluateV1#policy_assignment_id}.'''
         result = self._values.get("policy_assignment_id")
         assert result is not None, "Required property 'policy_assignment_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rms_policy_assignment_evaluate_v1#id RmsPolicyAssignmentEvaluateV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rms_policy_assignment_evaluate_v1#id RmsPolicyAssignmentEvaluateV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

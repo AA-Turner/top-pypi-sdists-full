@@ -56,7 +56,7 @@ import asyncio
 import pickle
 import threading
 import time
-from typing import Awaitable, Protocol, Sequence, TypeVar
+from typing import Awaitable, Protocol, Sequence
 
 from absl import logging
 from etils import epath
@@ -71,14 +71,13 @@ from orbax.checkpoint._src.path import async_path
 from orbax.checkpoint._src.path import atomicity_types
 from orbax.checkpoint._src.path import step as step_lib
 from orbax.checkpoint._src.path import utils
+from orbax.checkpoint._src.path.snapshot import snapshot as snapshot_lib
 
 
 TMP_DIR_SUFFIX = step_lib.TMP_DIR_SUFFIX
 COMMIT_SUCCESS_FILE = step_lib._COMMIT_SUCCESS_FILE  # pylint: disable=protected-access
 
 _LAST_CHECKPOINT_WRITE_TIME = time.time()
-
-_T = TypeVar('_T', bound='_TemporaryPathBase')
 
 
 async def _is_tmp_checkpoint(path: epath.Path):
@@ -104,9 +103,8 @@ async def _create_tmp_directory(
     tmp_dir: epath.Path,
     *,
     path_permission_mode: int | None = None,
-    checkpoint_metadata_store: (
-        checkpoint_metadata.MetadataStore | None
-    ) = None,
+    checkpoint_metadata_store: checkpoint_metadata.MetadataStore | None = None,
+    snapshot: snapshot_lib.Snapshot | None = None,
     **kwargs,
 ) -> epath.Path:
   """Creates a non-deterministic tmp directory for saving for given `final_dir`.
@@ -122,6 +120,8 @@ async def _create_tmp_directory(
         path is supported.
     checkpoint_metadata_store: optional `CheckpointMetadataStore` instance. If
       present then it is used to create `StepMetadata` with current timestamp.
+    snapshot: optional `Snapshot` instance. If present then it is used to create
+      a snapshot of the final path.
     **kwargs: Optional. Additional kwargs to pass to `async_makedir_func`
 
   Returns:
@@ -144,13 +144,16 @@ async def _create_tmp_directory(
           ' exists but appears a non-temporary checkpoint.'
       )
   logging.info('Creating tmp directory %s', tmp_dir)
-  await async_makedir_func(
-      tmp_dir,
-      parents=True,
-      exist_ok=False,
-      mode=path_permission_mode,
-      **kwargs,
-  )
+  if snapshot is not None:
+    await snapshot.create_snapshot()
+  else:
+    await async_makedir_func(
+        tmp_dir,
+        parents=True,
+        exist_ok=False,
+        mode=path_permission_mode,
+        **kwargs,
+    )
   if checkpoint_metadata_store is not None:
     checkpoint_metadata_store.write(
         file_path=checkpoint_metadata.step_metadata_file_path(tmp_dir),
@@ -178,18 +181,19 @@ def _get_tmp_directory_pattern(final_path_name: str | None = None) -> str:
     return final_path_name + suffix
 
 
-class _TemporaryPathBase(atomicity_types.TemporaryPath):
+class TemporaryPathBase(atomicity_types.TemporaryPath):
   """A base class for TemporaryPath implementations."""
 
   def __init__(
       self,
-      temporary_path: epath.Path,
+      temporary_path: epath.Path | None,
       final_path: epath.Path,
       *,
       checkpoint_metadata_store: (
           checkpoint_metadata.MetadataStore | None
       ) = None,
       file_options: options_lib.FileOptions | None = None,
+      use_snapshot: bool | None = False,
   ):
     self._tmp_path = temporary_path
     self._final_path = final_path
@@ -197,6 +201,22 @@ class _TemporaryPathBase(atomicity_types.TemporaryPath):
     file_options = file_options or options_lib.FileOptions()
     self._checkpoint_metadata_store = checkpoint_metadata_store
     self._path_permission_mode = file_options.path_permission_mode
+    self._snapshot = None
+    if use_snapshot:
+      self._snapshot = snapshot_lib.create_instance(
+          source=final_path,
+          snapshot=temporary_path,
+          set_immutable=False,
+      )
+
+  def get(self) -> epath.Path:
+    """Returns the temporary path."""
+    if not self._tmp_path:
+      raise ValueError(
+          'Temporary path has not been created yet. Please call `create`'
+          ' first.'
+      )
+    return self._tmp_path
 
 
 class ReadOnlyTemporaryPath(atomicity_types.TemporaryPath):
@@ -305,7 +325,7 @@ class ReadOnlyTemporaryPath(atomicity_types.TemporaryPath):
     raise NotImplementedError('`finalize` is not supported.')
 
 
-class AtomicRenameTemporaryPath(_TemporaryPathBase):
+class AtomicRenameTemporaryPath(TemporaryPathBase):
   """TemporaryPath implementation that uses atomic rename."""
 
   @classmethod
@@ -317,16 +337,15 @@ class AtomicRenameTemporaryPath(_TemporaryPathBase):
           checkpoint_metadata.MetadataStore | None
       ) = None,
       file_options: options_lib.FileOptions | None = None,
+      use_snapshot: bool | None = None,
   ) -> AtomicRenameTemporaryPath:
     return cls(
         _get_tmp_directory(final_path),
         final_path,
         checkpoint_metadata_store=checkpoint_metadata_store,
         file_options=file_options,
+        use_snapshot=use_snapshot,
     )
-
-  def get(self) -> epath.Path:
-    return self._tmp_path
 
   def get_final(self) -> epath.Path:
     return self._final_path
@@ -351,6 +370,7 @@ class AtomicRenameTemporaryPath(_TemporaryPathBase):
         self._tmp_path,
         path_permission_mode=self._path_permission_mode,
         checkpoint_metadata_store=self._checkpoint_metadata_store,
+        snapshot=self._snapshot,
     )
 
   async def finalize(
@@ -375,17 +395,20 @@ class AtomicRenameTemporaryPath(_TemporaryPathBase):
           self._checkpoint_metadata_store.wait_until_finished
       )
 
-    await async_path.rename(self._tmp_path, self._final_path)
+    if self._snapshot is not None:
+      await self._snapshot.replace_source()
+    else:
+      await async_path.rename(self._tmp_path, self._final_path)
 
   def __repr__(self) -> str:
     return (
-        f'AtomicRenameTemporaryPath(tmp="{self._tmp_path.name}",'
+        f'AtomicRenameTemporaryPath(tmp="{self.get().name}",'
         f' final="{self._final_path.name}",'
         f' directory="{self._final_path.parent}")'
     )
 
 
-class CommitFileTemporaryPath(_TemporaryPathBase):
+class CommitFileTemporaryPath(TemporaryPathBase):
   """TemporaryPath implementation that uses a commit file."""
 
   @classmethod
@@ -397,16 +420,17 @@ class CommitFileTemporaryPath(_TemporaryPathBase):
           checkpoint_metadata.MetadataStore | None
       ) = None,
       file_options: options_lib.FileOptions | None = None,
+      use_snapshot: bool | None = None,
   ) -> CommitFileTemporaryPath:
+    if use_snapshot:
+      raise ValueError('Snapshot is not supported for CommitFileTemporaryPath.')
+
     return cls(
         final_path,
         final_path,
         checkpoint_metadata_store=checkpoint_metadata_store,
         file_options=file_options,
     )
-
-  def get(self) -> epath.Path:
-    return self._tmp_path
 
   def get_final(self) -> epath.Path:
     return self._final_path

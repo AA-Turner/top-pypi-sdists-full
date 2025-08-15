@@ -19,6 +19,22 @@ static const double VERTEX_ATOL = 1.0e-12;
 static const double APPROX_ZERO = 1.0e3 * DBL_MIN;
 static const double MAX_INV_ERR = 0.03;
 
+void
+debug_print_polygon(const struct polygon *p, char *msg) {
+    int i;
+    if (msg) {
+        printf("%s\n", msg);
+    }
+    printf("Polygon with %d vertices:\n", p->npv);
+    for (i = 0; i < p->npv; ++i) {
+        printf("  Vertex %d: (%.20f, %.20f)\n", i, p->v[i].x, p->v[i].y);
+    }
+    printf("\n");
+    fflush(stdout);
+}
+
+void rotate_polygon(struct polygon *p, int pos);
+
 /** ---------------------------------------------------------------------------
  * Find the tighest bounding box around valid (finite) pixmap values.
  *
@@ -165,8 +181,93 @@ interpolate_point(struct driz_param_t *par, double xin, double yin,
 }
 
 /** ---------------------------------------------------------------------------
+ * Map a clockwise grid of four points on the input image to the
+ * output image using a mapping of the pixel centers between the two
+ * by interpolating between the centers in the mapping.  This assumes
+ * that we want a square grid in the original coordinates centered on
+ * an integer pixel value, as is used by do_square_kernel.
+ *
+ * pixmap: The mapping of the pixel centers from input to output image
+ * xyin:   An (x,y) point on the input image, in integer pixels
+ * h:      The x,y distance (<1) from the pixel center to the edges
+ * xyout:  Four (x, y) points on the output image (output), given as
+ *         four x points, then four y points.
+ */
+int
+interpolate_four_points(struct driz_param_t *par, int ixcen, int iycen,
+                        double h, double *x1, double *x2, double *x3,
+                        double *x4, double *y1, double *y2, double *y3,
+                        double *y4) {
+    int i, j, nx2, ny2;
+    double fac;
+    npy_intp *ndim;
+    double f[3][3], g[3][3];
+    double *p;
+    PyArrayObject *pixmap;
+
+    pixmap = par->pixmap;
+
+    /* Bilinear interpolation from
+       https://en.wikipedia.org/wiki/Bilinear_interpolation#On_the_unit_square
+    */
+
+    ndim = PyArray_DIMS(pixmap);
+    nx2 = (int)ndim[1] - 2;
+    ny2 = (int)ndim[0] - 2;
+
+    /* This is written specifically for the case where I am enclosed
+     * by nine pixels.  Since the increments are the same in x and y,
+     * I can take a shortcut by pre-multiplying by the distances from
+     * center point, given by i=j=1 below. Loop ordered for speed
+     * based on numpy array order.
+     */
+    ixcen -= 1;
+    iycen -= 1;
+    assert(h <= 1);
+    assert(ixcen >= 0 && iycen >= 0 && ixcen < nx2 && iycen < ny2);
+
+    for (j = 0; j <= 2; ++j) {
+        for (i = 0; i <= 2; ++i) {
+            p = get_pixmap(pixmap, i + ixcen, j + iycen);
+            if (i == 1 && j == 1) {
+                fac = (1 - h) * (1 - h);
+            } else if (i == 1 || j == 1) {
+                fac = (1 - h) * h;
+            } else {
+                fac = h * h;
+            }
+            f[i][j] = p[0] * fac;
+            g[i][j] = p[1] * fac;
+        }
+    }
+
+    /* We return the vertices of a square going clockwise in the
+     * original pixel grid.
+     * Order in y: +h, +h, -h, -h; order in x: -h, +h, +h, -h
+     */
+
+    *x1 = f[0][1] + f[1][1] + f[0][2] + f[1][2];
+    *y1 = g[0][1] + g[1][1] + g[0][2] + g[1][2];
+
+    *x2 = f[1][1] + f[2][1] + f[1][2] + f[2][2];
+    *y2 = g[1][1] + g[2][1] + g[1][2] + g[2][2];
+
+    *x3 = f[1][0] + f[2][0] + f[1][1] + f[2][1];
+    *y3 = g[1][0] + g[2][0] + g[1][1] + g[2][1];
+
+    *x4 = f[0][0] + f[1][0] + f[0][1] + f[1][1];
+    *y4 = g[0][0] + g[1][0] + g[0][1] + g[1][1];
+
+    if (npy_isnan(*x1) || npy_isnan(*y1) || npy_isnan(*x2) || npy_isnan(*y2) ||
+        npy_isnan(*x3) || npy_isnan(*y3) || npy_isnan(*x4) || npy_isnan(*y4)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+/** ---------------------------------------------------------------------------
  * Map an integer pixel position from the input to the output image.
- * Fall back on interpolation if the value at the point is undefined
  *
  * pixmap: The mapping of the pixel centers from input to output image
  * i - The index of the x coordinate
@@ -174,7 +275,6 @@ interpolate_point(struct driz_param_t *par, double xin, double yin,
  * x - X-coordinate of the point on the output image (output)
  * y - Y-coordinate of the point on the output image (output)
  */
-
 int
 map_pixel(PyArrayObject *pixmap, int i, int j, double *x, double *y) {
     double *pv = (double *)PyArray_GETPTR3(pixmap, j, i, 0);
@@ -357,6 +457,38 @@ is_point_strictly_in_hp(const struct vertex pt, const struct vertex v_,
 }
 
 /**
+ * Rotates the vertices of a polygon by a specified number of positions.
+ *
+ * This function shifts the vertices of the given polygon `p` by `pos`
+ * positions. For each rotation, the first vertex is moved to the end of the
+ * vertex array, effectively rotating the polygon's vertex order. The operation
+ * is performed in-place and repeated `pos` times.
+ *
+ * @param p   Pointer to the polygon structure to be rotated. The polygon is
+ *            expected to have an array of vertices `v` and a count `npv`.
+ * @param pos Number of positions to rotate the polygon's vertices.
+ */
+void
+rotate_polygon(struct polygon *p, int pos) {
+    int i, k, m;
+    double x, y;
+
+    for (i = 0; i < pos; ++i) {
+        // rotate polygon p by pos vertices
+        // (move first pos vertices to the end of the polygon)
+        x = p->v[0].x;
+        y = p->v[0].y;
+        for (k = 0; k < p->npv - 1; ++k) {
+            m = mod(k + 1, p->npv);
+            p->v[k].x = p->v[m].x;
+            p->v[k].y = p->v[m].y;
+        }
+        p->v[p->npv - 1].x = x;
+        p->v[p->npv - 1].y = y;
+    }
+}
+
+/**
  * Append a vertex to a polygon.
  *
  * Append a vertex to the polygon's list of vertices and increment
@@ -533,12 +665,16 @@ clip_polygon_to_window(const struct polygon *p, const struct polygon *wnd,
                 // compute intersection point:
                 // https://en.wikipedia.org/wiki/Line–line_intersection
                 d = area(dp, dw);  // d != 0 because (v2_inside != v1_inside)
+
                 app_ = area(*pv, *pv_);
                 aww_ = area(*wv, *wv_);
+
                 vi.x = (app_ * dw.x - aww_ * dp.x) / d;
                 vi.y = (app_ * dw.y - aww_ * dp.y) / d;
 
-                append_vertex(ppout, vi);
+                if (isfinite(vi.x) && isfinite(vi.y)) {
+                    append_vertex(ppout, vi);
+                }
                 if (v2_inside) {
                     // outside to inside:
                     append_vertex(ppout, *pv);
@@ -547,6 +683,7 @@ clip_polygon_to_window(const struct polygon *p, const struct polygon *wnd,
                 // both edge vertices are inside
                 append_vertex(ppout, *pv);
             }
+
             // nothing to do when both edge vertices are outside
 
             // advance polygon edge:
@@ -592,7 +729,7 @@ init_edge(struct edge *e, struct vertex v1, struct vertex v2, int position) {
     e->m = (v2.x - v1.x) / (v2.y - v1.y);
     e->b = (v1.x * v2.y - v1.y * v2.x) / (v2.y - v1.y);
     e->c = e->b - copysign(0.5 + 0.5 * fabs(e->m), (double)position);
-};
+}
 
 /**
  * Set-up scanner structure for a polygon.
@@ -763,7 +900,7 @@ get_scanline_limits(struct scanner *s, int y, int *x1, int *x2) {
             return 1;
         }
         ++s->left;
-    };
+    }
 
     while (pyb > s->right->v2.y) {
         if (s->right == er_max) {
@@ -772,7 +909,7 @@ get_scanline_limits(struct scanner *s, int y, int *x1, int *x2) {
             return 1;
         }
         ++s->right;
-    };
+    }
 
     xlb = s->left->m * y + s->left->c - MAX_INV_ERR;
     xrb = s->right->m * y + s->right->c + MAX_INV_ERR;
@@ -786,7 +923,7 @@ get_scanline_limits(struct scanner *s, int y, int *x1, int *x2) {
         }
         ++s->left;
         edge_ymax = s->left->v2.y + 0.5 + MAX_INV_ERR;
-    };
+    }
 
     edge_ymax = s->right->v2.y + 0.5 + MAX_INV_ERR;
     while (pyt > edge_ymax) {
@@ -797,7 +934,7 @@ get_scanline_limits(struct scanner *s, int y, int *x1, int *x2) {
         }
         ++s->right;
         edge_ymax = s->right->v2.y + 0.5 + MAX_INV_ERR;
-    };
+    }
 
     xlt = s->left->m * y + s->left->c - MAX_INV_ERR;
     xrt = s->right->m * y + s->right->c + MAX_INV_ERR;

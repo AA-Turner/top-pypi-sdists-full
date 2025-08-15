@@ -922,6 +922,14 @@ class Feature(Generic[_TPrim, _TRich]):
         return self.is_scalar and len(self.window_durations) > 0
 
     @property
+    def is_group_by_windowed(self):
+        return self.group_by_windowed is not None
+
+    @property
+    def has_window_materialization(self):
+        return self.window_materialization is not None
+
+    @property
     def is_windowed_pseudofeature(self):
         """Whether the feature is an underlying windowed pseudofeature,
         representing a particular windowed bucket. This feature is like

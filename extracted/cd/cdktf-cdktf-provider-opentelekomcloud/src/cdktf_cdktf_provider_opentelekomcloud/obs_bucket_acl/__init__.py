@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_obs_bucket_acl`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_obs_bucket_acl`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_obs_bucket_acl`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ObsBucketAcl(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.obsBucketAcl.ObsBucketAcl",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl opentelekomcloud_obs_bucket_acl}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl opentelekomcloud_obs_bucket_acl}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class ObsBucketAcl(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl opentelekomcloud_obs_bucket_acl} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl opentelekomcloud_obs_bucket_acl} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#bucket ObsBucketAcl#bucket}.
-        :param account_permission: account_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#account_permission ObsBucketAcl#account_permission}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#id ObsBucketAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_delivery_user_permission: log_delivery_user_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#log_delivery_user_permission ObsBucketAcl#log_delivery_user_permission}
-        :param owner_permission: owner_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#owner_permission ObsBucketAcl#owner_permission}
-        :param public_permission: public_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#public_permission ObsBucketAcl#public_permission}
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#bucket ObsBucketAcl#bucket}.
+        :param account_permission: account_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#account_permission ObsBucketAcl#account_permission}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#id ObsBucketAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_delivery_user_permission: log_delivery_user_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#log_delivery_user_permission ObsBucketAcl#log_delivery_user_permission}
+        :param owner_permission: owner_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#owner_permission ObsBucketAcl#owner_permission}
+        :param public_permission: public_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#public_permission ObsBucketAcl#public_permission}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class ObsBucketAcl(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ObsBucketAcl to import.
-        :param import_from_id: The id of the existing ObsBucketAcl that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ObsBucketAcl that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ObsBucketAcl to import is found.
         '''
         if __debug__:
@@ -150,8 +150,8 @@ class ObsBucketAcl(
         access_to_bucket: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
-        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
+        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
+        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
         '''
         value = ObsBucketAclLogDeliveryUserPermission(
             access_to_acl=access_to_acl, access_to_bucket=access_to_bucket
@@ -167,8 +167,8 @@ class ObsBucketAcl(
         access_to_bucket: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
-        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
+        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
+        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
         '''
         value = ObsBucketAclOwnerPermission(
             access_to_acl=access_to_acl, access_to_bucket=access_to_bucket
@@ -184,8 +184,8 @@ class ObsBucketAcl(
         access_to_bucket: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
-        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
+        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
+        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
         '''
         value = ObsBucketAclPublicPermission(
             access_to_acl=access_to_acl, access_to_bucket=access_to_bucket
@@ -332,9 +332,9 @@ class ObsBucketAclAccountPermission:
         access_to_bucket: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#account_id ObsBucketAcl#account_id}.
-        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
-        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#account_id ObsBucketAcl#account_id}.
+        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
+        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c661d0dbec9b3ab3de59e65b73d2d8e28239a19f651c2874ee22d2dc727d6536)
@@ -351,20 +351,20 @@ class ObsBucketAclAccountPermission:
 
     @builtins.property
     def account_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#account_id ObsBucketAcl#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#account_id ObsBucketAcl#account_id}.'''
         result = self._values.get("account_id")
         assert result is not None, "Required property 'account_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def access_to_acl(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.'''
         result = self._values.get("access_to_acl")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def access_to_bucket(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.'''
         result = self._values.get("access_to_bucket")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -618,12 +618,12 @@ class ObsBucketAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#bucket ObsBucketAcl#bucket}.
-        :param account_permission: account_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#account_permission ObsBucketAcl#account_permission}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#id ObsBucketAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_delivery_user_permission: log_delivery_user_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#log_delivery_user_permission ObsBucketAcl#log_delivery_user_permission}
-        :param owner_permission: owner_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#owner_permission ObsBucketAcl#owner_permission}
-        :param public_permission: public_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#public_permission ObsBucketAcl#public_permission}
+        :param bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#bucket ObsBucketAcl#bucket}.
+        :param account_permission: account_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#account_permission ObsBucketAcl#account_permission}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#id ObsBucketAcl#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_delivery_user_permission: log_delivery_user_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#log_delivery_user_permission ObsBucketAcl#log_delivery_user_permission}
+        :param owner_permission: owner_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#owner_permission ObsBucketAcl#owner_permission}
+        :param public_permission: public_permission block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#public_permission ObsBucketAcl#public_permission}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -742,7 +742,7 @@ class ObsBucketAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def bucket(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#bucket ObsBucketAcl#bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#bucket ObsBucketAcl#bucket}.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
         return typing.cast(builtins.str, result)
@@ -753,14 +753,14 @@ class ObsBucketAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ObsBucketAclAccountPermission]]]:
         '''account_permission block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#account_permission ObsBucketAcl#account_permission}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#account_permission ObsBucketAcl#account_permission}
         '''
         result = self._values.get("account_permission")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ObsBucketAclAccountPermission]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#id ObsBucketAcl#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#id ObsBucketAcl#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -774,7 +774,7 @@ class ObsBucketAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ObsBucketAclLogDeliveryUserPermission"]:
         '''log_delivery_user_permission block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#log_delivery_user_permission ObsBucketAcl#log_delivery_user_permission}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#log_delivery_user_permission ObsBucketAcl#log_delivery_user_permission}
         '''
         result = self._values.get("log_delivery_user_permission")
         return typing.cast(typing.Optional["ObsBucketAclLogDeliveryUserPermission"], result)
@@ -783,7 +783,7 @@ class ObsBucketAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def owner_permission(self) -> typing.Optional["ObsBucketAclOwnerPermission"]:
         '''owner_permission block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#owner_permission ObsBucketAcl#owner_permission}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#owner_permission ObsBucketAcl#owner_permission}
         '''
         result = self._values.get("owner_permission")
         return typing.cast(typing.Optional["ObsBucketAclOwnerPermission"], result)
@@ -792,7 +792,7 @@ class ObsBucketAclConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def public_permission(self) -> typing.Optional["ObsBucketAclPublicPermission"]:
         '''public_permission block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#public_permission ObsBucketAcl#public_permission}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#public_permission ObsBucketAcl#public_permission}
         '''
         result = self._values.get("public_permission")
         return typing.cast(typing.Optional["ObsBucketAclPublicPermission"], result)
@@ -825,8 +825,8 @@ class ObsBucketAclLogDeliveryUserPermission:
         access_to_bucket: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
-        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
+        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
+        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__461dfd53c3cb8fe497be92c2605835509dcdbcf06cbc87fcc6b348e24014425f)
@@ -840,13 +840,13 @@ class ObsBucketAclLogDeliveryUserPermission:
 
     @builtins.property
     def access_to_acl(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.'''
         result = self._values.get("access_to_acl")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def access_to_bucket(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.'''
         result = self._values.get("access_to_bucket")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -956,8 +956,8 @@ class ObsBucketAclOwnerPermission:
         access_to_bucket: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
-        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
+        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
+        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__482e31ce7f04bc06dfd1d1fa7406ee4b5d96c76bcd7838de22e6a2f5583bd37d)
@@ -971,13 +971,13 @@ class ObsBucketAclOwnerPermission:
 
     @builtins.property
     def access_to_acl(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.'''
         result = self._values.get("access_to_acl")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def access_to_bucket(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.'''
         result = self._values.get("access_to_bucket")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1087,8 +1087,8 @@ class ObsBucketAclPublicPermission:
         access_to_bucket: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
-        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
+        :param access_to_acl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.
+        :param access_to_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__912c013ff21f6af994d5acfbeeae85e457fa72cef34f5220b29698558c0e606e)
@@ -1102,13 +1102,13 @@ class ObsBucketAclPublicPermission:
 
     @builtins.property
     def access_to_acl(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_acl ObsBucketAcl#access_to_acl}.'''
         result = self._values.get("access_to_acl")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def access_to_bucket(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/obs_bucket_acl#access_to_bucket ObsBucketAcl#access_to_bucket}.'''
         result = self._values.get("access_to_bucket")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

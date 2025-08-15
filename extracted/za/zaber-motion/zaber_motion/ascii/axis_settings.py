@@ -20,7 +20,7 @@ class AxisSettings:
     """
 
     def __init__(self, axis: 'Axis'):
-        self._axis = axis
+        self._axis: 'Axis' = axis
 
     def get(
             self,

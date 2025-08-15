@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_lb_policy_v3`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_lb_policy_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_lb_policy_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LbPolicyV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.lbPolicyV3.LbPolicyV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3 opentelekomcloud_lb_policy_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3 opentelekomcloud_lb_policy_v3}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class LbPolicyV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3 opentelekomcloud_lb_policy_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3 opentelekomcloud_lb_policy_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#action LbPolicyV3#action}.
-        :param listener_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#listener_id LbPolicyV3#listener_id}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#description LbPolicyV3#description}.
-        :param fixed_response_config: fixed_response_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#fixed_response_config LbPolicyV3#fixed_response_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#id LbPolicyV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#name LbPolicyV3#name}.
-        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#position LbPolicyV3#position}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#priority LbPolicyV3#priority}.
-        :param project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#project_id LbPolicyV3#project_id}.
-        :param redirect_listener_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_listener_id LbPolicyV3#redirect_listener_id}.
-        :param redirect_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_pool_id LbPolicyV3#redirect_pool_id}.
-        :param redirect_pools_config: redirect_pools_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_pools_config LbPolicyV3#redirect_pools_config}
-        :param redirect_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_url LbPolicyV3#redirect_url}.
-        :param redirect_url_config: redirect_url_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_url_config LbPolicyV3#redirect_url_config}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#rules LbPolicyV3#rules}
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#action LbPolicyV3#action}.
+        :param listener_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#listener_id LbPolicyV3#listener_id}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#description LbPolicyV3#description}.
+        :param fixed_response_config: fixed_response_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#fixed_response_config LbPolicyV3#fixed_response_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#id LbPolicyV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#name LbPolicyV3#name}.
+        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#position LbPolicyV3#position}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#priority LbPolicyV3#priority}.
+        :param project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#project_id LbPolicyV3#project_id}.
+        :param redirect_listener_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_listener_id LbPolicyV3#redirect_listener_id}.
+        :param redirect_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_pool_id LbPolicyV3#redirect_pool_id}.
+        :param redirect_pools_config: redirect_pools_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_pools_config LbPolicyV3#redirect_pools_config}
+        :param redirect_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_url LbPolicyV3#redirect_url}.
+        :param redirect_url_config: redirect_url_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_url_config LbPolicyV3#redirect_url_config}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#rules LbPolicyV3#rules}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class LbPolicyV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LbPolicyV3 to import.
-        :param import_from_id: The id of the existing LbPolicyV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LbPolicyV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LbPolicyV3 to import is found.
         '''
         if __debug__:
@@ -165,9 +165,9 @@ class LbPolicyV3(
         message_body: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#status_code LbPolicyV3#status_code}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#content_type LbPolicyV3#content_type}.
-        :param message_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#message_body LbPolicyV3#message_body}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#status_code LbPolicyV3#status_code}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#content_type LbPolicyV3#content_type}.
+        :param message_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#message_body LbPolicyV3#message_body}.
         '''
         value = LbPolicyV3FixedResponseConfig(
             status_code=status_code,
@@ -202,12 +202,12 @@ class LbPolicyV3(
         query: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#status_code LbPolicyV3#status_code}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#host LbPolicyV3#host}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#path LbPolicyV3#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#port LbPolicyV3#port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#protocol LbPolicyV3#protocol}.
-        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#query LbPolicyV3#query}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#status_code LbPolicyV3#status_code}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#host LbPolicyV3#host}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#path LbPolicyV3#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#port LbPolicyV3#port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#protocol LbPolicyV3#protocol}.
+        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#query LbPolicyV3#query}.
         '''
         value = LbPolicyV3RedirectUrlConfig(
             status_code=status_code,
@@ -602,21 +602,21 @@ class LbPolicyV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#action LbPolicyV3#action}.
-        :param listener_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#listener_id LbPolicyV3#listener_id}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#description LbPolicyV3#description}.
-        :param fixed_response_config: fixed_response_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#fixed_response_config LbPolicyV3#fixed_response_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#id LbPolicyV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#name LbPolicyV3#name}.
-        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#position LbPolicyV3#position}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#priority LbPolicyV3#priority}.
-        :param project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#project_id LbPolicyV3#project_id}.
-        :param redirect_listener_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_listener_id LbPolicyV3#redirect_listener_id}.
-        :param redirect_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_pool_id LbPolicyV3#redirect_pool_id}.
-        :param redirect_pools_config: redirect_pools_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_pools_config LbPolicyV3#redirect_pools_config}
-        :param redirect_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_url LbPolicyV3#redirect_url}.
-        :param redirect_url_config: redirect_url_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_url_config LbPolicyV3#redirect_url_config}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#rules LbPolicyV3#rules}
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#action LbPolicyV3#action}.
+        :param listener_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#listener_id LbPolicyV3#listener_id}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#description LbPolicyV3#description}.
+        :param fixed_response_config: fixed_response_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#fixed_response_config LbPolicyV3#fixed_response_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#id LbPolicyV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#name LbPolicyV3#name}.
+        :param position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#position LbPolicyV3#position}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#priority LbPolicyV3#priority}.
+        :param project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#project_id LbPolicyV3#project_id}.
+        :param redirect_listener_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_listener_id LbPolicyV3#redirect_listener_id}.
+        :param redirect_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_pool_id LbPolicyV3#redirect_pool_id}.
+        :param redirect_pools_config: redirect_pools_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_pools_config LbPolicyV3#redirect_pools_config}
+        :param redirect_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_url LbPolicyV3#redirect_url}.
+        :param redirect_url_config: redirect_url_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_url_config LbPolicyV3#redirect_url_config}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#rules LbPolicyV3#rules}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -759,21 +759,21 @@ class LbPolicyV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def action(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#action LbPolicyV3#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#action LbPolicyV3#action}.'''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def listener_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#listener_id LbPolicyV3#listener_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#listener_id LbPolicyV3#listener_id}.'''
         result = self._values.get("listener_id")
         assert result is not None, "Required property 'listener_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#description LbPolicyV3#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#description LbPolicyV3#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -781,14 +781,14 @@ class LbPolicyV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def fixed_response_config(self) -> typing.Optional["LbPolicyV3FixedResponseConfig"]:
         '''fixed_response_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#fixed_response_config LbPolicyV3#fixed_response_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#fixed_response_config LbPolicyV3#fixed_response_config}
         '''
         result = self._values.get("fixed_response_config")
         return typing.cast(typing.Optional["LbPolicyV3FixedResponseConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#id LbPolicyV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#id LbPolicyV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -798,37 +798,37 @@ class LbPolicyV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#name LbPolicyV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#name LbPolicyV3#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def position(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#position LbPolicyV3#position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#position LbPolicyV3#position}.'''
         result = self._values.get("position")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#priority LbPolicyV3#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#priority LbPolicyV3#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def project_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#project_id LbPolicyV3#project_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#project_id LbPolicyV3#project_id}.'''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_listener_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_listener_id LbPolicyV3#redirect_listener_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_listener_id LbPolicyV3#redirect_listener_id}.'''
         result = self._values.get("redirect_listener_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_pool_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_pool_id LbPolicyV3#redirect_pool_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_pool_id LbPolicyV3#redirect_pool_id}.'''
         result = self._values.get("redirect_pool_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -838,14 +838,14 @@ class LbPolicyV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LbPolicyV3RedirectPoolsConfig"]]]:
         '''redirect_pools_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_pools_config LbPolicyV3#redirect_pools_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_pools_config LbPolicyV3#redirect_pools_config}
         '''
         result = self._values.get("redirect_pools_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LbPolicyV3RedirectPoolsConfig"]]], result)
 
     @builtins.property
     def redirect_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_url LbPolicyV3#redirect_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_url LbPolicyV3#redirect_url}.'''
         result = self._values.get("redirect_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -853,7 +853,7 @@ class LbPolicyV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def redirect_url_config(self) -> typing.Optional["LbPolicyV3RedirectUrlConfig"]:
         '''redirect_url_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#redirect_url_config LbPolicyV3#redirect_url_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#redirect_url_config LbPolicyV3#redirect_url_config}
         '''
         result = self._values.get("redirect_url_config")
         return typing.cast(typing.Optional["LbPolicyV3RedirectUrlConfig"], result)
@@ -864,7 +864,7 @@ class LbPolicyV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LbPolicyV3Rules"]]]:
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#rules LbPolicyV3#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#rules LbPolicyV3#rules}
         '''
         result = self._values.get("rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LbPolicyV3Rules"]]], result)
@@ -899,9 +899,9 @@ class LbPolicyV3FixedResponseConfig:
         message_body: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#status_code LbPolicyV3#status_code}.
-        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#content_type LbPolicyV3#content_type}.
-        :param message_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#message_body LbPolicyV3#message_body}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#status_code LbPolicyV3#status_code}.
+        :param content_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#content_type LbPolicyV3#content_type}.
+        :param message_body: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#message_body LbPolicyV3#message_body}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d64a9c1038e4705d9f4e0d95aa5bd9ebbbcb7d4796b418105f464d4e3afcea42)
@@ -918,20 +918,20 @@ class LbPolicyV3FixedResponseConfig:
 
     @builtins.property
     def status_code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#status_code LbPolicyV3#status_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#status_code LbPolicyV3#status_code}.'''
         result = self._values.get("status_code")
         assert result is not None, "Required property 'status_code' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def content_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#content_type LbPolicyV3#content_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#content_type LbPolicyV3#content_type}.'''
         result = self._values.get("content_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def message_body(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#message_body LbPolicyV3#message_body}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#message_body LbPolicyV3#message_body}.'''
         result = self._values.get("message_body")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1050,8 +1050,8 @@ class LbPolicyV3FixedResponseConfigOutputReference(
 class LbPolicyV3RedirectPoolsConfig:
     def __init__(self, *, pool_id: builtins.str, weight: jsii.Number) -> None:
         '''
-        :param pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#pool_id LbPolicyV3#pool_id}.
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#weight LbPolicyV3#weight}.
+        :param pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#pool_id LbPolicyV3#pool_id}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#weight LbPolicyV3#weight}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b660187cccd0fd876f9de8a3a965f185e91bf74f8289edae56d2e015042b799)
@@ -1064,14 +1064,14 @@ class LbPolicyV3RedirectPoolsConfig:
 
     @builtins.property
     def pool_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#pool_id LbPolicyV3#pool_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#pool_id LbPolicyV3#pool_id}.'''
         result = self._values.get("pool_id")
         assert result is not None, "Required property 'pool_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def weight(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#weight LbPolicyV3#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#weight LbPolicyV3#weight}.'''
         result = self._values.get("weight")
         assert result is not None, "Required property 'weight' is missing"
         return typing.cast(jsii.Number, result)
@@ -1280,12 +1280,12 @@ class LbPolicyV3RedirectUrlConfig:
         query: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#status_code LbPolicyV3#status_code}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#host LbPolicyV3#host}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#path LbPolicyV3#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#port LbPolicyV3#port}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#protocol LbPolicyV3#protocol}.
-        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#query LbPolicyV3#query}.
+        :param status_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#status_code LbPolicyV3#status_code}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#host LbPolicyV3#host}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#path LbPolicyV3#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#port LbPolicyV3#port}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#protocol LbPolicyV3#protocol}.
+        :param query: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#query LbPolicyV3#query}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__88b1227f49c4a3297d99b6c9d21772a4bd2030ab636c1a6b7c8cfbc29735e59f)
@@ -1311,38 +1311,38 @@ class LbPolicyV3RedirectUrlConfig:
 
     @builtins.property
     def status_code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#status_code LbPolicyV3#status_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#status_code LbPolicyV3#status_code}.'''
         result = self._values.get("status_code")
         assert result is not None, "Required property 'status_code' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def host(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#host LbPolicyV3#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#host LbPolicyV3#host}.'''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#path LbPolicyV3#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#path LbPolicyV3#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#port LbPolicyV3#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#port LbPolicyV3#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#protocol LbPolicyV3#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#protocol LbPolicyV3#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def query(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#query LbPolicyV3#query}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#query LbPolicyV3#query}.'''
         result = self._values.get("query")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1530,9 +1530,9 @@ class LbPolicyV3Rules:
         value: builtins.str,
     ) -> None:
         '''
-        :param compare_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#compare_type LbPolicyV3#compare_type}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#type LbPolicyV3#type}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#value LbPolicyV3#value}.
+        :param compare_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#compare_type LbPolicyV3#compare_type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#type LbPolicyV3#type}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#value LbPolicyV3#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8a7dd89d4d33b6357b92371a6d52e69d3f1ead88651847cca1345f18b1dd839d)
@@ -1547,21 +1547,21 @@ class LbPolicyV3Rules:
 
     @builtins.property
     def compare_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#compare_type LbPolicyV3#compare_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#compare_type LbPolicyV3#compare_type}.'''
         result = self._values.get("compare_type")
         assert result is not None, "Required property 'compare_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#type LbPolicyV3#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#type LbPolicyV3#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lb_policy_v3#value LbPolicyV3#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lb_policy_v3#value LbPolicyV3#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)

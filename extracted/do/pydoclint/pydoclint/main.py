@@ -49,7 +49,7 @@ def validateStyleValue(
     '-q',
     '--quiet',
     is_flag=True,
-    default=True,
+    default=False,
     help='If True, do not print the file names being checked to the terminal.',
 )
 @click.option(
@@ -593,7 +593,7 @@ def main(  # noqa: C901
             counter += 1
             if len(violationsInThisFile) > 0:
                 if counter > 1:
-                    print('')
+                    click.echo('', err=echoAsError)
 
                 if not show_filenames_in_every_violation_message:
                     click.echo(

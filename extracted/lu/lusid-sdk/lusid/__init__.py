@@ -536,6 +536,8 @@ from lusid.models.fund_properties import FundProperties
 from lusid.models.fund_request import FundRequest
 from lusid.models.fund_share_class import FundShareClass
 from lusid.models.fund_valuation_point_data import FundValuationPointData
+from lusid.models.fund_valuation_request import FundValuationRequest
+from lusid.models.fund_valuation_schedule import FundValuationSchedule
 from lusid.models.funding_leg import FundingLeg
 from lusid.models.funding_leg_options import FundingLegOptions
 from lusid.models.future import Future
@@ -1907,6 +1909,8 @@ __all__ = [
     "FundRequest",
     "FundShareClass",
     "FundValuationPointData",
+    "FundValuationRequest",
+    "FundValuationSchedule",
     "FundingLeg",
     "FundingLegOptions",
     "Future",

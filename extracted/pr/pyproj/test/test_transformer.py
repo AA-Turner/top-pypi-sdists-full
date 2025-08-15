@@ -18,7 +18,7 @@ from pyproj.datadir import append_data_dir
 from pyproj.enums import TransformDirection
 from pyproj.exceptions import ProjError
 from pyproj.transformer import AreaOfInterest, TransformerGroup
-from test.conftest import PROJ_GTE_93, grids_available, proj_env, proj_network_env
+from test.conftest import grids_available, proj_env, proj_network_env
 
 
 def test_tranform_wgs84_to_custom():
@@ -535,14 +535,6 @@ def test_repr__conditional():
             "Description: unavailable until proj_trans is called\n"
             "Area of Use:\n- undefined"
         )
-    elif not PROJ_GTE_93:
-        assert trans_repr == (
-            "<Unknown Transformer: noop>\n"
-            "Description: Transformation from EGM2008 height to WGS 84 "
-            "(ballpark vertical transformation, without ellipsoid height "
-            "to vertical height correction)\n"
-            "Area of Use:\n- undefined"
-        )
     else:
         assert trans_repr == (
             "<Other Coordinate Operation Transformer: noop>\n"
@@ -600,8 +592,7 @@ def test_transformer__operations__scope_remarks():
     assert transformer.scope is None
     assert [op.scope for op in transformer.operations] == [
         "Engineering survey, topographic mapping.",
-        "Transformation of GDA94 coordinates that have been derived "
-        "through GNSS CORS.",
+        "Transformation of GDA94 coordinates that have been derived through GNSS CORS.",
         "Engineering survey, topographic mapping.",
     ]
     assert [str(op.remarks)[:5].strip() for op in transformer.operations] == [
@@ -1316,27 +1307,6 @@ def test_transform_bounds__beyond_global_bounds():
             -17367531.3203125, -7314541.19921875, 17367531.3203125, 7314541.19921875
         ),
         (-180, -85.0445994113099, 180, 85.0445994113099),
-    )
-
-
-@pytest.mark.parametrize(
-    "input_crs,input_bounds,expected_bounds",
-    [
-        (
-            "ESRI:102036",
-            (-180.0, -90.0, 180.0, 1.3),
-            (0, -116576599, 0, 0),
-        ),
-        ("ESRI:54026", (-180.0, -90.0, 180.0, 90.0), (0, -179545824, 0, 179545824)),
-    ],
-)
-def test_transform_bounds__ignore_inf(input_crs, input_bounds, expected_bounds):
-    crs = CRS(input_crs)
-    transformer = Transformer.from_crs(crs.geodetic_crs, crs, always_xy=True)
-    assert_almost_equal(
-        transformer.transform_bounds(*input_bounds),
-        expected_bounds,
-        decimal=0,
     )
 
 

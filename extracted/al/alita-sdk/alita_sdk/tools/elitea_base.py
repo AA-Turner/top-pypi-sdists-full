@@ -118,7 +118,7 @@ BaseIndexDataParams = create_model(
                          description="Optional step size for progress reporting during indexing")),
     clean_index=(Optional[bool], Field(default=False,
                        description="Optional flag to enforce clean existing index before indexing new data")),
-    chunking_tool=(Literal['','markdown', 'statistical', 'proposal'], Field(description="Name of chunking tool", default=None)),
+    chunking_tool=(Literal[None,'markdown', 'statistical', 'proposal'], Field(description="Name of chunking tool", default=None)),
     chunking_config=(Optional[dict], Field(description="Chunking tool configuration", default_factory=dict)),
 )
 
@@ -366,7 +366,7 @@ class BaseVectorStoreToolApiWrapper(BaseToolApiWrapper):
     def list_collections(self):
         """Lists all collections in the vector store."""
         vectorstore_wrapper = self._init_vector_store()
-        return self._adapter.list_collections(vectorstore_wrapper, self.collection_name or "")
+        return vectorstore_wrapper.list_collections()
 
     def search_index(self,
                      query: str,
@@ -397,7 +397,7 @@ class BaseVectorStoreToolApiWrapper(BaseToolApiWrapper):
             reranking_config=reranking_config,
             extended_search=extended_search
         )
-        return f"Found {len(found_docs)} documents matching the query\n{json.dumps(found_docs, indent=4)}" if found_docs else "No documents found matching the query."
+        return found_docs if found_docs else f"No documents found by query '{query}' and filter '{filter}'"
 
     def stepback_search_index(self,
                      query: str,
@@ -497,6 +497,8 @@ class BaseVectorStoreToolApiWrapper(BaseToolApiWrapper):
 
 
 class BaseCodeToolApiWrapper(BaseVectorStoreToolApiWrapper):
+
+    doctype: Optional[str] = 'code'
 
     def _get_files(self):
         raise NotImplementedError("Subclasses should implement this method")

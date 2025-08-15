@@ -397,7 +397,7 @@ impl<'db> Bindings<'db> {
                                     }
                                     Some("__default__") => {
                                         overload.set_return_type(
-                                            typevar.default_ty(db).unwrap_or_else(|| {
+                                            typevar.default_type(db).unwrap_or_else(|| {
                                                 KnownClass::NoDefaultType.to_instance(db)
                                             }),
                                         );
@@ -2857,7 +2857,7 @@ impl<'db> BindingError<'db> {
                     return;
                 };
 
-                let typevar = error.typevar();
+                let typevar = error.bound_typevar().typevar(context.db());
                 let argument_type = error.argument_type();
                 let argument_ty_display = argument_type.display(context.db());
 

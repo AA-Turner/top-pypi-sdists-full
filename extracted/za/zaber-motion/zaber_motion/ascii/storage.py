@@ -18,7 +18,7 @@ class AxisStorage:
     """
 
     def __init__(self, axis: 'Axis'):
-        self._axis = axis
+        self._axis: 'Axis' = axis
 
     def set_string(
             self,
@@ -474,7 +474,7 @@ class DeviceStorage:
     """
 
     def __init__(self, device: 'Device'):
-        self._device = device
+        self._device: 'Device' = device
 
     def set_string(
             self,

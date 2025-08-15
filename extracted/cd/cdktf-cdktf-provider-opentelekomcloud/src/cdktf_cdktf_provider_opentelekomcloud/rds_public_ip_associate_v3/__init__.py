@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_rds_public_ip_associate_v3`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_rds_public_ip_associate_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_rds_public_ip_associate_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RdsPublicIpAssociateV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.rdsPublicIpAssociateV3.RdsPublicIpAssociateV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3 opentelekomcloud_rds_public_ip_associate_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3 opentelekomcloud_rds_public_ip_associate_v3}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class RdsPublicIpAssociateV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3 opentelekomcloud_rds_public_ip_associate_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3 opentelekomcloud_rds_public_ip_associate_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#instance_id RdsPublicIpAssociateV3#instance_id}.
-        :param public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#public_ip RdsPublicIpAssociateV3#public_ip}.
-        :param public_ip_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#public_ip_id RdsPublicIpAssociateV3#public_ip_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#id RdsPublicIpAssociateV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#timeouts RdsPublicIpAssociateV3#timeouts}
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#instance_id RdsPublicIpAssociateV3#instance_id}.
+        :param public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#public_ip RdsPublicIpAssociateV3#public_ip}.
+        :param public_ip_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#public_ip_id RdsPublicIpAssociateV3#public_ip_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#id RdsPublicIpAssociateV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#timeouts RdsPublicIpAssociateV3#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class RdsPublicIpAssociateV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RdsPublicIpAssociateV3 to import.
-        :param import_from_id: The id of the existing RdsPublicIpAssociateV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RdsPublicIpAssociateV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RdsPublicIpAssociateV3 to import is found.
         '''
         if __debug__:
@@ -134,8 +134,8 @@ class RdsPublicIpAssociateV3(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#create RdsPublicIpAssociateV3#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#update RdsPublicIpAssociateV3#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#create RdsPublicIpAssociateV3#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#update RdsPublicIpAssociateV3#update}.
         '''
         value = RdsPublicIpAssociateV3Timeouts(create=create, update=update)
 
@@ -286,11 +286,11 @@ class RdsPublicIpAssociateV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#instance_id RdsPublicIpAssociateV3#instance_id}.
-        :param public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#public_ip RdsPublicIpAssociateV3#public_ip}.
-        :param public_ip_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#public_ip_id RdsPublicIpAssociateV3#public_ip_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#id RdsPublicIpAssociateV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#timeouts RdsPublicIpAssociateV3#timeouts}
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#instance_id RdsPublicIpAssociateV3#instance_id}.
+        :param public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#public_ip RdsPublicIpAssociateV3#public_ip}.
+        :param public_ip_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#public_ip_id RdsPublicIpAssociateV3#public_ip_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#id RdsPublicIpAssociateV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#timeouts RdsPublicIpAssociateV3#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -400,28 +400,28 @@ class RdsPublicIpAssociateV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#instance_id RdsPublicIpAssociateV3#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#instance_id RdsPublicIpAssociateV3#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def public_ip(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#public_ip RdsPublicIpAssociateV3#public_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#public_ip RdsPublicIpAssociateV3#public_ip}.'''
         result = self._values.get("public_ip")
         assert result is not None, "Required property 'public_ip' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def public_ip_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#public_ip_id RdsPublicIpAssociateV3#public_ip_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#public_ip_id RdsPublicIpAssociateV3#public_ip_id}.'''
         result = self._values.get("public_ip_id")
         assert result is not None, "Required property 'public_ip_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#id RdsPublicIpAssociateV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#id RdsPublicIpAssociateV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -433,7 +433,7 @@ class RdsPublicIpAssociateV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["RdsPublicIpAssociateV3Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#timeouts RdsPublicIpAssociateV3#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#timeouts RdsPublicIpAssociateV3#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["RdsPublicIpAssociateV3Timeouts"], result)
@@ -463,8 +463,8 @@ class RdsPublicIpAssociateV3Timeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#create RdsPublicIpAssociateV3#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#update RdsPublicIpAssociateV3#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#create RdsPublicIpAssociateV3#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#update RdsPublicIpAssociateV3#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a1a468dd01c49805eb31d435d02767d9794f916df44a66510f72f3fb771ae7fc)
@@ -478,13 +478,13 @@ class RdsPublicIpAssociateV3Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#create RdsPublicIpAssociateV3#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#create RdsPublicIpAssociateV3#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_public_ip_associate_v3#update RdsPublicIpAssociateV3#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_public_ip_associate_v3#update RdsPublicIpAssociateV3#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

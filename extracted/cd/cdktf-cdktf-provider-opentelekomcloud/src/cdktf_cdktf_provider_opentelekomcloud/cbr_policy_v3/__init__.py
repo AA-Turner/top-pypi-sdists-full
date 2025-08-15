@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_cbr_policy_v3`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_cbr_policy_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_cbr_policy_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CbrPolicyV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.cbrPolicyV3.CbrPolicyV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3 opentelekomcloud_cbr_policy_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3 opentelekomcloud_cbr_policy_v3}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class CbrPolicyV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3 opentelekomcloud_cbr_policy_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3 opentelekomcloud_cbr_policy_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#name CbrPolicyV3#name}.
-        :param operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#operation_type CbrPolicyV3#operation_type}.
-        :param trigger_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#trigger_pattern CbrPolicyV3#trigger_pattern}.
-        :param destination_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#destination_project_id CbrPolicyV3#destination_project_id}.
-        :param destination_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#destination_region CbrPolicyV3#destination_region}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#enabled CbrPolicyV3#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#id CbrPolicyV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param operation_definition: operation_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#operation_definition CbrPolicyV3#operation_definition}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#name CbrPolicyV3#name}.
+        :param operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#operation_type CbrPolicyV3#operation_type}.
+        :param trigger_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#trigger_pattern CbrPolicyV3#trigger_pattern}.
+        :param destination_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#destination_project_id CbrPolicyV3#destination_project_id}.
+        :param destination_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#destination_region CbrPolicyV3#destination_region}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#enabled CbrPolicyV3#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#id CbrPolicyV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param operation_definition: operation_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#operation_definition CbrPolicyV3#operation_definition}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class CbrPolicyV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CbrPolicyV3 to import.
-        :param import_from_id: The id of the existing CbrPolicyV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CbrPolicyV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CbrPolicyV3 to import is found.
         '''
         if __debug__:
@@ -148,13 +148,13 @@ class CbrPolicyV3(
         year_backups: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#timezone CbrPolicyV3#timezone}.
-        :param day_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#day_backups CbrPolicyV3#day_backups}.
-        :param max_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#max_backups CbrPolicyV3#max_backups}.
-        :param month_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#month_backups CbrPolicyV3#month_backups}.
-        :param retention_duration_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#retention_duration_days CbrPolicyV3#retention_duration_days}.
-        :param week_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#week_backups CbrPolicyV3#week_backups}.
-        :param year_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#year_backups CbrPolicyV3#year_backups}.
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#timezone CbrPolicyV3#timezone}.
+        :param day_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#day_backups CbrPolicyV3#day_backups}.
+        :param max_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#max_backups CbrPolicyV3#max_backups}.
+        :param month_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#month_backups CbrPolicyV3#month_backups}.
+        :param retention_duration_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#retention_duration_days CbrPolicyV3#retention_duration_days}.
+        :param week_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#week_backups CbrPolicyV3#week_backups}.
+        :param year_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#year_backups CbrPolicyV3#year_backups}.
         '''
         value = CbrPolicyV3OperationDefinition(
             timezone=timezone,
@@ -392,14 +392,14 @@ class CbrPolicyV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#name CbrPolicyV3#name}.
-        :param operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#operation_type CbrPolicyV3#operation_type}.
-        :param trigger_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#trigger_pattern CbrPolicyV3#trigger_pattern}.
-        :param destination_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#destination_project_id CbrPolicyV3#destination_project_id}.
-        :param destination_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#destination_region CbrPolicyV3#destination_region}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#enabled CbrPolicyV3#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#id CbrPolicyV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param operation_definition: operation_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#operation_definition CbrPolicyV3#operation_definition}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#name CbrPolicyV3#name}.
+        :param operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#operation_type CbrPolicyV3#operation_type}.
+        :param trigger_pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#trigger_pattern CbrPolicyV3#trigger_pattern}.
+        :param destination_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#destination_project_id CbrPolicyV3#destination_project_id}.
+        :param destination_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#destination_region CbrPolicyV3#destination_region}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#enabled CbrPolicyV3#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#id CbrPolicyV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param operation_definition: operation_definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#operation_definition CbrPolicyV3#operation_definition}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -518,34 +518,34 @@ class CbrPolicyV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#name CbrPolicyV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#name CbrPolicyV3#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def operation_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#operation_type CbrPolicyV3#operation_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#operation_type CbrPolicyV3#operation_type}.'''
         result = self._values.get("operation_type")
         assert result is not None, "Required property 'operation_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def trigger_pattern(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#trigger_pattern CbrPolicyV3#trigger_pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#trigger_pattern CbrPolicyV3#trigger_pattern}.'''
         result = self._values.get("trigger_pattern")
         assert result is not None, "Required property 'trigger_pattern' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def destination_project_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#destination_project_id CbrPolicyV3#destination_project_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#destination_project_id CbrPolicyV3#destination_project_id}.'''
         result = self._values.get("destination_project_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def destination_region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#destination_region CbrPolicyV3#destination_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#destination_region CbrPolicyV3#destination_region}.'''
         result = self._values.get("destination_region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -553,13 +553,13 @@ class CbrPolicyV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#enabled CbrPolicyV3#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#enabled CbrPolicyV3#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#id CbrPolicyV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#id CbrPolicyV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -571,7 +571,7 @@ class CbrPolicyV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def operation_definition(self) -> typing.Optional["CbrPolicyV3OperationDefinition"]:
         '''operation_definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#operation_definition CbrPolicyV3#operation_definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#operation_definition CbrPolicyV3#operation_definition}
         '''
         result = self._values.get("operation_definition")
         return typing.cast(typing.Optional["CbrPolicyV3OperationDefinition"], result)
@@ -614,13 +614,13 @@ class CbrPolicyV3OperationDefinition:
         year_backups: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#timezone CbrPolicyV3#timezone}.
-        :param day_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#day_backups CbrPolicyV3#day_backups}.
-        :param max_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#max_backups CbrPolicyV3#max_backups}.
-        :param month_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#month_backups CbrPolicyV3#month_backups}.
-        :param retention_duration_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#retention_duration_days CbrPolicyV3#retention_duration_days}.
-        :param week_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#week_backups CbrPolicyV3#week_backups}.
-        :param year_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#year_backups CbrPolicyV3#year_backups}.
+        :param timezone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#timezone CbrPolicyV3#timezone}.
+        :param day_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#day_backups CbrPolicyV3#day_backups}.
+        :param max_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#max_backups CbrPolicyV3#max_backups}.
+        :param month_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#month_backups CbrPolicyV3#month_backups}.
+        :param retention_duration_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#retention_duration_days CbrPolicyV3#retention_duration_days}.
+        :param week_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#week_backups CbrPolicyV3#week_backups}.
+        :param year_backups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#year_backups CbrPolicyV3#year_backups}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b6069837d2e90976c7f8412c1c6613549aac680566b29e6f1402d6262b23b4e)
@@ -649,44 +649,44 @@ class CbrPolicyV3OperationDefinition:
 
     @builtins.property
     def timezone(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#timezone CbrPolicyV3#timezone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#timezone CbrPolicyV3#timezone}.'''
         result = self._values.get("timezone")
         assert result is not None, "Required property 'timezone' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def day_backups(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#day_backups CbrPolicyV3#day_backups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#day_backups CbrPolicyV3#day_backups}.'''
         result = self._values.get("day_backups")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_backups(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#max_backups CbrPolicyV3#max_backups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#max_backups CbrPolicyV3#max_backups}.'''
         result = self._values.get("max_backups")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def month_backups(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#month_backups CbrPolicyV3#month_backups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#month_backups CbrPolicyV3#month_backups}.'''
         result = self._values.get("month_backups")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def retention_duration_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#retention_duration_days CbrPolicyV3#retention_duration_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#retention_duration_days CbrPolicyV3#retention_duration_days}.'''
         result = self._values.get("retention_duration_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def week_backups(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#week_backups CbrPolicyV3#week_backups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#week_backups CbrPolicyV3#week_backups}.'''
         result = self._values.get("week_backups")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def year_backups(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_policy_v3#year_backups CbrPolicyV3#year_backups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_policy_v3#year_backups CbrPolicyV3#year_backups}.'''
         result = self._values.get("year_backups")
         return typing.cast(typing.Optional[jsii.Number], result)
 

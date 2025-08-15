@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/aws provider version 6.8.0
+# CDKTF prebuilt bindings for hashicorp/aws provider version 6.9.0
 
-This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform aws provider version 1:1. 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.8.0)
+* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.9.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -236,8 +236,10 @@ __all__ = [
     "appstream_stack",
     "appstream_user",
     "appstream_user_stack_association",
+    "appsync_api",
     "appsync_api_cache",
     "appsync_api_key",
+    "appsync_channel_namespace",
     "appsync_datasource",
     "appsync_domain_name",
     "appsync_domain_name_api_association",
@@ -2372,8 +2374,10 @@ from . import appstream_image_builder
 from . import appstream_stack
 from . import appstream_user
 from . import appstream_user_stack_association
+from . import appsync_api
 from . import appsync_api_cache
 from . import appsync_api_key
+from . import appsync_channel_namespace
 from . import appsync_datasource
 from . import appsync_domain_name
 from . import appsync_domain_name_api_association

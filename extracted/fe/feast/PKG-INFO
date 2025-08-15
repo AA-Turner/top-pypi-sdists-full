@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: feast
-Version: 0.51.0
+Version: 0.52.0
 Summary: Python SDK for Feast
 Home-page: https://github.com/feast-dev/feast
 Author: Feast
@@ -244,7 +244,6 @@ Requires-Dist: prometheus_client
 Requires-Dist: psutil
 Requires-Dist: bigtree>=0.19.2
 Requires-Dist: pyjwt
-Requires-Dist: transformers>=4.36.0
 Provides-Extra: aws
 Requires-Dist: boto3==1.38.27; extra == "aws"
 Requires-Dist: fsspec<=2024.9.0; extra == "aws"
@@ -329,7 +328,10 @@ Requires-Dist: torchvision>=0.22.1; extra == "pytorch"
 Provides-Extra: qdrant
 Requires-Dist: qdrant-client>=1.12.0; extra == "qdrant"
 Provides-Extra: rag
+Requires-Dist: transformers>=4.36.0; extra == "rag"
 Requires-Dist: datasets>=3.6.0; extra == "rag"
+Provides-Extra: ray
+Requires-Dist: ray>=2.47.0; extra == "ray"
 Provides-Extra: redis
 Requires-Dist: redis<5,>=4.2.2; extra == "redis"
 Requires-Dist: hiredis<3,>=2.0.0; extra == "redis"
@@ -385,7 +387,7 @@ Requires-Dist: types-requests<2.31.0; extra == "ci"
 Requires-Dist: types-setuptools; extra == "ci"
 Requires-Dist: types-tabulate; extra == "ci"
 Requires-Dist: virtualenv<20.24.2; extra == "ci"
-Requires-Dist: feast[aws,azure,cassandra,clickhouse,couchbase,delta,docling,duckdb,elasticsearch,faiss,gcp,ge,go,grpcio,hazelcast,hbase,ibis,ikv,k8s,mcp,milvus,mssql,mysql,opentelemetry,postgres,pytorch,qdrant,rag,redis,singlestore,snowflake,spark,sqlite_vec,trino]; extra == "ci"
+Requires-Dist: feast[aws,azure,cassandra,clickhouse,couchbase,delta,docling,duckdb,elasticsearch,faiss,gcp,ge,go,grpcio,hazelcast,hbase,ibis,ikv,k8s,mcp,milvus,mssql,mysql,opentelemetry,postgres,pytorch,qdrant,rag,ray,redis,singlestore,snowflake,spark,sqlite_vec,trino]; extra == "ci"
 Provides-Extra: nlp
 Requires-Dist: feast[docling,milvus,pytorch,rag]; extra == "nlp"
 Provides-Extra: dev

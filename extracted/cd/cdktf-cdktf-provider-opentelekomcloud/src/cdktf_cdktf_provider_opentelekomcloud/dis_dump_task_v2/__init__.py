@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_dis_dump_task_v2`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_dis_dump_task_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_dis_dump_task_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DisDumpTaskV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.disDumpTaskV2.DisDumpTaskV2",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2 opentelekomcloud_dis_dump_task_v2}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2 opentelekomcloud_dis_dump_task_v2}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DisDumpTaskV2(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2 opentelekomcloud_dis_dump_task_v2} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2 opentelekomcloud_dis_dump_task_v2} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#stream_name DisDumpTaskV2#stream_name}.
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#action DisDumpTaskV2#action}.
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#destination DisDumpTaskV2#destination}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#id DisDumpTaskV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param obs_destination_descriptor: obs_destination_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#obs_destination_descriptor DisDumpTaskV2#obs_destination_descriptor}
-        :param obs_processing_schema: obs_processing_schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#obs_processing_schema DisDumpTaskV2#obs_processing_schema}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#timeouts DisDumpTaskV2#timeouts}
+        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#stream_name DisDumpTaskV2#stream_name}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#action DisDumpTaskV2#action}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#destination DisDumpTaskV2#destination}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#id DisDumpTaskV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param obs_destination_descriptor: obs_destination_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#obs_destination_descriptor DisDumpTaskV2#obs_destination_descriptor}
+        :param obs_processing_schema: obs_processing_schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#obs_processing_schema DisDumpTaskV2#obs_processing_schema}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#timeouts DisDumpTaskV2#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DisDumpTaskV2(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DisDumpTaskV2 to import.
-        :param import_from_id: The id of the existing DisDumpTaskV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DisDumpTaskV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DisDumpTaskV2 to import is found.
         '''
         if __debug__:
@@ -161,7 +161,7 @@ class DisDumpTaskV2(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, update: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#update DisDumpTaskV2#update}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#update DisDumpTaskV2#update}.
         '''
         value = DisDumpTaskV2Timeouts(update=update)
 
@@ -386,13 +386,13 @@ class DisDumpTaskV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#stream_name DisDumpTaskV2#stream_name}.
-        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#action DisDumpTaskV2#action}.
-        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#destination DisDumpTaskV2#destination}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#id DisDumpTaskV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param obs_destination_descriptor: obs_destination_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#obs_destination_descriptor DisDumpTaskV2#obs_destination_descriptor}
-        :param obs_processing_schema: obs_processing_schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#obs_processing_schema DisDumpTaskV2#obs_processing_schema}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#timeouts DisDumpTaskV2#timeouts}
+        :param stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#stream_name DisDumpTaskV2#stream_name}.
+        :param action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#action DisDumpTaskV2#action}.
+        :param destination: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#destination DisDumpTaskV2#destination}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#id DisDumpTaskV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param obs_destination_descriptor: obs_destination_descriptor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#obs_destination_descriptor DisDumpTaskV2#obs_destination_descriptor}
+        :param obs_processing_schema: obs_processing_schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#obs_processing_schema DisDumpTaskV2#obs_processing_schema}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#timeouts DisDumpTaskV2#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -510,26 +510,26 @@ class DisDumpTaskV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def stream_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#stream_name DisDumpTaskV2#stream_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#stream_name DisDumpTaskV2#stream_name}.'''
         result = self._values.get("stream_name")
         assert result is not None, "Required property 'stream_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def action(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#action DisDumpTaskV2#action}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#action DisDumpTaskV2#action}.'''
         result = self._values.get("action")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def destination(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#destination DisDumpTaskV2#destination}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#destination DisDumpTaskV2#destination}.'''
         result = self._values.get("destination")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#id DisDumpTaskV2#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#id DisDumpTaskV2#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -543,7 +543,7 @@ class DisDumpTaskV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DisDumpTaskV2ObsDestinationDescriptor"]]]:
         '''obs_destination_descriptor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#obs_destination_descriptor DisDumpTaskV2#obs_destination_descriptor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#obs_destination_descriptor DisDumpTaskV2#obs_destination_descriptor}
         '''
         result = self._values.get("obs_destination_descriptor")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DisDumpTaskV2ObsDestinationDescriptor"]]], result)
@@ -554,7 +554,7 @@ class DisDumpTaskV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DisDumpTaskV2ObsProcessingSchema"]]]:
         '''obs_processing_schema block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#obs_processing_schema DisDumpTaskV2#obs_processing_schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#obs_processing_schema DisDumpTaskV2#obs_processing_schema}
         '''
         result = self._values.get("obs_processing_schema")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DisDumpTaskV2ObsProcessingSchema"]]], result)
@@ -563,7 +563,7 @@ class DisDumpTaskV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DisDumpTaskV2Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#timeouts DisDumpTaskV2#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#timeouts DisDumpTaskV2#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DisDumpTaskV2Timeouts"], result)
@@ -610,15 +610,15 @@ class DisDumpTaskV2ObsDestinationDescriptor:
         record_delimiter: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param agency_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#agency_name DisDumpTaskV2#agency_name}.
-        :param deliver_time_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#deliver_time_interval DisDumpTaskV2#deliver_time_interval}.
-        :param obs_bucket_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#obs_bucket_path DisDumpTaskV2#obs_bucket_path}.
-        :param task_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#task_name DisDumpTaskV2#task_name}.
-        :param consumer_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#consumer_strategy DisDumpTaskV2#consumer_strategy}.
-        :param destination_file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#destination_file_type DisDumpTaskV2#destination_file_type}.
-        :param file_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#file_prefix DisDumpTaskV2#file_prefix}.
-        :param partition_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#partition_format DisDumpTaskV2#partition_format}.
-        :param record_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#record_delimiter DisDumpTaskV2#record_delimiter}.
+        :param agency_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#agency_name DisDumpTaskV2#agency_name}.
+        :param deliver_time_interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#deliver_time_interval DisDumpTaskV2#deliver_time_interval}.
+        :param obs_bucket_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#obs_bucket_path DisDumpTaskV2#obs_bucket_path}.
+        :param task_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#task_name DisDumpTaskV2#task_name}.
+        :param consumer_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#consumer_strategy DisDumpTaskV2#consumer_strategy}.
+        :param destination_file_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#destination_file_type DisDumpTaskV2#destination_file_type}.
+        :param file_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#file_prefix DisDumpTaskV2#file_prefix}.
+        :param partition_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#partition_format DisDumpTaskV2#partition_format}.
+        :param record_delimiter: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#record_delimiter DisDumpTaskV2#record_delimiter}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__10bec956236826d70cca0e72ca127216388f2a937260c4569ef093e2b1659726)
@@ -650,59 +650,59 @@ class DisDumpTaskV2ObsDestinationDescriptor:
 
     @builtins.property
     def agency_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#agency_name DisDumpTaskV2#agency_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#agency_name DisDumpTaskV2#agency_name}.'''
         result = self._values.get("agency_name")
         assert result is not None, "Required property 'agency_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def deliver_time_interval(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#deliver_time_interval DisDumpTaskV2#deliver_time_interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#deliver_time_interval DisDumpTaskV2#deliver_time_interval}.'''
         result = self._values.get("deliver_time_interval")
         assert result is not None, "Required property 'deliver_time_interval' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def obs_bucket_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#obs_bucket_path DisDumpTaskV2#obs_bucket_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#obs_bucket_path DisDumpTaskV2#obs_bucket_path}.'''
         result = self._values.get("obs_bucket_path")
         assert result is not None, "Required property 'obs_bucket_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def task_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#task_name DisDumpTaskV2#task_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#task_name DisDumpTaskV2#task_name}.'''
         result = self._values.get("task_name")
         assert result is not None, "Required property 'task_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def consumer_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#consumer_strategy DisDumpTaskV2#consumer_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#consumer_strategy DisDumpTaskV2#consumer_strategy}.'''
         result = self._values.get("consumer_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def destination_file_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#destination_file_type DisDumpTaskV2#destination_file_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#destination_file_type DisDumpTaskV2#destination_file_type}.'''
         result = self._values.get("destination_file_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def file_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#file_prefix DisDumpTaskV2#file_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#file_prefix DisDumpTaskV2#file_prefix}.'''
         result = self._values.get("file_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def partition_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#partition_format DisDumpTaskV2#partition_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#partition_format DisDumpTaskV2#partition_format}.'''
         result = self._values.get("partition_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def record_delimiter(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#record_delimiter DisDumpTaskV2#record_delimiter}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#record_delimiter DisDumpTaskV2#record_delimiter}.'''
         result = self._values.get("record_delimiter")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1046,9 +1046,9 @@ class DisDumpTaskV2ObsProcessingSchema:
         timestamp_format: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param timestamp_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#timestamp_name DisDumpTaskV2#timestamp_name}.
-        :param timestamp_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#timestamp_type DisDumpTaskV2#timestamp_type}.
-        :param timestamp_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#timestamp_format DisDumpTaskV2#timestamp_format}.
+        :param timestamp_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#timestamp_name DisDumpTaskV2#timestamp_name}.
+        :param timestamp_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#timestamp_type DisDumpTaskV2#timestamp_type}.
+        :param timestamp_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#timestamp_format DisDumpTaskV2#timestamp_format}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce65583060cf62ae61820560bc0b03557a55e97f50079cfc9eaa056ee031979b)
@@ -1064,21 +1064,21 @@ class DisDumpTaskV2ObsProcessingSchema:
 
     @builtins.property
     def timestamp_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#timestamp_name DisDumpTaskV2#timestamp_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#timestamp_name DisDumpTaskV2#timestamp_name}.'''
         result = self._values.get("timestamp_name")
         assert result is not None, "Required property 'timestamp_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def timestamp_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#timestamp_type DisDumpTaskV2#timestamp_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#timestamp_type DisDumpTaskV2#timestamp_type}.'''
         result = self._values.get("timestamp_type")
         assert result is not None, "Required property 'timestamp_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def timestamp_format(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#timestamp_format DisDumpTaskV2#timestamp_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#timestamp_format DisDumpTaskV2#timestamp_format}.'''
         result = self._values.get("timestamp_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1452,7 +1452,7 @@ class DisDumpTaskV2PartitionsOutputReference(
 class DisDumpTaskV2Timeouts:
     def __init__(self, *, update: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#update DisDumpTaskV2#update}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#update DisDumpTaskV2#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc63570017787bcc793f1ed1362e5061ad7dc408835b3b3c141380cd1752dbbd)
@@ -1463,7 +1463,7 @@ class DisDumpTaskV2Timeouts:
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dis_dump_task_v2#update DisDumpTaskV2#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dis_dump_task_v2#update DisDumpTaskV2#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

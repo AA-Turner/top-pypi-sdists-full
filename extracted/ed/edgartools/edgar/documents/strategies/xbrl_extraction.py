@@ -2,8 +2,8 @@
 XBRL extraction strategy for inline XBRL documents.
 """
 
-import re
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
+
 from lxml.html import HtmlElement
 
 from edgar.documents.types import XBRLFact

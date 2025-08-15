@@ -47,7 +47,7 @@ use crate::semantic_index::symbol::{ScopedSymbolId, Symbol};
 use crate::semantic_index::use_def::{
     EnclosingSnapshotKey, FlowSnapshot, ScopedEnclosingSnapshotId, UseDefMapBuilder,
 };
-use crate::semantic_index::{ArcUseDefMap, ExpressionsScopeMap, SemanticIndex};
+use crate::semantic_index::{ExpressionsScopeMap, SemanticIndex};
 use crate::semantic_model::HasTrackedScope;
 use crate::unpack::{EvaluationMode, Unpack, UnpackKind, UnpackPosition, UnpackValue};
 use crate::{Db, Program};
@@ -199,7 +199,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
 
         match self.scopes[parent.file_scope_id].kind() {
             ScopeKind::Class => Some(parent.file_scope_id),
-            ScopeKind::Annotation => {
+            ScopeKind::TypeParams => {
                 // If the function is generic, the parent scope is an annotation scope.
                 // In this case, we need to go up one level higher to find the class scope.
                 let grandparent = scopes_rev.next()?;
@@ -1184,7 +1184,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
         let mut use_def_maps: IndexVec<_, _> = self
             .use_def_maps
             .into_iter()
-            .map(|builder| ArcUseDefMap::new(builder.finish()))
+            .map(|builder| Arc::new(builder.finish()))
             .collect();
 
         let mut ast_ids: IndexVec<_, _> = self
@@ -2637,7 +2637,7 @@ impl SemanticSyntaxContext for SemanticIndexBuilder<'_, '_> {
                 ScopeKind::Comprehension
                 | ScopeKind::Module
                 | ScopeKind::TypeAlias
-                | ScopeKind::Annotation => {}
+                | ScopeKind::TypeParams => {}
             }
         }
         false
@@ -2652,7 +2652,7 @@ impl SemanticSyntaxContext for SemanticIndexBuilder<'_, '_> {
                 ScopeKind::Comprehension
                 | ScopeKind::Module
                 | ScopeKind::TypeAlias
-                | ScopeKind::Annotation => {}
+                | ScopeKind::TypeParams => {}
             }
         }
         false
@@ -2664,7 +2664,7 @@ impl SemanticSyntaxContext for SemanticIndexBuilder<'_, '_> {
             match scope.kind() {
                 ScopeKind::Class | ScopeKind::Comprehension => return false,
                 ScopeKind::Function | ScopeKind::Lambda => return true,
-                ScopeKind::Module | ScopeKind::TypeAlias | ScopeKind::Annotation => {}
+                ScopeKind::Module | ScopeKind::TypeAlias | ScopeKind::TypeParams => {}
             }
         }
         false

@@ -13,6 +13,7 @@ import typing as t
 
 from idf_component_manager.core import ComponentManager
 from idf_component_tools import error, setup_logging, warn
+from idf_component_tools.build_system_tools import get_idf_version
 from idf_component_tools.debugger import KCONFIG_CONTEXT
 from idf_component_tools.errors import FatalError
 from idf_component_tools.manifest import ComponentRequirement
@@ -52,8 +53,18 @@ def prepare_dep_dirs(args):
                 debug_strs.add(f'    {key}, {debug_message(req)}')
 
         _nl = '\n'
+        if args.interface_version < 4:
+            warn(
+                f'The following Kconfig variables were used in "if" clauses, '
+                f'but not supported by your ESP-IDF version {get_idf_version()}. '
+                f'Ignoring these if-clauses:\n'
+                f'{_nl.join(sorted(debug_strs))}\n'
+            )
+            return
+
         warn(
-            f'The following Kconfig variables were used in "if" clauses, but not found in any Kconfig file:\n'
+            f'The following Kconfig variables were used in "if" clauses, '
+            f'but not found in any Kconfig file:\n'
             f'{_nl.join(sorted(debug_strs))}\n'
         )
         exit(10)
@@ -88,7 +99,7 @@ def main():
     # *1* starting ESP-IDF 5.0
     # *2* starting ESP-IDF 5.1
     # *3* starting ESP-IDF 5.2
-    # *4* starting ESP-IDF 5.5
+    # *4* starting ESP-IDF 6.0
 
     parser.add_argument(
         '--interface_version',

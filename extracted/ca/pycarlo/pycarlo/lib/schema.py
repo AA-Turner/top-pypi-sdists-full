@@ -336,6 +336,18 @@ class AirflowRunState(sgqlc.types.Enum):
     )
 
 
+class AlertAccessRequestStatus(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `EXPIRED`None
+    * `PENDING`None
+    * `RESOLVED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("EXPIRED", "PENDING", "RESOLVED")
+
+
 class AlertGroupBy(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -12572,6 +12584,49 @@ class AlationIntegrationEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class AlertAccessRequest(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "user_id",
+        "alert_id",
+        "status",
+        "created_time",
+        "updated_time",
+        "notified_admins",
+    )
+    id = sgqlc.types.Field(Int, graphql_name="id")
+    """Unique identifier for the access request"""
+
+    user_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="userId")
+    """User who requested access"""
+
+    alert_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="alertId")
+    """Alert ID access was requested for"""
+
+    status = sgqlc.types.Field(AlertAccessRequestStatus, graphql_name="status")
+    """Current status of the access request"""
+
+    created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
+    """When the request was created"""
+
+    updated_time = sgqlc.types.Field(DateTime, graphql_name="updatedTime")
+    """When the request was last updated"""
+
+    notified_admins = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="notifiedAdmins")
+    """List of admin emails that were notified about this request"""
+
+
+class AlertAccessRequestOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success", "access_request")
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+    """Whether the operation was successful"""
+
+    access_request = sgqlc.types.Field(AlertAccessRequest, graphql_name="accessRequest")
+    """The access request object"""
+
+
 class AlertConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges", "total_count")
@@ -24733,6 +24788,7 @@ class Mutation(sgqlc.types.Type):
         "upload_airflow_task_result",
         "upload_airflow_sla_misses",
         "merge_alerts",
+        "request_alert_access",
         "create_or_update_collibra_integration",
         "delete_collibra_integration",
         "sync_monitors_to_collibra",
@@ -40468,6 +40524,27 @@ class Mutation(sgqlc.types.Type):
       alert
     """
 
+    request_alert_access = sgqlc.types.Field(
+        AlertAccessRequestOutput,
+        graphql_name="requestAlertAccess",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "alert_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="alertId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Request access to view an alert
+
+    Arguments:
+
+    * `alert_id` (`UUID!`): UUID of the alert to request access for
+    """
+
     create_or_update_collibra_integration = sgqlc.types.Field(
         CreateOrUpdateCollibraIntegration,
         graphql_name="createOrUpdateCollibraIntegration",
@@ -42825,6 +42902,7 @@ class Query(sgqlc.types.Type):
         "get_alerts_filters",
         "get_alerts_filters_data",
         "get_alerts_count_by_date",
+        "get_alert_access_request",
         "get_collibra_ping",
         "get_alation_table_flags",
         "get_airflow_task_results",
@@ -57236,6 +57314,28 @@ class Query(sgqlc.types.Type):
     * `last` (`Int`)None
     """
 
+    get_alert_access_request = sgqlc.types.Field(
+        AlertAccessRequest,
+        graphql_name="getAlertAccessRequest",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "alert_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="alertId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get the status of an alert access request for the
+    current user
+
+    Arguments:
+
+    * `alert_id` (`UUID!`): UUID of the alert
+    """
+
     get_collibra_ping = sgqlc.types.Field(
         CollibraPingResponse,
         graphql_name="getCollibraPing",
@@ -64797,6 +64897,7 @@ class Warehouse(sgqlc.types.Type):
         "metadata_connection",
         "create_alerts_in_datasource",
         "custom_monitor_count",
+        "total_monitor_count",
         "supports_transform",
         "warehouse_relations",
     )
@@ -65111,7 +65212,12 @@ class Warehouse(sgqlc.types.Type):
     """
 
     custom_monitor_count = sgqlc.types.Field(Int, graphql_name="customMonitorCount")
-    """The number of custom monitors created on this warehouse."""
+    """The number of user created monitors on this warehouse."""
+
+    total_monitor_count = sgqlc.types.Field(Int, graphql_name="totalMonitorCount")
+    """The number of table monitors and user created monitors on this
+    warehouse.
+    """
 
     supports_transform = sgqlc.types.Field(Boolean, graphql_name="supportsTransform")
     """Indicates whether the warehouse supports transform operations"""

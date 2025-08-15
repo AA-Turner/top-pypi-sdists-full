@@ -6,7 +6,7 @@ This file is intended to be vendored in your project if you do not want to depen
 Be aware that depending on `sklearn-compat` does not add any additional dependencies:
 we are only depending on `scikit-learn`.
 
-Version: 0.1.3
+Version: 0.1.4
 """
 
 from __future__ import annotations
@@ -109,7 +109,6 @@ def _to_new_tags(old_tags, estimator=None):
     if estimator_type == "regressor":
         regressor_tags = RegressorTags(
             poor_score=old_tags["poor_score"],
-            multi_label=old_tags["multilabel"],
         )
     else:
         regressor_tags = None
@@ -715,13 +714,9 @@ if sklearn_version < parse_version("1.6"):
             n_informative=1, bias=5.0, noise=20, random_state=42)``. The
             dataset and values are based on current estimators in scikit-learn
             and might be replaced by something more systematic.
-
-        multi_label : bool, default=False
-            Whether the regressor supports multilabel output.
         """
 
         poor_score: bool = False
-        multi_label: bool = False
 
     @dataclass(**_dataclass_args())
     class Tags:

@@ -6,10 +6,11 @@ from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from nominal.gen.v1 import alias_pb2 as _alias_pb2
 from nominal.gen.v1 import error_pb2 as _error_pb2
 from nominal.streaming_connection_service.v1 import opc_ua_pb2 as _opc_ua_pb2
+from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from collections.abc import Mapping as _Mapping
+from collections.abc import Iterable as _Iterable, Mapping as _Mapping
 from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
@@ -101,6 +102,18 @@ class GetStreamingConnectionResponse(_message.Message):
     STREAMING_CONNECTION_FIELD_NUMBER: _ClassVar[int]
     streaming_connection: StreamingConnection
     def __init__(self, streaming_connection: _Optional[_Union[StreamingConnection, _Mapping]] = ...) -> None: ...
+
+class ListStreamingConnectionsRequest(_message.Message):
+    __slots__ = ("workspace_rids",)
+    WORKSPACE_RIDS_FIELD_NUMBER: _ClassVar[int]
+    workspace_rids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, workspace_rids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class ListStreamingConnectionsResponse(_message.Message):
+    __slots__ = ("streaming_connections",)
+    STREAMING_CONNECTIONS_FIELD_NUMBER: _ClassVar[int]
+    streaming_connections: _containers.RepeatedCompositeFieldContainer[StreamingConnection]
+    def __init__(self, streaming_connections: _Optional[_Iterable[_Union[StreamingConnection, _Mapping]]] = ...) -> None: ...
 
 class StartStreamRequest(_message.Message):
     __slots__ = ("streaming_connection_rid", "scraping_config", "target_dataset_rid")

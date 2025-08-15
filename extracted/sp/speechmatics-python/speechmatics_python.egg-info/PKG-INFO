@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: speechmatics-python
-Version: 4.0.9
+Version: 5.0.0
 Summary: Python library and CLI for Speechmatics
 Home-page: https://github.com/speechmatics/speechmatics-python/
 Author: Speechmatics

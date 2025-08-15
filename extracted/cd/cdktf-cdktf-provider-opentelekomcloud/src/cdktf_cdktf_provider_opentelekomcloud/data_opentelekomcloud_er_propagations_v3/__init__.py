@@ -1,7 +1,7 @@
 r'''
 # `data_opentelekomcloud_er_propagations_v3`
 
-Refer to the Terraform Registry for docs: [`data_opentelekomcloud_er_propagations_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3).
+Refer to the Terraform Registry for docs: [`data_opentelekomcloud_er_propagations_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataOpentelekomcloudErPropagationsV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.dataOpentelekomcloudErPropagationsV3.DataOpentelekomcloudErPropagationsV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3 opentelekomcloud_er_propagations_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3 opentelekomcloud_er_propagations_v3}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DataOpentelekomcloudErPropagationsV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3 opentelekomcloud_er_propagations_v3} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3 opentelekomcloud_er_propagations_v3} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#instance_id DataOpentelekomcloudErPropagationsV3#instance_id}.
-        :param route_table_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#route_table_id DataOpentelekomcloudErPropagationsV3#route_table_id}.
-        :param attachment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#attachment_id DataOpentelekomcloudErPropagationsV3#attachment_id}.
-        :param attachment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#attachment_type DataOpentelekomcloudErPropagationsV3#attachment_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#id DataOpentelekomcloudErPropagationsV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#status DataOpentelekomcloudErPropagationsV3#status}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#instance_id DataOpentelekomcloudErPropagationsV3#instance_id}.
+        :param route_table_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#route_table_id DataOpentelekomcloudErPropagationsV3#route_table_id}.
+        :param attachment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#attachment_id DataOpentelekomcloudErPropagationsV3#attachment_id}.
+        :param attachment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#attachment_type DataOpentelekomcloudErPropagationsV3#attachment_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#id DataOpentelekomcloudErPropagationsV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#status DataOpentelekomcloudErPropagationsV3#status}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DataOpentelekomcloudErPropagationsV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataOpentelekomcloudErPropagationsV3 to import.
-        :param import_from_id: The id of the existing DataOpentelekomcloudErPropagationsV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataOpentelekomcloudErPropagationsV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataOpentelekomcloudErPropagationsV3 to import is found.
         '''
         if __debug__:
@@ -313,12 +313,12 @@ class DataOpentelekomcloudErPropagationsV3Config(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#instance_id DataOpentelekomcloudErPropagationsV3#instance_id}.
-        :param route_table_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#route_table_id DataOpentelekomcloudErPropagationsV3#route_table_id}.
-        :param attachment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#attachment_id DataOpentelekomcloudErPropagationsV3#attachment_id}.
-        :param attachment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#attachment_type DataOpentelekomcloudErPropagationsV3#attachment_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#id DataOpentelekomcloudErPropagationsV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#status DataOpentelekomcloudErPropagationsV3#status}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#instance_id DataOpentelekomcloudErPropagationsV3#instance_id}.
+        :param route_table_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#route_table_id DataOpentelekomcloudErPropagationsV3#route_table_id}.
+        :param attachment_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#attachment_id DataOpentelekomcloudErPropagationsV3#attachment_id}.
+        :param attachment_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#attachment_type DataOpentelekomcloudErPropagationsV3#attachment_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#id DataOpentelekomcloudErPropagationsV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#status DataOpentelekomcloudErPropagationsV3#status}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -430,33 +430,33 @@ class DataOpentelekomcloudErPropagationsV3Config(
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#instance_id DataOpentelekomcloudErPropagationsV3#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#instance_id DataOpentelekomcloudErPropagationsV3#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def route_table_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#route_table_id DataOpentelekomcloudErPropagationsV3#route_table_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#route_table_id DataOpentelekomcloudErPropagationsV3#route_table_id}.'''
         result = self._values.get("route_table_id")
         assert result is not None, "Required property 'route_table_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def attachment_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#attachment_id DataOpentelekomcloudErPropagationsV3#attachment_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#attachment_id DataOpentelekomcloudErPropagationsV3#attachment_id}.'''
         result = self._values.get("attachment_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def attachment_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#attachment_type DataOpentelekomcloudErPropagationsV3#attachment_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#attachment_type DataOpentelekomcloudErPropagationsV3#attachment_type}.'''
         result = self._values.get("attachment_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#id DataOpentelekomcloudErPropagationsV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#id DataOpentelekomcloudErPropagationsV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -466,7 +466,7 @@ class DataOpentelekomcloudErPropagationsV3Config(
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/er_propagations_v3#status DataOpentelekomcloudErPropagationsV3#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/er_propagations_v3#status DataOpentelekomcloudErPropagationsV3#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 

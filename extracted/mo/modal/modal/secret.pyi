@@ -4,6 +4,7 @@ import modal._object
 import modal.client
 import modal.object
 import modal_proto.api_pb2
+import synchronicity
 import typing
 import typing_extensions
 
@@ -28,6 +29,332 @@ class SecretInfo:
         """Return self==value."""
         ...
 
+class _SecretManager:
+    """Namespace with methods for managing named Secret objects."""
+    @staticmethod
+    async def create(
+        name: str,
+        env_dict: dict[str, str],
+        *,
+        allow_existing: bool = False,
+        environment_name: typing.Optional[str] = None,
+        client: typing.Optional[modal.client._Client] = None,
+    ) -> None:
+        """Create a new Secret object.
+
+        **Examples:**
+
+        ```python notest
+        contents = {"MY_KEY": "my-value", "MY_OTHER_KEY": "my-other-value"}
+        modal.Secret.objects.create("my-secret", contents)
+        ```
+
+        Secrets will be created in the active environment, or another one can be specified:
+
+        ```python notest
+        modal.Secret.objects.create("my-secret", contents, environment_name="dev")
+        ```
+
+        By default, an error will be raised if the Secret already exists, but passing
+        `allow_existing=True` will make the creation attempt a no-op in this case.
+        If the `env_dict` data differs from the existing Secret, it will be ignored.
+
+        ```python notest
+        modal.Secret.objects.create("my-secret", contents, allow_existing=True)
+        ```
+
+        Note that this method does not return a local instance of the Secret. You can use
+        `modal.Secret.from_name` to perform a lookup after creation.
+
+        Added in v1.1.2.
+        """
+        ...
+
+    @staticmethod
+    async def list(
+        *,
+        max_objects: typing.Optional[int] = None,
+        created_before: typing.Union[datetime.datetime, str, None] = None,
+        environment_name: str = "",
+        client: typing.Optional[modal.client._Client] = None,
+    ) -> list[_Secret]:
+        """Return a list of hydrated Secret objects.
+
+        **Examples:**
+
+        ```python
+        secrets = modal.Secret.objects.list()
+        print([s.name for s in secrets])
+        ```
+
+        Secrets will be retreived from the active environment, or another one can be specified:
+
+        ```python notest
+        dev_secrets = modal.Secret.objects.list(environment_name="dev")
+        ```
+
+        By default, all named Secrets are returned, newest to oldest. It's also possible to limit the
+        number of results and to filter by creation date:
+
+        ```python
+        secrets = modal.Secret.objects.list(max_objects=10, created_before="2025-01-01")
+        ```
+
+        Added in v1.1.2.
+        """
+        ...
+
+    @staticmethod
+    async def delete(
+        name: str,
+        *,
+        allow_missing: bool = False,
+        environment_name: typing.Optional[str] = None,
+        client: typing.Optional[modal.client._Client] = None,
+    ):
+        """Delete a named Secret.
+
+        Warning: Deletion is irreversible and will affect any Apps currently using the Secret.
+
+        **Examples:**
+
+        ```python notest
+        await modal.Secret.objects.delete("my-secret")
+        ```
+
+        Secrets will be deleted from the active environment, or another one can be specified:
+
+        ```python notest
+        await modal.Secret.objects.delete("my-secret", environment_name="dev")
+        ```
+
+        Added in v1.1.2.
+        """
+        ...
+
+class SecretManager:
+    """Namespace with methods for managing named Secret objects."""
+    def __init__(self, /, *args, **kwargs):
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    class __create_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            name: str,
+            env_dict: dict[str, str],
+            *,
+            allow_existing: bool = False,
+            environment_name: typing.Optional[str] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> None:
+            """Create a new Secret object.
+
+            **Examples:**
+
+            ```python notest
+            contents = {"MY_KEY": "my-value", "MY_OTHER_KEY": "my-other-value"}
+            modal.Secret.objects.create("my-secret", contents)
+            ```
+
+            Secrets will be created in the active environment, or another one can be specified:
+
+            ```python notest
+            modal.Secret.objects.create("my-secret", contents, environment_name="dev")
+            ```
+
+            By default, an error will be raised if the Secret already exists, but passing
+            `allow_existing=True` will make the creation attempt a no-op in this case.
+            If the `env_dict` data differs from the existing Secret, it will be ignored.
+
+            ```python notest
+            modal.Secret.objects.create("my-secret", contents, allow_existing=True)
+            ```
+
+            Note that this method does not return a local instance of the Secret. You can use
+            `modal.Secret.from_name` to perform a lookup after creation.
+
+            Added in v1.1.2.
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            name: str,
+            env_dict: dict[str, str],
+            *,
+            allow_existing: bool = False,
+            environment_name: typing.Optional[str] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> None:
+            """Create a new Secret object.
+
+            **Examples:**
+
+            ```python notest
+            contents = {"MY_KEY": "my-value", "MY_OTHER_KEY": "my-other-value"}
+            modal.Secret.objects.create("my-secret", contents)
+            ```
+
+            Secrets will be created in the active environment, or another one can be specified:
+
+            ```python notest
+            modal.Secret.objects.create("my-secret", contents, environment_name="dev")
+            ```
+
+            By default, an error will be raised if the Secret already exists, but passing
+            `allow_existing=True` will make the creation attempt a no-op in this case.
+            If the `env_dict` data differs from the existing Secret, it will be ignored.
+
+            ```python notest
+            modal.Secret.objects.create("my-secret", contents, allow_existing=True)
+            ```
+
+            Note that this method does not return a local instance of the Secret. You can use
+            `modal.Secret.from_name` to perform a lookup after creation.
+
+            Added in v1.1.2.
+            """
+            ...
+
+    create: __create_spec
+
+    class __list_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            max_objects: typing.Optional[int] = None,
+            created_before: typing.Union[datetime.datetime, str, None] = None,
+            environment_name: str = "",
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> list[Secret]:
+            """Return a list of hydrated Secret objects.
+
+            **Examples:**
+
+            ```python
+            secrets = modal.Secret.objects.list()
+            print([s.name for s in secrets])
+            ```
+
+            Secrets will be retreived from the active environment, or another one can be specified:
+
+            ```python notest
+            dev_secrets = modal.Secret.objects.list(environment_name="dev")
+            ```
+
+            By default, all named Secrets are returned, newest to oldest. It's also possible to limit the
+            number of results and to filter by creation date:
+
+            ```python
+            secrets = modal.Secret.objects.list(max_objects=10, created_before="2025-01-01")
+            ```
+
+            Added in v1.1.2.
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            *,
+            max_objects: typing.Optional[int] = None,
+            created_before: typing.Union[datetime.datetime, str, None] = None,
+            environment_name: str = "",
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> list[Secret]:
+            """Return a list of hydrated Secret objects.
+
+            **Examples:**
+
+            ```python
+            secrets = modal.Secret.objects.list()
+            print([s.name for s in secrets])
+            ```
+
+            Secrets will be retreived from the active environment, or another one can be specified:
+
+            ```python notest
+            dev_secrets = modal.Secret.objects.list(environment_name="dev")
+            ```
+
+            By default, all named Secrets are returned, newest to oldest. It's also possible to limit the
+            number of results and to filter by creation date:
+
+            ```python
+            secrets = modal.Secret.objects.list(max_objects=10, created_before="2025-01-01")
+            ```
+
+            Added in v1.1.2.
+            """
+            ...
+
+    list: __list_spec
+
+    class __delete_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            name: str,
+            *,
+            allow_missing: bool = False,
+            environment_name: typing.Optional[str] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ):
+            """Delete a named Secret.
+
+            Warning: Deletion is irreversible and will affect any Apps currently using the Secret.
+
+            **Examples:**
+
+            ```python notest
+            await modal.Secret.objects.delete("my-secret")
+            ```
+
+            Secrets will be deleted from the active environment, or another one can be specified:
+
+            ```python notest
+            await modal.Secret.objects.delete("my-secret", environment_name="dev")
+            ```
+
+            Added in v1.1.2.
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            name: str,
+            *,
+            allow_missing: bool = False,
+            environment_name: typing.Optional[str] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ):
+            """Delete a named Secret.
+
+            Warning: Deletion is irreversible and will affect any Apps currently using the Secret.
+
+            **Examples:**
+
+            ```python notest
+            await modal.Secret.objects.delete("my-secret")
+            ```
+
+            Secrets will be deleted from the active environment, or another one can be specified:
+
+            ```python notest
+            await modal.Secret.objects.delete("my-secret", environment_name="dev")
+            ```
+
+            Added in v1.1.2.
+            """
+            ...
+
+    delete: __delete_spec
+
 class _Secret(modal._object._Object):
     """Secrets provide a dictionary of environment variables for images.
 
@@ -40,6 +367,8 @@ class _Secret(modal._object._Object):
 
     _metadata: typing.Optional[modal_proto.api_pb2.SecretMetadata]
 
+    @synchronicity.classproperty
+    def objects(cls) -> _SecretManager: ...
     @property
     def name(self) -> typing.Optional[str]: ...
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
@@ -135,6 +464,18 @@ class _Secret(modal._object._Object):
         """mdmd:hidden"""
         ...
 
+    @staticmethod
+    async def _create_deployed(
+        deployment_name: str,
+        env_dict: dict[str, str],
+        namespace=None,
+        client: typing.Optional[modal.client._Client] = None,
+        environment_name: typing.Optional[str] = None,
+        overwrite: bool = False,
+    ) -> str:
+        """mdmd:hidden"""
+        ...
+
     async def info(self) -> SecretInfo:
         """Return information about the Secret object."""
         ...
@@ -157,6 +498,8 @@ class Secret(modal.object.Object):
         """mdmd:hidden"""
         ...
 
+    @synchronicity.classproperty
+    def objects(cls) -> SecretManager: ...
     @property
     def name(self) -> typing.Optional[str]: ...
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
@@ -284,6 +627,35 @@ class Secret(modal.object.Object):
             ...
 
     create_deployed: __create_deployed_spec
+
+    class ___create_deployed_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            deployment_name: str,
+            env_dict: dict[str, str],
+            namespace=None,
+            client: typing.Optional[modal.client.Client] = None,
+            environment_name: typing.Optional[str] = None,
+            overwrite: bool = False,
+        ) -> str:
+            """mdmd:hidden"""
+            ...
+
+        async def aio(
+            self,
+            /,
+            deployment_name: str,
+            env_dict: dict[str, str],
+            namespace=None,
+            client: typing.Optional[modal.client.Client] = None,
+            environment_name: typing.Optional[str] = None,
+            overwrite: bool = False,
+        ) -> str:
+            """mdmd:hidden"""
+            ...
+
+    _create_deployed: ___create_deployed_spec
 
     class __info_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /) -> SecretInfo:

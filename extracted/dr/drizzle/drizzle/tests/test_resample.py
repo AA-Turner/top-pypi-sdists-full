@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from astropy import wcs
+from astropy.convolution import Gaussian2DKernel
 from drizzle import cdrizzle, resample, utils
 
 from .helpers import wcs_from_file
@@ -191,6 +192,57 @@ def make_grid_image(shape, spacing, value):
     return output_image
 
 
+@pytest.fixture(scope="module")
+def nrcb5_stars():
+    full_file_name = os.path.join(DATA_DIR, "nrcb5_sip_wcs.hdr")
+    path = os.path.join(DATA_DIR, full_file_name)
+
+    wcs, data = wcs_from_file(path, return_data=True)
+    dq = np.zeros(data.shape, dtype=np.int32)
+    wht = np.zeros(data.shape, dtype=np.float32)
+    np.random.seed(0)
+
+    patch_size = 21
+    p2 = patch_size // 2
+    # add border so that resampled partial pixels can be isolated
+    # in the segmentation:
+    border = 4
+    pwb = patch_size + border
+
+    fwhm2sigma = 2.0 * math.sqrt(2.0 * math.log(2.0))
+
+    ny, nx = data.shape
+
+    stars = []
+
+    for yc in range(border + p2, ny - pwb, pwb):
+        for xc in range(border + p2, nx - pwb, pwb):
+            sl = np.s_[yc - p2:yc + p2 + 1, xc - p2:xc + p2 + 1]
+            flux = 1.0 + 99.0 * np.random.random()
+            if np.random.random() > 0.7:
+                # uniform image
+                psf = np.full((patch_size, patch_size), flux)
+            else:
+                # "star":
+                fwhm = 1.5 + 1.5 * np.random.random()
+                sigma = fwhm / fwhm2sigma
+
+                psf = flux * Gaussian2DKernel(
+                    sigma,
+                    x_size=patch_size,
+                    y_size=patch_size
+                ).array
+            weight = 0.6 + 0.4 * np.random.random((patch_size, patch_size))
+            wflux = (psf * weight).sum()
+
+            data[sl] = psf
+            wht[sl] = weight
+            dq[sl] = 0
+            stars.append((xc, yc, wflux, sl))
+
+    return data, wht, dq, stars, wcs
+
+
 def test_drizzle_defaults():
     n = 200
     in_shape = (n, n)
@@ -233,6 +285,7 @@ def test_drizzle_defaults():
     assert driz.out_img[1, 1] == 1
     assert driz.out_img[1, 2] == 1
     assert (driz.out_img[2, 1] - 2.0) < 1.0e-14
+
 
 @pytest.mark.parametrize(
     'kernel,test_image_type,max_diff_atol',
@@ -303,7 +356,10 @@ def test_resample_kernel(tmpdir, kernel, test_image_type, max_diff_atol):
             scale=pscale_ratio,
         )
     else:
-        with pytest.warns(Warning):
+        with pytest.warns(
+            Warning,
+            match=f"Kernel '{kernel}' is not a flux-conserving kernel"
+        ):
             driz.add_image(
                 insci,
                 exptime=1.0,
@@ -434,7 +490,10 @@ def test_zero_input_weight(kernel, fc):
             fillstr='INDEF',
         )
     else:
-        with pytest.warns(Warning):
+        with pytest.warns(
+            Warning,
+            match=f"Kernel '{kernel}' is not a flux-conserving kernel"
+        ):
             cdrizzle.tdriz(
                 insci,
                 inwht,
@@ -708,7 +767,10 @@ def test_flux_conservation_nondistorted(kernel, fc):
             wtscale=1.0,
         )
     else:
-        with pytest.warns(Warning):
+        with pytest.warns(
+            Warning,
+            match=f"Kernel '{kernel}' is not a flux-conserving kernel"
+        ):
             cdrizzle.tdriz(
                 in_sci,
                 in_wht,
@@ -796,7 +858,10 @@ def test_flux_conservation_distorted(kernel, fc):
             wtscale=1.0,
         )
     else:
-        with pytest.warns(Warning):
+        with pytest.warns(
+            Warning,
+            match=f"Kernel '{kernel}' is not a flux-conserving kernel"
+        ):
             cdrizzle.tdriz(
                 in_sci,
                 in_wht,
@@ -819,6 +884,50 @@ def test_flux_conservation_distorted(kernel, fc):
         atol=0.0,
         rtol=0.0001,
     )
+
+
+@pytest.mark.parametrize("kernel", ["square", "turbo", "point"])
+@pytest.mark.parametrize("pscale_ratio", [0.55, 1.0, 1.2])
+def test_flux_conservation_distorted_distributed_sources(nrcb5_stars, kernel, pscale_ratio):
+    """ test aperture photometry """
+    insci, inwht, dq, stars, wcs = nrcb5_stars
+
+    suffix = f"{pscale_ratio}".replace(".", "p")
+    output_wcs = wcs_from_file(f"nrcb5_output_wcs_psr_{suffix}.hdr")
+
+    pixmap = utils.calc_pixmap(
+        wcs,
+        output_wcs,
+        wcs.array_shape,
+    )
+
+    driz = resample.Drizzle(
+        kernel=kernel,
+        out_shape=output_wcs.array_shape,
+        fillval=0.0,
+    )
+    driz.add_image(
+        insci,
+        exptime=1.0,
+        pixmap=pixmap,
+        weight_map=inwht,
+        scale=1,
+    )
+
+    # for efficiency, instead of doing this patch-by-patch,
+    # multiply resampled data by resampled image weight
+    out_data = driz.out_img * driz.out_wht
+
+    dim3 = (slice(None, None, None), )
+    for _, _, fin, sl in stars:
+        xyout = pixmap[sl + dim3]
+        xmin = int(np.floor(xyout[:, :, 0].min() - 0.5))
+        xmax = int(np.ceil(xyout[:, :, 0].max() + 1.5))
+        ymin = int(np.floor(xyout[:, :, 1].min() - 0.5))
+        ymax = int(np.ceil(xyout[:, :, 1].max() + 1.5))
+        fout = np.nansum(out_data[ymin:ymax, xmin:xmax])
+
+        assert np.allclose(fin, fout, rtol=1.0e-6, atol=0.0)
 
 
 def test_drizzle_exptime():
@@ -1042,7 +1151,7 @@ def test_resample_get_shape_from_pixmap():
         exptime=0.0,
     )
 
-    driz.add_image(in_sci, weight_map=in_wht, exptime=1.0, pixmap=pixmap)
+    driz.add_image(in_sci, weight_map=in_wht, exptime=0.1, pixmap=pixmap)
     assert driz.out_img.shape == in_shape
 
 
@@ -1098,3 +1207,144 @@ def test_resample_inconsistent_output():
             out_wht=out_wht,
         )
     assert str(err_info.value).startswith("Inconsistent data shapes specified")
+
+
+def test_resample_disable_ctx():
+    n = 20
+    in_shape = (n, n)
+
+    pixmap = np.dstack(np.indices(in_shape, dtype=np.float64)[::-1])
+
+    # simulate constant data:
+    in_sci = np.ones(in_shape, dtype=np.float32)
+
+    driz = resample.Drizzle(
+        disable_ctx=True,
+    )
+
+    driz.add_image(in_sci, exptime=1.0, pixmap=pixmap)
+
+
+@pytest.mark.parametrize(
+    "fillval", ["NaN", "INDEF", "", None]
+)
+def test_nan_fillval(fillval):
+    driz = resample.Drizzle(
+        kernel='square',
+        fillval=fillval,
+        out_shape=(20, 20)
+    )
+
+    assert np.all(np.isnan(driz.out_img))
+
+
+def test_resample_edge_sgarea_bug():
+    """
+    Test from https://github.com/spacetelescope/drizzle/issues/187
+
+    """
+    pixmap = (np.array([
+        [
+            [0.31887051, 1.],
+            [1.01898591, 1.],
+            [1.71909665, 1.],
+        ],
+        [
+            [0.31591881, 0.],
+            [1.0160342312345672, 0.],
+            [1.716145, 0.],
+        ]
+    ], dtype="f8"))
+
+    in_shape = pixmap.shape[:2]
+    img = np.full(in_shape, 42, dtype=np.float32)
+    out_shape = (4, 4)
+
+    driz = resample.Drizzle(
+        kernel='square',
+        fillval='nan',
+        out_shape=out_shape,
+        disable_ctx=True,
+    )
+
+    driz.add_image(
+        img,
+        exptime=11.776,
+        in_units='cps',
+        pixfrac=1.0,
+        pixmap=pixmap,
+        scale=1.0,
+        wht_scale=1.0,
+    )
+    # expected pixels should be close to 42
+    np.testing.assert_allclose(driz.out_img[:2, :3], img[0, 0], rtol=1e-6)
+
+    # other values should be nan
+    np.testing.assert_equal(driz.out_img[:, 3:], np.nan)
+    np.testing.assert_equal(driz.out_img[2:], np.nan)
+
+
+def test_resample_edge_collinear():
+    """
+    Test that resample does not crash when the input image is smaller than the
+    output image, and the edges of the two images are nearly collinear.
+
+    Test based on the example from
+    https://github.com/spacetelescope/drizzle/issues/189#issue-3196294879
+
+    """
+    pixmap = (np.array([
+        [
+            [0.31, 1.0],
+            [1.01, 1.0],
+            [2.01, 1.0],
+        ],
+        [
+            [0.31, 0.],
+            [1.01, 0.],
+            [1.71, 0.],
+        ]
+    ], dtype="f8"))
+
+    in_shape = pixmap.shape[:2]
+    img = np.full(in_shape, np.pi, dtype=np.float32)
+    in_flux = np.sum(img)
+    out_shape = (4, 4)
+
+    driz = resample.Drizzle(
+        kernel='square',
+        fillval='nan',
+        out_shape=out_shape,
+        disable_ctx=True,
+    )
+
+    driz.add_image(
+        img,
+        exptime=11.776,
+        in_units='cps',
+        pixfrac=1.0,
+        pixmap=pixmap,
+        scale=1.0,
+        wht_scale=1.0,
+    )
+
+    out_flux = np.nansum(driz.out_img * driz.out_wht)
+
+    # Given this pixmap, the entire input image should fit within the output
+    # image. There should be at least 7 pixels with finite values in the output
+    # image. We can get more than 7 pixels with finite values due to rounding
+    # errors when computing polygon intersections (those "extra" pixels should)
+    # have very small weights.
+    assert np.sum(driz.out_wht > 1e-30) == 7
+    assert np.sum(np.isfinite(driz.out_img)) >= 7
+    # output image intensity must be equal to the input image intensity:
+    assert np.allclose(
+        driz.out_img[np.isfinite(driz.out_img)],
+        img[0, 0],
+        rtol=0,
+        atol=1e-6
+    )
+    # flux in the output image should be equal to the flux in the input image:
+    assert np.allclose(out_flux, in_flux, rtol=1e-6, atol=0.0)
+    # area of the signal in the input image:
+    assert np.allclose(np.sum(driz.out_wht), 6.0, rtol=0, atol=1.0e-6)

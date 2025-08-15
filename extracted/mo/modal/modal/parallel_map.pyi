@@ -1,5 +1,6 @@
 import asyncio
 import asyncio.events
+import asyncio.queues
 import collections.abc
 import enum
 import modal._functions
@@ -60,6 +61,86 @@ class _OutputValue:
         """Return self==value."""
         ...
 
+class InputPreprocessor:
+    """Constructs FunctionPutInputsItem objects from the raw-input queue, and puts them in the processed-input queue."""
+    def __init__(
+        self,
+        client: modal.client._Client,
+        *,
+        raw_input_queue: _SynchronizedQueue,
+        processed_input_queue: asyncio.queues.Queue,
+        function: modal._functions._Function,
+        created_callback: collections.abc.Callable[[int], None],
+        done_callback: collections.abc.Callable[[], None],
+    ):
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def input_iter(self): ...
+    def create_input_factory(self): ...
+    def drain_input_generator(self): ...
+
+class InputPumper:
+    """Reads inputs from a queue of FunctionPutInputsItems, and sends them to the server."""
+    def __init__(
+        self,
+        client: modal.client._Client,
+        *,
+        input_queue: asyncio.queues.Queue,
+        function: modal._functions._Function,
+        function_call_id: str,
+        map_items_manager: typing.Optional[_MapItemsManager] = None,
+    ):
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def pump_inputs(self): ...
+    async def _send_inputs(
+        self,
+        fn: modal.client.UnaryUnaryWrapper,
+        request: typing.Union[
+            modal_proto.api_pb2.FunctionPutInputsRequest, modal_proto.api_pb2.FunctionRetryInputsRequest
+        ],
+    ) -> typing.Union[
+        modal_proto.api_pb2.FunctionPutInputsResponse, modal_proto.api_pb2.FunctionRetryInputsResponse
+    ]: ...
+
+class SyncInputPumper(InputPumper):
+    """Reads inputs from a queue of FunctionPutInputsItems, and sends them to the server."""
+    def __init__(
+        self,
+        client: modal.client._Client,
+        *,
+        input_queue: asyncio.queues.Queue,
+        retry_queue: modal._utils.async_utils.TimestampPriorityQueue,
+        function: modal._functions._Function,
+        function_call_jwt: str,
+        function_call_id: str,
+        map_items_manager: _MapItemsManager,
+    ):
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def retry_inputs(self): ...
+
+class AsyncInputPumper(InputPumper):
+    """Reads inputs from a queue of FunctionPutInputsItems, and sends them to the server."""
+    def __init__(
+        self,
+        client: modal.client._Client,
+        *,
+        input_queue: asyncio.queues.Queue,
+        function: modal._functions._Function,
+        function_call_id: str,
+    ):
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def pump_inputs(self): ...
+
+async def _spawn_map_invocation(
+    function: modal._functions._Function, raw_input_queue: _SynchronizedQueue, client: modal.client._Client
+) -> tuple[str, int]: ...
 def _map_invocation(
     function: modal._functions._Function,
     raw_input_queue: _SynchronizedQueue,
@@ -175,6 +256,33 @@ def _map_sync(
     def main():
         # [0, 1, UserCodeException(Exception('ohno'))]
         print(list(my_func.map(range(3), return_exceptions=True)))
+    ```
+    """
+    ...
+
+async def _experimental_spawn_map_async(self, *input_iterators, kwargs={}) -> modal._functions._FunctionCall: ...
+async def _spawn_map_helper(
+    self: modal.functions.Function, async_input_gen, kwargs={}
+) -> modal._functions._FunctionCall: ...
+def _experimental_spawn_map_sync(self, *input_iterators, kwargs={}) -> modal._functions._FunctionCall:
+    """mdmd:hidden
+    Spawn parallel execution over a set of inputs, returning as soon as the inputs are created.
+
+    Unlike `modal.Function.map`, this method does not block on completion of the remote execution but
+    returns a `modal.FunctionCall` object that can be used to poll status and retrieve results later.
+
+    Takes one iterator argument per argument in the function being mapped over.
+
+    Example:
+    ```python
+    @app.function()
+    def my_func(a, b):
+        return a ** b
+
+
+    @app.local_entrypoint()
+    def main():
+        fc = my_func.spawn_map([1, 2], [3, 4])
     ```
     """
     ...

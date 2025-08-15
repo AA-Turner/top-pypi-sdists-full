@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-cmake
-Version: 1.0.0
+Version: 1.1.0
 Summary: Provide CMake module for Pytest
 Project-URL: Documentation, https://python-cmake.github.io/pytest-cmake
 Project-URL: Repository, https://github.com/python-cmake/pytest-cmake

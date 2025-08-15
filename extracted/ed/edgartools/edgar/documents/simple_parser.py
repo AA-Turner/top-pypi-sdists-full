@@ -3,11 +3,10 @@ Simple HTML parser implementation for basic testing.
 """
 
 import lxml.html
-from lxml import etree
+
 from edgar.documents.document import Document, DocumentMetadata
 from edgar.documents.nodes import DocumentNode, HeadingNode, ParagraphNode, TextNode, ContainerNode
 from edgar.documents.table_nodes import TableNode, Row, Cell
-from edgar.documents.types import NodeType
 
 
 class SimpleHTMLParser:

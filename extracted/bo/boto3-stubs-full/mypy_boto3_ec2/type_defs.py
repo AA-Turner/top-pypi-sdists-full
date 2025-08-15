@@ -2001,6 +2001,8 @@ __all__ = (
     "InstanceBlockDeviceMappingSpecificationTypeDef",
     "InstanceBlockDeviceMappingTypeDef",
     "InstanceCapacityTypeDef",
+    "InstanceConnectEndpointDnsNamesTypeDef",
+    "InstanceConnectEndpointPublicDnsNamesTypeDef",
     "InstanceCountTypeDef",
     "InstanceCreateTagsRequestTypeDef",
     "InstanceCreditSpecificationRequestTypeDef",
@@ -2220,6 +2222,8 @@ __all__ = (
     "ModifyInstanceAttributeRequestTypeDef",
     "ModifyInstanceCapacityReservationAttributesRequestTypeDef",
     "ModifyInstanceCapacityReservationAttributesResultTypeDef",
+    "ModifyInstanceConnectEndpointRequestTypeDef",
+    "ModifyInstanceConnectEndpointResultTypeDef",
     "ModifyInstanceCpuOptionsRequestTypeDef",
     "ModifyInstanceCpuOptionsResultTypeDef",
     "ModifyInstanceCreditSpecificationRequestTypeDef",
@@ -6541,6 +6545,11 @@ class InstanceAttachmentEnaSrdUdpSpecificationTypeDef(TypedDict):
     EnaSrdUdpEnabled: NotRequired[bool]
 
 
+class InstanceConnectEndpointDnsNamesTypeDef(TypedDict):
+    DnsName: NotRequired[str]
+    FipsDnsName: NotRequired[str]
+
+
 class InstanceCountTypeDef(TypedDict):
     InstanceCount: NotRequired[int]
     State: NotRequired[ListingStateType]
@@ -7112,6 +7121,14 @@ class ModifyIdentityIdFormatRequestTypeDef(TypedDict):
     Resource: str
     UseLongIds: bool
     PrincipalArn: str
+
+
+class ModifyInstanceConnectEndpointRequestTypeDef(TypedDict):
+    InstanceConnectEndpointId: str
+    DryRun: NotRequired[bool]
+    IpAddressType: NotRequired[IpAddressTypeType]
+    SecurityGroupIds: NotRequired[Sequence[str]]
+    PreserveClientIp: NotRequired[bool]
 
 
 class ModifyInstanceCpuOptionsRequestTypeDef(TypedDict):
@@ -9129,6 +9146,11 @@ class ModifyInstanceCapacityReservationAttributesResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ModifyInstanceConnectEndpointResultTypeDef(TypedDict):
+    Return: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ModifyInstanceCpuOptionsResultTypeDef(TypedDict):
     InstanceId: str
     CoreCount: int
@@ -9538,25 +9560,6 @@ class DeclarativePoliciesReportTypeDef(TypedDict):
 class DhcpOptionsCreateTagsRequestTypeDef(TypedDict):
     Tags: Sequence[TagTypeDef]
     DryRun: NotRequired[bool]
-
-
-class Ec2InstanceConnectEndpointTypeDef(TypedDict):
-    OwnerId: NotRequired[str]
-    InstanceConnectEndpointId: NotRequired[str]
-    InstanceConnectEndpointArn: NotRequired[str]
-    State: NotRequired[Ec2InstanceConnectEndpointStateType]
-    StateMessage: NotRequired[str]
-    DnsName: NotRequired[str]
-    FipsDnsName: NotRequired[str]
-    NetworkInterfaceIds: NotRequired[List[str]]
-    VpcId: NotRequired[str]
-    AvailabilityZone: NotRequired[str]
-    CreatedAt: NotRequired[datetime]
-    SubnetId: NotRequired[str]
-    PreserveClientIp: NotRequired[bool]
-    SecurityGroupIds: NotRequired[List[str]]
-    Tags: NotRequired[List[TagTypeDef]]
-    IpAddressType: NotRequired[IpAddressTypeType]
 
 
 class HostReservationTypeDef(TypedDict):
@@ -14691,6 +14694,11 @@ class InstanceAttachmentEnaSrdSpecificationTypeDef(TypedDict):
     EnaSrdUdpSpecification: NotRequired[InstanceAttachmentEnaSrdUdpSpecificationTypeDef]
 
 
+class InstanceConnectEndpointPublicDnsNamesTypeDef(TypedDict):
+    Ipv4: NotRequired[InstanceConnectEndpointDnsNamesTypeDef]
+    Dualstack: NotRequired[InstanceConnectEndpointDnsNamesTypeDef]
+
+
 class ModifyInstanceCreditSpecificationRequestTypeDef(TypedDict):
     InstanceCreditSpecifications: Sequence[InstanceCreditSpecificationRequestTypeDef]
     DryRun: NotRequired[bool]
@@ -15974,23 +15982,6 @@ class DescribeCustomerGatewaysResultTypeDef(TypedDict):
 
 class DescribeDeclarativePoliciesReportsResultTypeDef(TypedDict):
     Reports: List[DeclarativePoliciesReportTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class CreateInstanceConnectEndpointResultTypeDef(TypedDict):
-    InstanceConnectEndpoint: Ec2InstanceConnectEndpointTypeDef
-    ClientToken: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DeleteInstanceConnectEndpointResultTypeDef(TypedDict):
-    InstanceConnectEndpoint: Ec2InstanceConnectEndpointTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeInstanceConnectEndpointsResultTypeDef(TypedDict):
-    InstanceConnectEndpoints: List[Ec2InstanceConnectEndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -17457,6 +17448,26 @@ class InstanceNetworkInterfaceAttachmentTypeDef(TypedDict):
     NetworkCardIndex: NotRequired[int]
     EnaSrdSpecification: NotRequired[InstanceAttachmentEnaSrdSpecificationTypeDef]
     EnaQueueCount: NotRequired[int]
+
+
+class Ec2InstanceConnectEndpointTypeDef(TypedDict):
+    OwnerId: NotRequired[str]
+    InstanceConnectEndpointId: NotRequired[str]
+    InstanceConnectEndpointArn: NotRequired[str]
+    State: NotRequired[Ec2InstanceConnectEndpointStateType]
+    StateMessage: NotRequired[str]
+    DnsName: NotRequired[str]
+    FipsDnsName: NotRequired[str]
+    NetworkInterfaceIds: NotRequired[List[str]]
+    VpcId: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    SubnetId: NotRequired[str]
+    PreserveClientIp: NotRequired[bool]
+    SecurityGroupIds: NotRequired[List[str]]
+    Tags: NotRequired[List[TagTypeDef]]
+    IpAddressType: NotRequired[IpAddressTypeType]
+    PublicDnsNames: NotRequired[InstanceConnectEndpointPublicDnsNamesTypeDef]
 
 
 class DescribeInstanceImageMetadataResultTypeDef(TypedDict):
@@ -20115,6 +20126,23 @@ class InstanceNetworkInterfaceTypeDef(TypedDict):
     Ipv6Prefixes: NotRequired[List[InstanceIpv6PrefixTypeDef]]
     ConnectionTrackingConfiguration: NotRequired[ConnectionTrackingSpecificationResponseTypeDef]
     Operator: NotRequired[OperatorResponseTypeDef]
+
+
+class CreateInstanceConnectEndpointResultTypeDef(TypedDict):
+    InstanceConnectEndpoint: Ec2InstanceConnectEndpointTypeDef
+    ClientToken: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteInstanceConnectEndpointResultTypeDef(TypedDict):
+    InstanceConnectEndpoint: Ec2InstanceConnectEndpointTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeInstanceConnectEndpointsResultTypeDef(TypedDict):
+    InstanceConnectEndpoints: List[Ec2InstanceConnectEndpointTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class DescribeInstanceStatusResultTypeDef(TypedDict):

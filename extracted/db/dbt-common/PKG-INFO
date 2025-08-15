@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-common
-Version: 1.27.1
+Version: 1.28.0
 Summary: The shared common utilities that dbt-core and adapter implementations use
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-common
 Project-URL: Repository, https://github.com/dbt-labs/dbt-common.git
@@ -33,7 +33,7 @@ Requires-Dist: jinja2<4,>=3.1.3
 Requires-Dist: jsonschema<5.0,>=4.0
 Requires-Dist: mashumaro[msgpack]<4.0,>=3.9
 Requires-Dist: pathspec<0.13,>=0.9
-Requires-Dist: protobuf<6.0,>=5.0
+Requires-Dist: protobuf<7.0,>=6.0
 Requires-Dist: python-dateutil<3.0,>=2.0
 Requires-Dist: requests<3.0.0
 Requires-Dist: typing-extensions<5.0,>=4.4
@@ -50,7 +50,7 @@ Requires-Dist: mypy<2.0,>=1.3; extra == 'lint'
 Requires-Dist: pytest<8.0,>=7.3; extra == 'lint'
 Requires-Dist: types-jinja2<3.0,>=2.11; extra == 'lint'
 Requires-Dist: types-jsonschema<5.0,>=4.17; extra == 'lint'
-Requires-Dist: types-protobuf<6.0,>=5.0; extra == 'lint'
+Requires-Dist: types-protobuf<7.0,>=6.0; extra == 'lint'
 Requires-Dist: types-python-dateutil<3.0,>=2.8; extra == 'lint'
 Requires-Dist: types-pyyaml<7.0,>=6.0; extra == 'lint'
 Requires-Dist: types-requests; extra == 'lint'

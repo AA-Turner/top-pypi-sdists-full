@@ -259,7 +259,7 @@ class FrameworkStub(BaseAPIModelStub):
                     "saas",
                     "cloud-support",
                 ],
-                "lot_to_route": {
+                "lotToRoute": {
                     "iaas-and-paas": "iaas-and-paas",
                     "iaas-and-paas-above-official": "iaas-and-paas-above-official",
                     "isaas": "isaas",
@@ -275,7 +275,7 @@ class FrameworkStub(BaseAPIModelStub):
                 "routes": [
                     "digital-capability-and-delivery-partner",
                 ],
-                "lot_to_route": {
+                "lotToRoute": {
                     "digital-capability-and-delivery-partner": "digital-capability-and-delivery-partner",
                 },
             }
@@ -289,7 +289,7 @@ class FrameworkStub(BaseAPIModelStub):
                     "cloud-software",
                     "cloud-support",
                 ],
-                "lot_to_route": {
+                "lotToRoute": {
                     "iaas-and-paas": "cloud-hosting",
                     "iaas-and-paas-above-official": "cloud-hosting",
                     "isaas": "cloud-software",

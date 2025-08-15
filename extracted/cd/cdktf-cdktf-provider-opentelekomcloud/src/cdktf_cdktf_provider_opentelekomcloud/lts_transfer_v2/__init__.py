@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_lts_transfer_v2`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_lts_transfer_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_lts_transfer_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LtsTransferV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.ltsTransferV2.LtsTransferV2",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2 opentelekomcloud_lts_transfer_v2}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2 opentelekomcloud_lts_transfer_v2}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class LtsTransferV2(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2 opentelekomcloud_lts_transfer_v2} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2 opentelekomcloud_lts_transfer_v2} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param log_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_group_id LtsTransferV2#log_group_id}.
-        :param log_streams: log_streams block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_streams LtsTransferV2#log_streams}
-        :param log_transfer_info: log_transfer_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_info LtsTransferV2#log_transfer_info}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#id LtsTransferV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_group_id LtsTransferV2#log_group_id}.
+        :param log_streams: log_streams block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_streams LtsTransferV2#log_streams}
+        :param log_transfer_info: log_transfer_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_info LtsTransferV2#log_transfer_info}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#id LtsTransferV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class LtsTransferV2(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LtsTransferV2 to import.
-        :param import_from_id: The id of the existing LtsTransferV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LtsTransferV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LtsTransferV2 to import is found.
         '''
         if __debug__:
@@ -148,12 +148,12 @@ class LtsTransferV2(
         log_agency_transfer: typing.Optional[typing.Union["LtsTransferV2LogTransferInfoLogAgencyTransfer", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param log_storage_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_storage_format LtsTransferV2#log_storage_format}.
-        :param log_transfer_detail: log_transfer_detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_detail LtsTransferV2#log_transfer_detail}
-        :param log_transfer_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_mode LtsTransferV2#log_transfer_mode}.
-        :param log_transfer_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_status LtsTransferV2#log_transfer_status}.
-        :param log_transfer_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_type LtsTransferV2#log_transfer_type}.
-        :param log_agency_transfer: log_agency_transfer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_agency_transfer LtsTransferV2#log_agency_transfer}
+        :param log_storage_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_storage_format LtsTransferV2#log_storage_format}.
+        :param log_transfer_detail: log_transfer_detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_detail LtsTransferV2#log_transfer_detail}
+        :param log_transfer_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_mode LtsTransferV2#log_transfer_mode}.
+        :param log_transfer_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_status LtsTransferV2#log_transfer_status}.
+        :param log_transfer_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_type LtsTransferV2#log_transfer_type}.
+        :param log_agency_transfer: log_agency_transfer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_agency_transfer LtsTransferV2#log_agency_transfer}
         '''
         value = LtsTransferV2LogTransferInfo(
             log_storage_format=log_storage_format,
@@ -293,10 +293,10 @@ class LtsTransferV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param log_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_group_id LtsTransferV2#log_group_id}.
-        :param log_streams: log_streams block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_streams LtsTransferV2#log_streams}
-        :param log_transfer_info: log_transfer_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_info LtsTransferV2#log_transfer_info}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#id LtsTransferV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_group_id LtsTransferV2#log_group_id}.
+        :param log_streams: log_streams block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_streams LtsTransferV2#log_streams}
+        :param log_transfer_info: log_transfer_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_info LtsTransferV2#log_transfer_info}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#id LtsTransferV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -403,7 +403,7 @@ class LtsTransferV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def log_group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_group_id LtsTransferV2#log_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_group_id LtsTransferV2#log_group_id}.'''
         result = self._values.get("log_group_id")
         assert result is not None, "Required property 'log_group_id' is missing"
         return typing.cast(builtins.str, result)
@@ -414,7 +414,7 @@ class LtsTransferV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LtsTransferV2LogStreams"]]:
         '''log_streams block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_streams LtsTransferV2#log_streams}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_streams LtsTransferV2#log_streams}
         '''
         result = self._values.get("log_streams")
         assert result is not None, "Required property 'log_streams' is missing"
@@ -424,7 +424,7 @@ class LtsTransferV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def log_transfer_info(self) -> "LtsTransferV2LogTransferInfo":
         '''log_transfer_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_info LtsTransferV2#log_transfer_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_info LtsTransferV2#log_transfer_info}
         '''
         result = self._values.get("log_transfer_info")
         assert result is not None, "Required property 'log_transfer_info' is missing"
@@ -432,7 +432,7 @@ class LtsTransferV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#id LtsTransferV2#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#id LtsTransferV2#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -465,8 +465,8 @@ class LtsTransferV2LogStreams:
         log_stream_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param log_stream_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_stream_id LtsTransferV2#log_stream_id}.
-        :param log_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_stream_name LtsTransferV2#log_stream_name}.
+        :param log_stream_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_stream_id LtsTransferV2#log_stream_id}.
+        :param log_stream_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_stream_name LtsTransferV2#log_stream_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__447844dff92f2b05259a9ec3edde7cc46efffc6a166861b213df8d33ad881a45)
@@ -480,14 +480,14 @@ class LtsTransferV2LogStreams:
 
     @builtins.property
     def log_stream_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_stream_id LtsTransferV2#log_stream_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_stream_id LtsTransferV2#log_stream_id}.'''
         result = self._values.get("log_stream_id")
         assert result is not None, "Required property 'log_stream_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def log_stream_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_stream_name LtsTransferV2#log_stream_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_stream_name LtsTransferV2#log_stream_name}.'''
         result = self._values.get("log_stream_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -699,12 +699,12 @@ class LtsTransferV2LogTransferInfo:
         log_agency_transfer: typing.Optional[typing.Union["LtsTransferV2LogTransferInfoLogAgencyTransfer", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param log_storage_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_storage_format LtsTransferV2#log_storage_format}.
-        :param log_transfer_detail: log_transfer_detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_detail LtsTransferV2#log_transfer_detail}
-        :param log_transfer_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_mode LtsTransferV2#log_transfer_mode}.
-        :param log_transfer_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_status LtsTransferV2#log_transfer_status}.
-        :param log_transfer_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_type LtsTransferV2#log_transfer_type}.
-        :param log_agency_transfer: log_agency_transfer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_agency_transfer LtsTransferV2#log_agency_transfer}
+        :param log_storage_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_storage_format LtsTransferV2#log_storage_format}.
+        :param log_transfer_detail: log_transfer_detail block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_detail LtsTransferV2#log_transfer_detail}
+        :param log_transfer_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_mode LtsTransferV2#log_transfer_mode}.
+        :param log_transfer_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_status LtsTransferV2#log_transfer_status}.
+        :param log_transfer_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_type LtsTransferV2#log_transfer_type}.
+        :param log_agency_transfer: log_agency_transfer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_agency_transfer LtsTransferV2#log_agency_transfer}
         '''
         if isinstance(log_transfer_detail, dict):
             log_transfer_detail = LtsTransferV2LogTransferInfoLogTransferDetail(**log_transfer_detail)
@@ -730,7 +730,7 @@ class LtsTransferV2LogTransferInfo:
 
     @builtins.property
     def log_storage_format(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_storage_format LtsTransferV2#log_storage_format}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_storage_format LtsTransferV2#log_storage_format}.'''
         result = self._values.get("log_storage_format")
         assert result is not None, "Required property 'log_storage_format' is missing"
         return typing.cast(builtins.str, result)
@@ -739,7 +739,7 @@ class LtsTransferV2LogTransferInfo:
     def log_transfer_detail(self) -> "LtsTransferV2LogTransferInfoLogTransferDetail":
         '''log_transfer_detail block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_detail LtsTransferV2#log_transfer_detail}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_detail LtsTransferV2#log_transfer_detail}
         '''
         result = self._values.get("log_transfer_detail")
         assert result is not None, "Required property 'log_transfer_detail' is missing"
@@ -747,21 +747,21 @@ class LtsTransferV2LogTransferInfo:
 
     @builtins.property
     def log_transfer_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_mode LtsTransferV2#log_transfer_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_mode LtsTransferV2#log_transfer_mode}.'''
         result = self._values.get("log_transfer_mode")
         assert result is not None, "Required property 'log_transfer_mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def log_transfer_status(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_status LtsTransferV2#log_transfer_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_status LtsTransferV2#log_transfer_status}.'''
         result = self._values.get("log_transfer_status")
         assert result is not None, "Required property 'log_transfer_status' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def log_transfer_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_transfer_type LtsTransferV2#log_transfer_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_transfer_type LtsTransferV2#log_transfer_type}.'''
         result = self._values.get("log_transfer_type")
         assert result is not None, "Required property 'log_transfer_type' is missing"
         return typing.cast(builtins.str, result)
@@ -772,7 +772,7 @@ class LtsTransferV2LogTransferInfo:
     ) -> typing.Optional["LtsTransferV2LogTransferInfoLogAgencyTransfer"]:
         '''log_agency_transfer block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#log_agency_transfer LtsTransferV2#log_agency_transfer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#log_agency_transfer LtsTransferV2#log_agency_transfer}
         '''
         result = self._values.get("log_agency_transfer")
         return typing.cast(typing.Optional["LtsTransferV2LogTransferInfoLogAgencyTransfer"], result)
@@ -809,10 +809,10 @@ class LtsTransferV2LogTransferInfoLogAgencyTransfer:
         agency_project_id: builtins.str,
     ) -> None:
         '''
-        :param agency_domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#agency_domain_id LtsTransferV2#agency_domain_id}.
-        :param agency_domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#agency_domain_name LtsTransferV2#agency_domain_name}.
-        :param agency_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#agency_name LtsTransferV2#agency_name}.
-        :param agency_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#agency_project_id LtsTransferV2#agency_project_id}.
+        :param agency_domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#agency_domain_id LtsTransferV2#agency_domain_id}.
+        :param agency_domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#agency_domain_name LtsTransferV2#agency_domain_name}.
+        :param agency_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#agency_name LtsTransferV2#agency_name}.
+        :param agency_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#agency_project_id LtsTransferV2#agency_project_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18841c1f00e8e130c0bc1ba872983b8cfce45fcb31a709ec0c7512a88c93b9dd)
@@ -829,28 +829,28 @@ class LtsTransferV2LogTransferInfoLogAgencyTransfer:
 
     @builtins.property
     def agency_domain_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#agency_domain_id LtsTransferV2#agency_domain_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#agency_domain_id LtsTransferV2#agency_domain_id}.'''
         result = self._values.get("agency_domain_id")
         assert result is not None, "Required property 'agency_domain_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def agency_domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#agency_domain_name LtsTransferV2#agency_domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#agency_domain_name LtsTransferV2#agency_domain_name}.'''
         result = self._values.get("agency_domain_name")
         assert result is not None, "Required property 'agency_domain_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def agency_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#agency_name LtsTransferV2#agency_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#agency_name LtsTransferV2#agency_name}.'''
         result = self._values.get("agency_name")
         assert result is not None, "Required property 'agency_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def agency_project_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#agency_project_id LtsTransferV2#agency_project_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#agency_project_id LtsTransferV2#agency_project_id}.'''
         result = self._values.get("agency_project_id")
         assert result is not None, "Required property 'agency_project_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1009,18 +1009,18 @@ class LtsTransferV2LogTransferInfoLogTransferDetail:
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param obs_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_bucket_name LtsTransferV2#obs_bucket_name}.
-        :param obs_dir_prefix_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_dir_prefix_name LtsTransferV2#obs_dir_prefix_name}.
-        :param obs_encrypted_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_encrypted_enable LtsTransferV2#obs_encrypted_enable}.
-        :param obs_encrypted_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_encrypted_id LtsTransferV2#obs_encrypted_id}.
-        :param obs_eps_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_eps_id LtsTransferV2#obs_eps_id}.
-        :param obs_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_period LtsTransferV2#obs_period}.
-        :param obs_period_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_period_unit LtsTransferV2#obs_period_unit}.
-        :param obs_prefix_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_prefix_name LtsTransferV2#obs_prefix_name}.
-        :param obs_time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_time_zone LtsTransferV2#obs_time_zone}.
-        :param obs_time_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_time_zone_id LtsTransferV2#obs_time_zone_id}.
-        :param obs_transfer_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_transfer_path LtsTransferV2#obs_transfer_path}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#tags LtsTransferV2#tags}.
+        :param obs_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_bucket_name LtsTransferV2#obs_bucket_name}.
+        :param obs_dir_prefix_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_dir_prefix_name LtsTransferV2#obs_dir_prefix_name}.
+        :param obs_encrypted_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_encrypted_enable LtsTransferV2#obs_encrypted_enable}.
+        :param obs_encrypted_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_encrypted_id LtsTransferV2#obs_encrypted_id}.
+        :param obs_eps_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_eps_id LtsTransferV2#obs_eps_id}.
+        :param obs_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_period LtsTransferV2#obs_period}.
+        :param obs_period_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_period_unit LtsTransferV2#obs_period_unit}.
+        :param obs_prefix_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_prefix_name LtsTransferV2#obs_prefix_name}.
+        :param obs_time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_time_zone LtsTransferV2#obs_time_zone}.
+        :param obs_time_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_time_zone_id LtsTransferV2#obs_time_zone_id}.
+        :param obs_transfer_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_transfer_path LtsTransferV2#obs_transfer_path}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#tags LtsTransferV2#tags}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__97ba40ea411194e00a5727c27d5eac768afb2d35a4df05d44d572050d555f77a)
@@ -1064,13 +1064,13 @@ class LtsTransferV2LogTransferInfoLogTransferDetail:
 
     @builtins.property
     def obs_bucket_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_bucket_name LtsTransferV2#obs_bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_bucket_name LtsTransferV2#obs_bucket_name}.'''
         result = self._values.get("obs_bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def obs_dir_prefix_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_dir_prefix_name LtsTransferV2#obs_dir_prefix_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_dir_prefix_name LtsTransferV2#obs_dir_prefix_name}.'''
         result = self._values.get("obs_dir_prefix_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1078,61 +1078,61 @@ class LtsTransferV2LogTransferInfoLogTransferDetail:
     def obs_encrypted_enable(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_encrypted_enable LtsTransferV2#obs_encrypted_enable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_encrypted_enable LtsTransferV2#obs_encrypted_enable}.'''
         result = self._values.get("obs_encrypted_enable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def obs_encrypted_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_encrypted_id LtsTransferV2#obs_encrypted_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_encrypted_id LtsTransferV2#obs_encrypted_id}.'''
         result = self._values.get("obs_encrypted_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def obs_eps_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_eps_id LtsTransferV2#obs_eps_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_eps_id LtsTransferV2#obs_eps_id}.'''
         result = self._values.get("obs_eps_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def obs_period(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_period LtsTransferV2#obs_period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_period LtsTransferV2#obs_period}.'''
         result = self._values.get("obs_period")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def obs_period_unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_period_unit LtsTransferV2#obs_period_unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_period_unit LtsTransferV2#obs_period_unit}.'''
         result = self._values.get("obs_period_unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def obs_prefix_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_prefix_name LtsTransferV2#obs_prefix_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_prefix_name LtsTransferV2#obs_prefix_name}.'''
         result = self._values.get("obs_prefix_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def obs_time_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_time_zone LtsTransferV2#obs_time_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_time_zone LtsTransferV2#obs_time_zone}.'''
         result = self._values.get("obs_time_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def obs_time_zone_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_time_zone_id LtsTransferV2#obs_time_zone_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_time_zone_id LtsTransferV2#obs_time_zone_id}.'''
         result = self._values.get("obs_time_zone_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def obs_transfer_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_transfer_path LtsTransferV2#obs_transfer_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_transfer_path LtsTransferV2#obs_transfer_path}.'''
         result = self._values.get("obs_transfer_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#tags LtsTransferV2#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#tags LtsTransferV2#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1475,10 +1475,10 @@ class LtsTransferV2LogTransferInfoOutputReference(
         agency_project_id: builtins.str,
     ) -> None:
         '''
-        :param agency_domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#agency_domain_id LtsTransferV2#agency_domain_id}.
-        :param agency_domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#agency_domain_name LtsTransferV2#agency_domain_name}.
-        :param agency_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#agency_name LtsTransferV2#agency_name}.
-        :param agency_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#agency_project_id LtsTransferV2#agency_project_id}.
+        :param agency_domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#agency_domain_id LtsTransferV2#agency_domain_id}.
+        :param agency_domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#agency_domain_name LtsTransferV2#agency_domain_name}.
+        :param agency_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#agency_name LtsTransferV2#agency_name}.
+        :param agency_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#agency_project_id LtsTransferV2#agency_project_id}.
         '''
         value = LtsTransferV2LogTransferInfoLogAgencyTransfer(
             agency_domain_id=agency_domain_id,
@@ -1507,18 +1507,18 @@ class LtsTransferV2LogTransferInfoOutputReference(
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param obs_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_bucket_name LtsTransferV2#obs_bucket_name}.
-        :param obs_dir_prefix_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_dir_prefix_name LtsTransferV2#obs_dir_prefix_name}.
-        :param obs_encrypted_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_encrypted_enable LtsTransferV2#obs_encrypted_enable}.
-        :param obs_encrypted_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_encrypted_id LtsTransferV2#obs_encrypted_id}.
-        :param obs_eps_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_eps_id LtsTransferV2#obs_eps_id}.
-        :param obs_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_period LtsTransferV2#obs_period}.
-        :param obs_period_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_period_unit LtsTransferV2#obs_period_unit}.
-        :param obs_prefix_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_prefix_name LtsTransferV2#obs_prefix_name}.
-        :param obs_time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_time_zone LtsTransferV2#obs_time_zone}.
-        :param obs_time_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_time_zone_id LtsTransferV2#obs_time_zone_id}.
-        :param obs_transfer_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#obs_transfer_path LtsTransferV2#obs_transfer_path}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_transfer_v2#tags LtsTransferV2#tags}.
+        :param obs_bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_bucket_name LtsTransferV2#obs_bucket_name}.
+        :param obs_dir_prefix_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_dir_prefix_name LtsTransferV2#obs_dir_prefix_name}.
+        :param obs_encrypted_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_encrypted_enable LtsTransferV2#obs_encrypted_enable}.
+        :param obs_encrypted_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_encrypted_id LtsTransferV2#obs_encrypted_id}.
+        :param obs_eps_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_eps_id LtsTransferV2#obs_eps_id}.
+        :param obs_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_period LtsTransferV2#obs_period}.
+        :param obs_period_unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_period_unit LtsTransferV2#obs_period_unit}.
+        :param obs_prefix_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_prefix_name LtsTransferV2#obs_prefix_name}.
+        :param obs_time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_time_zone LtsTransferV2#obs_time_zone}.
+        :param obs_time_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_time_zone_id LtsTransferV2#obs_time_zone_id}.
+        :param obs_transfer_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#obs_transfer_path LtsTransferV2#obs_transfer_path}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_transfer_v2#tags LtsTransferV2#tags}.
         '''
         value = LtsTransferV2LogTransferInfoLogTransferDetail(
             obs_bucket_name=obs_bucket_name,

@@ -62,11 +62,10 @@ class ManifestManager:
         from .manifest.models import (
             Manifest,
             RepositoryInfoField,
-            set_validation_context,
         )
 
         # avoid circular dependency
-        from .utils import ComponentVersion
+        from .utils import ComponentVersion, validation_context
 
         if self._manifest:
             return self
@@ -103,26 +102,25 @@ class ManifestManager:
 
         manifest_dict['manifest_manager'] = self
 
-        set_validation_context({'upload_mode': self.upload_mode})
+        with validation_context({'upload_mode': self.upload_mode}):
+            self._validation_errors, self._manifest = Manifest.validate_manifest(  # type: ignore
+                manifest_dict,
+                return_with_object=True,
+            )
 
-        self._validation_errors, self._manifest = Manifest.validate_manifest(  # type: ignore
-            manifest_dict,
-            upload_mode=self.upload_mode,
-            return_with_object=True,
-        )
+        if self._manifest:
+            # override fields defined in manifest manager
+            if self._version is not None:
+                self._manifest.version = ComponentVersion(self._version)
 
-        # override fields defined in manifest manager
-        if self._version is not None:
-            self._manifest.version = ComponentVersion(self._version)
+            if self._repository is not None:
+                self._manifest.repository = self._repository
 
-        if self._repository is not None:
-            self._manifest.repository = self._repository
-
-        if self._commit_sha is not None:
-            self._manifest.repository_info = RepositoryInfoField.fromdict({
-                'commit_sha': self._commit_sha,
-                'path': self._repository_path,
-            })
+            if self._commit_sha is not None:
+                self._manifest.repository_info = RepositoryInfoField.fromdict({
+                    'commit_sha': self._commit_sha,
+                    'path': self._repository_path,
+                })
 
         return self
 

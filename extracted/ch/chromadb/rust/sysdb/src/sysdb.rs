@@ -16,7 +16,8 @@ use chroma_types::{
     GetSegmentsError, GetTenantError, GetTenantResponse, InternalCollectionConfiguration,
     InternalUpdateCollectionConfiguration, ListCollectionVersionsError, ListDatabasesError,
     ListDatabasesResponse, Metadata, ResetError, ResetResponse, SegmentFlushInfo,
-    SegmentFlushInfoConversionError, SegmentUuid, UpdateCollectionError, VectorIndexConfiguration,
+    SegmentFlushInfoConversionError, SegmentUuid, UpdateCollectionError, UpdateTenantError,
+    UpdateTenantResponse, VectorIndexConfiguration,
 };
 use chroma_types::{
     BatchGetCollectionSoftDeleteStatusError, BatchGetCollectionVersionFilePathsError, Collection,
@@ -64,6 +65,18 @@ impl SysDb {
             SysDb::Grpc(grpc) => grpc.get_tenant(tenant_name).await,
             SysDb::Sqlite(sqlite) => sqlite.get_tenant(&tenant_name).await,
             SysDb::Test(_) => todo!(),
+        }
+    }
+
+    pub async fn update_tenant(
+        &mut self,
+        tenant_id: String,
+        resource_name: String,
+    ) -> Result<UpdateTenantResponse, UpdateTenantError> {
+        match self {
+            SysDb::Grpc(grpc) => grpc.update_tenant(tenant_id, resource_name).await,
+            SysDb::Sqlite(sqlite) => sqlite.update_tenant(tenant_id, resource_name).await,
+            SysDb::Test(test) => test.update_tenant(tenant_id, resource_name).await,
         }
     }
 
@@ -695,13 +708,16 @@ impl GrpcSysDb {
             name: tenant_name.clone(),
         };
         match self.client.get_tenant(req).await {
-            Ok(resp) => Ok(GetTenantResponse {
-                name: resp
+            Ok(resp) => {
+                let tenant = resp
                     .into_inner()
                     .tenant
-                    .ok_or(GetTenantError::NotFound(tenant_name))?
-                    .name,
-            }),
+                    .ok_or(GetTenantError::NotFound(tenant_name))?;
+                Ok(GetTenantResponse {
+                    name: tenant.name,
+                    resource_name: tenant.resource_name,
+                })
+            }
             Err(err) => Err(GetTenantError::Internal(err.into())),
         }
     }
@@ -1387,6 +1403,20 @@ impl GrpcSysDb {
         Ok(res.into_inner().collection_id_to_success)
     }
 
+    async fn update_tenant(
+        &mut self,
+        tenant_id: String,
+        resource_name: String,
+    ) -> Result<UpdateTenantResponse, UpdateTenantError> {
+        let req = chroma_proto::SetTenantResourceNameRequest {
+            id: tenant_id,
+            resource_name,
+        };
+
+        self.client.set_tenant_resource_name(req).await?;
+        Ok(UpdateTenantResponse {})
+    }
+
     async fn reset(&mut self) -> Result<ResetResponse, ResetError> {
         self.client
             .reset_state(())
@@ -1432,9 +1462,7 @@ impl ChromaError for FlushCompactionError {
     fn code(&self) -> ErrorCodes {
         match self {
             FlushCompactionError::FailedToFlushCompaction(status) => {
-                if std::convert::Into::<chroma_error::ErrorCodes>::into(status.code())
-                    == ErrorCodes::FailedPrecondition
-                {
+                if status.code() == Code::FailedPrecondition {
                     ErrorCodes::FailedPrecondition
                 } else {
                     ErrorCodes::Internal
@@ -1477,5 +1505,20 @@ impl ChromaError for DeleteCollectionVersionError {
         match self {
             DeleteCollectionVersionError::FailedToDeleteVersion(e) => e.code().into(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tonic::Status;
+
+    use super::*;
+
+    #[test]
+    fn flush_compaction_error() {
+        let fce = FlushCompactionError::FailedToFlushCompaction(Status::failed_precondition(
+            "collection soft deleted",
+        ));
+        assert!(!fce.should_trace_error());
     }
 }

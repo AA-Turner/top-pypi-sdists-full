@@ -35,7 +35,9 @@ from .paginator import (
     ListIPSetsPaginator,
     ListMembersPaginator,
     ListOrganizationAdminAccountsPaginator,
+    ListThreatEntitySetsPaginator,
     ListThreatIntelSetsPaginator,
+    ListTrustedEntitySetsPaginator,
 )
 from .type_defs import (
     AcceptAdministratorInvitationRequestTypeDef,
@@ -54,8 +56,12 @@ from .type_defs import (
     CreatePublishingDestinationRequestTypeDef,
     CreatePublishingDestinationResponseTypeDef,
     CreateSampleFindingsRequestTypeDef,
+    CreateThreatEntitySetRequestTypeDef,
+    CreateThreatEntitySetResponseTypeDef,
     CreateThreatIntelSetRequestTypeDef,
     CreateThreatIntelSetResponseTypeDef,
+    CreateTrustedEntitySetRequestTypeDef,
+    CreateTrustedEntitySetResponseTypeDef,
     DeclineInvitationsRequestTypeDef,
     DeclineInvitationsResponseTypeDef,
     DeleteDetectorRequestTypeDef,
@@ -67,7 +73,9 @@ from .type_defs import (
     DeleteMembersRequestTypeDef,
     DeleteMembersResponseTypeDef,
     DeletePublishingDestinationRequestTypeDef,
+    DeleteThreatEntitySetRequestTypeDef,
     DeleteThreatIntelSetRequestTypeDef,
+    DeleteTrustedEntitySetRequestTypeDef,
     DescribeMalwareScansRequestTypeDef,
     DescribeMalwareScansResponseTypeDef,
     DescribeOrganizationConfigurationRequestTypeDef,
@@ -109,8 +117,12 @@ from .type_defs import (
     GetOrganizationStatisticsResponseTypeDef,
     GetRemainingFreeTrialDaysRequestTypeDef,
     GetRemainingFreeTrialDaysResponseTypeDef,
+    GetThreatEntitySetRequestTypeDef,
+    GetThreatEntitySetResponseTypeDef,
     GetThreatIntelSetRequestTypeDef,
     GetThreatIntelSetResponseTypeDef,
+    GetTrustedEntitySetRequestTypeDef,
+    GetTrustedEntitySetResponseTypeDef,
     GetUsageStatisticsRequestTypeDef,
     GetUsageStatisticsResponseTypeDef,
     InviteMembersRequestTypeDef,
@@ -137,8 +149,12 @@ from .type_defs import (
     ListPublishingDestinationsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListThreatEntitySetsRequestTypeDef,
+    ListThreatEntitySetsResponseTypeDef,
     ListThreatIntelSetsRequestTypeDef,
     ListThreatIntelSetsResponseTypeDef,
+    ListTrustedEntitySetsRequestTypeDef,
+    ListTrustedEntitySetsResponseTypeDef,
     StartMalwareScanRequestTypeDef,
     StartMalwareScanResponseTypeDef,
     StartMonitoringMembersRequestTypeDef,
@@ -159,7 +175,9 @@ from .type_defs import (
     UpdateMemberDetectorsResponseTypeDef,
     UpdateOrganizationConfigurationRequestTypeDef,
     UpdatePublishingDestinationRequestTypeDef,
+    UpdateThreatEntitySetRequestTypeDef,
     UpdateThreatIntelSetRequestTypeDef,
+    UpdateTrustedEntitySetRequestTypeDef,
 )
 
 if sys.version_info >= (3, 9):
@@ -317,6 +335,16 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#create_sample_findings)
         """
 
+    def create_threat_entity_set(
+        self, **kwargs: Unpack[CreateThreatEntitySetRequestTypeDef]
+    ) -> CreateThreatEntitySetResponseTypeDef:
+        """
+        Creates a new threat entity set.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/create_threat_entity_set.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#create_threat_entity_set)
+        """
+
     def create_threat_intel_set(
         self, **kwargs: Unpack[CreateThreatIntelSetRequestTypeDef]
     ) -> CreateThreatIntelSetResponseTypeDef:
@@ -325,6 +353,16 @@ class GuardDutyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/create_threat_intel_set.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#create_threat_intel_set)
+        """
+
+    def create_trusted_entity_set(
+        self, **kwargs: Unpack[CreateTrustedEntitySetRequestTypeDef]
+    ) -> CreateTrustedEntitySetResponseTypeDef:
+        """
+        Creates a new trusted entity set.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/create_trusted_entity_set.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#create_trusted_entity_set)
         """
 
     def decline_invitations(
@@ -405,6 +443,17 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#delete_publishing_destination)
         """
 
+    def delete_threat_entity_set(
+        self, **kwargs: Unpack[DeleteThreatEntitySetRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Deletes the threat entity set that is associated with the specified
+        <code>threatEntitySetId</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/delete_threat_entity_set.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#delete_threat_entity_set)
+        """
+
     def delete_threat_intel_set(
         self, **kwargs: Unpack[DeleteThreatIntelSetRequestTypeDef]
     ) -> Dict[str, Any]:
@@ -413,6 +462,17 @@ class GuardDutyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/delete_threat_intel_set.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#delete_threat_intel_set)
+        """
+
+    def delete_trusted_entity_set(
+        self, **kwargs: Unpack[DeleteTrustedEntitySetRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Deletes the trusted entity set that is associated with the specified
+        <code>trustedEntitySetId</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/delete_trusted_entity_set.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#delete_trusted_entity_set)
         """
 
     def describe_malware_scans(
@@ -648,6 +708,17 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#get_remaining_free_trial_days)
         """
 
+    def get_threat_entity_set(
+        self, **kwargs: Unpack[GetThreatEntitySetRequestTypeDef]
+    ) -> GetThreatEntitySetResponseTypeDef:
+        """
+        Retrieves the threat entity set associated with the specified
+        <code>threatEntitySetId</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_threat_entity_set.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#get_threat_entity_set)
+        """
+
     def get_threat_intel_set(
         self, **kwargs: Unpack[GetThreatIntelSetRequestTypeDef]
     ) -> GetThreatIntelSetResponseTypeDef:
@@ -656,6 +727,17 @@ class GuardDutyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_threat_intel_set.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#get_threat_intel_set)
+        """
+
+    def get_trusted_entity_set(
+        self, **kwargs: Unpack[GetTrustedEntitySetRequestTypeDef]
+    ) -> GetTrustedEntitySetResponseTypeDef:
+        """
+        Retrieves the trusted entity set associated with the specified
+        <code>trustedEntitySetId</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_trusted_entity_set.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#get_trusted_entity_set)
         """
 
     def get_usage_statistics(
@@ -792,6 +874,17 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#list_tags_for_resource)
         """
 
+    def list_threat_entity_sets(
+        self, **kwargs: Unpack[ListThreatEntitySetsRequestTypeDef]
+    ) -> ListThreatEntitySetsResponseTypeDef:
+        """
+        Lists the threat entity sets associated with the specified GuardDuty detector
+        ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/list_threat_entity_sets.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#list_threat_entity_sets)
+        """
+
     def list_threat_intel_sets(
         self, **kwargs: Unpack[ListThreatIntelSetsRequestTypeDef]
     ) -> ListThreatIntelSetsResponseTypeDef:
@@ -800,6 +893,17 @@ class GuardDutyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/list_threat_intel_sets.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#list_threat_intel_sets)
+        """
+
+    def list_trusted_entity_sets(
+        self, **kwargs: Unpack[ListTrustedEntitySetsRequestTypeDef]
+    ) -> ListTrustedEntitySetsResponseTypeDef:
+        """
+        Lists the trusted entity sets associated with the specified GuardDuty detector
+        ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/list_trusted_entity_sets.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#list_trusted_entity_sets)
         """
 
     def start_malware_scan(
@@ -945,6 +1049,17 @@ class GuardDutyClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#update_publishing_destination)
         """
 
+    def update_threat_entity_set(
+        self, **kwargs: Unpack[UpdateThreatEntitySetRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Updates the threat entity set associated with the specified
+        <code>threatEntitySetId</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/update_threat_entity_set.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#update_threat_entity_set)
+        """
+
     def update_threat_intel_set(
         self, **kwargs: Unpack[UpdateThreatIntelSetRequestTypeDef]
     ) -> Dict[str, Any]:
@@ -953,6 +1068,17 @@ class GuardDutyClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/update_threat_intel_set.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#update_threat_intel_set)
+        """
+
+    def update_trusted_entity_set(
+        self, **kwargs: Unpack[UpdateTrustedEntitySetRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Updates the trusted entity set associated with the specified
+        <code>trustedEntitySetId</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/update_trusted_entity_set.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#update_trusted_entity_set)
         """
 
     @overload  # type: ignore[override]
@@ -1056,8 +1182,30 @@ class GuardDutyClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_threat_entity_sets"]
+    ) -> ListThreatEntitySetsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_threat_intel_sets"]
     ) -> ListThreatIntelSetsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_trusted_entity_sets"]
+    ) -> ListTrustedEntitySetsPaginator:
         """
         Create a paginator for an operation.
 

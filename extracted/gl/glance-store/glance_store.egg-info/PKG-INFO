@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: glance_store
-Version: 5.0.0
+Version: 5.1.0
 Summary: OpenStack Image Service Store Library
 Home-page: https://docs.openstack.org/glance_store/latest/
 Author: OpenStack

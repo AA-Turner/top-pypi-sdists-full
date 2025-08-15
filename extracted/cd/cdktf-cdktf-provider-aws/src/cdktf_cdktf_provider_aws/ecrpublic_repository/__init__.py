@@ -1,7 +1,7 @@
 r'''
 # `aws_ecrpublic_repository`
 
-Refer to the Terraform Registry for docs: [`aws_ecrpublic_repository`](https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository).
+Refer to the Terraform Registry for docs: [`aws_ecrpublic_repository`](https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EcrpublicRepository(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ecrpublicRepository.EcrpublicRepository",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository aws_ecrpublic_repository}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository aws_ecrpublic_repository}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class EcrpublicRepository(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository aws_ecrpublic_repository} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository aws_ecrpublic_repository} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#repository_name EcrpublicRepository#repository_name}.
-        :param catalog_data: catalog_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#catalog_data EcrpublicRepository#catalog_data}
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#force_destroy EcrpublicRepository#force_destroy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#id EcrpublicRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#region EcrpublicRepository#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#tags EcrpublicRepository#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#tags_all EcrpublicRepository#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#timeouts EcrpublicRepository#timeouts}
+        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#repository_name EcrpublicRepository#repository_name}.
+        :param catalog_data: catalog_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#catalog_data EcrpublicRepository#catalog_data}
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#force_destroy EcrpublicRepository#force_destroy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#id EcrpublicRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#region EcrpublicRepository#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#tags EcrpublicRepository#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#tags_all EcrpublicRepository#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#timeouts EcrpublicRepository#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class EcrpublicRepository(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EcrpublicRepository to import.
-        :param import_from_id: The id of the existing EcrpublicRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EcrpublicRepository that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EcrpublicRepository to import is found.
         '''
         if __debug__:
@@ -147,12 +147,12 @@ class EcrpublicRepository(
         usage_text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param about_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#about_text EcrpublicRepository#about_text}.
-        :param architectures: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#architectures EcrpublicRepository#architectures}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#description EcrpublicRepository#description}.
-        :param logo_image_blob: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#logo_image_blob EcrpublicRepository#logo_image_blob}.
-        :param operating_systems: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#operating_systems EcrpublicRepository#operating_systems}.
-        :param usage_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#usage_text EcrpublicRepository#usage_text}.
+        :param about_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#about_text EcrpublicRepository#about_text}.
+        :param architectures: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#architectures EcrpublicRepository#architectures}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#description EcrpublicRepository#description}.
+        :param logo_image_blob: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#logo_image_blob EcrpublicRepository#logo_image_blob}.
+        :param operating_systems: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#operating_systems EcrpublicRepository#operating_systems}.
+        :param usage_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#usage_text EcrpublicRepository#usage_text}.
         '''
         value = EcrpublicRepositoryCatalogData(
             about_text=about_text,
@@ -168,7 +168,7 @@ class EcrpublicRepository(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, delete: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#delete EcrpublicRepository#delete}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#delete EcrpublicRepository#delete}.
         '''
         value = EcrpublicRepositoryTimeouts(delete=delete)
 
@@ -386,12 +386,12 @@ class EcrpublicRepositoryCatalogData:
         usage_text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param about_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#about_text EcrpublicRepository#about_text}.
-        :param architectures: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#architectures EcrpublicRepository#architectures}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#description EcrpublicRepository#description}.
-        :param logo_image_blob: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#logo_image_blob EcrpublicRepository#logo_image_blob}.
-        :param operating_systems: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#operating_systems EcrpublicRepository#operating_systems}.
-        :param usage_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#usage_text EcrpublicRepository#usage_text}.
+        :param about_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#about_text EcrpublicRepository#about_text}.
+        :param architectures: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#architectures EcrpublicRepository#architectures}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#description EcrpublicRepository#description}.
+        :param logo_image_blob: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#logo_image_blob EcrpublicRepository#logo_image_blob}.
+        :param operating_systems: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#operating_systems EcrpublicRepository#operating_systems}.
+        :param usage_text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#usage_text EcrpublicRepository#usage_text}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a25d9e395f44671dded3afd32f4ce94a3ba790ef110d7da95f5676a140cf9a8)
@@ -417,37 +417,37 @@ class EcrpublicRepositoryCatalogData:
 
     @builtins.property
     def about_text(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#about_text EcrpublicRepository#about_text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#about_text EcrpublicRepository#about_text}.'''
         result = self._values.get("about_text")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def architectures(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#architectures EcrpublicRepository#architectures}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#architectures EcrpublicRepository#architectures}.'''
         result = self._values.get("architectures")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#description EcrpublicRepository#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#description EcrpublicRepository#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def logo_image_blob(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#logo_image_blob EcrpublicRepository#logo_image_blob}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#logo_image_blob EcrpublicRepository#logo_image_blob}.'''
         result = self._values.get("logo_image_blob")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def operating_systems(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#operating_systems EcrpublicRepository#operating_systems}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#operating_systems EcrpublicRepository#operating_systems}.'''
         result = self._values.get("operating_systems")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def usage_text(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#usage_text EcrpublicRepository#usage_text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#usage_text EcrpublicRepository#usage_text}.'''
         result = self._values.get("usage_text")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -674,14 +674,14 @@ class EcrpublicRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#repository_name EcrpublicRepository#repository_name}.
-        :param catalog_data: catalog_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#catalog_data EcrpublicRepository#catalog_data}
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#force_destroy EcrpublicRepository#force_destroy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#id EcrpublicRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#region EcrpublicRepository#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#tags EcrpublicRepository#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#tags_all EcrpublicRepository#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#timeouts EcrpublicRepository#timeouts}
+        :param repository_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#repository_name EcrpublicRepository#repository_name}.
+        :param catalog_data: catalog_data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#catalog_data EcrpublicRepository#catalog_data}
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#force_destroy EcrpublicRepository#force_destroy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#id EcrpublicRepository#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#region EcrpublicRepository#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#tags EcrpublicRepository#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#tags_all EcrpublicRepository#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#timeouts EcrpublicRepository#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -804,7 +804,7 @@ class EcrpublicRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def repository_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#repository_name EcrpublicRepository#repository_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#repository_name EcrpublicRepository#repository_name}.'''
         result = self._values.get("repository_name")
         assert result is not None, "Required property 'repository_name' is missing"
         return typing.cast(builtins.str, result)
@@ -813,7 +813,7 @@ class EcrpublicRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def catalog_data(self) -> typing.Optional[EcrpublicRepositoryCatalogData]:
         '''catalog_data block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#catalog_data EcrpublicRepository#catalog_data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#catalog_data EcrpublicRepository#catalog_data}
         '''
         result = self._values.get("catalog_data")
         return typing.cast(typing.Optional[EcrpublicRepositoryCatalogData], result)
@@ -822,13 +822,13 @@ class EcrpublicRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#force_destroy EcrpublicRepository#force_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#force_destroy EcrpublicRepository#force_destroy}.'''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#id EcrpublicRepository#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#id EcrpublicRepository#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -840,20 +840,20 @@ class EcrpublicRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#region EcrpublicRepository#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#region EcrpublicRepository#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#tags EcrpublicRepository#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#tags EcrpublicRepository#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#tags_all EcrpublicRepository#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#tags_all EcrpublicRepository#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -861,7 +861,7 @@ class EcrpublicRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["EcrpublicRepositoryTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#timeouts EcrpublicRepository#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#timeouts EcrpublicRepository#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["EcrpublicRepositoryTimeouts"], result)
@@ -886,7 +886,7 @@ class EcrpublicRepositoryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class EcrpublicRepositoryTimeouts:
     def __init__(self, *, delete: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#delete EcrpublicRepository#delete}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#delete EcrpublicRepository#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8d879adc2931106870f66b2d19120364a296f03d672c95168c320bb1ad0df7bc)
@@ -897,7 +897,7 @@ class EcrpublicRepositoryTimeouts:
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.8.0/docs/resources/ecrpublic_repository#delete EcrpublicRepository#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.9.0/docs/resources/ecrpublic_repository#delete EcrpublicRepository#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

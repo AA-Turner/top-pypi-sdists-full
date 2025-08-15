@@ -570,15 +570,28 @@ async def _create_single_client_dependency_mount(
     allow_overwrite: bool = False,
 ): ...
 async def _create_client_dependency_mounts(
-    client=None, python_versions: list[str] = ["3.9", "3.10", "3.11", "3.12", "3.13"], check_if_exists=True
+    client=None,
+    python_versions: list[str] = ["3.9", "3.10", "3.11", "3.12", "3.13"],
+    builder_versions: list[str] = ["2025.06"],
+    check_if_exists=True,
 ): ...
 
 class __create_client_dependency_mounts_spec(typing_extensions.Protocol):
     def __call__(
-        self, /, client=None, python_versions: list[str] = ["3.9", "3.10", "3.11", "3.12", "3.13"], check_if_exists=True
+        self,
+        /,
+        client=None,
+        python_versions: list[str] = ["3.9", "3.10", "3.11", "3.12", "3.13"],
+        builder_versions: list[str] = ["2025.06"],
+        check_if_exists=True,
     ): ...
     async def aio(
-        self, /, client=None, python_versions: list[str] = ["3.9", "3.10", "3.11", "3.12", "3.13"], check_if_exists=True
+        self,
+        /,
+        client=None,
+        python_versions: list[str] = ["3.9", "3.10", "3.11", "3.12", "3.13"],
+        builder_versions: list[str] = ["2025.06"],
+        check_if_exists=True,
     ): ...
 
 create_client_dependency_mounts: __create_client_dependency_mounts_spec

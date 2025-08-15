@@ -1,7 +1,7 @@
 r'''
 # `data_opentelekomcloud_smn_topic_subscription_v2`
 
-Refer to the Terraform Registry for docs: [`data_opentelekomcloud_smn_topic_subscription_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2).
+Refer to the Terraform Registry for docs: [`data_opentelekomcloud_smn_topic_subscription_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataOpentelekomcloudSmnTopicSubscriptionV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.dataOpentelekomcloudSmnTopicSubscriptionV2.DataOpentelekomcloudSmnTopicSubscriptionV2",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2 opentelekomcloud_smn_topic_subscription_v2}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2 opentelekomcloud_smn_topic_subscription_v2}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataOpentelekomcloudSmnTopicSubscriptionV2(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2 opentelekomcloud_smn_topic_subscription_v2} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2 opentelekomcloud_smn_topic_subscription_v2} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param topic_urn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2#topic_urn DataOpentelekomcloudSmnTopicSubscriptionV2#topic_urn}.
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2#endpoint DataOpentelekomcloudSmnTopicSubscriptionV2#endpoint}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2#id DataOpentelekomcloudSmnTopicSubscriptionV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2#protocol DataOpentelekomcloudSmnTopicSubscriptionV2#protocol}.
+        :param topic_urn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2#topic_urn DataOpentelekomcloudSmnTopicSubscriptionV2#topic_urn}.
+        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2#endpoint DataOpentelekomcloudSmnTopicSubscriptionV2#endpoint}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2#id DataOpentelekomcloudSmnTopicSubscriptionV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2#protocol DataOpentelekomcloudSmnTopicSubscriptionV2#protocol}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataOpentelekomcloudSmnTopicSubscriptionV2(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataOpentelekomcloudSmnTopicSubscriptionV2 to import.
-        :param import_from_id: The id of the existing DataOpentelekomcloudSmnTopicSubscriptionV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataOpentelekomcloudSmnTopicSubscriptionV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataOpentelekomcloudSmnTopicSubscriptionV2 to import is found.
         '''
         if __debug__:
@@ -280,10 +280,10 @@ class DataOpentelekomcloudSmnTopicSubscriptionV2Config(
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param topic_urn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2#topic_urn DataOpentelekomcloudSmnTopicSubscriptionV2#topic_urn}.
-        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2#endpoint DataOpentelekomcloudSmnTopicSubscriptionV2#endpoint}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2#id DataOpentelekomcloudSmnTopicSubscriptionV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2#protocol DataOpentelekomcloudSmnTopicSubscriptionV2#protocol}.
+        :param topic_urn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2#topic_urn DataOpentelekomcloudSmnTopicSubscriptionV2#topic_urn}.
+        :param endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2#endpoint DataOpentelekomcloudSmnTopicSubscriptionV2#endpoint}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2#id DataOpentelekomcloudSmnTopicSubscriptionV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2#protocol DataOpentelekomcloudSmnTopicSubscriptionV2#protocol}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -390,20 +390,20 @@ class DataOpentelekomcloudSmnTopicSubscriptionV2Config(
 
     @builtins.property
     def topic_urn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2#topic_urn DataOpentelekomcloudSmnTopicSubscriptionV2#topic_urn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2#topic_urn DataOpentelekomcloudSmnTopicSubscriptionV2#topic_urn}.'''
         result = self._values.get("topic_urn")
         assert result is not None, "Required property 'topic_urn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2#endpoint DataOpentelekomcloudSmnTopicSubscriptionV2#endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2#endpoint DataOpentelekomcloudSmnTopicSubscriptionV2#endpoint}.'''
         result = self._values.get("endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2#id DataOpentelekomcloudSmnTopicSubscriptionV2#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2#id DataOpentelekomcloudSmnTopicSubscriptionV2#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -413,7 +413,7 @@ class DataOpentelekomcloudSmnTopicSubscriptionV2Config(
 
     @builtins.property
     def protocol(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/data-sources/smn_topic_subscription_v2#protocol DataOpentelekomcloudSmnTopicSubscriptionV2#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/data-sources/smn_topic_subscription_v2#protocol DataOpentelekomcloudSmnTopicSubscriptionV2#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[builtins.str], result)
 

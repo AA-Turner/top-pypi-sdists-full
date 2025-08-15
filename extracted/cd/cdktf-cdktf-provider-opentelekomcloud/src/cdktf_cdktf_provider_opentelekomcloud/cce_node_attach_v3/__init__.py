@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_cce_node_attach_v3`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_cce_node_attach_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_cce_node_attach_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CceNodeAttachV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.cceNodeAttachV3.CceNodeAttachV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3 opentelekomcloud_cce_node_attach_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3 opentelekomcloud_cce_node_attach_v3}.'''
 
     def __init__(
         self,
@@ -79,30 +79,30 @@ class CceNodeAttachV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3 opentelekomcloud_cce_node_attach_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3 opentelekomcloud_cce_node_attach_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#cluster_id CceNodeAttachV3#cluster_id}.
-        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#os CceNodeAttachV3#os}.
-        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#server_id CceNodeAttachV3#server_id}.
-        :param docker_base_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#docker_base_size CceNodeAttachV3#docker_base_size}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#id CceNodeAttachV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param k8_s_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#k8s_tags CceNodeAttachV3#k8s_tags}.
-        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#key_pair CceNodeAttachV3#key_pair}.
-        :param lvm_config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#lvm_config CceNodeAttachV3#lvm_config}.
-        :param max_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#max_pods CceNodeAttachV3#max_pods}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#password CceNodeAttachV3#password}.
-        :param postinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#postinstall CceNodeAttachV3#postinstall}.
-        :param preinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#preinstall CceNodeAttachV3#preinstall}.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#private_key CceNodeAttachV3#private_key}.
-        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#runtime CceNodeAttachV3#runtime}.
-        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#storage CceNodeAttachV3#storage}
-        :param system_disk_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#system_disk_kms_key_id CceNodeAttachV3#system_disk_kms_key_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#tags CceNodeAttachV3#tags}.
-        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#taints CceNodeAttachV3#taints}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#timeouts CceNodeAttachV3#timeouts}
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#cluster_id CceNodeAttachV3#cluster_id}.
+        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#os CceNodeAttachV3#os}.
+        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#server_id CceNodeAttachV3#server_id}.
+        :param docker_base_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#docker_base_size CceNodeAttachV3#docker_base_size}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#id CceNodeAttachV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param k8_s_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#k8s_tags CceNodeAttachV3#k8s_tags}.
+        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#key_pair CceNodeAttachV3#key_pair}.
+        :param lvm_config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#lvm_config CceNodeAttachV3#lvm_config}.
+        :param max_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#max_pods CceNodeAttachV3#max_pods}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#password CceNodeAttachV3#password}.
+        :param postinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#postinstall CceNodeAttachV3#postinstall}.
+        :param preinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#preinstall CceNodeAttachV3#preinstall}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#private_key CceNodeAttachV3#private_key}.
+        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#runtime CceNodeAttachV3#runtime}.
+        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#storage CceNodeAttachV3#storage}
+        :param system_disk_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#system_disk_kms_key_id CceNodeAttachV3#system_disk_kms_key_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#tags CceNodeAttachV3#tags}.
+        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#taints CceNodeAttachV3#taints}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#timeouts CceNodeAttachV3#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -160,7 +160,7 @@ class CceNodeAttachV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CceNodeAttachV3 to import.
-        :param import_from_id: The id of the existing CceNodeAttachV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CceNodeAttachV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CceNodeAttachV3 to import is found.
         '''
         if __debug__:
@@ -179,8 +179,8 @@ class CceNodeAttachV3(
         selectors: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CceNodeAttachV3StorageSelectors", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param groups: groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#groups CceNodeAttachV3#groups}
-        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#selectors CceNodeAttachV3#selectors}
+        :param groups: groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#groups CceNodeAttachV3#groups}
+        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#selectors CceNodeAttachV3#selectors}
         '''
         value = CceNodeAttachV3Storage(groups=groups, selectors=selectors)
 
@@ -208,9 +208,9 @@ class CceNodeAttachV3(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#create CceNodeAttachV3#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#delete CceNodeAttachV3#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#update CceNodeAttachV3#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#create CceNodeAttachV3#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#delete CceNodeAttachV3#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#update CceNodeAttachV3#update}.
         '''
         value = CceNodeAttachV3Timeouts(create=create, delete=delete, update=update)
 
@@ -746,26 +746,26 @@ class CceNodeAttachV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#cluster_id CceNodeAttachV3#cluster_id}.
-        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#os CceNodeAttachV3#os}.
-        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#server_id CceNodeAttachV3#server_id}.
-        :param docker_base_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#docker_base_size CceNodeAttachV3#docker_base_size}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#id CceNodeAttachV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param k8_s_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#k8s_tags CceNodeAttachV3#k8s_tags}.
-        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#key_pair CceNodeAttachV3#key_pair}.
-        :param lvm_config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#lvm_config CceNodeAttachV3#lvm_config}.
-        :param max_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#max_pods CceNodeAttachV3#max_pods}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#password CceNodeAttachV3#password}.
-        :param postinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#postinstall CceNodeAttachV3#postinstall}.
-        :param preinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#preinstall CceNodeAttachV3#preinstall}.
-        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#private_key CceNodeAttachV3#private_key}.
-        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#runtime CceNodeAttachV3#runtime}.
-        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#storage CceNodeAttachV3#storage}
-        :param system_disk_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#system_disk_kms_key_id CceNodeAttachV3#system_disk_kms_key_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#tags CceNodeAttachV3#tags}.
-        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#taints CceNodeAttachV3#taints}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#timeouts CceNodeAttachV3#timeouts}
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#cluster_id CceNodeAttachV3#cluster_id}.
+        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#os CceNodeAttachV3#os}.
+        :param server_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#server_id CceNodeAttachV3#server_id}.
+        :param docker_base_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#docker_base_size CceNodeAttachV3#docker_base_size}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#id CceNodeAttachV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param k8_s_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#k8s_tags CceNodeAttachV3#k8s_tags}.
+        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#key_pair CceNodeAttachV3#key_pair}.
+        :param lvm_config: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#lvm_config CceNodeAttachV3#lvm_config}.
+        :param max_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#max_pods CceNodeAttachV3#max_pods}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#password CceNodeAttachV3#password}.
+        :param postinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#postinstall CceNodeAttachV3#postinstall}.
+        :param preinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#preinstall CceNodeAttachV3#preinstall}.
+        :param private_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#private_key CceNodeAttachV3#private_key}.
+        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#runtime CceNodeAttachV3#runtime}.
+        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#storage CceNodeAttachV3#storage}
+        :param system_disk_kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#system_disk_kms_key_id CceNodeAttachV3#system_disk_kms_key_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#tags CceNodeAttachV3#tags}.
+        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#taints CceNodeAttachV3#taints}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#timeouts CceNodeAttachV3#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -922,34 +922,34 @@ class CceNodeAttachV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cluster_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#cluster_id CceNodeAttachV3#cluster_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#cluster_id CceNodeAttachV3#cluster_id}.'''
         result = self._values.get("cluster_id")
         assert result is not None, "Required property 'cluster_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def os(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#os CceNodeAttachV3#os}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#os CceNodeAttachV3#os}.'''
         result = self._values.get("os")
         assert result is not None, "Required property 'os' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def server_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#server_id CceNodeAttachV3#server_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#server_id CceNodeAttachV3#server_id}.'''
         result = self._values.get("server_id")
         assert result is not None, "Required property 'server_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def docker_base_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#docker_base_size CceNodeAttachV3#docker_base_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#docker_base_size CceNodeAttachV3#docker_base_size}.'''
         result = self._values.get("docker_base_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#id CceNodeAttachV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#id CceNodeAttachV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -959,61 +959,61 @@ class CceNodeAttachV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def k8_s_tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#k8s_tags CceNodeAttachV3#k8s_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#k8s_tags CceNodeAttachV3#k8s_tags}.'''
         result = self._values.get("k8_s_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def key_pair(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#key_pair CceNodeAttachV3#key_pair}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#key_pair CceNodeAttachV3#key_pair}.'''
         result = self._values.get("key_pair")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lvm_config(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#lvm_config CceNodeAttachV3#lvm_config}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#lvm_config CceNodeAttachV3#lvm_config}.'''
         result = self._values.get("lvm_config")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_pods(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#max_pods CceNodeAttachV3#max_pods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#max_pods CceNodeAttachV3#max_pods}.'''
         result = self._values.get("max_pods")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#password CceNodeAttachV3#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#password CceNodeAttachV3#password}.'''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def postinstall(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#postinstall CceNodeAttachV3#postinstall}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#postinstall CceNodeAttachV3#postinstall}.'''
         result = self._values.get("postinstall")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def preinstall(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#preinstall CceNodeAttachV3#preinstall}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#preinstall CceNodeAttachV3#preinstall}.'''
         result = self._values.get("preinstall")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def private_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#private_key CceNodeAttachV3#private_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#private_key CceNodeAttachV3#private_key}.'''
         result = self._values.get("private_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def runtime(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#runtime CceNodeAttachV3#runtime}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#runtime CceNodeAttachV3#runtime}.'''
         result = self._values.get("runtime")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1021,20 +1021,20 @@ class CceNodeAttachV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage(self) -> typing.Optional["CceNodeAttachV3Storage"]:
         '''storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#storage CceNodeAttachV3#storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#storage CceNodeAttachV3#storage}
         '''
         result = self._values.get("storage")
         return typing.cast(typing.Optional["CceNodeAttachV3Storage"], result)
 
     @builtins.property
     def system_disk_kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#system_disk_kms_key_id CceNodeAttachV3#system_disk_kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#system_disk_kms_key_id CceNodeAttachV3#system_disk_kms_key_id}.'''
         result = self._values.get("system_disk_kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#tags CceNodeAttachV3#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#tags CceNodeAttachV3#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1044,7 +1044,7 @@ class CceNodeAttachV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CceNodeAttachV3Taints"]]]:
         '''taints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#taints CceNodeAttachV3#taints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#taints CceNodeAttachV3#taints}
         '''
         result = self._values.get("taints")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CceNodeAttachV3Taints"]]], result)
@@ -1053,7 +1053,7 @@ class CceNodeAttachV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CceNodeAttachV3Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#timeouts CceNodeAttachV3#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#timeouts CceNodeAttachV3#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CceNodeAttachV3Timeouts"], result)
@@ -1412,8 +1412,8 @@ class CceNodeAttachV3Storage:
         selectors: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["CceNodeAttachV3StorageSelectors", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param groups: groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#groups CceNodeAttachV3#groups}
-        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#selectors CceNodeAttachV3#selectors}
+        :param groups: groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#groups CceNodeAttachV3#groups}
+        :param selectors: selectors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#selectors CceNodeAttachV3#selectors}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__784d2719d963496233e2da9a44251c6fd441bc1afc55e086f11dc6061c41c06b)
@@ -1430,7 +1430,7 @@ class CceNodeAttachV3Storage:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CceNodeAttachV3StorageGroups"]]:
         '''groups block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#groups CceNodeAttachV3#groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#groups CceNodeAttachV3#groups}
         '''
         result = self._values.get("groups")
         assert result is not None, "Required property 'groups' is missing"
@@ -1442,7 +1442,7 @@ class CceNodeAttachV3Storage:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CceNodeAttachV3StorageSelectors"]]:
         '''selectors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#selectors CceNodeAttachV3#selectors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#selectors CceNodeAttachV3#selectors}
         '''
         result = self._values.get("selectors")
         assert result is not None, "Required property 'selectors' is missing"
@@ -1480,10 +1480,10 @@ class CceNodeAttachV3StorageGroups:
         cce_managed: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.
-        :param selector_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#selector_names CceNodeAttachV3#selector_names}.
-        :param virtual_spaces: virtual_spaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#virtual_spaces CceNodeAttachV3#virtual_spaces}
-        :param cce_managed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#cce_managed CceNodeAttachV3#cce_managed}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.
+        :param selector_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#selector_names CceNodeAttachV3#selector_names}.
+        :param virtual_spaces: virtual_spaces block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#virtual_spaces CceNodeAttachV3#virtual_spaces}
+        :param cce_managed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#cce_managed CceNodeAttachV3#cce_managed}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a71f281a919d8f55282457d1b56725ed41fb10f95864b8f701c4f27773ed0766)
@@ -1501,14 +1501,14 @@ class CceNodeAttachV3StorageGroups:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def selector_names(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#selector_names CceNodeAttachV3#selector_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#selector_names CceNodeAttachV3#selector_names}.'''
         result = self._values.get("selector_names")
         assert result is not None, "Required property 'selector_names' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1519,7 +1519,7 @@ class CceNodeAttachV3StorageGroups:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CceNodeAttachV3StorageGroupsVirtualSpaces"]]:
         '''virtual_spaces block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#virtual_spaces CceNodeAttachV3#virtual_spaces}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#virtual_spaces CceNodeAttachV3#virtual_spaces}
         '''
         result = self._values.get("virtual_spaces")
         assert result is not None, "Required property 'virtual_spaces' is missing"
@@ -1529,7 +1529,7 @@ class CceNodeAttachV3StorageGroups:
     def cce_managed(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#cce_managed CceNodeAttachV3#cce_managed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#cce_managed CceNodeAttachV3#cce_managed}.'''
         result = self._values.get("cce_managed")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1786,11 +1786,11 @@ class CceNodeAttachV3StorageGroupsVirtualSpaces:
         runtime_lv_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#size CceNodeAttachV3#size}.
-        :param lvm_lv_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#lvm_lv_type CceNodeAttachV3#lvm_lv_type}.
-        :param lvm_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#lvm_path CceNodeAttachV3#lvm_path}.
-        :param runtime_lv_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#runtime_lv_type CceNodeAttachV3#runtime_lv_type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#size CceNodeAttachV3#size}.
+        :param lvm_lv_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#lvm_lv_type CceNodeAttachV3#lvm_lv_type}.
+        :param lvm_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#lvm_path CceNodeAttachV3#lvm_path}.
+        :param runtime_lv_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#runtime_lv_type CceNodeAttachV3#runtime_lv_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__71d530945b8531349a29cf2e81d83e4450d63965ba7957c2ac862dcb50ba958b)
@@ -1812,33 +1812,33 @@ class CceNodeAttachV3StorageGroupsVirtualSpaces:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def size(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#size CceNodeAttachV3#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#size CceNodeAttachV3#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def lvm_lv_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#lvm_lv_type CceNodeAttachV3#lvm_lv_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#lvm_lv_type CceNodeAttachV3#lvm_lv_type}.'''
         result = self._values.get("lvm_lv_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def lvm_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#lvm_path CceNodeAttachV3#lvm_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#lvm_path CceNodeAttachV3#lvm_path}.'''
         result = self._values.get("lvm_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def runtime_lv_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#runtime_lv_type CceNodeAttachV3#runtime_lv_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#runtime_lv_type CceNodeAttachV3#runtime_lv_type}.'''
         result = self._values.get("runtime_lv_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2197,13 +2197,13 @@ class CceNodeAttachV3StorageSelectors:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.
-        :param match_label_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#match_label_count CceNodeAttachV3#match_label_count}.
-        :param match_label_metadata_cmkid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#match_label_metadata_cmkid CceNodeAttachV3#match_label_metadata_cmkid}.
-        :param match_label_metadata_encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#match_label_metadata_encrypted CceNodeAttachV3#match_label_metadata_encrypted}.
-        :param match_label_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#match_label_size CceNodeAttachV3#match_label_size}.
-        :param match_label_volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#match_label_volume_type CceNodeAttachV3#match_label_volume_type}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#type CceNodeAttachV3#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.
+        :param match_label_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#match_label_count CceNodeAttachV3#match_label_count}.
+        :param match_label_metadata_cmkid: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#match_label_metadata_cmkid CceNodeAttachV3#match_label_metadata_cmkid}.
+        :param match_label_metadata_encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#match_label_metadata_encrypted CceNodeAttachV3#match_label_metadata_encrypted}.
+        :param match_label_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#match_label_size CceNodeAttachV3#match_label_size}.
+        :param match_label_volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#match_label_volume_type CceNodeAttachV3#match_label_volume_type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#type CceNodeAttachV3#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__38eb1d5ee70139a9814f943d71cf45d90a8e5b707447444e912bb4bd1c76d0ed)
@@ -2232,44 +2232,44 @@ class CceNodeAttachV3StorageSelectors:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#name CceNodeAttachV3#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def match_label_count(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#match_label_count CceNodeAttachV3#match_label_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#match_label_count CceNodeAttachV3#match_label_count}.'''
         result = self._values.get("match_label_count")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_label_metadata_cmkid(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#match_label_metadata_cmkid CceNodeAttachV3#match_label_metadata_cmkid}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#match_label_metadata_cmkid CceNodeAttachV3#match_label_metadata_cmkid}.'''
         result = self._values.get("match_label_metadata_cmkid")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_label_metadata_encrypted(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#match_label_metadata_encrypted CceNodeAttachV3#match_label_metadata_encrypted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#match_label_metadata_encrypted CceNodeAttachV3#match_label_metadata_encrypted}.'''
         result = self._values.get("match_label_metadata_encrypted")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_label_size(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#match_label_size CceNodeAttachV3#match_label_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#match_label_size CceNodeAttachV3#match_label_size}.'''
         result = self._values.get("match_label_size")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_label_volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#match_label_volume_type CceNodeAttachV3#match_label_volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#match_label_volume_type CceNodeAttachV3#match_label_volume_type}.'''
         result = self._values.get("match_label_volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#type CceNodeAttachV3#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#type CceNodeAttachV3#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2579,9 +2579,9 @@ class CceNodeAttachV3Taints:
         value: builtins.str,
     ) -> None:
         '''
-        :param effect: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#effect CceNodeAttachV3#effect}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#key CceNodeAttachV3#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#value CceNodeAttachV3#value}.
+        :param effect: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#effect CceNodeAttachV3#effect}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#key CceNodeAttachV3#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#value CceNodeAttachV3#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d47da96db44c57f1ac5c9665d46a0f169eadd3f095695addad779b9881ff00a0)
@@ -2596,21 +2596,21 @@ class CceNodeAttachV3Taints:
 
     @builtins.property
     def effect(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#effect CceNodeAttachV3#effect}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#effect CceNodeAttachV3#effect}.'''
         result = self._values.get("effect")
         assert result is not None, "Required property 'effect' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#key CceNodeAttachV3#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#key CceNodeAttachV3#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#value CceNodeAttachV3#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#value CceNodeAttachV3#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2826,9 +2826,9 @@ class CceNodeAttachV3Timeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#create CceNodeAttachV3#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#delete CceNodeAttachV3#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#update CceNodeAttachV3#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#create CceNodeAttachV3#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#delete CceNodeAttachV3#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#update CceNodeAttachV3#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e15862624ce22b449e6a5a16fa8293882a87d9e0437bf9c8e2977bdc0dcec3d)
@@ -2845,19 +2845,19 @@ class CceNodeAttachV3Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#create CceNodeAttachV3#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#create CceNodeAttachV3#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#delete CceNodeAttachV3#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#delete CceNodeAttachV3#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_attach_v3#update CceNodeAttachV3#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_attach_v3#update CceNodeAttachV3#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

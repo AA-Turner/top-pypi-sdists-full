@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sklearn-compat
-Version: 0.1.3
+Version: 0.1.4
 Summary: Ease support for compatible scikit-learn estimators across versions
 Project-URL: Homepage, https://sklearn-compat.readthedocs.io/en/
 Project-URL: Source, https://github.com/sklearn-compat/sklearn-compat
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Physics
 Requires-Python: >=3.8
-Requires-Dist: scikit-learn<1.7,>=1.2
+Requires-Dist: scikit-learn<1.8,>=1.2
 Provides-Extra: dev
 Requires-Dist: ipython; extra == 'dev'
 Provides-Extra: docs
@@ -82,6 +82,10 @@ from path.to._sklearn_compat import any_function
 
 where `_sklearn_compat` is the vendored version of `sklearn-compat` in your project.
 
+### Upgrading to scikit-learn 1.7
+
+There is no known breaking change for scikit-learn 1.7.
+
 ### Upgrading to scikit-learn 1.6
 
 #### `is_clusterer` function
@@ -93,7 +97,7 @@ such that you can have access to it in scikit-learn 1.2+. The pattern is the fol
 from sklearn.cluster import KMeans
 from sklearn_compat.base import is_clusterer
 
-is_clusterer(KMeans())
+is_clusterer(KMeans())`
 ```
 
 #### `validate_data` function
@@ -191,6 +195,11 @@ class MyEstimator(BaseEstimator):
         tags.regressor_tags.poor_score = True
         return tags
 ```
+
+Notice however that some tags have different names in scikit-learn 1.6. For instance,
+to indicate that an estimator only handles binary classification, it needed to have the
+tag `binary_only` set to `True`, whereas in scikit-learn 1.6,
+`classifier_tags.multi_class` needs to be set to `False`.
 
 In order to get the tags of a given estimator, you can use the `get_tags` function:
 

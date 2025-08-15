@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_cfw_acl_rule_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_cfw_acl_rule_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_cfw_acl_rule_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CfwAclRuleV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.cfwAclRuleV1.CfwAclRuleV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1 opentelekomcloud_cfw_acl_rule_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1 opentelekomcloud_cfw_acl_rule_v1}.'''
 
     def __init__(
         self,
@@ -79,30 +79,30 @@ class CfwAclRuleV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1 opentelekomcloud_cfw_acl_rule_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1 opentelekomcloud_cfw_acl_rule_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#action_type CfwAclRuleV1#action_type}.
-        :param address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#destination CfwAclRuleV1#destination}
-        :param long_connect_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_enable CfwAclRuleV1#long_connect_enable}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.
-        :param object_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#object_id CfwAclRuleV1#object_id}.
-        :param sequence: sequence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#sequence CfwAclRuleV1#sequence}
-        :param service: service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service CfwAclRuleV1#service}
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#source CfwAclRuleV1#source}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#status CfwAclRuleV1#status}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
-        :param applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#applications CfwAclRuleV1#applications}.
-        :param applications_json_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#applications_json_string CfwAclRuleV1#applications_json_string}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#description CfwAclRuleV1#description}.
-        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#direction CfwAclRuleV1#direction}.
-        :param long_connect_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_time CfwAclRuleV1#long_connect_time}.
-        :param long_connect_time_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_time_hour CfwAclRuleV1#long_connect_time_hour}.
-        :param long_connect_time_minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_time_minute CfwAclRuleV1#long_connect_time_minute}.
-        :param long_connect_time_second: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_time_second CfwAclRuleV1#long_connect_time_second}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#timeouts CfwAclRuleV1#timeouts}
+        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#action_type CfwAclRuleV1#action_type}.
+        :param address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#destination CfwAclRuleV1#destination}
+        :param long_connect_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_enable CfwAclRuleV1#long_connect_enable}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.
+        :param object_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#object_id CfwAclRuleV1#object_id}.
+        :param sequence: sequence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#sequence CfwAclRuleV1#sequence}
+        :param service: service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service CfwAclRuleV1#service}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#source CfwAclRuleV1#source}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#status CfwAclRuleV1#status}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
+        :param applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#applications CfwAclRuleV1#applications}.
+        :param applications_json_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#applications_json_string CfwAclRuleV1#applications_json_string}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#description CfwAclRuleV1#description}.
+        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#direction CfwAclRuleV1#direction}.
+        :param long_connect_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_time CfwAclRuleV1#long_connect_time}.
+        :param long_connect_time_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_time_hour CfwAclRuleV1#long_connect_time_hour}.
+        :param long_connect_time_minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_time_minute CfwAclRuleV1#long_connect_time_minute}.
+        :param long_connect_time_second: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_time_second CfwAclRuleV1#long_connect_time_second}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#timeouts CfwAclRuleV1#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -160,7 +160,7 @@ class CfwAclRuleV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CfwAclRuleV1 to import.
-        :param import_from_id: The id of the existing CfwAclRuleV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CfwAclRuleV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CfwAclRuleV1 to import is found.
         '''
         if __debug__:
@@ -191,20 +191,20 @@ class CfwAclRuleV1(
         region_list_json: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address CfwAclRuleV1#address}.
-        :param address_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_group CfwAclRuleV1#address_group}.
-        :param address_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_id CfwAclRuleV1#address_set_id}.
-        :param address_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_name CfwAclRuleV1#address_set_name}.
-        :param address_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_type CfwAclRuleV1#address_set_type}.
-        :param address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.
-        :param domain_address_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_address_name CfwAclRuleV1#domain_address_name}.
-        :param domain_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_set_id CfwAclRuleV1#domain_set_id}.
-        :param domain_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_set_name CfwAclRuleV1#domain_set_name}.
-        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#ip_address CfwAclRuleV1#ip_address}.
-        :param predefined_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.
-        :param region_list: region_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_list CfwAclRuleV1#region_list}
-        :param region_list_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_list_json CfwAclRuleV1#region_list_json}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address CfwAclRuleV1#address}.
+        :param address_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_group CfwAclRuleV1#address_group}.
+        :param address_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_id CfwAclRuleV1#address_set_id}.
+        :param address_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_name CfwAclRuleV1#address_set_name}.
+        :param address_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_type CfwAclRuleV1#address_set_type}.
+        :param address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.
+        :param domain_address_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_address_name CfwAclRuleV1#domain_address_name}.
+        :param domain_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_set_id CfwAclRuleV1#domain_set_id}.
+        :param domain_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_set_name CfwAclRuleV1#domain_set_name}.
+        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#ip_address CfwAclRuleV1#ip_address}.
+        :param predefined_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.
+        :param region_list: region_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_list CfwAclRuleV1#region_list}
+        :param region_list_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_list_json CfwAclRuleV1#region_list_json}.
         '''
         value = CfwAclRuleV1Destination(
             type=type,
@@ -234,9 +234,9 @@ class CfwAclRuleV1(
         top: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bottom: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#bottom CfwAclRuleV1#bottom}.
-        :param dest_rule_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#dest_rule_id CfwAclRuleV1#dest_rule_id}.
-        :param top: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#top CfwAclRuleV1#top}.
+        :param bottom: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#bottom CfwAclRuleV1#bottom}.
+        :param dest_rule_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#dest_rule_id CfwAclRuleV1#dest_rule_id}.
+        :param top: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#top CfwAclRuleV1#top}.
         '''
         value = CfwAclRuleV1Sequence(bottom=bottom, dest_rule_id=dest_rule_id, top=top)
 
@@ -260,18 +260,18 @@ class CfwAclRuleV1(
         source_port: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
-        :param custom_service: custom_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#custom_service CfwAclRuleV1#custom_service}
-        :param dest_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#dest_port CfwAclRuleV1#dest_port}.
-        :param predefined_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#protocol CfwAclRuleV1#protocol}.
-        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#protocols CfwAclRuleV1#protocols}.
-        :param service_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_group CfwAclRuleV1#service_group}.
-        :param service_group_names: service_group_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_group_names CfwAclRuleV1#service_group_names}
-        :param service_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_set_id CfwAclRuleV1#service_set_id}.
-        :param service_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_set_name CfwAclRuleV1#service_set_name}.
-        :param service_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_set_type CfwAclRuleV1#service_set_type}.
-        :param source_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#source_port CfwAclRuleV1#source_port}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
+        :param custom_service: custom_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#custom_service CfwAclRuleV1#custom_service}
+        :param dest_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#dest_port CfwAclRuleV1#dest_port}.
+        :param predefined_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#protocol CfwAclRuleV1#protocol}.
+        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#protocols CfwAclRuleV1#protocols}.
+        :param service_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_group CfwAclRuleV1#service_group}.
+        :param service_group_names: service_group_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_group_names CfwAclRuleV1#service_group_names}
+        :param service_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_set_id CfwAclRuleV1#service_set_id}.
+        :param service_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_set_name CfwAclRuleV1#service_set_name}.
+        :param service_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_set_type CfwAclRuleV1#service_set_type}.
+        :param source_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#source_port CfwAclRuleV1#source_port}.
         '''
         value = CfwAclRuleV1Service(
             type=type,
@@ -310,20 +310,20 @@ class CfwAclRuleV1(
         region_list_json: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address CfwAclRuleV1#address}.
-        :param address_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_group CfwAclRuleV1#address_group}.
-        :param address_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_id CfwAclRuleV1#address_set_id}.
-        :param address_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_name CfwAclRuleV1#address_set_name}.
-        :param address_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_type CfwAclRuleV1#address_set_type}.
-        :param address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.
-        :param domain_address_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_address_name CfwAclRuleV1#domain_address_name}.
-        :param domain_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_set_id CfwAclRuleV1#domain_set_id}.
-        :param domain_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_set_name CfwAclRuleV1#domain_set_name}.
-        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#ip_address CfwAclRuleV1#ip_address}.
-        :param predefined_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.
-        :param region_list: region_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_list CfwAclRuleV1#region_list}
-        :param region_list_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_list_json CfwAclRuleV1#region_list_json}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address CfwAclRuleV1#address}.
+        :param address_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_group CfwAclRuleV1#address_group}.
+        :param address_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_id CfwAclRuleV1#address_set_id}.
+        :param address_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_name CfwAclRuleV1#address_set_name}.
+        :param address_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_type CfwAclRuleV1#address_set_type}.
+        :param address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.
+        :param domain_address_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_address_name CfwAclRuleV1#domain_address_name}.
+        :param domain_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_set_id CfwAclRuleV1#domain_set_id}.
+        :param domain_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_set_name CfwAclRuleV1#domain_set_name}.
+        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#ip_address CfwAclRuleV1#ip_address}.
+        :param predefined_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.
+        :param region_list: region_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_list CfwAclRuleV1#region_list}
+        :param region_list_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_list_json CfwAclRuleV1#region_list_json}.
         '''
         value = CfwAclRuleV1Source(
             type=type,
@@ -353,9 +353,9 @@ class CfwAclRuleV1(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#create CfwAclRuleV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#delete CfwAclRuleV1#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#update CfwAclRuleV1#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#create CfwAclRuleV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#delete CfwAclRuleV1#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#update CfwAclRuleV1#update}.
         '''
         value = CfwAclRuleV1Timeouts(create=create, delete=delete, update=update)
 
@@ -806,26 +806,26 @@ class CfwAclRuleV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#action_type CfwAclRuleV1#action_type}.
-        :param address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#destination CfwAclRuleV1#destination}
-        :param long_connect_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_enable CfwAclRuleV1#long_connect_enable}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.
-        :param object_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#object_id CfwAclRuleV1#object_id}.
-        :param sequence: sequence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#sequence CfwAclRuleV1#sequence}
-        :param service: service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service CfwAclRuleV1#service}
-        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#source CfwAclRuleV1#source}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#status CfwAclRuleV1#status}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
-        :param applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#applications CfwAclRuleV1#applications}.
-        :param applications_json_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#applications_json_string CfwAclRuleV1#applications_json_string}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#description CfwAclRuleV1#description}.
-        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#direction CfwAclRuleV1#direction}.
-        :param long_connect_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_time CfwAclRuleV1#long_connect_time}.
-        :param long_connect_time_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_time_hour CfwAclRuleV1#long_connect_time_hour}.
-        :param long_connect_time_minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_time_minute CfwAclRuleV1#long_connect_time_minute}.
-        :param long_connect_time_second: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_time_second CfwAclRuleV1#long_connect_time_second}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#timeouts CfwAclRuleV1#timeouts}
+        :param action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#action_type CfwAclRuleV1#action_type}.
+        :param address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#destination CfwAclRuleV1#destination}
+        :param long_connect_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_enable CfwAclRuleV1#long_connect_enable}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.
+        :param object_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#object_id CfwAclRuleV1#object_id}.
+        :param sequence: sequence block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#sequence CfwAclRuleV1#sequence}
+        :param service: service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service CfwAclRuleV1#service}
+        :param source: source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#source CfwAclRuleV1#source}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#status CfwAclRuleV1#status}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
+        :param applications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#applications CfwAclRuleV1#applications}.
+        :param applications_json_string: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#applications_json_string CfwAclRuleV1#applications_json_string}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#description CfwAclRuleV1#description}.
+        :param direction: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#direction CfwAclRuleV1#direction}.
+        :param long_connect_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_time CfwAclRuleV1#long_connect_time}.
+        :param long_connect_time_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_time_hour CfwAclRuleV1#long_connect_time_hour}.
+        :param long_connect_time_minute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_time_minute CfwAclRuleV1#long_connect_time_minute}.
+        :param long_connect_time_second: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_time_second CfwAclRuleV1#long_connect_time_second}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#timeouts CfwAclRuleV1#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -980,14 +980,14 @@ class CfwAclRuleV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def action_type(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#action_type CfwAclRuleV1#action_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#action_type CfwAclRuleV1#action_type}.'''
         result = self._values.get("action_type")
         assert result is not None, "Required property 'action_type' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def address_type(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.'''
         result = self._values.get("address_type")
         assert result is not None, "Required property 'address_type' is missing"
         return typing.cast(jsii.Number, result)
@@ -996,7 +996,7 @@ class CfwAclRuleV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def destination(self) -> "CfwAclRuleV1Destination":
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#destination CfwAclRuleV1#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#destination CfwAclRuleV1#destination}
         '''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
@@ -1004,21 +1004,21 @@ class CfwAclRuleV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def long_connect_enable(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_enable CfwAclRuleV1#long_connect_enable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_enable CfwAclRuleV1#long_connect_enable}.'''
         result = self._values.get("long_connect_enable")
         assert result is not None, "Required property 'long_connect_enable' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def object_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#object_id CfwAclRuleV1#object_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#object_id CfwAclRuleV1#object_id}.'''
         result = self._values.get("object_id")
         assert result is not None, "Required property 'object_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1027,7 +1027,7 @@ class CfwAclRuleV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def sequence(self) -> "CfwAclRuleV1Sequence":
         '''sequence block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#sequence CfwAclRuleV1#sequence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#sequence CfwAclRuleV1#sequence}
         '''
         result = self._values.get("sequence")
         assert result is not None, "Required property 'sequence' is missing"
@@ -1037,7 +1037,7 @@ class CfwAclRuleV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def service(self) -> "CfwAclRuleV1Service":
         '''service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service CfwAclRuleV1#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service CfwAclRuleV1#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -1047,7 +1047,7 @@ class CfwAclRuleV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def source(self) -> "CfwAclRuleV1Source":
         '''source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#source CfwAclRuleV1#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#source CfwAclRuleV1#source}
         '''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
@@ -1055,63 +1055,63 @@ class CfwAclRuleV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def status(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#status CfwAclRuleV1#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#status CfwAclRuleV1#status}.'''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def type(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def applications(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#applications CfwAclRuleV1#applications}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#applications CfwAclRuleV1#applications}.'''
         result = self._values.get("applications")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def applications_json_string(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#applications_json_string CfwAclRuleV1#applications_json_string}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#applications_json_string CfwAclRuleV1#applications_json_string}.'''
         result = self._values.get("applications_json_string")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#description CfwAclRuleV1#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#description CfwAclRuleV1#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def direction(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#direction CfwAclRuleV1#direction}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#direction CfwAclRuleV1#direction}.'''
         result = self._values.get("direction")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def long_connect_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_time CfwAclRuleV1#long_connect_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_time CfwAclRuleV1#long_connect_time}.'''
         result = self._values.get("long_connect_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def long_connect_time_hour(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_time_hour CfwAclRuleV1#long_connect_time_hour}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_time_hour CfwAclRuleV1#long_connect_time_hour}.'''
         result = self._values.get("long_connect_time_hour")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def long_connect_time_minute(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_time_minute CfwAclRuleV1#long_connect_time_minute}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_time_minute CfwAclRuleV1#long_connect_time_minute}.'''
         result = self._values.get("long_connect_time_minute")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def long_connect_time_second(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#long_connect_time_second CfwAclRuleV1#long_connect_time_second}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#long_connect_time_second CfwAclRuleV1#long_connect_time_second}.'''
         result = self._values.get("long_connect_time_second")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1119,7 +1119,7 @@ class CfwAclRuleV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CfwAclRuleV1Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#timeouts CfwAclRuleV1#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#timeouts CfwAclRuleV1#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CfwAclRuleV1Timeouts"], result)
@@ -1176,20 +1176,20 @@ class CfwAclRuleV1Destination:
         region_list_json: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address CfwAclRuleV1#address}.
-        :param address_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_group CfwAclRuleV1#address_group}.
-        :param address_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_id CfwAclRuleV1#address_set_id}.
-        :param address_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_name CfwAclRuleV1#address_set_name}.
-        :param address_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_type CfwAclRuleV1#address_set_type}.
-        :param address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.
-        :param domain_address_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_address_name CfwAclRuleV1#domain_address_name}.
-        :param domain_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_set_id CfwAclRuleV1#domain_set_id}.
-        :param domain_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_set_name CfwAclRuleV1#domain_set_name}.
-        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#ip_address CfwAclRuleV1#ip_address}.
-        :param predefined_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.
-        :param region_list: region_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_list CfwAclRuleV1#region_list}
-        :param region_list_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_list_json CfwAclRuleV1#region_list_json}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address CfwAclRuleV1#address}.
+        :param address_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_group CfwAclRuleV1#address_group}.
+        :param address_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_id CfwAclRuleV1#address_set_id}.
+        :param address_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_name CfwAclRuleV1#address_set_name}.
+        :param address_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_type CfwAclRuleV1#address_set_type}.
+        :param address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.
+        :param domain_address_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_address_name CfwAclRuleV1#domain_address_name}.
+        :param domain_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_set_id CfwAclRuleV1#domain_set_id}.
+        :param domain_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_set_name CfwAclRuleV1#domain_set_name}.
+        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#ip_address CfwAclRuleV1#ip_address}.
+        :param predefined_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.
+        :param region_list: region_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_list CfwAclRuleV1#region_list}
+        :param region_list_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_list_json CfwAclRuleV1#region_list_json}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__90f344338afb7232500637ff33ee441f6108bdb28c0424e4761c1dac83a34eba)
@@ -1239,74 +1239,74 @@ class CfwAclRuleV1Destination:
 
     @builtins.property
     def type(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address CfwAclRuleV1#address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address CfwAclRuleV1#address}.'''
         result = self._values.get("address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address_group(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_group CfwAclRuleV1#address_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_group CfwAclRuleV1#address_group}.'''
         result = self._values.get("address_group")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def address_set_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_id CfwAclRuleV1#address_set_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_id CfwAclRuleV1#address_set_id}.'''
         result = self._values.get("address_set_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address_set_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_name CfwAclRuleV1#address_set_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_name CfwAclRuleV1#address_set_name}.'''
         result = self._values.get("address_set_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address_set_type(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_type CfwAclRuleV1#address_set_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_type CfwAclRuleV1#address_set_type}.'''
         result = self._values.get("address_set_type")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def address_type(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.'''
         result = self._values.get("address_type")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def domain_address_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_address_name CfwAclRuleV1#domain_address_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_address_name CfwAclRuleV1#domain_address_name}.'''
         result = self._values.get("domain_address_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def domain_set_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_set_id CfwAclRuleV1#domain_set_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_set_id CfwAclRuleV1#domain_set_id}.'''
         result = self._values.get("domain_set_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def domain_set_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_set_name CfwAclRuleV1#domain_set_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_set_name CfwAclRuleV1#domain_set_name}.'''
         result = self._values.get("domain_set_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ip_address(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#ip_address CfwAclRuleV1#ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#ip_address CfwAclRuleV1#ip_address}.'''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def predefined_group(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.'''
         result = self._values.get("predefined_group")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1316,14 +1316,14 @@ class CfwAclRuleV1Destination:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CfwAclRuleV1DestinationRegionListStruct"]]]:
         '''region_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_list CfwAclRuleV1#region_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_list CfwAclRuleV1#region_list}
         '''
         result = self._values.get("region_list")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CfwAclRuleV1DestinationRegionListStruct"]]], result)
 
     @builtins.property
     def region_list_json(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_list_json CfwAclRuleV1#region_list_json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_list_json CfwAclRuleV1#region_list_json}.'''
         result = self._values.get("region_list_json")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1683,8 +1683,8 @@ class CfwAclRuleV1DestinationRegionListStruct:
         region_type: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param region_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_id CfwAclRuleV1#region_id}.
-        :param region_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_type CfwAclRuleV1#region_type}.
+        :param region_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_id CfwAclRuleV1#region_id}.
+        :param region_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_type CfwAclRuleV1#region_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bed3068714278f30f222b2263a6468b55ab33dc50f6e5ed4f4ead5325b629cb6)
@@ -1698,13 +1698,13 @@ class CfwAclRuleV1DestinationRegionListStruct:
 
     @builtins.property
     def region_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_id CfwAclRuleV1#region_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_id CfwAclRuleV1#region_id}.'''
         result = self._values.get("region_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def region_type(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_type CfwAclRuleV1#region_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_type CfwAclRuleV1#region_type}.'''
         result = self._values.get("region_type")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1913,9 +1913,9 @@ class CfwAclRuleV1Sequence:
         top: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param bottom: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#bottom CfwAclRuleV1#bottom}.
-        :param dest_rule_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#dest_rule_id CfwAclRuleV1#dest_rule_id}.
-        :param top: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#top CfwAclRuleV1#top}.
+        :param bottom: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#bottom CfwAclRuleV1#bottom}.
+        :param dest_rule_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#dest_rule_id CfwAclRuleV1#dest_rule_id}.
+        :param top: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#top CfwAclRuleV1#top}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e58a26a095b71057718837a7c8a6156ddc5867e4cfae9c0cb30b79e9b30a795)
@@ -1932,19 +1932,19 @@ class CfwAclRuleV1Sequence:
 
     @builtins.property
     def bottom(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#bottom CfwAclRuleV1#bottom}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#bottom CfwAclRuleV1#bottom}.'''
         result = self._values.get("bottom")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def dest_rule_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#dest_rule_id CfwAclRuleV1#dest_rule_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#dest_rule_id CfwAclRuleV1#dest_rule_id}.'''
         result = self._values.get("dest_rule_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def top(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#top CfwAclRuleV1#top}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#top CfwAclRuleV1#top}.'''
         result = self._values.get("top")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2092,18 +2092,18 @@ class CfwAclRuleV1Service:
         source_port: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
-        :param custom_service: custom_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#custom_service CfwAclRuleV1#custom_service}
-        :param dest_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#dest_port CfwAclRuleV1#dest_port}.
-        :param predefined_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#protocol CfwAclRuleV1#protocol}.
-        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#protocols CfwAclRuleV1#protocols}.
-        :param service_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_group CfwAclRuleV1#service_group}.
-        :param service_group_names: service_group_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_group_names CfwAclRuleV1#service_group_names}
-        :param service_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_set_id CfwAclRuleV1#service_set_id}.
-        :param service_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_set_name CfwAclRuleV1#service_set_name}.
-        :param service_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_set_type CfwAclRuleV1#service_set_type}.
-        :param source_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#source_port CfwAclRuleV1#source_port}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
+        :param custom_service: custom_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#custom_service CfwAclRuleV1#custom_service}
+        :param dest_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#dest_port CfwAclRuleV1#dest_port}.
+        :param predefined_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#protocol CfwAclRuleV1#protocol}.
+        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#protocols CfwAclRuleV1#protocols}.
+        :param service_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_group CfwAclRuleV1#service_group}.
+        :param service_group_names: service_group_names block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_group_names CfwAclRuleV1#service_group_names}
+        :param service_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_set_id CfwAclRuleV1#service_set_id}.
+        :param service_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_set_name CfwAclRuleV1#service_set_name}.
+        :param service_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_set_type CfwAclRuleV1#service_set_type}.
+        :param source_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#source_port CfwAclRuleV1#source_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ced2d83007200504a651675014643d87064a033d128db0c7a1d75d91edab0b9b)
@@ -2147,7 +2147,7 @@ class CfwAclRuleV1Service:
 
     @builtins.property
     def type(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(jsii.Number, result)
@@ -2158,38 +2158,38 @@ class CfwAclRuleV1Service:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CfwAclRuleV1ServiceCustomService"]]]:
         '''custom_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#custom_service CfwAclRuleV1#custom_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#custom_service CfwAclRuleV1#custom_service}
         '''
         result = self._values.get("custom_service")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CfwAclRuleV1ServiceCustomService"]]], result)
 
     @builtins.property
     def dest_port(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#dest_port CfwAclRuleV1#dest_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#dest_port CfwAclRuleV1#dest_port}.'''
         result = self._values.get("dest_port")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def predefined_group(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.'''
         result = self._values.get("predefined_group")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#protocol CfwAclRuleV1#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#protocol CfwAclRuleV1#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def protocols(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#protocols CfwAclRuleV1#protocols}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#protocols CfwAclRuleV1#protocols}.'''
         result = self._values.get("protocols")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
     @builtins.property
     def service_group(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_group CfwAclRuleV1#service_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_group CfwAclRuleV1#service_group}.'''
         result = self._values.get("service_group")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2199,32 +2199,32 @@ class CfwAclRuleV1Service:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CfwAclRuleV1ServiceServiceGroupNames"]]]:
         '''service_group_names block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_group_names CfwAclRuleV1#service_group_names}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_group_names CfwAclRuleV1#service_group_names}
         '''
         result = self._values.get("service_group_names")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CfwAclRuleV1ServiceServiceGroupNames"]]], result)
 
     @builtins.property
     def service_set_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_set_id CfwAclRuleV1#service_set_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_set_id CfwAclRuleV1#service_set_id}.'''
         result = self._values.get("service_set_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_set_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_set_name CfwAclRuleV1#service_set_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_set_name CfwAclRuleV1#service_set_name}.'''
         result = self._values.get("service_set_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def service_set_type(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_set_type CfwAclRuleV1#service_set_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_set_type CfwAclRuleV1#service_set_type}.'''
         result = self._values.get("service_set_type")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def source_port(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#source_port CfwAclRuleV1#source_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#source_port CfwAclRuleV1#source_port}.'''
         result = self._values.get("source_port")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2262,11 +2262,11 @@ class CfwAclRuleV1ServiceCustomService:
         source_port: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#description CfwAclRuleV1#description}.
-        :param dest_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#dest_port CfwAclRuleV1#dest_port}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#protocol CfwAclRuleV1#protocol}.
-        :param source_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#source_port CfwAclRuleV1#source_port}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#description CfwAclRuleV1#description}.
+        :param dest_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#dest_port CfwAclRuleV1#dest_port}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#protocol CfwAclRuleV1#protocol}.
+        :param source_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#source_port CfwAclRuleV1#source_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__51face4c318ad2514eb30c26ac280e4bcd9489ebe27c9882371a267c424ce857)
@@ -2289,31 +2289,31 @@ class CfwAclRuleV1ServiceCustomService:
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#description CfwAclRuleV1#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#description CfwAclRuleV1#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def dest_port(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#dest_port CfwAclRuleV1#dest_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#dest_port CfwAclRuleV1#dest_port}.'''
         result = self._values.get("dest_port")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def protocol(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#protocol CfwAclRuleV1#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#protocol CfwAclRuleV1#protocol}.'''
         result = self._values.get("protocol")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def source_port(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#source_port CfwAclRuleV1#source_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#source_port CfwAclRuleV1#source_port}.'''
         result = self._values.get("source_port")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2888,10 +2888,10 @@ class CfwAclRuleV1ServiceServiceGroupNames:
         set_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.
-        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#protocols CfwAclRuleV1#protocols}.
-        :param service_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_set_type CfwAclRuleV1#service_set_type}.
-        :param set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#set_id CfwAclRuleV1#set_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.
+        :param protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#protocols CfwAclRuleV1#protocols}.
+        :param service_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_set_type CfwAclRuleV1#service_set_type}.
+        :param set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#set_id CfwAclRuleV1#set_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__458f1ac96ca3422467162a548ec790c57068c498a3d3575eb347737001c94b34)
@@ -2911,25 +2911,25 @@ class CfwAclRuleV1ServiceServiceGroupNames:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#name CfwAclRuleV1#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def protocols(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#protocols CfwAclRuleV1#protocols}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#protocols CfwAclRuleV1#protocols}.'''
         result = self._values.get("protocols")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
     @builtins.property
     def service_set_type(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#service_set_type CfwAclRuleV1#service_set_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#service_set_type CfwAclRuleV1#service_set_type}.'''
         result = self._values.get("service_set_type")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def set_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#set_id CfwAclRuleV1#set_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#set_id CfwAclRuleV1#set_id}.'''
         result = self._values.get("set_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3206,20 +3206,20 @@ class CfwAclRuleV1Source:
         region_list_json: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address CfwAclRuleV1#address}.
-        :param address_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_group CfwAclRuleV1#address_group}.
-        :param address_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_id CfwAclRuleV1#address_set_id}.
-        :param address_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_name CfwAclRuleV1#address_set_name}.
-        :param address_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_type CfwAclRuleV1#address_set_type}.
-        :param address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.
-        :param domain_address_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_address_name CfwAclRuleV1#domain_address_name}.
-        :param domain_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_set_id CfwAclRuleV1#domain_set_id}.
-        :param domain_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_set_name CfwAclRuleV1#domain_set_name}.
-        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#ip_address CfwAclRuleV1#ip_address}.
-        :param predefined_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.
-        :param region_list: region_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_list CfwAclRuleV1#region_list}
-        :param region_list_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_list_json CfwAclRuleV1#region_list_json}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address CfwAclRuleV1#address}.
+        :param address_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_group CfwAclRuleV1#address_group}.
+        :param address_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_id CfwAclRuleV1#address_set_id}.
+        :param address_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_name CfwAclRuleV1#address_set_name}.
+        :param address_set_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_type CfwAclRuleV1#address_set_type}.
+        :param address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.
+        :param domain_address_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_address_name CfwAclRuleV1#domain_address_name}.
+        :param domain_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_set_id CfwAclRuleV1#domain_set_id}.
+        :param domain_set_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_set_name CfwAclRuleV1#domain_set_name}.
+        :param ip_address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#ip_address CfwAclRuleV1#ip_address}.
+        :param predefined_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.
+        :param region_list: region_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_list CfwAclRuleV1#region_list}
+        :param region_list_json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_list_json CfwAclRuleV1#region_list_json}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__17a4ca0c50230c0bf320bfeb974b898effe165b272aaa4506cfc070f63633d50)
@@ -3269,74 +3269,74 @@ class CfwAclRuleV1Source:
 
     @builtins.property
     def type(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#type CfwAclRuleV1#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def address(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address CfwAclRuleV1#address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address CfwAclRuleV1#address}.'''
         result = self._values.get("address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address_group(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_group CfwAclRuleV1#address_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_group CfwAclRuleV1#address_group}.'''
         result = self._values.get("address_group")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def address_set_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_id CfwAclRuleV1#address_set_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_id CfwAclRuleV1#address_set_id}.'''
         result = self._values.get("address_set_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address_set_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_name CfwAclRuleV1#address_set_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_name CfwAclRuleV1#address_set_name}.'''
         result = self._values.get("address_set_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def address_set_type(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_set_type CfwAclRuleV1#address_set_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_set_type CfwAclRuleV1#address_set_type}.'''
         result = self._values.get("address_set_type")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def address_type(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#address_type CfwAclRuleV1#address_type}.'''
         result = self._values.get("address_type")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def domain_address_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_address_name CfwAclRuleV1#domain_address_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_address_name CfwAclRuleV1#domain_address_name}.'''
         result = self._values.get("domain_address_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def domain_set_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_set_id CfwAclRuleV1#domain_set_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_set_id CfwAclRuleV1#domain_set_id}.'''
         result = self._values.get("domain_set_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def domain_set_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#domain_set_name CfwAclRuleV1#domain_set_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#domain_set_name CfwAclRuleV1#domain_set_name}.'''
         result = self._values.get("domain_set_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ip_address(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#ip_address CfwAclRuleV1#ip_address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#ip_address CfwAclRuleV1#ip_address}.'''
         result = self._values.get("ip_address")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def predefined_group(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#predefined_group CfwAclRuleV1#predefined_group}.'''
         result = self._values.get("predefined_group")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3346,14 +3346,14 @@ class CfwAclRuleV1Source:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CfwAclRuleV1SourceRegionListStruct"]]]:
         '''region_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_list CfwAclRuleV1#region_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_list CfwAclRuleV1#region_list}
         '''
         result = self._values.get("region_list")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CfwAclRuleV1SourceRegionListStruct"]]], result)
 
     @builtins.property
     def region_list_json(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_list_json CfwAclRuleV1#region_list_json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_list_json CfwAclRuleV1#region_list_json}.'''
         result = self._values.get("region_list_json")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3713,8 +3713,8 @@ class CfwAclRuleV1SourceRegionListStruct:
         region_type: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param region_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_id CfwAclRuleV1#region_id}.
-        :param region_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_type CfwAclRuleV1#region_type}.
+        :param region_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_id CfwAclRuleV1#region_id}.
+        :param region_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_type CfwAclRuleV1#region_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__253b89e8260b6091f50f27c4705e0c9b894ad20e2f20f6e551afefa062076bc8)
@@ -3728,13 +3728,13 @@ class CfwAclRuleV1SourceRegionListStruct:
 
     @builtins.property
     def region_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_id CfwAclRuleV1#region_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_id CfwAclRuleV1#region_id}.'''
         result = self._values.get("region_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def region_type(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#region_type CfwAclRuleV1#region_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#region_type CfwAclRuleV1#region_type}.'''
         result = self._values.get("region_type")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3943,9 +3943,9 @@ class CfwAclRuleV1Timeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#create CfwAclRuleV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#delete CfwAclRuleV1#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#update CfwAclRuleV1#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#create CfwAclRuleV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#delete CfwAclRuleV1#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#update CfwAclRuleV1#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1eaedd6f7879f8d1466160a832ac132d41635953700f27c68ac93161796d913b)
@@ -3962,19 +3962,19 @@ class CfwAclRuleV1Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#create CfwAclRuleV1#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#create CfwAclRuleV1#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#delete CfwAclRuleV1#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#delete CfwAclRuleV1#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_acl_rule_v1#update CfwAclRuleV1#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_acl_rule_v1#update CfwAclRuleV1#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

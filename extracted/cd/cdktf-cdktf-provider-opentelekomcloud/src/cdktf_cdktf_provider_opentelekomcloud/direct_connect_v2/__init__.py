@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_direct_connect_v2`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_direct_connect_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_direct_connect_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DirectConnectV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.directConnectV2.DirectConnectV2",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2 opentelekomcloud_direct_connect_v2}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2 opentelekomcloud_direct_connect_v2}.'''
 
     def __init__(
         self,
@@ -80,31 +80,31 @@ class DirectConnectV2(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2 opentelekomcloud_direct_connect_v2} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2 opentelekomcloud_direct_connect_v2} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param provider_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#provider_name DirectConnectV2#provider_name}.
-        :param admin_state_up: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#admin_state_up DirectConnectV2#admin_state_up}.
-        :param bandwidth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#bandwidth DirectConnectV2#bandwidth}.
-        :param charge_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#charge_mode DirectConnectV2#charge_mode}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#description DirectConnectV2#description}.
-        :param device_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#device_id DirectConnectV2#device_id}.
-        :param hosting_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#hosting_id DirectConnectV2#hosting_id}.
-        :param interface_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#interface_name DirectConnectV2#interface_name}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#location DirectConnectV2#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#name DirectConnectV2#name}.
-        :param order_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#order_id DirectConnectV2#order_id}.
-        :param peer_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#peer_location DirectConnectV2#peer_location}.
-        :param port_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#port_type DirectConnectV2#port_type}.
-        :param product_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#product_id DirectConnectV2#product_id}.
-        :param provider_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#provider_status DirectConnectV2#provider_status}.
-        :param redundant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#redundant_id DirectConnectV2#redundant_id}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#status DirectConnectV2#status}.
-        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#tenant_id DirectConnectV2#tenant_id}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#timeouts DirectConnectV2#timeouts}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#type DirectConnectV2#type}.
-        :param vlan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#vlan DirectConnectV2#vlan}.
+        :param provider_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#provider_name DirectConnectV2#provider_name}.
+        :param admin_state_up: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#admin_state_up DirectConnectV2#admin_state_up}.
+        :param bandwidth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#bandwidth DirectConnectV2#bandwidth}.
+        :param charge_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#charge_mode DirectConnectV2#charge_mode}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#description DirectConnectV2#description}.
+        :param device_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#device_id DirectConnectV2#device_id}.
+        :param hosting_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#hosting_id DirectConnectV2#hosting_id}.
+        :param interface_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#interface_name DirectConnectV2#interface_name}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#location DirectConnectV2#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#name DirectConnectV2#name}.
+        :param order_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#order_id DirectConnectV2#order_id}.
+        :param peer_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#peer_location DirectConnectV2#peer_location}.
+        :param port_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#port_type DirectConnectV2#port_type}.
+        :param product_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#product_id DirectConnectV2#product_id}.
+        :param provider_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#provider_status DirectConnectV2#provider_status}.
+        :param redundant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#redundant_id DirectConnectV2#redundant_id}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#status DirectConnectV2#status}.
+        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#tenant_id DirectConnectV2#tenant_id}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#timeouts DirectConnectV2#timeouts}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#type DirectConnectV2#type}.
+        :param vlan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#vlan DirectConnectV2#vlan}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -163,7 +163,7 @@ class DirectConnectV2(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DirectConnectV2 to import.
-        :param import_from_id: The id of the existing DirectConnectV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DirectConnectV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DirectConnectV2 to import is found.
         '''
         if __debug__:
@@ -183,9 +183,9 @@ class DirectConnectV2(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#create DirectConnectV2#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#delete DirectConnectV2#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#update DirectConnectV2#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#create DirectConnectV2#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#delete DirectConnectV2#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#update DirectConnectV2#update}.
         '''
         value = DirectConnectV2Timeouts(create=create, delete=delete, update=update)
 
@@ -824,27 +824,27 @@ class DirectConnectV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param provider_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#provider_name DirectConnectV2#provider_name}.
-        :param admin_state_up: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#admin_state_up DirectConnectV2#admin_state_up}.
-        :param bandwidth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#bandwidth DirectConnectV2#bandwidth}.
-        :param charge_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#charge_mode DirectConnectV2#charge_mode}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#description DirectConnectV2#description}.
-        :param device_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#device_id DirectConnectV2#device_id}.
-        :param hosting_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#hosting_id DirectConnectV2#hosting_id}.
-        :param interface_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#interface_name DirectConnectV2#interface_name}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#location DirectConnectV2#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#name DirectConnectV2#name}.
-        :param order_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#order_id DirectConnectV2#order_id}.
-        :param peer_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#peer_location DirectConnectV2#peer_location}.
-        :param port_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#port_type DirectConnectV2#port_type}.
-        :param product_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#product_id DirectConnectV2#product_id}.
-        :param provider_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#provider_status DirectConnectV2#provider_status}.
-        :param redundant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#redundant_id DirectConnectV2#redundant_id}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#status DirectConnectV2#status}.
-        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#tenant_id DirectConnectV2#tenant_id}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#timeouts DirectConnectV2#timeouts}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#type DirectConnectV2#type}.
-        :param vlan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#vlan DirectConnectV2#vlan}.
+        :param provider_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#provider_name DirectConnectV2#provider_name}.
+        :param admin_state_up: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#admin_state_up DirectConnectV2#admin_state_up}.
+        :param bandwidth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#bandwidth DirectConnectV2#bandwidth}.
+        :param charge_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#charge_mode DirectConnectV2#charge_mode}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#description DirectConnectV2#description}.
+        :param device_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#device_id DirectConnectV2#device_id}.
+        :param hosting_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#hosting_id DirectConnectV2#hosting_id}.
+        :param interface_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#interface_name DirectConnectV2#interface_name}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#location DirectConnectV2#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#name DirectConnectV2#name}.
+        :param order_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#order_id DirectConnectV2#order_id}.
+        :param peer_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#peer_location DirectConnectV2#peer_location}.
+        :param port_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#port_type DirectConnectV2#port_type}.
+        :param product_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#product_id DirectConnectV2#product_id}.
+        :param provider_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#provider_status DirectConnectV2#provider_status}.
+        :param redundant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#redundant_id DirectConnectV2#redundant_id}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#status DirectConnectV2#status}.
+        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#tenant_id DirectConnectV2#tenant_id}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#timeouts DirectConnectV2#timeouts}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#type DirectConnectV2#type}.
+        :param vlan: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#vlan DirectConnectV2#vlan}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1004,7 +1004,7 @@ class DirectConnectV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def provider_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#provider_name DirectConnectV2#provider_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#provider_name DirectConnectV2#provider_name}.'''
         result = self._values.get("provider_name")
         assert result is not None, "Required property 'provider_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1013,103 +1013,103 @@ class DirectConnectV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def admin_state_up(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#admin_state_up DirectConnectV2#admin_state_up}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#admin_state_up DirectConnectV2#admin_state_up}.'''
         result = self._values.get("admin_state_up")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def bandwidth(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#bandwidth DirectConnectV2#bandwidth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#bandwidth DirectConnectV2#bandwidth}.'''
         result = self._values.get("bandwidth")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def charge_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#charge_mode DirectConnectV2#charge_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#charge_mode DirectConnectV2#charge_mode}.'''
         result = self._values.get("charge_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#description DirectConnectV2#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#description DirectConnectV2#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def device_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#device_id DirectConnectV2#device_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#device_id DirectConnectV2#device_id}.'''
         result = self._values.get("device_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def hosting_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#hosting_id DirectConnectV2#hosting_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#hosting_id DirectConnectV2#hosting_id}.'''
         result = self._values.get("hosting_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def interface_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#interface_name DirectConnectV2#interface_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#interface_name DirectConnectV2#interface_name}.'''
         result = self._values.get("interface_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#location DirectConnectV2#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#location DirectConnectV2#location}.'''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#name DirectConnectV2#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#name DirectConnectV2#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def order_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#order_id DirectConnectV2#order_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#order_id DirectConnectV2#order_id}.'''
         result = self._values.get("order_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def peer_location(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#peer_location DirectConnectV2#peer_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#peer_location DirectConnectV2#peer_location}.'''
         result = self._values.get("peer_location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#port_type DirectConnectV2#port_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#port_type DirectConnectV2#port_type}.'''
         result = self._values.get("port_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def product_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#product_id DirectConnectV2#product_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#product_id DirectConnectV2#product_id}.'''
         result = self._values.get("product_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def provider_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#provider_status DirectConnectV2#provider_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#provider_status DirectConnectV2#provider_status}.'''
         result = self._values.get("provider_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redundant_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#redundant_id DirectConnectV2#redundant_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#redundant_id DirectConnectV2#redundant_id}.'''
         result = self._values.get("redundant_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#status DirectConnectV2#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#status DirectConnectV2#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tenant_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#tenant_id DirectConnectV2#tenant_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#tenant_id DirectConnectV2#tenant_id}.'''
         result = self._values.get("tenant_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1117,20 +1117,20 @@ class DirectConnectV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DirectConnectV2Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#timeouts DirectConnectV2#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#timeouts DirectConnectV2#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DirectConnectV2Timeouts"], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#type DirectConnectV2#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#type DirectConnectV2#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def vlan(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#vlan DirectConnectV2#vlan}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#vlan DirectConnectV2#vlan}.'''
         result = self._values.get("vlan")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1160,9 +1160,9 @@ class DirectConnectV2Timeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#create DirectConnectV2#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#delete DirectConnectV2#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#update DirectConnectV2#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#create DirectConnectV2#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#delete DirectConnectV2#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#update DirectConnectV2#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da5fad7489259c6ff6c8424a7fe83149ad5d5d1324dd835f7fd721afa043d2db)
@@ -1179,19 +1179,19 @@ class DirectConnectV2Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#create DirectConnectV2#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#create DirectConnectV2#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#delete DirectConnectV2#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#delete DirectConnectV2#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/direct_connect_v2#update DirectConnectV2#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/direct_connect_v2#update DirectConnectV2#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

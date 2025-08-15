@@ -268,18 +268,15 @@ impl AExpr {
                 Ok(truthy)
             },
             AnonymousFunction {
-                output_type,
                 input,
+                function,
                 fmt_str,
                 ..
             } => {
                 let fields = func_args_to_fields(input, ctx)?;
                 polars_ensure!(!fields.is_empty(), ComputeError: "expression: '{}' didn't get any inputs", fmt_str);
-                let out = output_type
-                    .clone()
-                    .materialize()?
-                    .get_field(ctx.schema, &fields)?;
-
+                let function = function.clone().materialize()?;
+                let out = function.get_field(ctx.schema, &fields)?;
                 Ok(out)
             },
             Eval {
@@ -694,6 +691,11 @@ fn get_truediv_dtype(left_dtype: &DataType, right_dtype: &DataType) -> PolarsRes
             let dtype = get_truediv_dtype(list_dtype.leaf_dtype(), other_dtype.leaf_dtype())?;
             list_dtype.cast_leaf(dtype)
         },
+        #[cfg(feature = "dtype-u8")]
+        (Float32, UInt8 | Int8) => Float32,
+        #[cfg(feature = "dtype-u16")]
+        (Float32, UInt16 | Int16) => Float32,
+        (Float32, other) if other.is_integer() => Float64,
         (Float32, Float64) => Float64,
         (Float32, _) => Float32,
         #[cfg(feature = "dtype-decimal")]
@@ -701,6 +703,10 @@ fn get_truediv_dtype(left_dtype: &DataType, right_dtype: &DataType) -> PolarsRes
             let scale = _get_decimal_scale_div(*scale_left);
             Decimal(None, Some(scale))
         },
+        #[cfg(feature = "dtype-u8")]
+        (UInt8 | Int8, Float32) => Float32,
+        #[cfg(feature = "dtype-u16")]
+        (UInt16 | Int16, Float32) => Float32,
         (dt, _) if dt.is_primitive_numeric() => Float64,
         #[cfg(feature = "dtype-duration")]
         (Duration(_), Duration(_)) => Float64,

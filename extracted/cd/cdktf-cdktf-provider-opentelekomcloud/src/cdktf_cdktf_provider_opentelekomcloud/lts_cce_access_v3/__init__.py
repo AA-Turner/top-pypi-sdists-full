@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_lts_cce_access_v3`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_lts_cce_access_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_lts_cce_access_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LtsCceAccessV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.ltsCceAccessV3.LtsCceAccessV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3 opentelekomcloud_lts_cce_access_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3 opentelekomcloud_lts_cce_access_v3}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class LtsCceAccessV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3 opentelekomcloud_lts_cce_access_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3 opentelekomcloud_lts_cce_access_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#access_config LtsCceAccessV3#access_config}
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#cluster_id LtsCceAccessV3#cluster_id}.
-        :param log_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_group_id LtsCceAccessV3#log_group_id}.
-        :param log_stream_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_stream_id LtsCceAccessV3#log_stream_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#name LtsCceAccessV3#name}.
-        :param binary_collect: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#binary_collect LtsCceAccessV3#binary_collect}.
-        :param host_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#host_group_ids LtsCceAccessV3#host_group_ids}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#id LtsCceAccessV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_split: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_split LtsCceAccessV3#log_split}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#tags LtsCceAccessV3#tags}.
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#access_config LtsCceAccessV3#access_config}
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#cluster_id LtsCceAccessV3#cluster_id}.
+        :param log_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_group_id LtsCceAccessV3#log_group_id}.
+        :param log_stream_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_stream_id LtsCceAccessV3#log_stream_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#name LtsCceAccessV3#name}.
+        :param binary_collect: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#binary_collect LtsCceAccessV3#binary_collect}.
+        :param host_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#host_group_ids LtsCceAccessV3#host_group_ids}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#id LtsCceAccessV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_split: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_split LtsCceAccessV3#log_split}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#tags LtsCceAccessV3#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class LtsCceAccessV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LtsCceAccessV3 to import.
-        :param import_from_id: The id of the existing LtsCceAccessV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LtsCceAccessV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LtsCceAccessV3 to import is found.
         '''
         if __debug__:
@@ -166,25 +166,25 @@ class LtsCceAccessV3(
         stdout: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param path_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#path_type LtsCceAccessV3#path_type}.
-        :param black_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#black_paths LtsCceAccessV3#black_paths}.
-        :param container_name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#container_name_regex LtsCceAccessV3#container_name_regex}.
-        :param exclude_envs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#exclude_envs LtsCceAccessV3#exclude_envs}.
-        :param exclude_k8_s_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#exclude_k8s_labels LtsCceAccessV3#exclude_k8s_labels}.
-        :param exclude_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#exclude_labels LtsCceAccessV3#exclude_labels}.
-        :param include_envs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#include_envs LtsCceAccessV3#include_envs}.
-        :param include_k8_s_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#include_k8s_labels LtsCceAccessV3#include_k8s_labels}.
-        :param include_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#include_labels LtsCceAccessV3#include_labels}.
-        :param log_envs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_envs LtsCceAccessV3#log_envs}.
-        :param log_k8_s: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_k8s LtsCceAccessV3#log_k8s}.
-        :param log_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_labels LtsCceAccessV3#log_labels}.
-        :param multi_log_format: multi_log_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#multi_log_format LtsCceAccessV3#multi_log_format}
-        :param name_space_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#name_space_regex LtsCceAccessV3#name_space_regex}.
-        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#paths LtsCceAccessV3#paths}.
-        :param pod_name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#pod_name_regex LtsCceAccessV3#pod_name_regex}.
-        :param single_log_format: single_log_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#single_log_format LtsCceAccessV3#single_log_format}
-        :param stderr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#stderr LtsCceAccessV3#stderr}.
-        :param stdout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#stdout LtsCceAccessV3#stdout}.
+        :param path_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#path_type LtsCceAccessV3#path_type}.
+        :param black_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#black_paths LtsCceAccessV3#black_paths}.
+        :param container_name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#container_name_regex LtsCceAccessV3#container_name_regex}.
+        :param exclude_envs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#exclude_envs LtsCceAccessV3#exclude_envs}.
+        :param exclude_k8_s_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#exclude_k8s_labels LtsCceAccessV3#exclude_k8s_labels}.
+        :param exclude_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#exclude_labels LtsCceAccessV3#exclude_labels}.
+        :param include_envs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#include_envs LtsCceAccessV3#include_envs}.
+        :param include_k8_s_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#include_k8s_labels LtsCceAccessV3#include_k8s_labels}.
+        :param include_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#include_labels LtsCceAccessV3#include_labels}.
+        :param log_envs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_envs LtsCceAccessV3#log_envs}.
+        :param log_k8_s: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_k8s LtsCceAccessV3#log_k8s}.
+        :param log_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_labels LtsCceAccessV3#log_labels}.
+        :param multi_log_format: multi_log_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#multi_log_format LtsCceAccessV3#multi_log_format}
+        :param name_space_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#name_space_regex LtsCceAccessV3#name_space_regex}.
+        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#paths LtsCceAccessV3#paths}.
+        :param pod_name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#pod_name_regex LtsCceAccessV3#pod_name_regex}.
+        :param single_log_format: single_log_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#single_log_format LtsCceAccessV3#single_log_format}
+        :param stderr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#stderr LtsCceAccessV3#stderr}.
+        :param stdout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#stdout LtsCceAccessV3#stdout}.
         '''
         value = LtsCceAccessV3AccessConfig(
             path_type=path_type,
@@ -494,25 +494,25 @@ class LtsCceAccessV3AccessConfig:
         stdout: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param path_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#path_type LtsCceAccessV3#path_type}.
-        :param black_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#black_paths LtsCceAccessV3#black_paths}.
-        :param container_name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#container_name_regex LtsCceAccessV3#container_name_regex}.
-        :param exclude_envs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#exclude_envs LtsCceAccessV3#exclude_envs}.
-        :param exclude_k8_s_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#exclude_k8s_labels LtsCceAccessV3#exclude_k8s_labels}.
-        :param exclude_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#exclude_labels LtsCceAccessV3#exclude_labels}.
-        :param include_envs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#include_envs LtsCceAccessV3#include_envs}.
-        :param include_k8_s_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#include_k8s_labels LtsCceAccessV3#include_k8s_labels}.
-        :param include_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#include_labels LtsCceAccessV3#include_labels}.
-        :param log_envs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_envs LtsCceAccessV3#log_envs}.
-        :param log_k8_s: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_k8s LtsCceAccessV3#log_k8s}.
-        :param log_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_labels LtsCceAccessV3#log_labels}.
-        :param multi_log_format: multi_log_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#multi_log_format LtsCceAccessV3#multi_log_format}
-        :param name_space_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#name_space_regex LtsCceAccessV3#name_space_regex}.
-        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#paths LtsCceAccessV3#paths}.
-        :param pod_name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#pod_name_regex LtsCceAccessV3#pod_name_regex}.
-        :param single_log_format: single_log_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#single_log_format LtsCceAccessV3#single_log_format}
-        :param stderr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#stderr LtsCceAccessV3#stderr}.
-        :param stdout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#stdout LtsCceAccessV3#stdout}.
+        :param path_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#path_type LtsCceAccessV3#path_type}.
+        :param black_paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#black_paths LtsCceAccessV3#black_paths}.
+        :param container_name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#container_name_regex LtsCceAccessV3#container_name_regex}.
+        :param exclude_envs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#exclude_envs LtsCceAccessV3#exclude_envs}.
+        :param exclude_k8_s_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#exclude_k8s_labels LtsCceAccessV3#exclude_k8s_labels}.
+        :param exclude_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#exclude_labels LtsCceAccessV3#exclude_labels}.
+        :param include_envs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#include_envs LtsCceAccessV3#include_envs}.
+        :param include_k8_s_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#include_k8s_labels LtsCceAccessV3#include_k8s_labels}.
+        :param include_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#include_labels LtsCceAccessV3#include_labels}.
+        :param log_envs: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_envs LtsCceAccessV3#log_envs}.
+        :param log_k8_s: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_k8s LtsCceAccessV3#log_k8s}.
+        :param log_labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_labels LtsCceAccessV3#log_labels}.
+        :param multi_log_format: multi_log_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#multi_log_format LtsCceAccessV3#multi_log_format}
+        :param name_space_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#name_space_regex LtsCceAccessV3#name_space_regex}.
+        :param paths: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#paths LtsCceAccessV3#paths}.
+        :param pod_name_regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#pod_name_regex LtsCceAccessV3#pod_name_regex}.
+        :param single_log_format: single_log_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#single_log_format LtsCceAccessV3#single_log_format}
+        :param stderr: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#stderr LtsCceAccessV3#stderr}.
+        :param stdout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#stdout LtsCceAccessV3#stdout}.
         '''
         if isinstance(multi_log_format, dict):
             multi_log_format = LtsCceAccessV3AccessConfigMultiLogFormat(**multi_log_format)
@@ -581,20 +581,20 @@ class LtsCceAccessV3AccessConfig:
 
     @builtins.property
     def path_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#path_type LtsCceAccessV3#path_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#path_type LtsCceAccessV3#path_type}.'''
         result = self._values.get("path_type")
         assert result is not None, "Required property 'path_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def black_paths(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#black_paths LtsCceAccessV3#black_paths}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#black_paths LtsCceAccessV3#black_paths}.'''
         result = self._values.get("black_paths")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def container_name_regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#container_name_regex LtsCceAccessV3#container_name_regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#container_name_regex LtsCceAccessV3#container_name_regex}.'''
         result = self._values.get("container_name_regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -602,7 +602,7 @@ class LtsCceAccessV3AccessConfig:
     def exclude_envs(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#exclude_envs LtsCceAccessV3#exclude_envs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#exclude_envs LtsCceAccessV3#exclude_envs}.'''
         result = self._values.get("exclude_envs")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -610,7 +610,7 @@ class LtsCceAccessV3AccessConfig:
     def exclude_k8_s_labels(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#exclude_k8s_labels LtsCceAccessV3#exclude_k8s_labels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#exclude_k8s_labels LtsCceAccessV3#exclude_k8s_labels}.'''
         result = self._values.get("exclude_k8_s_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -618,7 +618,7 @@ class LtsCceAccessV3AccessConfig:
     def exclude_labels(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#exclude_labels LtsCceAccessV3#exclude_labels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#exclude_labels LtsCceAccessV3#exclude_labels}.'''
         result = self._values.get("exclude_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -626,7 +626,7 @@ class LtsCceAccessV3AccessConfig:
     def include_envs(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#include_envs LtsCceAccessV3#include_envs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#include_envs LtsCceAccessV3#include_envs}.'''
         result = self._values.get("include_envs")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -634,7 +634,7 @@ class LtsCceAccessV3AccessConfig:
     def include_k8_s_labels(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#include_k8s_labels LtsCceAccessV3#include_k8s_labels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#include_k8s_labels LtsCceAccessV3#include_k8s_labels}.'''
         result = self._values.get("include_k8_s_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -642,25 +642,25 @@ class LtsCceAccessV3AccessConfig:
     def include_labels(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#include_labels LtsCceAccessV3#include_labels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#include_labels LtsCceAccessV3#include_labels}.'''
         result = self._values.get("include_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def log_envs(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_envs LtsCceAccessV3#log_envs}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_envs LtsCceAccessV3#log_envs}.'''
         result = self._values.get("log_envs")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def log_k8_s(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_k8s LtsCceAccessV3#log_k8s}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_k8s LtsCceAccessV3#log_k8s}.'''
         result = self._values.get("log_k8_s")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def log_labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_labels LtsCceAccessV3#log_labels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_labels LtsCceAccessV3#log_labels}.'''
         result = self._values.get("log_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -670,26 +670,26 @@ class LtsCceAccessV3AccessConfig:
     ) -> typing.Optional["LtsCceAccessV3AccessConfigMultiLogFormat"]:
         '''multi_log_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#multi_log_format LtsCceAccessV3#multi_log_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#multi_log_format LtsCceAccessV3#multi_log_format}
         '''
         result = self._values.get("multi_log_format")
         return typing.cast(typing.Optional["LtsCceAccessV3AccessConfigMultiLogFormat"], result)
 
     @builtins.property
     def name_space_regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#name_space_regex LtsCceAccessV3#name_space_regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#name_space_regex LtsCceAccessV3#name_space_regex}.'''
         result = self._values.get("name_space_regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def paths(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#paths LtsCceAccessV3#paths}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#paths LtsCceAccessV3#paths}.'''
         result = self._values.get("paths")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def pod_name_regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#pod_name_regex LtsCceAccessV3#pod_name_regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#pod_name_regex LtsCceAccessV3#pod_name_regex}.'''
         result = self._values.get("pod_name_regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -699,7 +699,7 @@ class LtsCceAccessV3AccessConfig:
     ) -> typing.Optional["LtsCceAccessV3AccessConfigSingleLogFormat"]:
         '''single_log_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#single_log_format LtsCceAccessV3#single_log_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#single_log_format LtsCceAccessV3#single_log_format}
         '''
         result = self._values.get("single_log_format")
         return typing.cast(typing.Optional["LtsCceAccessV3AccessConfigSingleLogFormat"], result)
@@ -708,7 +708,7 @@ class LtsCceAccessV3AccessConfig:
     def stderr(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#stderr LtsCceAccessV3#stderr}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#stderr LtsCceAccessV3#stderr}.'''
         result = self._values.get("stderr")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -716,7 +716,7 @@ class LtsCceAccessV3AccessConfig:
     def stdout(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#stdout LtsCceAccessV3#stdout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#stdout LtsCceAccessV3#stdout}.'''
         result = self._values.get("stdout")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -745,8 +745,8 @@ class LtsCceAccessV3AccessConfigMultiLogFormat:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#mode LtsCceAccessV3#mode}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#value LtsCceAccessV3#value}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#mode LtsCceAccessV3#mode}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#value LtsCceAccessV3#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1d93b67b638e21c3b75abe3acf7dee5f82f03271ca409b73d119858f279f905d)
@@ -760,14 +760,14 @@ class LtsCceAccessV3AccessConfigMultiLogFormat:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#mode LtsCceAccessV3#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#mode LtsCceAccessV3#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#value LtsCceAccessV3#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#value LtsCceAccessV3#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -887,8 +887,8 @@ class LtsCceAccessV3AccessConfigOutputReference(
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#mode LtsCceAccessV3#mode}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#value LtsCceAccessV3#value}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#mode LtsCceAccessV3#mode}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#value LtsCceAccessV3#value}.
         '''
         value_ = LtsCceAccessV3AccessConfigMultiLogFormat(mode=mode, value=value)
 
@@ -902,8 +902,8 @@ class LtsCceAccessV3AccessConfigOutputReference(
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#mode LtsCceAccessV3#mode}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#value LtsCceAccessV3#value}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#mode LtsCceAccessV3#mode}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#value LtsCceAccessV3#value}.
         '''
         value_ = LtsCceAccessV3AccessConfigSingleLogFormat(mode=mode, value=value)
 
@@ -1361,8 +1361,8 @@ class LtsCceAccessV3AccessConfigSingleLogFormat:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#mode LtsCceAccessV3#mode}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#value LtsCceAccessV3#value}.
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#mode LtsCceAccessV3#mode}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#value LtsCceAccessV3#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e531bef20e669ed1994152d02d402fcdb8e0bc8c1c72a182af01aedb5a8a2f19)
@@ -1376,14 +1376,14 @@ class LtsCceAccessV3AccessConfigSingleLogFormat:
 
     @builtins.property
     def mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#mode LtsCceAccessV3#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#mode LtsCceAccessV3#mode}.'''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#value LtsCceAccessV3#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#value LtsCceAccessV3#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1528,16 +1528,16 @@ class LtsCceAccessV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#access_config LtsCceAccessV3#access_config}
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#cluster_id LtsCceAccessV3#cluster_id}.
-        :param log_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_group_id LtsCceAccessV3#log_group_id}.
-        :param log_stream_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_stream_id LtsCceAccessV3#log_stream_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#name LtsCceAccessV3#name}.
-        :param binary_collect: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#binary_collect LtsCceAccessV3#binary_collect}.
-        :param host_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#host_group_ids LtsCceAccessV3#host_group_ids}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#id LtsCceAccessV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param log_split: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_split LtsCceAccessV3#log_split}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#tags LtsCceAccessV3#tags}.
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#access_config LtsCceAccessV3#access_config}
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#cluster_id LtsCceAccessV3#cluster_id}.
+        :param log_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_group_id LtsCceAccessV3#log_group_id}.
+        :param log_stream_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_stream_id LtsCceAccessV3#log_stream_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#name LtsCceAccessV3#name}.
+        :param binary_collect: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#binary_collect LtsCceAccessV3#binary_collect}.
+        :param host_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#host_group_ids LtsCceAccessV3#host_group_ids}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#id LtsCceAccessV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param log_split: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_split LtsCceAccessV3#log_split}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#tags LtsCceAccessV3#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1662,7 +1662,7 @@ class LtsCceAccessV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def access_config(self) -> LtsCceAccessV3AccessConfig:
         '''access_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#access_config LtsCceAccessV3#access_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#access_config LtsCceAccessV3#access_config}
         '''
         result = self._values.get("access_config")
         assert result is not None, "Required property 'access_config' is missing"
@@ -1670,28 +1670,28 @@ class LtsCceAccessV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cluster_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#cluster_id LtsCceAccessV3#cluster_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#cluster_id LtsCceAccessV3#cluster_id}.'''
         result = self._values.get("cluster_id")
         assert result is not None, "Required property 'cluster_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def log_group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_group_id LtsCceAccessV3#log_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_group_id LtsCceAccessV3#log_group_id}.'''
         result = self._values.get("log_group_id")
         assert result is not None, "Required property 'log_group_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def log_stream_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_stream_id LtsCceAccessV3#log_stream_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_stream_id LtsCceAccessV3#log_stream_id}.'''
         result = self._values.get("log_stream_id")
         assert result is not None, "Required property 'log_stream_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#name LtsCceAccessV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#name LtsCceAccessV3#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1700,19 +1700,19 @@ class LtsCceAccessV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def binary_collect(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#binary_collect LtsCceAccessV3#binary_collect}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#binary_collect LtsCceAccessV3#binary_collect}.'''
         result = self._values.get("binary_collect")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def host_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#host_group_ids LtsCceAccessV3#host_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#host_group_ids LtsCceAccessV3#host_group_ids}.'''
         result = self._values.get("host_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#id LtsCceAccessV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#id LtsCceAccessV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1724,13 +1724,13 @@ class LtsCceAccessV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def log_split(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#log_split LtsCceAccessV3#log_split}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#log_split LtsCceAccessV3#log_split}.'''
         result = self._values.get("log_split")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/lts_cce_access_v3#tags LtsCceAccessV3#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/lts_cce_access_v3#tags LtsCceAccessV3#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 

@@ -5,6 +5,7 @@ import modal._object
 import modal.client
 import modal.object
 import modal_proto.api_pb2
+import synchronicity
 import synchronicity.combined_types
 import typing
 import typing_extensions
@@ -29,6 +30,326 @@ class QueueInfo:
     def __eq__(self, other):
         """Return self==value."""
         ...
+
+class _QueueManager:
+    """Namespace with methods for managing named Queue objects."""
+    @staticmethod
+    async def create(
+        name: str,
+        *,
+        allow_existing: bool = False,
+        environment_name: typing.Optional[str] = None,
+        client: typing.Optional[modal.client._Client] = None,
+    ) -> None:
+        """Create a new Queue object.
+
+        **Examples:**
+
+        ```python notest
+        modal.Queue.objects.create("my-queue")
+        ```
+
+        Queues will be created in the active environment, or another one can be specified:
+
+        ```python notest
+        modal.Queue.objects.create("my-queue", environment_name="dev")
+        ```
+
+        By default, an error will be raised if the Queue already exists, but passing
+        `allow_existing=True` will make the creation attempt a no-op in this case.
+
+        ```python notest
+        modal.Queue.objects.create("my-queue", allow_existing=True)
+        ```
+
+        Note that this method does not return a local instance of the Queue. You can use
+        `modal.Queue.from_name` to perform a lookup after creation.
+
+        Added in v1.1.2.
+        """
+        ...
+
+    @staticmethod
+    async def list(
+        *,
+        max_objects: typing.Optional[int] = None,
+        created_before: typing.Union[datetime.datetime, str, None] = None,
+        environment_name: str = "",
+        client: typing.Optional[modal.client._Client] = None,
+    ) -> list[_Queue]:
+        """Return a list of hydrated Queue objects.
+
+        **Examples:**
+
+        ```python
+        queues = modal.Queue.objects.list()
+        print([q.name for q in queues])
+        ```
+
+        Queues will be retreived from the active environment, or another one can be specified:
+
+        ```python notest
+        dev_queues = modal.Queue.objects.list(environment_name="dev")
+        ```
+
+        By default, all named Queues are returned, newest to oldest. It's also possible to limit the
+        number of results and to filter by creation date:
+
+        ```python
+        queues = modal.Queue.objects.list(max_objects=10, created_before="2025-01-01")
+        ```
+
+        Added in v1.1.2.
+        """
+        ...
+
+    @staticmethod
+    async def delete(
+        name: str,
+        *,
+        allow_missing: bool = False,
+        environment_name: typing.Optional[str] = None,
+        client: typing.Optional[modal.client._Client] = None,
+    ):
+        """Delete a named Queue.
+
+        Warning: This deletes an *entire Queue*, not just a specific entry or partition.
+        Deletion is irreversible and will affect any Apps currently using the Queue.
+
+        **Examples:**
+
+        ```python notest
+        await modal.Queue.objects.delete("my-queue")
+        ```
+
+        Queues will be deleted from the active environment, or another one can be specified:
+
+        ```python notest
+        await modal.Queue.objects.delete("my-queue", environment_name="dev")
+        ```
+
+        Added in v1.1.2.
+        """
+        ...
+
+class QueueManager:
+    """Namespace with methods for managing named Queue objects."""
+    def __init__(self, /, *args, **kwargs):
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    class __create_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            name: str,
+            *,
+            allow_existing: bool = False,
+            environment_name: typing.Optional[str] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> None:
+            """Create a new Queue object.
+
+            **Examples:**
+
+            ```python notest
+            modal.Queue.objects.create("my-queue")
+            ```
+
+            Queues will be created in the active environment, or another one can be specified:
+
+            ```python notest
+            modal.Queue.objects.create("my-queue", environment_name="dev")
+            ```
+
+            By default, an error will be raised if the Queue already exists, but passing
+            `allow_existing=True` will make the creation attempt a no-op in this case.
+
+            ```python notest
+            modal.Queue.objects.create("my-queue", allow_existing=True)
+            ```
+
+            Note that this method does not return a local instance of the Queue. You can use
+            `modal.Queue.from_name` to perform a lookup after creation.
+
+            Added in v1.1.2.
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            name: str,
+            *,
+            allow_existing: bool = False,
+            environment_name: typing.Optional[str] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> None:
+            """Create a new Queue object.
+
+            **Examples:**
+
+            ```python notest
+            modal.Queue.objects.create("my-queue")
+            ```
+
+            Queues will be created in the active environment, or another one can be specified:
+
+            ```python notest
+            modal.Queue.objects.create("my-queue", environment_name="dev")
+            ```
+
+            By default, an error will be raised if the Queue already exists, but passing
+            `allow_existing=True` will make the creation attempt a no-op in this case.
+
+            ```python notest
+            modal.Queue.objects.create("my-queue", allow_existing=True)
+            ```
+
+            Note that this method does not return a local instance of the Queue. You can use
+            `modal.Queue.from_name` to perform a lookup after creation.
+
+            Added in v1.1.2.
+            """
+            ...
+
+    create: __create_spec
+
+    class __list_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            max_objects: typing.Optional[int] = None,
+            created_before: typing.Union[datetime.datetime, str, None] = None,
+            environment_name: str = "",
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> list[Queue]:
+            """Return a list of hydrated Queue objects.
+
+            **Examples:**
+
+            ```python
+            queues = modal.Queue.objects.list()
+            print([q.name for q in queues])
+            ```
+
+            Queues will be retreived from the active environment, or another one can be specified:
+
+            ```python notest
+            dev_queues = modal.Queue.objects.list(environment_name="dev")
+            ```
+
+            By default, all named Queues are returned, newest to oldest. It's also possible to limit the
+            number of results and to filter by creation date:
+
+            ```python
+            queues = modal.Queue.objects.list(max_objects=10, created_before="2025-01-01")
+            ```
+
+            Added in v1.1.2.
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            *,
+            max_objects: typing.Optional[int] = None,
+            created_before: typing.Union[datetime.datetime, str, None] = None,
+            environment_name: str = "",
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> list[Queue]:
+            """Return a list of hydrated Queue objects.
+
+            **Examples:**
+
+            ```python
+            queues = modal.Queue.objects.list()
+            print([q.name for q in queues])
+            ```
+
+            Queues will be retreived from the active environment, or another one can be specified:
+
+            ```python notest
+            dev_queues = modal.Queue.objects.list(environment_name="dev")
+            ```
+
+            By default, all named Queues are returned, newest to oldest. It's also possible to limit the
+            number of results and to filter by creation date:
+
+            ```python
+            queues = modal.Queue.objects.list(max_objects=10, created_before="2025-01-01")
+            ```
+
+            Added in v1.1.2.
+            """
+            ...
+
+    list: __list_spec
+
+    class __delete_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            name: str,
+            *,
+            allow_missing: bool = False,
+            environment_name: typing.Optional[str] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ):
+            """Delete a named Queue.
+
+            Warning: This deletes an *entire Queue*, not just a specific entry or partition.
+            Deletion is irreversible and will affect any Apps currently using the Queue.
+
+            **Examples:**
+
+            ```python notest
+            await modal.Queue.objects.delete("my-queue")
+            ```
+
+            Queues will be deleted from the active environment, or another one can be specified:
+
+            ```python notest
+            await modal.Queue.objects.delete("my-queue", environment_name="dev")
+            ```
+
+            Added in v1.1.2.
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            name: str,
+            *,
+            allow_missing: bool = False,
+            environment_name: typing.Optional[str] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ):
+            """Delete a named Queue.
+
+            Warning: This deletes an *entire Queue*, not just a specific entry or partition.
+            Deletion is irreversible and will affect any Apps currently using the Queue.
+
+            **Examples:**
+
+            ```python notest
+            await modal.Queue.objects.delete("my-queue")
+            ```
+
+            Queues will be deleted from the active environment, or another one can be specified:
+
+            ```python notest
+            await modal.Queue.objects.delete("my-queue", environment_name="dev")
+            ```
+
+            Added in v1.1.2.
+            """
+            ...
+
+    delete: __delete_spec
 
 class _Queue(modal._object._Object):
     """Distributed, FIFO queue for data flow in Modal apps.
@@ -109,6 +430,8 @@ class _Queue(modal._object._Object):
         """mdmd:hidden"""
         ...
 
+    @synchronicity.classproperty
+    def objects(cls) -> _QueueManager: ...
     @property
     def name(self) -> typing.Optional[str]: ...
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
@@ -185,7 +508,17 @@ class _Queue(modal._object._Object):
         *,
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
-    ): ...
+    ):
+        """mdmd:hidden
+        Delete a named Queue.
+
+        Warning: This deletes an *entire Queue*, not just a specific entry or partition.
+        Deletion is irreversible and will affect any Apps currently using the Queue.
+
+        DEPRECATED: This method is deprecated; we recommend using `modal.Queue.objects.delete` instead.
+        """
+        ...
+
     async def info(self) -> QueueInfo:
         """Return information about the Queue object."""
         ...
@@ -377,6 +710,8 @@ class Queue(modal.object.Object):
         """mdmd:hidden"""
         ...
 
+    @synchronicity.classproperty
+    def objects(cls) -> QueueManager: ...
     @property
     def name(self) -> typing.Optional[str]: ...
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
@@ -483,7 +818,17 @@ class Queue(modal.object.Object):
             *,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
-        ): ...
+        ):
+            """mdmd:hidden
+            Delete a named Queue.
+
+            Warning: This deletes an *entire Queue*, not just a specific entry or partition.
+            Deletion is irreversible and will affect any Apps currently using the Queue.
+
+            DEPRECATED: This method is deprecated; we recommend using `modal.Queue.objects.delete` instead.
+            """
+            ...
+
         async def aio(
             self,
             /,
@@ -491,7 +836,16 @@ class Queue(modal.object.Object):
             *,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
-        ): ...
+        ):
+            """mdmd:hidden
+            Delete a named Queue.
+
+            Warning: This deletes an *entire Queue*, not just a specific entry or partition.
+            Deletion is irreversible and will affect any Apps currently using the Queue.
+
+            DEPRECATED: This method is deprecated; we recommend using `modal.Queue.objects.delete` instead.
+            """
+            ...
 
     delete: __delete_spec
 

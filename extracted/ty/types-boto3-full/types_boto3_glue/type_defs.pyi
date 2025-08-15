@@ -351,6 +351,8 @@ __all__ = (
     "CreateDatabaseRequestTypeDef",
     "CreateDevEndpointRequestTypeDef",
     "CreateDevEndpointResponseTypeDef",
+    "CreateGlueIdentityCenterConfigurationRequestTypeDef",
+    "CreateGlueIdentityCenterConfigurationResponseTypeDef",
     "CreateGrokClassifierRequestTypeDef",
     "CreateIcebergTableInputTypeDef",
     "CreateIntegrationRequestTypeDef",
@@ -624,6 +626,7 @@ __all__ = (
     "GetDevEndpointsResponseTypeDef",
     "GetEntityRecordsRequestTypeDef",
     "GetEntityRecordsResponseTypeDef",
+    "GetGlueIdentityCenterConfigurationResponseTypeDef",
     "GetIntegrationResourcePropertyRequestTypeDef",
     "GetIntegrationResourcePropertyResponseTypeDef",
     "GetIntegrationTablePropertiesRequestTypeDef",
@@ -1230,6 +1233,7 @@ __all__ = (
     "UpdateDataQualityRulesetResponseTypeDef",
     "UpdateDatabaseRequestTypeDef",
     "UpdateDevEndpointRequestTypeDef",
+    "UpdateGlueIdentityCenterConfigurationRequestTypeDef",
     "UpdateGrokClassifierRequestTypeDef",
     "UpdateIcebergInputTypeDef",
     "UpdateIcebergTableInputTypeDef",
@@ -2181,6 +2185,10 @@ class CreateDevEndpointRequestTypeDef(TypedDict):
     SecurityConfiguration: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
     Arguments: NotRequired[Mapping[str, str]]
+
+class CreateGlueIdentityCenterConfigurationRequestTypeDef(TypedDict):
+    InstanceArn: str
+    Scopes: NotRequired[Sequence[str]]
 
 class TagTypeDef(TypedDict):
     key: NotRequired[str]
@@ -3595,6 +3603,9 @@ class UpdateDataQualityRulesetRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     Ruleset: NotRequired[str]
 
+class UpdateGlueIdentityCenterConfigurationRequestTypeDef(TypedDict):
+    Scopes: NotRequired[Sequence[str]]
+
 class UpdateJobFromSourceControlRequestTypeDef(TypedDict):
     JobName: NotRequired[str]
     Provider: NotRequired[SourceControlProviderType]
@@ -3882,6 +3893,10 @@ class CreateDevEndpointResponseTypeDef(TypedDict):
     Arguments: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateGlueIdentityCenterConfigurationResponseTypeDef(TypedDict):
+    ApplicationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateJobResponseTypeDef(TypedDict):
     Name: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3993,6 +4008,12 @@ class GetEntityRecordsResponseTypeDef(TypedDict):
     Records: List[Dict[str, Any]]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class GetGlueIdentityCenterConfigurationResponseTypeDef(TypedDict):
+    ApplicationArn: str
+    InstanceArn: str
+    Scopes: List[str]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetPlanResponseTypeDef(TypedDict):
     PythonScript: str

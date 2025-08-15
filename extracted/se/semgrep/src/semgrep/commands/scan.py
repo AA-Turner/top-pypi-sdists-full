@@ -434,6 +434,18 @@ _scan_options: List[Callable] = [
         is_flag=True,
         default=False,
     ),
+    optgroup.option(
+        "--x-group-taint-rules",
+        "x_group_taint_rules",
+        is_flag=True,
+        default=False,
+    ),
+    optgroup.option(
+        "--x-no-python-schema-validation",
+        "x_no_python_schema_validation",
+        is_flag=True,
+        default=False,
+    ),
 ]
 
 
@@ -677,9 +689,11 @@ def scan(
     x_tr: bool,
     x_eio: bool,
     x_pro_naming: bool,
+    x_no_python_schema_validation: bool,
     x_semgrepignore_filename: Optional[str],
     path_sensitive: bool,
     allow_local_builds: bool,
+    x_group_taint_rules: bool,
 ) -> Optional[ScanResult]:
     if version:
         print(__VERSION__)
@@ -872,12 +886,16 @@ def scan(
                         config or [],
                         project_url=get_project_url(),
                         force_jsonschema=True,
+                        no_python_schema_validation=x_no_python_schema_validation,
                     )
 
-                    # Run metachecks specifically on the config files
+                    # Run `semgrep-core -check_rules` on the config files. This
+                    # checks that the files are parsable by the OCaml rule
+                    # parser, and also runs metachecks on them.
+                    validation_errors: Sequence[SemgrepError] = []
                     if config:
                         try:
-                            metacheck_errors = CoreRunner(
+                            validation_errors = CoreRunner(
                                 jobs=jobs,
                                 engine_type=engine_type,
                                 timeout=timeout,
@@ -890,11 +908,22 @@ def scan(
                                 optimizations=optimizations,
                                 allow_untrusted_validators=allow_untrusted_validators,
                                 path_sensitive=path_sensitive,
-                            ).validate_configs(config)
+                                group_taint_rules=x_group_taint_rules,
+                            ).validate_configs(
+                                config,
+                                no_python_schema_validation=x_no_python_schema_validation,
+                            )
                         except SemgrepError as e:
-                            metacheck_errors = [e]
+                            validation_errors = [e]
 
-                    config_errors = list(chain(config_errors, metacheck_errors))
+                    config_errors = list(chain(config_errors, validation_errors))
+                    if x_no_python_schema_validation:
+                        # de-dup errors from RPC config validation and
+                        # -check_rules checks since the OCaml parser errors are
+                        # generated from both these checks.
+                        config_errors = list(
+                            {str(e): e for e in config_errors}.values()
+                        )
 
                     valid_str = "invalid" if config_errors else "valid"
                     # NOTE: get_rules will de-duplicate rules as the same rule can appear across multiple config packs
@@ -974,6 +1003,7 @@ def scan(
                         path_sensitive=path_sensitive,
                         capture_core_stderr=capture_core_stderr,
                         allow_local_builds=allow_local_builds,
+                        x_group_taint_rules=x_group_taint_rules,
                     )
                 except SemgrepError as e:
                     output_handler.handle_semgrep_errors([e])

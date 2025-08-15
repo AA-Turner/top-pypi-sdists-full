@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omniopt2
-Version: 7773
+Version: 8169
 Summary: Automatic highly parallelized hyperparameter optimizer based on Ax/Botorch
 Home-page: https://scads.ai/transfer-2/verfuegbare-software-dienste-en/omniopt/
 Author: Norman Koch
@@ -9,14 +9,13 @@ Platform: Linux
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mypydie
-Requires-Dist: pymysql
 Requires-Dist: sqlalchemy
 Requires-Dist: setuptools
 Requires-Dist: wheel
 Requires-Dist: multidict
 Requires-Dist: numpy
 Requires-Dist: python-dateutil
-Requires-Dist: ax-platform[mysql]
+Requires-Dist: ax-platform
 Requires-Dist: art
 Requires-Dist: tzlocal
 Requires-Dist: Rich
@@ -102,8 +101,6 @@ Dynamic: license-file
 Dynamic: platform
 
 # OmniOpt2 - Hyperparameter Optimizer for SLURM-based Systems
-
-![Current build status](https://github.com/NormanTUD/OmniOpt/actions/workflows/main.yml/badge.svg?event=push)
 
 OmniOpt2 is a tool designed to assist researchers, engineers, and data
 scientists with hyperparameter optimization on SLURM-based clusters, even

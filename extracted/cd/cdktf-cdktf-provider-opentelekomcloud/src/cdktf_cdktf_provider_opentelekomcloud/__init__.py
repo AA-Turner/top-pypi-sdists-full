@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for opentelekomcloud/opentelekomcloud provider version 1.36.44
+# CDKTF prebuilt bindings for opentelekomcloud/opentelekomcloud provider version 1.36.45
 
-This repo builds and publishes the [Terraform opentelekomcloud provider](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform opentelekomcloud provider](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform opentelekomcloud provider 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform opentelekomcloud provider](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44)
+* [Terraform opentelekomcloud provider](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -196,6 +196,7 @@ __all__ = [
     "data_opentelekomcloud_antiddos_v1",
     "data_opentelekomcloud_apigw_api_history_v2",
     "data_opentelekomcloud_apigw_gateway_features_v2",
+    "data_opentelekomcloud_apigw_groups_v2",
     "data_opentelekomcloud_cbr_backup_ids_v3",
     "data_opentelekomcloud_cbr_backup_v3",
     "data_opentelekomcloud_cce_addon_template_v3",
@@ -302,6 +303,8 @@ __all__ = [
     "data_opentelekomcloud_rms_policy_definitions_v1",
     "data_opentelekomcloud_rms_policy_states_v1",
     "data_opentelekomcloud_rms_regions_v1",
+    "data_opentelekomcloud_rms_resource_relationships_v1",
+    "data_opentelekomcloud_rms_resource_tags_v1",
     "data_opentelekomcloud_rts_software_config_v1",
     "data_opentelekomcloud_rts_software_deployment_v1",
     "data_opentelekomcloud_rts_stack_resource_v1",
@@ -314,6 +317,7 @@ __all__ = [
     "data_opentelekomcloud_smn_subscription_v2",
     "data_opentelekomcloud_smn_topic_subscription_v2",
     "data_opentelekomcloud_smn_topic_v2",
+    "data_opentelekomcloud_tms_quotas_v1",
     "data_opentelekomcloud_tms_tags_v1",
     "data_opentelekomcloud_vbs_backup_policy_v2",
     "data_opentelekomcloud_vbs_backup_v2",
@@ -511,6 +515,7 @@ __all__ = [
     "swr_organization_permissions_v2",
     "swr_organization_v2",
     "swr_repository_v2",
+    "tms_resource_tags_v1",
     "tms_tags_v1",
     "vbs_backup_policy_v2",
     "vbs_backup_share_v2",
@@ -633,6 +638,7 @@ from . import cts_tracker_v3
 from . import data_opentelekomcloud_antiddos_v1
 from . import data_opentelekomcloud_apigw_api_history_v2
 from . import data_opentelekomcloud_apigw_gateway_features_v2
+from . import data_opentelekomcloud_apigw_groups_v2
 from . import data_opentelekomcloud_cbr_backup_ids_v3
 from . import data_opentelekomcloud_cbr_backup_v3
 from . import data_opentelekomcloud_cce_addon_template_v3
@@ -739,6 +745,8 @@ from . import data_opentelekomcloud_rms_advanced_query_v1
 from . import data_opentelekomcloud_rms_policy_definitions_v1
 from . import data_opentelekomcloud_rms_policy_states_v1
 from . import data_opentelekomcloud_rms_regions_v1
+from . import data_opentelekomcloud_rms_resource_relationships_v1
+from . import data_opentelekomcloud_rms_resource_tags_v1
 from . import data_opentelekomcloud_rts_software_config_v1
 from . import data_opentelekomcloud_rts_software_deployment_v1
 from . import data_opentelekomcloud_rts_stack_resource_v1
@@ -751,6 +759,7 @@ from . import data_opentelekomcloud_smn_message_templates_v2
 from . import data_opentelekomcloud_smn_subscription_v2
 from . import data_opentelekomcloud_smn_topic_subscription_v2
 from . import data_opentelekomcloud_smn_topic_v2
+from . import data_opentelekomcloud_tms_quotas_v1
 from . import data_opentelekomcloud_tms_tags_v1
 from . import data_opentelekomcloud_vbs_backup_policy_v2
 from . import data_opentelekomcloud_vbs_backup_v2
@@ -948,6 +957,7 @@ from . import swr_domain_v2
 from . import swr_organization_permissions_v2
 from . import swr_organization_v2
 from . import swr_repository_v2
+from . import tms_resource_tags_v1
 from . import tms_tags_v1
 from . import vbs_backup_policy_v2
 from . import vbs_backup_share_v2

@@ -1,7 +1,7 @@
 r'''
 # `provider`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs).
+Refer to the Terraform Registry for docs: [`opentelekomcloud`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OpentelekomcloudProvider(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.provider.OpentelekomcloudProvider",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs opentelekomcloud}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs opentelekomcloud}.'''
 
     def __init__(
         self,
@@ -81,39 +81,39 @@ class OpentelekomcloudProvider(
         user_id: typing.Optional[builtins.str] = None,
         user_name: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs opentelekomcloud} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs opentelekomcloud} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param access_key: The access key for API operations. You can retrieve this from the 'My Credential' section of the console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#access_key OpentelekomcloudProvider#access_key}
-        :param agency_domain_name: The name of domain who created the agency (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#agency_domain_name OpentelekomcloudProvider#agency_domain_name}
-        :param agency_name: The name of agency. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#agency_name OpentelekomcloudProvider#agency_name}
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#alias OpentelekomcloudProvider#alias}
-        :param allow_reauth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#allow_reauth OpentelekomcloudProvider#allow_reauth}.
-        :param auth_url: The Identity authentication URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#auth_url OpentelekomcloudProvider#auth_url}
-        :param backoff_retry_timeout: Timeout in seconds for backoff retry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#backoff_retry_timeout OpentelekomcloudProvider#backoff_retry_timeout}
-        :param cacert_file: A Custom CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#cacert_file OpentelekomcloudProvider#cacert_file}
-        :param cert: A client certificate to authenticate with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#cert OpentelekomcloudProvider#cert}
-        :param cloud: An entry in a ``clouds.yaml`` file to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#cloud OpentelekomcloudProvider#cloud}
-        :param delegated_project: The name of delegated project (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#delegated_project OpentelekomcloudProvider#delegated_project}
-        :param domain_id: The ID of the Domain to scope to (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#domain_id OpentelekomcloudProvider#domain_id}
-        :param domain_name: The name of the Domain to scope to (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#domain_name OpentelekomcloudProvider#domain_name}
-        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#endpoint_type OpentelekomcloudProvider#endpoint_type}.
-        :param insecure: Trust self-signed certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#insecure OpentelekomcloudProvider#insecure}
-        :param key: A client private key to authenticate with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#key OpentelekomcloudProvider#key}
-        :param max_backoff_retries: How many times HTTP request should be retried when rate limit reached. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#max_backoff_retries OpentelekomcloudProvider#max_backoff_retries}
-        :param max_retries: How many times HTTP connection should be retried until giving up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#max_retries OpentelekomcloudProvider#max_retries}
-        :param passcode: One-time MFA passcode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#passcode OpentelekomcloudProvider#passcode}
-        :param password: Password to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#password OpentelekomcloudProvider#password}
-        :param region: The OpenTelekomCloud region to connect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#region OpentelekomcloudProvider#region}
-        :param secret_key: The secret key for API operations. You can retrieve this from the 'My Credential' section of the console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#secret_key OpentelekomcloudProvider#secret_key}
-        :param security_token: Security token to use for OBS federated authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#security_token OpentelekomcloudProvider#security_token}
-        :param swauth: Use Swift's authentication system instead of Keystone. Only used for interaction with Swift. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#swauth OpentelekomcloudProvider#swauth}
-        :param tenant_id: The ID of the Tenant (Identity v2) or Project (Identity v3) to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#tenant_id OpentelekomcloudProvider#tenant_id}
-        :param tenant_name: The name of the Tenant (Identity v2) or Project (Identity v3) to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#tenant_name OpentelekomcloudProvider#tenant_name}
-        :param token: Authentication token to use as an alternative to username/password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#token OpentelekomcloudProvider#token}
-        :param user_id: User ID to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#user_id OpentelekomcloudProvider#user_id}
-        :param user_name: Username to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#user_name OpentelekomcloudProvider#user_name}
+        :param access_key: The access key for API operations. You can retrieve this from the 'My Credential' section of the console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#access_key OpentelekomcloudProvider#access_key}
+        :param agency_domain_name: The name of domain who created the agency (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#agency_domain_name OpentelekomcloudProvider#agency_domain_name}
+        :param agency_name: The name of agency. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#agency_name OpentelekomcloudProvider#agency_name}
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#alias OpentelekomcloudProvider#alias}
+        :param allow_reauth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#allow_reauth OpentelekomcloudProvider#allow_reauth}.
+        :param auth_url: The Identity authentication URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#auth_url OpentelekomcloudProvider#auth_url}
+        :param backoff_retry_timeout: Timeout in seconds for backoff retry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#backoff_retry_timeout OpentelekomcloudProvider#backoff_retry_timeout}
+        :param cacert_file: A Custom CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#cacert_file OpentelekomcloudProvider#cacert_file}
+        :param cert: A client certificate to authenticate with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#cert OpentelekomcloudProvider#cert}
+        :param cloud: An entry in a ``clouds.yaml`` file to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#cloud OpentelekomcloudProvider#cloud}
+        :param delegated_project: The name of delegated project (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#delegated_project OpentelekomcloudProvider#delegated_project}
+        :param domain_id: The ID of the Domain to scope to (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#domain_id OpentelekomcloudProvider#domain_id}
+        :param domain_name: The name of the Domain to scope to (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#domain_name OpentelekomcloudProvider#domain_name}
+        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#endpoint_type OpentelekomcloudProvider#endpoint_type}.
+        :param insecure: Trust self-signed certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#insecure OpentelekomcloudProvider#insecure}
+        :param key: A client private key to authenticate with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#key OpentelekomcloudProvider#key}
+        :param max_backoff_retries: How many times HTTP request should be retried when rate limit reached. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#max_backoff_retries OpentelekomcloudProvider#max_backoff_retries}
+        :param max_retries: How many times HTTP connection should be retried until giving up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#max_retries OpentelekomcloudProvider#max_retries}
+        :param passcode: One-time MFA passcode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#passcode OpentelekomcloudProvider#passcode}
+        :param password: Password to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#password OpentelekomcloudProvider#password}
+        :param region: The OpenTelekomCloud region to connect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#region OpentelekomcloudProvider#region}
+        :param secret_key: The secret key for API operations. You can retrieve this from the 'My Credential' section of the console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#secret_key OpentelekomcloudProvider#secret_key}
+        :param security_token: Security token to use for OBS federated authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#security_token OpentelekomcloudProvider#security_token}
+        :param swauth: Use Swift's authentication system instead of Keystone. Only used for interaction with Swift. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#swauth OpentelekomcloudProvider#swauth}
+        :param tenant_id: The ID of the Tenant (Identity v2) or Project (Identity v3) to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#tenant_id OpentelekomcloudProvider#tenant_id}
+        :param tenant_name: The name of the Tenant (Identity v2) or Project (Identity v3) to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#tenant_name OpentelekomcloudProvider#tenant_name}
+        :param token: Authentication token to use as an alternative to username/password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#token OpentelekomcloudProvider#token}
+        :param user_id: User ID to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#user_id OpentelekomcloudProvider#user_id}
+        :param user_name: Username to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#user_name OpentelekomcloudProvider#user_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f19b09b6a4b958a59149fefac7a07c00625b0a23b7c2ad34bbc3b21fa8d278ec)
@@ -166,7 +166,7 @@ class OpentelekomcloudProvider(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OpentelekomcloudProvider to import.
-        :param import_from_id: The id of the existing OpentelekomcloudProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OpentelekomcloudProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OpentelekomcloudProvider to import is found.
         '''
         if __debug__:
@@ -891,35 +891,35 @@ class OpentelekomcloudProviderConfig:
         user_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_key: The access key for API operations. You can retrieve this from the 'My Credential' section of the console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#access_key OpentelekomcloudProvider#access_key}
-        :param agency_domain_name: The name of domain who created the agency (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#agency_domain_name OpentelekomcloudProvider#agency_domain_name}
-        :param agency_name: The name of agency. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#agency_name OpentelekomcloudProvider#agency_name}
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#alias OpentelekomcloudProvider#alias}
-        :param allow_reauth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#allow_reauth OpentelekomcloudProvider#allow_reauth}.
-        :param auth_url: The Identity authentication URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#auth_url OpentelekomcloudProvider#auth_url}
-        :param backoff_retry_timeout: Timeout in seconds for backoff retry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#backoff_retry_timeout OpentelekomcloudProvider#backoff_retry_timeout}
-        :param cacert_file: A Custom CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#cacert_file OpentelekomcloudProvider#cacert_file}
-        :param cert: A client certificate to authenticate with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#cert OpentelekomcloudProvider#cert}
-        :param cloud: An entry in a ``clouds.yaml`` file to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#cloud OpentelekomcloudProvider#cloud}
-        :param delegated_project: The name of delegated project (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#delegated_project OpentelekomcloudProvider#delegated_project}
-        :param domain_id: The ID of the Domain to scope to (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#domain_id OpentelekomcloudProvider#domain_id}
-        :param domain_name: The name of the Domain to scope to (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#domain_name OpentelekomcloudProvider#domain_name}
-        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#endpoint_type OpentelekomcloudProvider#endpoint_type}.
-        :param insecure: Trust self-signed certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#insecure OpentelekomcloudProvider#insecure}
-        :param key: A client private key to authenticate with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#key OpentelekomcloudProvider#key}
-        :param max_backoff_retries: How many times HTTP request should be retried when rate limit reached. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#max_backoff_retries OpentelekomcloudProvider#max_backoff_retries}
-        :param max_retries: How many times HTTP connection should be retried until giving up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#max_retries OpentelekomcloudProvider#max_retries}
-        :param passcode: One-time MFA passcode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#passcode OpentelekomcloudProvider#passcode}
-        :param password: Password to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#password OpentelekomcloudProvider#password}
-        :param region: The OpenTelekomCloud region to connect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#region OpentelekomcloudProvider#region}
-        :param secret_key: The secret key for API operations. You can retrieve this from the 'My Credential' section of the console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#secret_key OpentelekomcloudProvider#secret_key}
-        :param security_token: Security token to use for OBS federated authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#security_token OpentelekomcloudProvider#security_token}
-        :param swauth: Use Swift's authentication system instead of Keystone. Only used for interaction with Swift. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#swauth OpentelekomcloudProvider#swauth}
-        :param tenant_id: The ID of the Tenant (Identity v2) or Project (Identity v3) to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#tenant_id OpentelekomcloudProvider#tenant_id}
-        :param tenant_name: The name of the Tenant (Identity v2) or Project (Identity v3) to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#tenant_name OpentelekomcloudProvider#tenant_name}
-        :param token: Authentication token to use as an alternative to username/password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#token OpentelekomcloudProvider#token}
-        :param user_id: User ID to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#user_id OpentelekomcloudProvider#user_id}
-        :param user_name: Username to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#user_name OpentelekomcloudProvider#user_name}
+        :param access_key: The access key for API operations. You can retrieve this from the 'My Credential' section of the console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#access_key OpentelekomcloudProvider#access_key}
+        :param agency_domain_name: The name of domain who created the agency (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#agency_domain_name OpentelekomcloudProvider#agency_domain_name}
+        :param agency_name: The name of agency. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#agency_name OpentelekomcloudProvider#agency_name}
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#alias OpentelekomcloudProvider#alias}
+        :param allow_reauth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#allow_reauth OpentelekomcloudProvider#allow_reauth}.
+        :param auth_url: The Identity authentication URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#auth_url OpentelekomcloudProvider#auth_url}
+        :param backoff_retry_timeout: Timeout in seconds for backoff retry. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#backoff_retry_timeout OpentelekomcloudProvider#backoff_retry_timeout}
+        :param cacert_file: A Custom CA certificate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#cacert_file OpentelekomcloudProvider#cacert_file}
+        :param cert: A client certificate to authenticate with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#cert OpentelekomcloudProvider#cert}
+        :param cloud: An entry in a ``clouds.yaml`` file to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#cloud OpentelekomcloudProvider#cloud}
+        :param delegated_project: The name of delegated project (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#delegated_project OpentelekomcloudProvider#delegated_project}
+        :param domain_id: The ID of the Domain to scope to (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#domain_id OpentelekomcloudProvider#domain_id}
+        :param domain_name: The name of the Domain to scope to (Identity v3). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#domain_name OpentelekomcloudProvider#domain_name}
+        :param endpoint_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#endpoint_type OpentelekomcloudProvider#endpoint_type}.
+        :param insecure: Trust self-signed certificates. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#insecure OpentelekomcloudProvider#insecure}
+        :param key: A client private key to authenticate with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#key OpentelekomcloudProvider#key}
+        :param max_backoff_retries: How many times HTTP request should be retried when rate limit reached. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#max_backoff_retries OpentelekomcloudProvider#max_backoff_retries}
+        :param max_retries: How many times HTTP connection should be retried until giving up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#max_retries OpentelekomcloudProvider#max_retries}
+        :param passcode: One-time MFA passcode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#passcode OpentelekomcloudProvider#passcode}
+        :param password: Password to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#password OpentelekomcloudProvider#password}
+        :param region: The OpenTelekomCloud region to connect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#region OpentelekomcloudProvider#region}
+        :param secret_key: The secret key for API operations. You can retrieve this from the 'My Credential' section of the console. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#secret_key OpentelekomcloudProvider#secret_key}
+        :param security_token: Security token to use for OBS federated authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#security_token OpentelekomcloudProvider#security_token}
+        :param swauth: Use Swift's authentication system instead of Keystone. Only used for interaction with Swift. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#swauth OpentelekomcloudProvider#swauth}
+        :param tenant_id: The ID of the Tenant (Identity v2) or Project (Identity v3) to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#tenant_id OpentelekomcloudProvider#tenant_id}
+        :param tenant_name: The name of the Tenant (Identity v2) or Project (Identity v3) to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#tenant_name OpentelekomcloudProvider#tenant_name}
+        :param token: Authentication token to use as an alternative to username/password. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#token OpentelekomcloudProvider#token}
+        :param user_id: User ID to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#user_id OpentelekomcloudProvider#user_id}
+        :param user_name: Username to login with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#user_name OpentelekomcloudProvider#user_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a52b3f259b0a87db1c3c691be4f6a456b017461314df719108eb69b4d713b368)
@@ -1016,7 +1016,7 @@ class OpentelekomcloudProviderConfig:
     def access_key(self) -> typing.Optional[builtins.str]:
         '''The access key for API operations. You can retrieve this from the 'My Credential' section of the console.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#access_key OpentelekomcloudProvider#access_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#access_key OpentelekomcloudProvider#access_key}
         '''
         result = self._values.get("access_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1025,7 +1025,7 @@ class OpentelekomcloudProviderConfig:
     def agency_domain_name(self) -> typing.Optional[builtins.str]:
         '''The name of domain who created the agency (Identity v3).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#agency_domain_name OpentelekomcloudProvider#agency_domain_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#agency_domain_name OpentelekomcloudProvider#agency_domain_name}
         '''
         result = self._values.get("agency_domain_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1034,7 +1034,7 @@ class OpentelekomcloudProviderConfig:
     def agency_name(self) -> typing.Optional[builtins.str]:
         '''The name of agency.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#agency_name OpentelekomcloudProvider#agency_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#agency_name OpentelekomcloudProvider#agency_name}
         '''
         result = self._values.get("agency_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1043,7 +1043,7 @@ class OpentelekomcloudProviderConfig:
     def alias(self) -> typing.Optional[builtins.str]:
         '''Alias name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#alias OpentelekomcloudProvider#alias}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#alias OpentelekomcloudProvider#alias}
         '''
         result = self._values.get("alias")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1052,7 +1052,7 @@ class OpentelekomcloudProviderConfig:
     def allow_reauth(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#allow_reauth OpentelekomcloudProvider#allow_reauth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#allow_reauth OpentelekomcloudProvider#allow_reauth}.'''
         result = self._values.get("allow_reauth")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1060,7 +1060,7 @@ class OpentelekomcloudProviderConfig:
     def auth_url(self) -> typing.Optional[builtins.str]:
         '''The Identity authentication URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#auth_url OpentelekomcloudProvider#auth_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#auth_url OpentelekomcloudProvider#auth_url}
         '''
         result = self._values.get("auth_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1069,7 +1069,7 @@ class OpentelekomcloudProviderConfig:
     def backoff_retry_timeout(self) -> typing.Optional[jsii.Number]:
         '''Timeout in seconds for backoff retry.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#backoff_retry_timeout OpentelekomcloudProvider#backoff_retry_timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#backoff_retry_timeout OpentelekomcloudProvider#backoff_retry_timeout}
         '''
         result = self._values.get("backoff_retry_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1078,7 +1078,7 @@ class OpentelekomcloudProviderConfig:
     def cacert_file(self) -> typing.Optional[builtins.str]:
         '''A Custom CA certificate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#cacert_file OpentelekomcloudProvider#cacert_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#cacert_file OpentelekomcloudProvider#cacert_file}
         '''
         result = self._values.get("cacert_file")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1087,7 +1087,7 @@ class OpentelekomcloudProviderConfig:
     def cert(self) -> typing.Optional[builtins.str]:
         '''A client certificate to authenticate with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#cert OpentelekomcloudProvider#cert}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#cert OpentelekomcloudProvider#cert}
         '''
         result = self._values.get("cert")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1096,7 +1096,7 @@ class OpentelekomcloudProviderConfig:
     def cloud(self) -> typing.Optional[builtins.str]:
         '''An entry in a ``clouds.yaml`` file to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#cloud OpentelekomcloudProvider#cloud}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#cloud OpentelekomcloudProvider#cloud}
         '''
         result = self._values.get("cloud")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1105,7 +1105,7 @@ class OpentelekomcloudProviderConfig:
     def delegated_project(self) -> typing.Optional[builtins.str]:
         '''The name of delegated project (Identity v3).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#delegated_project OpentelekomcloudProvider#delegated_project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#delegated_project OpentelekomcloudProvider#delegated_project}
         '''
         result = self._values.get("delegated_project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1114,7 +1114,7 @@ class OpentelekomcloudProviderConfig:
     def domain_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the Domain to scope to (Identity v3).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#domain_id OpentelekomcloudProvider#domain_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#domain_id OpentelekomcloudProvider#domain_id}
         '''
         result = self._values.get("domain_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1123,14 +1123,14 @@ class OpentelekomcloudProviderConfig:
     def domain_name(self) -> typing.Optional[builtins.str]:
         '''The name of the Domain to scope to (Identity v3).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#domain_name OpentelekomcloudProvider#domain_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#domain_name OpentelekomcloudProvider#domain_name}
         '''
         result = self._values.get("domain_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def endpoint_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#endpoint_type OpentelekomcloudProvider#endpoint_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#endpoint_type OpentelekomcloudProvider#endpoint_type}.'''
         result = self._values.get("endpoint_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1140,7 +1140,7 @@ class OpentelekomcloudProviderConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Trust self-signed certificates.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#insecure OpentelekomcloudProvider#insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#insecure OpentelekomcloudProvider#insecure}
         '''
         result = self._values.get("insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1149,7 +1149,7 @@ class OpentelekomcloudProviderConfig:
     def key(self) -> typing.Optional[builtins.str]:
         '''A client private key to authenticate with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#key OpentelekomcloudProvider#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#key OpentelekomcloudProvider#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1158,7 +1158,7 @@ class OpentelekomcloudProviderConfig:
     def max_backoff_retries(self) -> typing.Optional[jsii.Number]:
         '''How many times HTTP request should be retried when rate limit reached.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#max_backoff_retries OpentelekomcloudProvider#max_backoff_retries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#max_backoff_retries OpentelekomcloudProvider#max_backoff_retries}
         '''
         result = self._values.get("max_backoff_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1167,7 +1167,7 @@ class OpentelekomcloudProviderConfig:
     def max_retries(self) -> typing.Optional[jsii.Number]:
         '''How many times HTTP connection should be retried until giving up.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#max_retries OpentelekomcloudProvider#max_retries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#max_retries OpentelekomcloudProvider#max_retries}
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1176,7 +1176,7 @@ class OpentelekomcloudProviderConfig:
     def passcode(self) -> typing.Optional[builtins.str]:
         '''One-time MFA passcode.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#passcode OpentelekomcloudProvider#passcode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#passcode OpentelekomcloudProvider#passcode}
         '''
         result = self._values.get("passcode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1185,7 +1185,7 @@ class OpentelekomcloudProviderConfig:
     def password(self) -> typing.Optional[builtins.str]:
         '''Password to login with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#password OpentelekomcloudProvider#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#password OpentelekomcloudProvider#password}
         '''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1194,7 +1194,7 @@ class OpentelekomcloudProviderConfig:
     def region(self) -> typing.Optional[builtins.str]:
         '''The OpenTelekomCloud region to connect to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#region OpentelekomcloudProvider#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#region OpentelekomcloudProvider#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1203,7 +1203,7 @@ class OpentelekomcloudProviderConfig:
     def secret_key(self) -> typing.Optional[builtins.str]:
         '''The secret key for API operations. You can retrieve this from the 'My Credential' section of the console.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#secret_key OpentelekomcloudProvider#secret_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#secret_key OpentelekomcloudProvider#secret_key}
         '''
         result = self._values.get("secret_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1212,7 +1212,7 @@ class OpentelekomcloudProviderConfig:
     def security_token(self) -> typing.Optional[builtins.str]:
         '''Security token to use for OBS federated authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#security_token OpentelekomcloudProvider#security_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#security_token OpentelekomcloudProvider#security_token}
         '''
         result = self._values.get("security_token")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1223,7 +1223,7 @@ class OpentelekomcloudProviderConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Use Swift's authentication system instead of Keystone. Only used for interaction with Swift.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#swauth OpentelekomcloudProvider#swauth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#swauth OpentelekomcloudProvider#swauth}
         '''
         result = self._values.get("swauth")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1232,7 +1232,7 @@ class OpentelekomcloudProviderConfig:
     def tenant_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the Tenant (Identity v2) or Project (Identity v3) to login with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#tenant_id OpentelekomcloudProvider#tenant_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#tenant_id OpentelekomcloudProvider#tenant_id}
         '''
         result = self._values.get("tenant_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1241,7 +1241,7 @@ class OpentelekomcloudProviderConfig:
     def tenant_name(self) -> typing.Optional[builtins.str]:
         '''The name of the Tenant (Identity v2) or Project (Identity v3) to login with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#tenant_name OpentelekomcloudProvider#tenant_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#tenant_name OpentelekomcloudProvider#tenant_name}
         '''
         result = self._values.get("tenant_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1250,7 +1250,7 @@ class OpentelekomcloudProviderConfig:
     def token(self) -> typing.Optional[builtins.str]:
         '''Authentication token to use as an alternative to username/password.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#token OpentelekomcloudProvider#token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#token OpentelekomcloudProvider#token}
         '''
         result = self._values.get("token")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1259,7 +1259,7 @@ class OpentelekomcloudProviderConfig:
     def user_id(self) -> typing.Optional[builtins.str]:
         '''User ID to login with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#user_id OpentelekomcloudProvider#user_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#user_id OpentelekomcloudProvider#user_id}
         '''
         result = self._values.get("user_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1268,7 +1268,7 @@ class OpentelekomcloudProviderConfig:
     def user_name(self) -> typing.Optional[builtins.str]:
         '''Username to login with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs#user_name OpentelekomcloudProvider#user_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs#user_name OpentelekomcloudProvider#user_name}
         '''
         result = self._values.get("user_name")
         return typing.cast(typing.Optional[builtins.str], result)

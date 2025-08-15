@@ -96,27 +96,30 @@ class Microscope:
         Creates instance of `Microscope` from the given config.
         Parts are instantiated depending on device addresses in the config.
         """
-        self._connection = connection
-        self._config = MicroscopeConfig.from_binary(MicroscopeConfig.to_binary(config))
-        self._illuminator = Illuminator(Device(connection, config.illuminator)) if config.illuminator else None
-        self._focus_axis = Axis(Device(connection, config.focus_axis.device), config.focus_axis.axis)\
+        self._connection: Connection = connection
+        self._config: MicroscopeConfig = MicroscopeConfig.from_binary(MicroscopeConfig.to_binary(config))
+        self._illuminator: Optional[Illuminator] = Illuminator(Device(connection, config.illuminator))\
+            if config.illuminator else None
+        self._focus_axis: Optional[Axis] = Axis(Device(connection, config.focus_axis.device), config.focus_axis.axis)\
             if config.focus_axis and config.focus_axis.device else None
-        self._x_axis = Axis(Device(connection, config.x_axis.device), config.x_axis.axis)\
+        self._x_axis: Optional[Axis] = Axis(Device(connection, config.x_axis.device), config.x_axis.axis)\
             if config.x_axis and config.x_axis.device else None
-        self._y_axis = Axis(Device(connection, config.y_axis.device), config.y_axis.axis)\
+        self._y_axis: Optional[Axis] = Axis(Device(connection, config.y_axis.device), config.y_axis.axis)\
             if config.y_axis and config.y_axis.device else None
-        self._plate = AxisGroup([self._x_axis, self._y_axis])\
+        self._plate: Optional[AxisGroup] = AxisGroup([self._x_axis, self._y_axis])\
             if self._x_axis is not None and self._y_axis is not None else None
-        self._objective_changer = ObjectiveChanger(Device(connection, config.objective_changer), self._focus_axis)\
+        self._objective_changer: Optional[ObjectiveChanger] = ObjectiveChanger(
+            Device(connection, config.objective_changer),
+            self._focus_axis)\
             if config.objective_changer and self._focus_axis else None
-        self._filter_changer = FilterChanger(Device(connection, config.filter_changer))\
+        self._filter_changer: Optional[FilterChanger] = FilterChanger(Device(connection, config.filter_changer))\
             if config.filter_changer else None
-        self._autofocus = Autofocus(
+        self._autofocus: Optional[Autofocus] = Autofocus(
             config.autofocus,
             self._focus_axis,
             self._objective_changer.turret if self._objective_changer else None)\
             if config.autofocus and self._focus_axis else None
-        self._camera_trigger = CameraTrigger(
+        self._camera_trigger: Optional[CameraTrigger] = CameraTrigger(
             Device(connection, config.camera_trigger.device),
             config.camera_trigger.channel)\
             if config.camera_trigger and config.camera_trigger.device else None

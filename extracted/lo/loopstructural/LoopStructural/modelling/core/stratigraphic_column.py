@@ -1,7 +1,7 @@
 import enum
 from typing import Dict, Optional, List, Tuple
 import numpy as np
-from LoopStructural.utils import rng, getLogger, Observable
+from LoopStructural.utils import rng, getLogger, Observable, random_colour
 logger = getLogger(__name__)
 logger.info("Imported LoopStructural Stratigraphic Column module")
 class UnconformityType(enum.Enum):
@@ -57,7 +57,7 @@ class StratigraphicUnit(StratigraphicColumnElement, Observable['StratigraphicUni
         self._thickness = thickness
         self.data = data
         self.element_type = StratigraphicColumnElementType.UNIT
-        self._id = id
+        self.id = id
         self.min_value = None  # Minimum scalar field value for the unit
         self.max_value = None  # Maximum scalar field value for the unit
     @property
@@ -99,7 +99,7 @@ class StratigraphicUnit(StratigraphicColumnElement, Observable['StratigraphicUni
         colour = self.colour
         if isinstance(colour, np.ndarray):
             colour = colour.astype(float).tolist()
-        return {"name": self.name, "colour": colour, "thickness": self.thickness, 'uuid': self.uuid}
+        return {"name": self.name, "colour": colour, "thickness": self.thickness, 'uuid': self.uuid, 'id': self.id}
 
     @classmethod
     def from_dict(cls, data):
@@ -112,7 +112,7 @@ class StratigraphicUnit(StratigraphicColumnElement, Observable['StratigraphicUni
         colour = data.get("colour")
         thickness = data.get("thickness", None)
         uuid = data.get("uuid", None)
-        return cls(uuid=uuid, name=name, colour=colour, thickness=thickness)
+        return cls(uuid=uuid, name=name, colour=colour, thickness=thickness, id=data.get("id", None))
 
     def __str__(self):
         """
@@ -575,3 +575,29 @@ class StratigraphicColumn(Observable['StratigraphicColumn']):
         ax.axis("off")
 
         return fig
+    
+    def cmap(self):
+        try:
+            import matplotlib.colors as colors
+
+            colours = []
+            boundaries = []
+            data = []
+            for group in self.get_groups():
+                for u in group.units:
+                    colour = u.colour
+                    if not isinstance(colour, str):
+                        try:
+                            u.colour = colors.to_hex(colour)
+                        except ValueError:
+                            logger.warning(f"Cannot convert colour {colour} to hex, using default")
+                            u.colour = random_colour()
+                    data.append((u.id, u.colour))
+                    colours.append(u.colour)
+                    boundaries.append(u.id)
+             # print(u,v)
+            cmap = colors.ListedColormap(colours)
+        except ImportError:
+            logger.warning("Cannot use predefined colours as I can't import matplotlib")
+            cmap = "tab20"
+        return cmap

@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_dws_cluster_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_dws_cluster_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_dws_cluster_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DwsClusterV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.dwsClusterV1.DwsClusterV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1 opentelekomcloud_dws_cluster_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1 opentelekomcloud_dws_cluster_v1}.'''
 
     def __init__(
         self,
@@ -76,27 +76,27 @@ class DwsClusterV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1 opentelekomcloud_dws_cluster_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1 opentelekomcloud_dws_cluster_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#name DwsClusterV1#name}.
-        :param network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#network_id DwsClusterV1#network_id}.
-        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#node_type DwsClusterV1#node_type}.
-        :param number_of_node: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#number_of_node DwsClusterV1#number_of_node}.
-        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#security_group_id DwsClusterV1#security_group_id}.
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#user_name DwsClusterV1#user_name}.
-        :param user_pwd: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#user_pwd DwsClusterV1#user_pwd}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#vpc_id DwsClusterV1#vpc_id}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#availability_zone DwsClusterV1#availability_zone}.
-        :param endpoints: endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#endpoints DwsClusterV1#endpoints}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#id DwsClusterV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param keep_last_manual_snapshot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#keep_last_manual_snapshot DwsClusterV1#keep_last_manual_snapshot}.
-        :param number_of_cn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#number_of_cn DwsClusterV1#number_of_cn}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#port DwsClusterV1#port}.
-        :param public_endpoints: public_endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#public_endpoints DwsClusterV1#public_endpoints}
-        :param public_ip: public_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#public_ip DwsClusterV1#public_ip}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#timeouts DwsClusterV1#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#name DwsClusterV1#name}.
+        :param network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#network_id DwsClusterV1#network_id}.
+        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#node_type DwsClusterV1#node_type}.
+        :param number_of_node: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#number_of_node DwsClusterV1#number_of_node}.
+        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#security_group_id DwsClusterV1#security_group_id}.
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#user_name DwsClusterV1#user_name}.
+        :param user_pwd: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#user_pwd DwsClusterV1#user_pwd}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#vpc_id DwsClusterV1#vpc_id}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#availability_zone DwsClusterV1#availability_zone}.
+        :param endpoints: endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#endpoints DwsClusterV1#endpoints}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#id DwsClusterV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param keep_last_manual_snapshot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#keep_last_manual_snapshot DwsClusterV1#keep_last_manual_snapshot}.
+        :param number_of_cn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#number_of_cn DwsClusterV1#number_of_cn}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#port DwsClusterV1#port}.
+        :param public_endpoints: public_endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#public_endpoints DwsClusterV1#public_endpoints}
+        :param public_ip: public_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#public_ip DwsClusterV1#public_ip}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#timeouts DwsClusterV1#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -151,7 +151,7 @@ class DwsClusterV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DwsClusterV1 to import.
-        :param import_from_id: The id of the existing DwsClusterV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DwsClusterV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DwsClusterV1 to import is found.
         '''
         if __debug__:
@@ -196,8 +196,8 @@ class DwsClusterV1(
         public_bind_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param eip_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#eip_id DwsClusterV1#eip_id}.
-        :param public_bind_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#public_bind_type DwsClusterV1#public_bind_type}.
+        :param eip_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#eip_id DwsClusterV1#eip_id}.
+        :param public_bind_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#public_bind_type DwsClusterV1#public_bind_type}.
         '''
         value = DwsClusterV1PublicIp(eip_id=eip_id, public_bind_type=public_bind_type)
 
@@ -212,9 +212,9 @@ class DwsClusterV1(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#create DwsClusterV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#delete DwsClusterV1#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#update DwsClusterV1#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#create DwsClusterV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#delete DwsClusterV1#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#update DwsClusterV1#update}.
         '''
         value = DwsClusterV1Timeouts(create=create, delete=delete, update=update)
 
@@ -644,23 +644,23 @@ class DwsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#name DwsClusterV1#name}.
-        :param network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#network_id DwsClusterV1#network_id}.
-        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#node_type DwsClusterV1#node_type}.
-        :param number_of_node: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#number_of_node DwsClusterV1#number_of_node}.
-        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#security_group_id DwsClusterV1#security_group_id}.
-        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#user_name DwsClusterV1#user_name}.
-        :param user_pwd: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#user_pwd DwsClusterV1#user_pwd}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#vpc_id DwsClusterV1#vpc_id}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#availability_zone DwsClusterV1#availability_zone}.
-        :param endpoints: endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#endpoints DwsClusterV1#endpoints}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#id DwsClusterV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param keep_last_manual_snapshot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#keep_last_manual_snapshot DwsClusterV1#keep_last_manual_snapshot}.
-        :param number_of_cn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#number_of_cn DwsClusterV1#number_of_cn}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#port DwsClusterV1#port}.
-        :param public_endpoints: public_endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#public_endpoints DwsClusterV1#public_endpoints}
-        :param public_ip: public_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#public_ip DwsClusterV1#public_ip}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#timeouts DwsClusterV1#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#name DwsClusterV1#name}.
+        :param network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#network_id DwsClusterV1#network_id}.
+        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#node_type DwsClusterV1#node_type}.
+        :param number_of_node: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#number_of_node DwsClusterV1#number_of_node}.
+        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#security_group_id DwsClusterV1#security_group_id}.
+        :param user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#user_name DwsClusterV1#user_name}.
+        :param user_pwd: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#user_pwd DwsClusterV1#user_pwd}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#vpc_id DwsClusterV1#vpc_id}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#availability_zone DwsClusterV1#availability_zone}.
+        :param endpoints: endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#endpoints DwsClusterV1#endpoints}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#id DwsClusterV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param keep_last_manual_snapshot: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#keep_last_manual_snapshot DwsClusterV1#keep_last_manual_snapshot}.
+        :param number_of_cn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#number_of_cn DwsClusterV1#number_of_cn}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#port DwsClusterV1#port}.
+        :param public_endpoints: public_endpoints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#public_endpoints DwsClusterV1#public_endpoints}
+        :param public_ip: public_ip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#public_ip DwsClusterV1#public_ip}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#timeouts DwsClusterV1#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -803,63 +803,63 @@ class DwsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#name DwsClusterV1#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#name DwsClusterV1#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def network_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#network_id DwsClusterV1#network_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#network_id DwsClusterV1#network_id}.'''
         result = self._values.get("network_id")
         assert result is not None, "Required property 'network_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def node_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#node_type DwsClusterV1#node_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#node_type DwsClusterV1#node_type}.'''
         result = self._values.get("node_type")
         assert result is not None, "Required property 'node_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def number_of_node(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#number_of_node DwsClusterV1#number_of_node}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#number_of_node DwsClusterV1#number_of_node}.'''
         result = self._values.get("number_of_node")
         assert result is not None, "Required property 'number_of_node' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def security_group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#security_group_id DwsClusterV1#security_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#security_group_id DwsClusterV1#security_group_id}.'''
         result = self._values.get("security_group_id")
         assert result is not None, "Required property 'security_group_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#user_name DwsClusterV1#user_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#user_name DwsClusterV1#user_name}.'''
         result = self._values.get("user_name")
         assert result is not None, "Required property 'user_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_pwd(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#user_pwd DwsClusterV1#user_pwd}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#user_pwd DwsClusterV1#user_pwd}.'''
         result = self._values.get("user_pwd")
         assert result is not None, "Required property 'user_pwd' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#vpc_id DwsClusterV1#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#vpc_id DwsClusterV1#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#availability_zone DwsClusterV1#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#availability_zone DwsClusterV1#availability_zone}.'''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -869,14 +869,14 @@ class DwsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DwsClusterV1Endpoints"]]]:
         '''endpoints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#endpoints DwsClusterV1#endpoints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#endpoints DwsClusterV1#endpoints}
         '''
         result = self._values.get("endpoints")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DwsClusterV1Endpoints"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#id DwsClusterV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#id DwsClusterV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -886,19 +886,19 @@ class DwsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def keep_last_manual_snapshot(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#keep_last_manual_snapshot DwsClusterV1#keep_last_manual_snapshot}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#keep_last_manual_snapshot DwsClusterV1#keep_last_manual_snapshot}.'''
         result = self._values.get("keep_last_manual_snapshot")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def number_of_cn(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#number_of_cn DwsClusterV1#number_of_cn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#number_of_cn DwsClusterV1#number_of_cn}.'''
         result = self._values.get("number_of_cn")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#port DwsClusterV1#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#port DwsClusterV1#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -908,7 +908,7 @@ class DwsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DwsClusterV1PublicEndpoints"]]]:
         '''public_endpoints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#public_endpoints DwsClusterV1#public_endpoints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#public_endpoints DwsClusterV1#public_endpoints}
         '''
         result = self._values.get("public_endpoints")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DwsClusterV1PublicEndpoints"]]], result)
@@ -917,7 +917,7 @@ class DwsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def public_ip(self) -> typing.Optional["DwsClusterV1PublicIp"]:
         '''public_ip block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#public_ip DwsClusterV1#public_ip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#public_ip DwsClusterV1#public_ip}
         '''
         result = self._values.get("public_ip")
         return typing.cast(typing.Optional["DwsClusterV1PublicIp"], result)
@@ -926,7 +926,7 @@ class DwsClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DwsClusterV1Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#timeouts DwsClusterV1#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#timeouts DwsClusterV1#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DwsClusterV1Timeouts"], result)
@@ -1286,8 +1286,8 @@ class DwsClusterV1PublicIp:
         public_bind_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param eip_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#eip_id DwsClusterV1#eip_id}.
-        :param public_bind_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#public_bind_type DwsClusterV1#public_bind_type}.
+        :param eip_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#eip_id DwsClusterV1#eip_id}.
+        :param public_bind_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#public_bind_type DwsClusterV1#public_bind_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a04be56df1f80731425ad902edccb137b79f912fd04835c04ff5ae88055f19c4)
@@ -1301,13 +1301,13 @@ class DwsClusterV1PublicIp:
 
     @builtins.property
     def eip_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#eip_id DwsClusterV1#eip_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#eip_id DwsClusterV1#eip_id}.'''
         result = self._values.get("eip_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def public_bind_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#public_bind_type DwsClusterV1#public_bind_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#public_bind_type DwsClusterV1#public_bind_type}.'''
         result = self._values.get("public_bind_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1412,9 +1412,9 @@ class DwsClusterV1Timeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#create DwsClusterV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#delete DwsClusterV1#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#update DwsClusterV1#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#create DwsClusterV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#delete DwsClusterV1#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#update DwsClusterV1#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7f9eedfab0d1fe5ef280fce85fa7f1cd420cc498dfd81ce99cefd5dacfd00d8b)
@@ -1431,19 +1431,19 @@ class DwsClusterV1Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#create DwsClusterV1#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#create DwsClusterV1#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#delete DwsClusterV1#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#delete DwsClusterV1#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dws_cluster_v1#update DwsClusterV1#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dws_cluster_v1#update DwsClusterV1#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

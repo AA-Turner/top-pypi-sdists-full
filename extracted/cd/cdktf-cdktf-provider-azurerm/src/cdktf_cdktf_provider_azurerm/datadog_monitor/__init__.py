@@ -1,7 +1,7 @@
 r'''
 # `azurerm_datadog_monitor`
 
-Refer to the Terraform Registry for docs: [`azurerm_datadog_monitor`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor).
+Refer to the Terraform Registry for docs: [`azurerm_datadog_monitor`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DatadogMonitor(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.datadogMonitor.DatadogMonitor",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor azurerm_datadog_monitor}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor azurerm_datadog_monitor}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class DatadogMonitor(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor azurerm_datadog_monitor} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor azurerm_datadog_monitor} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param datadog_organization: datadog_organization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#datadog_organization DatadogMonitor#datadog_organization}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#location DatadogMonitor#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#name DatadogMonitor#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#resource_group_name DatadogMonitor#resource_group_name}.
-        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#sku_name DatadogMonitor#sku_name}.
-        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#user DatadogMonitor#user}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#id DatadogMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#identity DatadogMonitor#identity}
-        :param monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#monitoring_enabled DatadogMonitor#monitoring_enabled}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#tags DatadogMonitor#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#timeouts DatadogMonitor#timeouts}
+        :param datadog_organization: datadog_organization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#datadog_organization DatadogMonitor#datadog_organization}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#location DatadogMonitor#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#name DatadogMonitor#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#resource_group_name DatadogMonitor#resource_group_name}.
+        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#sku_name DatadogMonitor#sku_name}.
+        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#user DatadogMonitor#user}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#id DatadogMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#identity DatadogMonitor#identity}
+        :param monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#monitoring_enabled DatadogMonitor#monitoring_enabled}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#tags DatadogMonitor#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#timeouts DatadogMonitor#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class DatadogMonitor(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DatadogMonitor to import.
-        :param import_from_id: The id of the existing DatadogMonitor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DatadogMonitor that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DatadogMonitor to import is found.
         '''
         if __debug__:
@@ -156,12 +156,12 @@ class DatadogMonitor(
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#api_key DatadogMonitor#api_key}.
-        :param application_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#application_key DatadogMonitor#application_key}.
-        :param enterprise_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#enterprise_app_id DatadogMonitor#enterprise_app_id}.
-        :param linking_auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#linking_auth_code DatadogMonitor#linking_auth_code}.
-        :param linking_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#linking_client_id DatadogMonitor#linking_client_id}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#redirect_uri DatadogMonitor#redirect_uri}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#api_key DatadogMonitor#api_key}.
+        :param application_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#application_key DatadogMonitor#application_key}.
+        :param enterprise_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#enterprise_app_id DatadogMonitor#enterprise_app_id}.
+        :param linking_auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#linking_auth_code DatadogMonitor#linking_auth_code}.
+        :param linking_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#linking_client_id DatadogMonitor#linking_client_id}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#redirect_uri DatadogMonitor#redirect_uri}.
         '''
         value = DatadogMonitorDatadogOrganization(
             api_key=api_key,
@@ -177,7 +177,7 @@ class DatadogMonitor(
     @jsii.member(jsii_name="putIdentity")
     def put_identity(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#type DatadogMonitor#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#type DatadogMonitor#type}.
         '''
         value = DatadogMonitorIdentity(type=type)
 
@@ -193,10 +193,10 @@ class DatadogMonitor(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#create DatadogMonitor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#delete DatadogMonitor#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#read DatadogMonitor#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#update DatadogMonitor#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#create DatadogMonitor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#delete DatadogMonitor#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#read DatadogMonitor#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#update DatadogMonitor#update}.
         '''
         value = DatadogMonitorTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -213,9 +213,9 @@ class DatadogMonitor(
         phone_number: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#email DatadogMonitor#email}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#name DatadogMonitor#name}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#phone_number DatadogMonitor#phone_number}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#email DatadogMonitor#email}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#name DatadogMonitor#name}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#phone_number DatadogMonitor#phone_number}.
         '''
         value = DatadogMonitorUser(email=email, name=name, phone_number=phone_number)
 
@@ -487,17 +487,17 @@ class DatadogMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param datadog_organization: datadog_organization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#datadog_organization DatadogMonitor#datadog_organization}
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#location DatadogMonitor#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#name DatadogMonitor#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#resource_group_name DatadogMonitor#resource_group_name}.
-        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#sku_name DatadogMonitor#sku_name}.
-        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#user DatadogMonitor#user}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#id DatadogMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#identity DatadogMonitor#identity}
-        :param monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#monitoring_enabled DatadogMonitor#monitoring_enabled}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#tags DatadogMonitor#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#timeouts DatadogMonitor#timeouts}
+        :param datadog_organization: datadog_organization block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#datadog_organization DatadogMonitor#datadog_organization}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#location DatadogMonitor#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#name DatadogMonitor#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#resource_group_name DatadogMonitor#resource_group_name}.
+        :param sku_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#sku_name DatadogMonitor#sku_name}.
+        :param user: user block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#user DatadogMonitor#user}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#id DatadogMonitor#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#identity DatadogMonitor#identity}
+        :param monitoring_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#monitoring_enabled DatadogMonitor#monitoring_enabled}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#tags DatadogMonitor#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#timeouts DatadogMonitor#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -630,7 +630,7 @@ class DatadogMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def datadog_organization(self) -> "DatadogMonitorDatadogOrganization":
         '''datadog_organization block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#datadog_organization DatadogMonitor#datadog_organization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#datadog_organization DatadogMonitor#datadog_organization}
         '''
         result = self._values.get("datadog_organization")
         assert result is not None, "Required property 'datadog_organization' is missing"
@@ -638,28 +638,28 @@ class DatadogMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#location DatadogMonitor#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#location DatadogMonitor#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#name DatadogMonitor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#name DatadogMonitor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#resource_group_name DatadogMonitor#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#resource_group_name DatadogMonitor#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sku_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#sku_name DatadogMonitor#sku_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#sku_name DatadogMonitor#sku_name}.'''
         result = self._values.get("sku_name")
         assert result is not None, "Required property 'sku_name' is missing"
         return typing.cast(builtins.str, result)
@@ -668,7 +668,7 @@ class DatadogMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user(self) -> "DatadogMonitorUser":
         '''user block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#user DatadogMonitor#user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#user DatadogMonitor#user}
         '''
         result = self._values.get("user")
         assert result is not None, "Required property 'user' is missing"
@@ -676,7 +676,7 @@ class DatadogMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#id DatadogMonitor#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#id DatadogMonitor#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -688,7 +688,7 @@ class DatadogMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["DatadogMonitorIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#identity DatadogMonitor#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#identity DatadogMonitor#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["DatadogMonitorIdentity"], result)
@@ -697,13 +697,13 @@ class DatadogMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def monitoring_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#monitoring_enabled DatadogMonitor#monitoring_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#monitoring_enabled DatadogMonitor#monitoring_enabled}.'''
         result = self._values.get("monitoring_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#tags DatadogMonitor#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#tags DatadogMonitor#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -711,7 +711,7 @@ class DatadogMonitorConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DatadogMonitorTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#timeouts DatadogMonitor#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#timeouts DatadogMonitor#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DatadogMonitorTimeouts"], result)
@@ -752,12 +752,12 @@ class DatadogMonitorDatadogOrganization:
         redirect_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#api_key DatadogMonitor#api_key}.
-        :param application_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#application_key DatadogMonitor#application_key}.
-        :param enterprise_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#enterprise_app_id DatadogMonitor#enterprise_app_id}.
-        :param linking_auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#linking_auth_code DatadogMonitor#linking_auth_code}.
-        :param linking_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#linking_client_id DatadogMonitor#linking_client_id}.
-        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#redirect_uri DatadogMonitor#redirect_uri}.
+        :param api_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#api_key DatadogMonitor#api_key}.
+        :param application_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#application_key DatadogMonitor#application_key}.
+        :param enterprise_app_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#enterprise_app_id DatadogMonitor#enterprise_app_id}.
+        :param linking_auth_code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#linking_auth_code DatadogMonitor#linking_auth_code}.
+        :param linking_client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#linking_client_id DatadogMonitor#linking_client_id}.
+        :param redirect_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#redirect_uri DatadogMonitor#redirect_uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b52843e4ae879329382d344b0813fc5aa7b7672aa65e270c5b09a7295f2bf84)
@@ -782,39 +782,39 @@ class DatadogMonitorDatadogOrganization:
 
     @builtins.property
     def api_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#api_key DatadogMonitor#api_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#api_key DatadogMonitor#api_key}.'''
         result = self._values.get("api_key")
         assert result is not None, "Required property 'api_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def application_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#application_key DatadogMonitor#application_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#application_key DatadogMonitor#application_key}.'''
         result = self._values.get("application_key")
         assert result is not None, "Required property 'application_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def enterprise_app_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#enterprise_app_id DatadogMonitor#enterprise_app_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#enterprise_app_id DatadogMonitor#enterprise_app_id}.'''
         result = self._values.get("enterprise_app_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def linking_auth_code(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#linking_auth_code DatadogMonitor#linking_auth_code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#linking_auth_code DatadogMonitor#linking_auth_code}.'''
         result = self._values.get("linking_auth_code")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def linking_client_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#linking_client_id DatadogMonitor#linking_client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#linking_client_id DatadogMonitor#linking_client_id}.'''
         result = self._values.get("linking_client_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def redirect_uri(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#redirect_uri DatadogMonitor#redirect_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#redirect_uri DatadogMonitor#redirect_uri}.'''
         result = self._values.get("redirect_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1002,7 +1002,7 @@ class DatadogMonitorDatadogOrganizationOutputReference(
 class DatadogMonitorIdentity:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#type DatadogMonitor#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#type DatadogMonitor#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2616397e02f756169d9cf250364c18c58422087b1dfccf324c20b361a8625bd9)
@@ -1013,7 +1013,7 @@ class DatadogMonitorIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#type DatadogMonitor#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#type DatadogMonitor#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1110,10 +1110,10 @@ class DatadogMonitorTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#create DatadogMonitor#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#delete DatadogMonitor#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#read DatadogMonitor#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#update DatadogMonitor#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#create DatadogMonitor#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#delete DatadogMonitor#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#read DatadogMonitor#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#update DatadogMonitor#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__369c8ccbaf5f289ecb9f8aba67d17deb4a9fd7c662c1deec7e2c3b9955752bdb)
@@ -1133,25 +1133,25 @@ class DatadogMonitorTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#create DatadogMonitor#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#create DatadogMonitor#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#delete DatadogMonitor#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#delete DatadogMonitor#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#read DatadogMonitor#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#read DatadogMonitor#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#update DatadogMonitor#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#update DatadogMonitor#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1303,9 +1303,9 @@ class DatadogMonitorUser:
         phone_number: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#email DatadogMonitor#email}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#name DatadogMonitor#name}.
-        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#phone_number DatadogMonitor#phone_number}.
+        :param email: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#email DatadogMonitor#email}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#name DatadogMonitor#name}.
+        :param phone_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#phone_number DatadogMonitor#phone_number}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7c98db12185fab7fe1ba85a46982ef802b92fb5e0f0a93f0bf25a46c266ef364)
@@ -1321,21 +1321,21 @@ class DatadogMonitorUser:
 
     @builtins.property
     def email(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#email DatadogMonitor#email}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#email DatadogMonitor#email}.'''
         result = self._values.get("email")
         assert result is not None, "Required property 'email' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#name DatadogMonitor#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#name DatadogMonitor#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def phone_number(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/datadog_monitor#phone_number DatadogMonitor#phone_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/datadog_monitor#phone_number DatadogMonitor#phone_number}.'''
         result = self._values.get("phone_number")
         return typing.cast(typing.Optional[builtins.str], result)
 

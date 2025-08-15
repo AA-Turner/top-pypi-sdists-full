@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: freqtrade-client
-Version: 2025.6
+Version: 2025.7
 Summary: Freqtrade - Client scripts
 Author: Freqtrade Team
 Author-email: Freqtrade Team <freqtrade@protonmail.com>
@@ -11,14 +11,13 @@ Project-URL: Bug Tracker, https://github.com/freqtrade/freqtrade/issues
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Unix
 Classifier: Topic :: Office/Business :: Financial :: Investment
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests>=2.26.0

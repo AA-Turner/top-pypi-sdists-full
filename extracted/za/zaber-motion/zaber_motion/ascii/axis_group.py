@@ -30,7 +30,7 @@ class AxisGroup:
         """
         Initializes the group with the axes to be controlled.
         """
-        self._axes = axes.copy()
+        self._axes: List[Axis] = axes.copy()
 
     def home(
             self

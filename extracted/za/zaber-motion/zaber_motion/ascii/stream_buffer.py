@@ -29,8 +29,8 @@ class StreamBuffer:
         return self._buffer_id
 
     def __init__(self, device: 'Device', buffer_id: int):
-        self._device = device
-        self._buffer_id = buffer_id
+        self._device: 'Device' = device
+        self._buffer_id: int = buffer_id
 
     def get_content(
             self

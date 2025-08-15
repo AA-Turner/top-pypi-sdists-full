@@ -24,7 +24,7 @@ def _use_annotation_parameters(user_cls: type) -> bool: ...
 def _get_class_constructor_signature(user_cls: type) -> inspect.Signature: ...
 
 class _ServiceOptions:
-    """_ServiceOptions(secrets: Collection[modal.secret._Secret] = (), validated_volumes: Sequence[tuple[str, modal.volume._Volume]] = (), resources: Optional[modal_proto.api_pb2.Resources] = None, retry_policy: Optional[modal_proto.api_pb2.FunctionRetryPolicy] = None, max_containers: Optional[int] = None, buffer_containers: Optional[int] = None, scaledown_window: Optional[int] = None, timeout_secs: Optional[int] = None, max_concurrent_inputs: Optional[int] = None, target_concurrent_inputs: Optional[int] = None, batch_max_size: Optional[int] = None, batch_wait_ms: Optional[int] = None)"""
+    """_ServiceOptions(secrets: Collection[modal.secret._Secret] = (), validated_volumes: Sequence[tuple[str, modal.volume._Volume]] = (), resources: Optional[modal_proto.api_pb2.Resources] = None, retry_policy: Optional[modal_proto.api_pb2.FunctionRetryPolicy] = None, max_containers: Optional[int] = None, buffer_containers: Optional[int] = None, scaledown_window: Optional[int] = None, timeout_secs: Optional[int] = None, max_concurrent_inputs: Optional[int] = None, target_concurrent_inputs: Optional[int] = None, batch_max_size: Optional[int] = None, batch_wait_ms: Optional[int] = None, scheduler_placement: Optional[modal_proto.api_pb2.SchedulerPlacement] = None, cloud: Optional[str] = None)"""
 
     secrets: typing.Collection[modal.secret._Secret]
     validated_volumes: typing.Sequence[tuple[str, modal.volume._Volume]]
@@ -38,6 +38,8 @@ class _ServiceOptions:
     target_concurrent_inputs: typing.Optional[int]
     batch_max_size: typing.Optional[int]
     batch_wait_ms: typing.Optional[int]
+    scheduler_placement: typing.Optional[modal_proto.api_pb2.SchedulerPlacement]
+    cloud: typing.Optional[str]
 
     def merge_options(self, new_options: _ServiceOptions) -> _ServiceOptions:
         """Implement protobuf-like MergeFrom semantics for this dataclass.
@@ -60,6 +62,8 @@ class _ServiceOptions:
         target_concurrent_inputs: typing.Optional[int] = None,
         batch_max_size: typing.Optional[int] = None,
         batch_wait_ms: typing.Optional[int] = None,
+        scheduler_placement: typing.Optional[modal_proto.api_pb2.SchedulerPlacement] = None,
+        cloud: typing.Optional[str] = None,
     ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
@@ -395,6 +399,8 @@ class _Cls(modal._object._Object):
         buffer_containers: typing.Optional[int] = None,
         scaledown_window: typing.Optional[int] = None,
         timeout: typing.Optional[int] = None,
+        region: typing.Union[str, typing.Sequence[str], None] = None,
+        cloud: typing.Optional[str] = None,
         concurrency_limit: typing.Optional[int] = None,
         container_idle_timeout: typing.Optional[int] = None,
         allow_concurrent_inputs: typing.Optional[int] = None,
@@ -559,6 +565,8 @@ class Cls(modal.object.Object):
         buffer_containers: typing.Optional[int] = None,
         scaledown_window: typing.Optional[int] = None,
         timeout: typing.Optional[int] = None,
+        region: typing.Union[str, typing.Sequence[str], None] = None,
+        cloud: typing.Optional[str] = None,
         concurrency_limit: typing.Optional[int] = None,
         container_idle_timeout: typing.Optional[int] = None,
         allow_concurrent_inputs: typing.Optional[int] = None,

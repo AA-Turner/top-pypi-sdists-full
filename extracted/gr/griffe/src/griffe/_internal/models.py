@@ -1193,13 +1193,30 @@ class Object(ObjectAliasMixin):
         base: dict[str, Any] = {
             "kind": self.kind,
             "name": self.name,
-            "public": self.public,
-            "exports": self.exports and [str(export) for export in self.exports],
-            "imports": self.imports,
             "runtime": self.runtime,
-            "deprecated": self.deprecated,
-            # TODO: Include `self.extra`?
         }
+
+        if self.public is not None:
+            base["public"] = self.public
+        if self.exports is not None:
+            base["exports"] = [str(export) for export in self.exports]
+        if self.imports:
+            base["imports"] = self.imports
+        if self.deprecated is not None:
+            base["deprecated"] = self.deprecated
+        if self.lineno is not None:
+            base["lineno"] = self.lineno
+        if self.endlineno is not None:
+            base["endlineno"] = self.endlineno
+        if self.docstring:
+            base["docstring"] = self.docstring
+        if self.type_parameters:
+            base["type_parameters"] = [type_param.as_dict(**kwargs) for type_param in self.type_parameters]
+        if self.labels:
+            base["labels"] = self.labels
+        if self.members:
+            base["members"] = {name: member.as_dict(full=full, **kwargs) for name, member in self.members.items()}
+        # TODO: Include `self.extra`?
 
         if full:
             base.update(
@@ -1216,7 +1233,6 @@ class Object(ObjectAliasMixin):
                     "is_imported": self.is_imported,
                     "is_exported": self.is_exported,
                     "is_wildcard_exposed": self.is_wildcard_exposed,
-                    "is_inherited": self.inherited,
                     # TODO: Add these properties?
                     # "is_alias": self.is_alias,
                     # "is_collection": self.is_collection,
@@ -1234,18 +1250,6 @@ class Object(ObjectAliasMixin):
                     # "has_docstrings": self.has_docstrings,
                 },
             )
-
-        if self.lineno is not None:
-            base["lineno"] = self.lineno
-        if self.endlineno is not None:
-            base["endlineno"] = self.endlineno
-        if self.docstring:
-            base["docstring"] = self.docstring
-        if self.type_parameters:
-            base["type_parameters"] = [type_param.as_dict(**kwargs) for type_param in self.type_parameters]
-
-        base["labels"] = self.labels
-        base["members"] = {name: member.as_dict(full=full, **kwargs) for name, member in self.members.items()}
 
         return base
 
@@ -2077,15 +2081,33 @@ class Alias(ObjectAliasMixin):
             "kind": Kind.ALIAS,
             "name": self.name,
             "target_path": self.target_path,
+            "runtime": self.runtime,
+            "inherited": self.inherited,
         }
 
-        if full:
-            base["path"] = self.path
-
+        if self.public is not None:
+            base["public"] = self.public
+        if self.deprecated is not None:
+            base["deprecated"] = self.deprecated
         if self.alias_lineno:
             base["lineno"] = self.alias_lineno
         if self.alias_endlineno:
             base["endlineno"] = self.alias_endlineno
+
+        if full:
+            base.update(
+                {
+                    "path": self.path,
+                    "is_public": self.is_public,
+                    "is_deprecated": self.is_deprecated,
+                    "is_private": self.is_private,
+                    "is_class_private": self.is_class_private,
+                    "is_special": self.is_special,
+                    "is_imported": self.is_imported,
+                    "is_exported": self.is_exported,
+                    "is_wildcard_exposed": self.is_wildcard_exposed,
+                },
+            )
 
         return base
 

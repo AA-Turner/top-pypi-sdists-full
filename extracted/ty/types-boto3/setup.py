@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3",
-    version="1.40.9",
+    version="1.40.10",
     packages=["boto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for boto3 1.40.9 generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for boto3 1.40.10 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -55,7 +55,7 @@ setup(
     ],
     extras_require={
         "full": ["types-boto3-full>=1.40.0, <1.41.0"],
-        "boto3": ["boto3==1.40.9"],
+        "boto3": ["boto3==1.40.10"],
         "all": [
             "types-boto3-accessanalyzer>=1.40.0, <1.41.0",
             "types-boto3-account>=1.40.0, <1.41.0",
@@ -97,6 +97,7 @@ setup(
             "types-boto3-batch>=1.40.0, <1.41.0",
             "types-boto3-bcm-data-exports>=1.40.0, <1.41.0",
             "types-boto3-bcm-pricing-calculator>=1.40.0, <1.41.0",
+            "types-boto3-bcm-recommended-actions>=1.40.0, <1.41.0",
             "types-boto3-bedrock>=1.40.0, <1.41.0",
             "types-boto3-bedrock-agent>=1.40.0, <1.41.0",
             "types-boto3-bedrock-agent-runtime>=1.40.0, <1.41.0",
@@ -520,6 +521,7 @@ setup(
         "batch": ["types-boto3-batch>=1.40.0, <1.41.0"],
         "bcm-data-exports": ["types-boto3-bcm-data-exports>=1.40.0, <1.41.0"],
         "bcm-pricing-calculator": ["types-boto3-bcm-pricing-calculator>=1.40.0, <1.41.0"],
+        "bcm-recommended-actions": ["types-boto3-bcm-recommended-actions>=1.40.0, <1.41.0"],
         "bedrock": ["types-boto3-bedrock>=1.40.0, <1.41.0"],
         "bedrock-agent": ["types-boto3-bedrock-agent>=1.40.0, <1.41.0"],
         "bedrock-agent-runtime": ["types-boto3-bedrock-agent-runtime>=1.40.0, <1.41.0"],

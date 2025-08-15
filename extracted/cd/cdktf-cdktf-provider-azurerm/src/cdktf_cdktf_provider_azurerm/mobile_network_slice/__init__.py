@@ -1,7 +1,7 @@
 r'''
 # `azurerm_mobile_network_slice`
 
-Refer to the Terraform Registry for docs: [`azurerm_mobile_network_slice`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice).
+Refer to the Terraform Registry for docs: [`azurerm_mobile_network_slice`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class MobileNetworkSlice(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.mobileNetworkSlice.MobileNetworkSlice",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice azurerm_mobile_network_slice}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice azurerm_mobile_network_slice}.'''
 
     def __init__(
         self,
@@ -54,9 +54,11 @@ class MobileNetworkSlice(
         location: builtins.str,
         mobile_network_id: builtins.str,
         name: builtins.str,
-        single_network_slice_selection_assistance_information: typing.Union["MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation", typing.Dict[builtins.str, typing.Any]],
         description: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
+        single_network_slice_selection_assistance_information: typing.Optional[typing.Union["MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation", typing.Dict[builtins.str, typing.Any]]] = None,
+        slice_differentiator: typing.Optional[builtins.str] = None,
+        slice_service_type: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["MobileNetworkSliceTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -67,18 +69,20 @@ class MobileNetworkSlice(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice azurerm_mobile_network_slice} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice azurerm_mobile_network_slice} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#location MobileNetworkSlice#location}.
-        :param mobile_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#mobile_network_id MobileNetworkSlice#mobile_network_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#name MobileNetworkSlice#name}.
-        :param single_network_slice_selection_assistance_information: single_network_slice_selection_assistance_information block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#single_network_slice_selection_assistance_information MobileNetworkSlice#single_network_slice_selection_assistance_information}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#description MobileNetworkSlice#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#id MobileNetworkSlice#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#tags MobileNetworkSlice#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#timeouts MobileNetworkSlice#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#location MobileNetworkSlice#location}.
+        :param mobile_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#mobile_network_id MobileNetworkSlice#mobile_network_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#name MobileNetworkSlice#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#description MobileNetworkSlice#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#id MobileNetworkSlice#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param single_network_slice_selection_assistance_information: single_network_slice_selection_assistance_information block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#single_network_slice_selection_assistance_information MobileNetworkSlice#single_network_slice_selection_assistance_information}
+        :param slice_differentiator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#slice_differentiator MobileNetworkSlice#slice_differentiator}.
+        :param slice_service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#slice_service_type MobileNetworkSlice#slice_service_type}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#tags MobileNetworkSlice#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#timeouts MobileNetworkSlice#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -95,9 +99,11 @@ class MobileNetworkSlice(
             location=location,
             mobile_network_id=mobile_network_id,
             name=name,
-            single_network_slice_selection_assistance_information=single_network_slice_selection_assistance_information,
             description=description,
             id=id,
+            single_network_slice_selection_assistance_information=single_network_slice_selection_assistance_information,
+            slice_differentiator=slice_differentiator,
+            slice_service_type=slice_service_type,
             tags=tags,
             timeouts=timeouts,
             connection=connection,
@@ -124,7 +130,7 @@ class MobileNetworkSlice(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the MobileNetworkSlice to import.
-        :param import_from_id: The id of the existing MobileNetworkSlice that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing MobileNetworkSlice that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the MobileNetworkSlice to import is found.
         '''
         if __debug__:
@@ -143,8 +149,8 @@ class MobileNetworkSlice(
         slice_differentiator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param slice_service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#slice_service_type MobileNetworkSlice#slice_service_type}.
-        :param slice_differentiator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#slice_differentiator MobileNetworkSlice#slice_differentiator}.
+        :param slice_service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#slice_service_type MobileNetworkSlice#slice_service_type}.
+        :param slice_differentiator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#slice_differentiator MobileNetworkSlice#slice_differentiator}.
         '''
         value = MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation(
             slice_service_type=slice_service_type,
@@ -163,10 +169,10 @@ class MobileNetworkSlice(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#create MobileNetworkSlice#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#delete MobileNetworkSlice#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#read MobileNetworkSlice#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#update MobileNetworkSlice#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#create MobileNetworkSlice#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#delete MobileNetworkSlice#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#read MobileNetworkSlice#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#update MobileNetworkSlice#update}.
         '''
         value = MobileNetworkSliceTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -181,6 +187,18 @@ class MobileNetworkSlice(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetSingleNetworkSliceSelectionAssistanceInformation")
+    def reset_single_network_slice_selection_assistance_information(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSingleNetworkSliceSelectionAssistanceInformation", []))
+
+    @jsii.member(jsii_name="resetSliceDifferentiator")
+    def reset_slice_differentiator(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSliceDifferentiator", []))
+
+    @jsii.member(jsii_name="resetSliceServiceType")
+    def reset_slice_service_type(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSliceServiceType", []))
 
     @jsii.member(jsii_name="resetTags")
     def reset_tags(self) -> None:
@@ -246,6 +264,16 @@ class MobileNetworkSlice(
         self,
     ) -> typing.Optional["MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation"]:
         return typing.cast(typing.Optional["MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation"], jsii.get(self, "singleNetworkSliceSelectionAssistanceInformationInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sliceDifferentiatorInput")
+    def slice_differentiator_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sliceDifferentiatorInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sliceServiceTypeInput")
+    def slice_service_type_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "sliceServiceTypeInput"))
 
     @builtins.property
     @jsii.member(jsii_name="tagsInput")
@@ -320,6 +348,30 @@ class MobileNetworkSlice(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="sliceDifferentiator")
+    def slice_differentiator(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "sliceDifferentiator"))
+
+    @slice_differentiator.setter
+    def slice_differentiator(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d97719706f8643cbeea21d0735eea1a0e27dff696cd0162607b0954849fabfd3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sliceDifferentiator", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sliceServiceType")
+    def slice_service_type(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "sliceServiceType"))
+
+    @slice_service_type.setter
+    def slice_service_type(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f86f9746a26e995a96a3e2b47982816e97bf6d80570f95f46c724654d83daf4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sliceServiceType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Mapping[builtins.str, builtins.str]:
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "tags"))
@@ -346,9 +398,11 @@ class MobileNetworkSlice(
         "location": "location",
         "mobile_network_id": "mobileNetworkId",
         "name": "name",
-        "single_network_slice_selection_assistance_information": "singleNetworkSliceSelectionAssistanceInformation",
         "description": "description",
         "id": "id",
+        "single_network_slice_selection_assistance_information": "singleNetworkSliceSelectionAssistanceInformation",
+        "slice_differentiator": "sliceDifferentiator",
+        "slice_service_type": "sliceServiceType",
         "tags": "tags",
         "timeouts": "timeouts",
     },
@@ -367,9 +421,11 @@ class MobileNetworkSliceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         location: builtins.str,
         mobile_network_id: builtins.str,
         name: builtins.str,
-        single_network_slice_selection_assistance_information: typing.Union["MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation", typing.Dict[builtins.str, typing.Any]],
         description: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
+        single_network_slice_selection_assistance_information: typing.Optional[typing.Union["MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation", typing.Dict[builtins.str, typing.Any]]] = None,
+        slice_differentiator: typing.Optional[builtins.str] = None,
+        slice_service_type: typing.Optional[jsii.Number] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["MobileNetworkSliceTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -381,14 +437,16 @@ class MobileNetworkSliceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#location MobileNetworkSlice#location}.
-        :param mobile_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#mobile_network_id MobileNetworkSlice#mobile_network_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#name MobileNetworkSlice#name}.
-        :param single_network_slice_selection_assistance_information: single_network_slice_selection_assistance_information block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#single_network_slice_selection_assistance_information MobileNetworkSlice#single_network_slice_selection_assistance_information}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#description MobileNetworkSlice#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#id MobileNetworkSlice#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#tags MobileNetworkSlice#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#timeouts MobileNetworkSlice#timeouts}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#location MobileNetworkSlice#location}.
+        :param mobile_network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#mobile_network_id MobileNetworkSlice#mobile_network_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#name MobileNetworkSlice#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#description MobileNetworkSlice#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#id MobileNetworkSlice#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param single_network_slice_selection_assistance_information: single_network_slice_selection_assistance_information block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#single_network_slice_selection_assistance_information MobileNetworkSlice#single_network_slice_selection_assistance_information}
+        :param slice_differentiator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#slice_differentiator MobileNetworkSlice#slice_differentiator}.
+        :param slice_service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#slice_service_type MobileNetworkSlice#slice_service_type}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#tags MobileNetworkSlice#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#timeouts MobileNetworkSlice#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -408,16 +466,17 @@ class MobileNetworkSliceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
             check_type(argname="argument mobile_network_id", value=mobile_network_id, expected_type=type_hints["mobile_network_id"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument single_network_slice_selection_assistance_information", value=single_network_slice_selection_assistance_information, expected_type=type_hints["single_network_slice_selection_assistance_information"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument single_network_slice_selection_assistance_information", value=single_network_slice_selection_assistance_information, expected_type=type_hints["single_network_slice_selection_assistance_information"])
+            check_type(argname="argument slice_differentiator", value=slice_differentiator, expected_type=type_hints["slice_differentiator"])
+            check_type(argname="argument slice_service_type", value=slice_service_type, expected_type=type_hints["slice_service_type"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "location": location,
             "mobile_network_id": mobile_network_id,
             "name": name,
-            "single_network_slice_selection_assistance_information": single_network_slice_selection_assistance_information,
         }
         if connection is not None:
             self._values["connection"] = connection
@@ -437,6 +496,12 @@ class MobileNetworkSliceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["description"] = description
         if id is not None:
             self._values["id"] = id
+        if single_network_slice_selection_assistance_information is not None:
+            self._values["single_network_slice_selection_assistance_information"] = single_network_slice_selection_assistance_information
+        if slice_differentiator is not None:
+            self._values["slice_differentiator"] = slice_differentiator
+        if slice_service_type is not None:
+            self._values["slice_service_type"] = slice_service_type
         if tags is not None:
             self._values["tags"] = tags
         if timeouts is not None:
@@ -508,46 +573,34 @@ class MobileNetworkSliceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#location MobileNetworkSlice#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#location MobileNetworkSlice#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def mobile_network_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#mobile_network_id MobileNetworkSlice#mobile_network_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#mobile_network_id MobileNetworkSlice#mobile_network_id}.'''
         result = self._values.get("mobile_network_id")
         assert result is not None, "Required property 'mobile_network_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#name MobileNetworkSlice#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#name MobileNetworkSlice#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def single_network_slice_selection_assistance_information(
-        self,
-    ) -> "MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation":
-        '''single_network_slice_selection_assistance_information block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#single_network_slice_selection_assistance_information MobileNetworkSlice#single_network_slice_selection_assistance_information}
-        '''
-        result = self._values.get("single_network_slice_selection_assistance_information")
-        assert result is not None, "Required property 'single_network_slice_selection_assistance_information' is missing"
-        return typing.cast("MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation", result)
-
-    @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#description MobileNetworkSlice#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#description MobileNetworkSlice#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#id MobileNetworkSlice#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#id MobileNetworkSlice#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -556,8 +609,31 @@ class MobileNetworkSliceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def single_network_slice_selection_assistance_information(
+        self,
+    ) -> typing.Optional["MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation"]:
+        '''single_network_slice_selection_assistance_information block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#single_network_slice_selection_assistance_information MobileNetworkSlice#single_network_slice_selection_assistance_information}
+        '''
+        result = self._values.get("single_network_slice_selection_assistance_information")
+        return typing.cast(typing.Optional["MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation"], result)
+
+    @builtins.property
+    def slice_differentiator(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#slice_differentiator MobileNetworkSlice#slice_differentiator}.'''
+        result = self._values.get("slice_differentiator")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def slice_service_type(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#slice_service_type MobileNetworkSlice#slice_service_type}.'''
+        result = self._values.get("slice_service_type")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#tags MobileNetworkSlice#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#tags MobileNetworkSlice#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -565,7 +641,7 @@ class MobileNetworkSliceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["MobileNetworkSliceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#timeouts MobileNetworkSlice#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#timeouts MobileNetworkSlice#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["MobileNetworkSliceTimeouts"], result)
@@ -598,8 +674,8 @@ class MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation:
         slice_differentiator: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param slice_service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#slice_service_type MobileNetworkSlice#slice_service_type}.
-        :param slice_differentiator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#slice_differentiator MobileNetworkSlice#slice_differentiator}.
+        :param slice_service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#slice_service_type MobileNetworkSlice#slice_service_type}.
+        :param slice_differentiator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#slice_differentiator MobileNetworkSlice#slice_differentiator}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb975f2f247a26ebb1379ead5f019e671381cef1b1f6fe057e37f2d1ade61e0f)
@@ -613,14 +689,14 @@ class MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation:
 
     @builtins.property
     def slice_service_type(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#slice_service_type MobileNetworkSlice#slice_service_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#slice_service_type MobileNetworkSlice#slice_service_type}.'''
         result = self._values.get("slice_service_type")
         assert result is not None, "Required property 'slice_service_type' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def slice_differentiator(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#slice_differentiator MobileNetworkSlice#slice_differentiator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#slice_differentiator MobileNetworkSlice#slice_differentiator}.'''
         result = self._values.get("slice_differentiator")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -732,10 +808,10 @@ class MobileNetworkSliceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#create MobileNetworkSlice#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#delete MobileNetworkSlice#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#read MobileNetworkSlice#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#update MobileNetworkSlice#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#create MobileNetworkSlice#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#delete MobileNetworkSlice#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#read MobileNetworkSlice#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#update MobileNetworkSlice#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed62c3b9ac1d88db0559f13ab0b4eeeb6e70b7d85d6626f4b77a3a0a6694567a)
@@ -755,25 +831,25 @@ class MobileNetworkSliceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#create MobileNetworkSlice#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#create MobileNetworkSlice#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#delete MobileNetworkSlice#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#delete MobileNetworkSlice#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#read MobileNetworkSlice#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#read MobileNetworkSlice#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/mobile_network_slice#update MobileNetworkSlice#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/mobile_network_slice#update MobileNetworkSlice#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -929,9 +1005,11 @@ def _typecheckingstub__cb90dc33c1c1e283d1a8ab7c95ec1ab935d60b607f07af760230588cd
     location: builtins.str,
     mobile_network_id: builtins.str,
     name: builtins.str,
-    single_network_slice_selection_assistance_information: typing.Union[MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation, typing.Dict[builtins.str, typing.Any]],
     description: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
+    single_network_slice_selection_assistance_information: typing.Optional[typing.Union[MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation, typing.Dict[builtins.str, typing.Any]]] = None,
+    slice_differentiator: typing.Optional[builtins.str] = None,
+    slice_service_type: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[MobileNetworkSliceTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -984,6 +1062,18 @@ def _typecheckingstub__3bc8da3e0089aa7f0e70e9a7e7c65b0daed1185e5fab9a2f89fa7210a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d97719706f8643cbeea21d0735eea1a0e27dff696cd0162607b0954849fabfd3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f86f9746a26e995a96a3e2b47982816e97bf6d80570f95f46c724654d83daf4(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0c9d95c5565c10caa73f715326ea39851c67c32f6943d82ff34c486afefc8f36(
     value: typing.Mapping[builtins.str, builtins.str],
 ) -> None:
@@ -1002,9 +1092,11 @@ def _typecheckingstub__eab261ec8057ffeea1d44aec8c4e28e53aa9d98ed67b8d626969ec2a2
     location: builtins.str,
     mobile_network_id: builtins.str,
     name: builtins.str,
-    single_network_slice_selection_assistance_information: typing.Union[MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation, typing.Dict[builtins.str, typing.Any]],
     description: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
+    single_network_slice_selection_assistance_information: typing.Optional[typing.Union[MobileNetworkSliceSingleNetworkSliceSelectionAssistanceInformation, typing.Dict[builtins.str, typing.Any]]] = None,
+    slice_differentiator: typing.Optional[builtins.str] = None,
+    slice_service_type: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[MobileNetworkSliceTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:

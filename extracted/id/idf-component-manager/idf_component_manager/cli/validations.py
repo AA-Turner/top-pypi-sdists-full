@@ -1,28 +1,31 @@
-# SPDX-FileCopyrightText: 2024 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2024-2025 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import re
+import typing as t
 from pathlib import Path
-from urllib.parse import urlparse
 
 import click
+from pydantic import TypeAdapter
 
 from idf_component_manager.core_utils import COMPONENT_FULL_NAME_WITH_SPEC_REGEX
 from idf_component_tools.archive_tools import ArchiveError, get_format_from_path
 from idf_component_tools.constants import COMPILED_COMMIT_ID_RE, COMPILED_GIT_URL_RE
 from idf_component_tools.manifest import WEB_DEPENDENCY_REGEX
-from idf_component_tools.manifest.constants import SLUG_REGEX
+from idf_component_tools.manifest.constants import MAX_NAME_LENGTH, SLUG_REGEX
 from idf_component_tools.semver import Version
 from idf_component_tools.semver.base import SimpleSpec
+from idf_component_tools.utils import UrlField, UrlOrFileField, polish_validation_error
 
 
 def validate_name(ctx, param, value):  # noqa: ARG001
     if value is not None:
         name = value.lower()
 
-        if not re.match(SLUG_REGEX, name):
+        if len(name) > MAX_NAME_LENGTH or not re.match(SLUG_REGEX, name):
             raise click.BadParameter(
-                f'"{name}" should consist of 2 or more letters, numbers, "-" or "_". '
-                'It cannot start or end with "_" or "-", or have sequences of these characters.'
+                f'"{name}" must be between 2 and {MAX_NAME_LENGTH} characters long, '
+                'consist of letters, numbers, "-" or "_", and cannot start or end with "_" or "-", '
+                'nor contain consecutive special characters.'
             )
         return name
 
@@ -34,12 +37,25 @@ def validate_existing_dir(ctx, param, value):  # noqa: ARG001
     return value
 
 
-def validate_url(ctx, param, value):  # noqa: ARG001
-    if value:
-        result = urlparse(value)
-        if not result.scheme or not result.hostname:
-            raise click.BadParameter('Invalid URL.')
-    return value
+def validate_from_type(type: t.Any):
+    def wrapper(ctx, param, value):  # noqa: ARG001
+        adapter = TypeAdapter(type)
+        if value:
+            try:
+                value = adapter.validate_python(value)
+            except Exception as e:
+                raise click.BadParameter(polish_validation_error(e))
+        return value
+
+    return wrapper
+
+
+def validate_url(ctx, param, value):
+    return validate_from_type(UrlField)(ctx, param, value)
+
+
+def validate_url_or_file(ctx, param, value):
+    return validate_from_type(UrlOrFileField)(ctx, param, value)
 
 
 def validate_sha(ctx, param, value):  # noqa: ARG001

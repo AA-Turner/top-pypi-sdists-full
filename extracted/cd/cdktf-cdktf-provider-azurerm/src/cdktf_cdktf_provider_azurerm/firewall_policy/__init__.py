@@ -1,7 +1,7 @@
 r'''
 # `azurerm_firewall_policy`
 
-Refer to the Terraform Registry for docs: [`azurerm_firewall_policy`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy).
+Refer to the Terraform Registry for docs: [`azurerm_firewall_policy`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FirewallPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.firewallPolicy.FirewallPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy azurerm_firewall_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy azurerm_firewall_policy}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class FirewallPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy azurerm_firewall_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy azurerm_firewall_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#location FirewallPolicy#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#name FirewallPolicy#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#resource_group_name FirewallPolicy#resource_group_name}.
-        :param auto_learn_private_ranges_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#auto_learn_private_ranges_enabled FirewallPolicy#auto_learn_private_ranges_enabled}.
-        :param base_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#base_policy_id FirewallPolicy#base_policy_id}.
-        :param dns: dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#dns FirewallPolicy#dns}
-        :param explicit_proxy: explicit_proxy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#explicit_proxy FirewallPolicy#explicit_proxy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#id FirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#identity FirewallPolicy#identity}
-        :param insights: insights block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#insights FirewallPolicy#insights}
-        :param intrusion_detection: intrusion_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#intrusion_detection FirewallPolicy#intrusion_detection}
-        :param private_ip_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#private_ip_ranges FirewallPolicy#private_ip_ranges}.
-        :param sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#sku FirewallPolicy#sku}.
-        :param sql_redirect_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#sql_redirect_allowed FirewallPolicy#sql_redirect_allowed}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#tags FirewallPolicy#tags}.
-        :param threat_intelligence_allowlist: threat_intelligence_allowlist block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#threat_intelligence_allowlist FirewallPolicy#threat_intelligence_allowlist}
-        :param threat_intelligence_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#threat_intelligence_mode FirewallPolicy#threat_intelligence_mode}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#timeouts FirewallPolicy#timeouts}
-        :param tls_certificate: tls_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#tls_certificate FirewallPolicy#tls_certificate}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#location FirewallPolicy#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#name FirewallPolicy#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#resource_group_name FirewallPolicy#resource_group_name}.
+        :param auto_learn_private_ranges_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#auto_learn_private_ranges_enabled FirewallPolicy#auto_learn_private_ranges_enabled}.
+        :param base_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#base_policy_id FirewallPolicy#base_policy_id}.
+        :param dns: dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#dns FirewallPolicy#dns}
+        :param explicit_proxy: explicit_proxy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#explicit_proxy FirewallPolicy#explicit_proxy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#id FirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#identity FirewallPolicy#identity}
+        :param insights: insights block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#insights FirewallPolicy#insights}
+        :param intrusion_detection: intrusion_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#intrusion_detection FirewallPolicy#intrusion_detection}
+        :param private_ip_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#private_ip_ranges FirewallPolicy#private_ip_ranges}.
+        :param sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#sku FirewallPolicy#sku}.
+        :param sql_redirect_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#sql_redirect_allowed FirewallPolicy#sql_redirect_allowed}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#tags FirewallPolicy#tags}.
+        :param threat_intelligence_allowlist: threat_intelligence_allowlist block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#threat_intelligence_allowlist FirewallPolicy#threat_intelligence_allowlist}
+        :param threat_intelligence_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#threat_intelligence_mode FirewallPolicy#threat_intelligence_mode}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#timeouts FirewallPolicy#timeouts}
+        :param tls_certificate: tls_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#tls_certificate FirewallPolicy#tls_certificate}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class FirewallPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FirewallPolicy to import.
-        :param import_from_id: The id of the existing FirewallPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FirewallPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FirewallPolicy to import is found.
         '''
         if __debug__:
@@ -176,8 +176,8 @@ class FirewallPolicy(
         servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param proxy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#proxy_enabled FirewallPolicy#proxy_enabled}.
-        :param servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#servers FirewallPolicy#servers}.
+        :param proxy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#proxy_enabled FirewallPolicy#proxy_enabled}.
+        :param servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#servers FirewallPolicy#servers}.
         '''
         value = FirewallPolicyDns(proxy_enabled=proxy_enabled, servers=servers)
 
@@ -195,12 +195,12 @@ class FirewallPolicy(
         pac_file_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#enabled FirewallPolicy#enabled}.
-        :param enable_pac_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#enable_pac_file FirewallPolicy#enable_pac_file}.
-        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#http_port FirewallPolicy#http_port}.
-        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#https_port FirewallPolicy#https_port}.
-        :param pac_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#pac_file FirewallPolicy#pac_file}.
-        :param pac_file_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#pac_file_port FirewallPolicy#pac_file_port}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#enabled FirewallPolicy#enabled}.
+        :param enable_pac_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#enable_pac_file FirewallPolicy#enable_pac_file}.
+        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#http_port FirewallPolicy#http_port}.
+        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#https_port FirewallPolicy#https_port}.
+        :param pac_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#pac_file FirewallPolicy#pac_file}.
+        :param pac_file_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#pac_file_port FirewallPolicy#pac_file_port}.
         '''
         value = FirewallPolicyExplicitProxy(
             enabled=enabled,
@@ -221,8 +221,8 @@ class FirewallPolicy(
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#type FirewallPolicy#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#identity_ids FirewallPolicy#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#type FirewallPolicy#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#identity_ids FirewallPolicy#identity_ids}.
         '''
         value = FirewallPolicyIdentity(type=type, identity_ids=identity_ids)
 
@@ -238,10 +238,10 @@ class FirewallPolicy(
         retention_in_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param default_log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#default_log_analytics_workspace_id FirewallPolicy#default_log_analytics_workspace_id}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#enabled FirewallPolicy#enabled}.
-        :param log_analytics_workspace: log_analytics_workspace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#log_analytics_workspace FirewallPolicy#log_analytics_workspace}
-        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#retention_in_days FirewallPolicy#retention_in_days}.
+        :param default_log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#default_log_analytics_workspace_id FirewallPolicy#default_log_analytics_workspace_id}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#enabled FirewallPolicy#enabled}.
+        :param log_analytics_workspace: log_analytics_workspace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#log_analytics_workspace FirewallPolicy#log_analytics_workspace}
+        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#retention_in_days FirewallPolicy#retention_in_days}.
         '''
         value = FirewallPolicyInsights(
             default_log_analytics_workspace_id=default_log_analytics_workspace_id,
@@ -262,10 +262,10 @@ class FirewallPolicy(
         traffic_bypass: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["FirewallPolicyIntrusionDetectionTrafficBypass", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#mode FirewallPolicy#mode}.
-        :param private_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#private_ranges FirewallPolicy#private_ranges}.
-        :param signature_overrides: signature_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#signature_overrides FirewallPolicy#signature_overrides}
-        :param traffic_bypass: traffic_bypass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#traffic_bypass FirewallPolicy#traffic_bypass}
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#mode FirewallPolicy#mode}.
+        :param private_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#private_ranges FirewallPolicy#private_ranges}.
+        :param signature_overrides: signature_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#signature_overrides FirewallPolicy#signature_overrides}
+        :param traffic_bypass: traffic_bypass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#traffic_bypass FirewallPolicy#traffic_bypass}
         '''
         value = FirewallPolicyIntrusionDetection(
             mode=mode,
@@ -284,8 +284,8 @@ class FirewallPolicy(
         ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#fqdns FirewallPolicy#fqdns}.
-        :param ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#ip_addresses FirewallPolicy#ip_addresses}.
+        :param fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#fqdns FirewallPolicy#fqdns}.
+        :param ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#ip_addresses FirewallPolicy#ip_addresses}.
         '''
         value = FirewallPolicyThreatIntelligenceAllowlistStruct(
             fqdns=fqdns, ip_addresses=ip_addresses
@@ -303,10 +303,10 @@ class FirewallPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#create FirewallPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#delete FirewallPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#read FirewallPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#update FirewallPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#create FirewallPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#delete FirewallPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#read FirewallPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#update FirewallPolicy#update}.
         '''
         value = FirewallPolicyTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -322,8 +322,8 @@ class FirewallPolicy(
         name: builtins.str,
     ) -> None:
         '''
-        :param key_vault_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#key_vault_secret_id FirewallPolicy#key_vault_secret_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#name FirewallPolicy#name}.
+        :param key_vault_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#key_vault_secret_id FirewallPolicy#key_vault_secret_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#name FirewallPolicy#name}.
         '''
         value = FirewallPolicyTlsCertificate(
             key_vault_secret_id=key_vault_secret_id, name=name
@@ -784,25 +784,25 @@ class FirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#location FirewallPolicy#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#name FirewallPolicy#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#resource_group_name FirewallPolicy#resource_group_name}.
-        :param auto_learn_private_ranges_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#auto_learn_private_ranges_enabled FirewallPolicy#auto_learn_private_ranges_enabled}.
-        :param base_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#base_policy_id FirewallPolicy#base_policy_id}.
-        :param dns: dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#dns FirewallPolicy#dns}
-        :param explicit_proxy: explicit_proxy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#explicit_proxy FirewallPolicy#explicit_proxy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#id FirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#identity FirewallPolicy#identity}
-        :param insights: insights block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#insights FirewallPolicy#insights}
-        :param intrusion_detection: intrusion_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#intrusion_detection FirewallPolicy#intrusion_detection}
-        :param private_ip_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#private_ip_ranges FirewallPolicy#private_ip_ranges}.
-        :param sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#sku FirewallPolicy#sku}.
-        :param sql_redirect_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#sql_redirect_allowed FirewallPolicy#sql_redirect_allowed}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#tags FirewallPolicy#tags}.
-        :param threat_intelligence_allowlist: threat_intelligence_allowlist block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#threat_intelligence_allowlist FirewallPolicy#threat_intelligence_allowlist}
-        :param threat_intelligence_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#threat_intelligence_mode FirewallPolicy#threat_intelligence_mode}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#timeouts FirewallPolicy#timeouts}
-        :param tls_certificate: tls_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#tls_certificate FirewallPolicy#tls_certificate}
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#location FirewallPolicy#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#name FirewallPolicy#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#resource_group_name FirewallPolicy#resource_group_name}.
+        :param auto_learn_private_ranges_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#auto_learn_private_ranges_enabled FirewallPolicy#auto_learn_private_ranges_enabled}.
+        :param base_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#base_policy_id FirewallPolicy#base_policy_id}.
+        :param dns: dns block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#dns FirewallPolicy#dns}
+        :param explicit_proxy: explicit_proxy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#explicit_proxy FirewallPolicy#explicit_proxy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#id FirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#identity FirewallPolicy#identity}
+        :param insights: insights block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#insights FirewallPolicy#insights}
+        :param intrusion_detection: intrusion_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#intrusion_detection FirewallPolicy#intrusion_detection}
+        :param private_ip_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#private_ip_ranges FirewallPolicy#private_ip_ranges}.
+        :param sku: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#sku FirewallPolicy#sku}.
+        :param sql_redirect_allowed: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#sql_redirect_allowed FirewallPolicy#sql_redirect_allowed}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#tags FirewallPolicy#tags}.
+        :param threat_intelligence_allowlist: threat_intelligence_allowlist block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#threat_intelligence_allowlist FirewallPolicy#threat_intelligence_allowlist}
+        :param threat_intelligence_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#threat_intelligence_mode FirewallPolicy#threat_intelligence_mode}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#timeouts FirewallPolicy#timeouts}
+        :param tls_certificate: tls_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#tls_certificate FirewallPolicy#tls_certificate}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -968,21 +968,21 @@ class FirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#location FirewallPolicy#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#location FirewallPolicy#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#name FirewallPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#name FirewallPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#resource_group_name FirewallPolicy#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#resource_group_name FirewallPolicy#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -991,13 +991,13 @@ class FirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_learn_private_ranges_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#auto_learn_private_ranges_enabled FirewallPolicy#auto_learn_private_ranges_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#auto_learn_private_ranges_enabled FirewallPolicy#auto_learn_private_ranges_enabled}.'''
         result = self._values.get("auto_learn_private_ranges_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def base_policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#base_policy_id FirewallPolicy#base_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#base_policy_id FirewallPolicy#base_policy_id}.'''
         result = self._values.get("base_policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1005,7 +1005,7 @@ class FirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def dns(self) -> typing.Optional["FirewallPolicyDns"]:
         '''dns block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#dns FirewallPolicy#dns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#dns FirewallPolicy#dns}
         '''
         result = self._values.get("dns")
         return typing.cast(typing.Optional["FirewallPolicyDns"], result)
@@ -1014,14 +1014,14 @@ class FirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def explicit_proxy(self) -> typing.Optional["FirewallPolicyExplicitProxy"]:
         '''explicit_proxy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#explicit_proxy FirewallPolicy#explicit_proxy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#explicit_proxy FirewallPolicy#explicit_proxy}
         '''
         result = self._values.get("explicit_proxy")
         return typing.cast(typing.Optional["FirewallPolicyExplicitProxy"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#id FirewallPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#id FirewallPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1033,7 +1033,7 @@ class FirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def identity(self) -> typing.Optional["FirewallPolicyIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#identity FirewallPolicy#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#identity FirewallPolicy#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["FirewallPolicyIdentity"], result)
@@ -1042,7 +1042,7 @@ class FirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def insights(self) -> typing.Optional["FirewallPolicyInsights"]:
         '''insights block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#insights FirewallPolicy#insights}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#insights FirewallPolicy#insights}
         '''
         result = self._values.get("insights")
         return typing.cast(typing.Optional["FirewallPolicyInsights"], result)
@@ -1053,20 +1053,20 @@ class FirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["FirewallPolicyIntrusionDetection"]:
         '''intrusion_detection block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#intrusion_detection FirewallPolicy#intrusion_detection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#intrusion_detection FirewallPolicy#intrusion_detection}
         '''
         result = self._values.get("intrusion_detection")
         return typing.cast(typing.Optional["FirewallPolicyIntrusionDetection"], result)
 
     @builtins.property
     def private_ip_ranges(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#private_ip_ranges FirewallPolicy#private_ip_ranges}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#private_ip_ranges FirewallPolicy#private_ip_ranges}.'''
         result = self._values.get("private_ip_ranges")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def sku(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#sku FirewallPolicy#sku}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#sku FirewallPolicy#sku}.'''
         result = self._values.get("sku")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1074,13 +1074,13 @@ class FirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def sql_redirect_allowed(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#sql_redirect_allowed FirewallPolicy#sql_redirect_allowed}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#sql_redirect_allowed FirewallPolicy#sql_redirect_allowed}.'''
         result = self._values.get("sql_redirect_allowed")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#tags FirewallPolicy#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#tags FirewallPolicy#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1090,14 +1090,14 @@ class FirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["FirewallPolicyThreatIntelligenceAllowlistStruct"]:
         '''threat_intelligence_allowlist block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#threat_intelligence_allowlist FirewallPolicy#threat_intelligence_allowlist}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#threat_intelligence_allowlist FirewallPolicy#threat_intelligence_allowlist}
         '''
         result = self._values.get("threat_intelligence_allowlist")
         return typing.cast(typing.Optional["FirewallPolicyThreatIntelligenceAllowlistStruct"], result)
 
     @builtins.property
     def threat_intelligence_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#threat_intelligence_mode FirewallPolicy#threat_intelligence_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#threat_intelligence_mode FirewallPolicy#threat_intelligence_mode}.'''
         result = self._values.get("threat_intelligence_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1105,7 +1105,7 @@ class FirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FirewallPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#timeouts FirewallPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#timeouts FirewallPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FirewallPolicyTimeouts"], result)
@@ -1114,7 +1114,7 @@ class FirewallPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tls_certificate(self) -> typing.Optional["FirewallPolicyTlsCertificate"]:
         '''tls_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#tls_certificate FirewallPolicy#tls_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#tls_certificate FirewallPolicy#tls_certificate}
         '''
         result = self._values.get("tls_certificate")
         return typing.cast(typing.Optional["FirewallPolicyTlsCertificate"], result)
@@ -1144,8 +1144,8 @@ class FirewallPolicyDns:
         servers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param proxy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#proxy_enabled FirewallPolicy#proxy_enabled}.
-        :param servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#servers FirewallPolicy#servers}.
+        :param proxy_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#proxy_enabled FirewallPolicy#proxy_enabled}.
+        :param servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#servers FirewallPolicy#servers}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6274ca3d14f0cafd9f5a178aa4593dd2387c473308012ac8a21ec3f59536ca3b)
@@ -1161,13 +1161,13 @@ class FirewallPolicyDns:
     def proxy_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#proxy_enabled FirewallPolicy#proxy_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#proxy_enabled FirewallPolicy#proxy_enabled}.'''
         result = self._values.get("proxy_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def servers(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#servers FirewallPolicy#servers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#servers FirewallPolicy#servers}.'''
         result = self._values.get("servers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1287,12 +1287,12 @@ class FirewallPolicyExplicitProxy:
         pac_file_port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#enabled FirewallPolicy#enabled}.
-        :param enable_pac_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#enable_pac_file FirewallPolicy#enable_pac_file}.
-        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#http_port FirewallPolicy#http_port}.
-        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#https_port FirewallPolicy#https_port}.
-        :param pac_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#pac_file FirewallPolicy#pac_file}.
-        :param pac_file_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#pac_file_port FirewallPolicy#pac_file_port}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#enabled FirewallPolicy#enabled}.
+        :param enable_pac_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#enable_pac_file FirewallPolicy#enable_pac_file}.
+        :param http_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#http_port FirewallPolicy#http_port}.
+        :param https_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#https_port FirewallPolicy#https_port}.
+        :param pac_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#pac_file FirewallPolicy#pac_file}.
+        :param pac_file_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#pac_file_port FirewallPolicy#pac_file_port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__915ddfd751cb8a1b4cc61a28cdd9b60db26519f9eae7464a17c9ecde7978944a)
@@ -1320,7 +1320,7 @@ class FirewallPolicyExplicitProxy:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#enabled FirewallPolicy#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#enabled FirewallPolicy#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1328,31 +1328,31 @@ class FirewallPolicyExplicitProxy:
     def enable_pac_file(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#enable_pac_file FirewallPolicy#enable_pac_file}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#enable_pac_file FirewallPolicy#enable_pac_file}.'''
         result = self._values.get("enable_pac_file")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def http_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#http_port FirewallPolicy#http_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#http_port FirewallPolicy#http_port}.'''
         result = self._values.get("http_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def https_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#https_port FirewallPolicy#https_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#https_port FirewallPolicy#https_port}.'''
         result = self._values.get("https_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def pac_file(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#pac_file FirewallPolicy#pac_file}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#pac_file FirewallPolicy#pac_file}.'''
         result = self._values.get("pac_file")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pac_file_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#pac_file_port FirewallPolicy#pac_file_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#pac_file_port FirewallPolicy#pac_file_port}.'''
         result = self._values.get("pac_file_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1555,8 +1555,8 @@ class FirewallPolicyIdentity:
         identity_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#type FirewallPolicy#type}.
-        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#identity_ids FirewallPolicy#identity_ids}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#type FirewallPolicy#type}.
+        :param identity_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#identity_ids FirewallPolicy#identity_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b9f08b51b31e8991f0d405c0ab1deda9b24abb1d76454717c7b2e7cc5320132d)
@@ -1570,14 +1570,14 @@ class FirewallPolicyIdentity:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#type FirewallPolicy#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#type FirewallPolicy#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def identity_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#identity_ids FirewallPolicy#identity_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#identity_ids FirewallPolicy#identity_ids}.'''
         result = self._values.get("identity_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1694,10 +1694,10 @@ class FirewallPolicyInsights:
         retention_in_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param default_log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#default_log_analytics_workspace_id FirewallPolicy#default_log_analytics_workspace_id}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#enabled FirewallPolicy#enabled}.
-        :param log_analytics_workspace: log_analytics_workspace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#log_analytics_workspace FirewallPolicy#log_analytics_workspace}
-        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#retention_in_days FirewallPolicy#retention_in_days}.
+        :param default_log_analytics_workspace_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#default_log_analytics_workspace_id FirewallPolicy#default_log_analytics_workspace_id}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#enabled FirewallPolicy#enabled}.
+        :param log_analytics_workspace: log_analytics_workspace block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#log_analytics_workspace FirewallPolicy#log_analytics_workspace}
+        :param retention_in_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#retention_in_days FirewallPolicy#retention_in_days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__69f192b7924ad221af543fd486d8e439beb428902b292269acb376ac116b8712)
@@ -1716,14 +1716,14 @@ class FirewallPolicyInsights:
 
     @builtins.property
     def default_log_analytics_workspace_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#default_log_analytics_workspace_id FirewallPolicy#default_log_analytics_workspace_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#default_log_analytics_workspace_id FirewallPolicy#default_log_analytics_workspace_id}.'''
         result = self._values.get("default_log_analytics_workspace_id")
         assert result is not None, "Required property 'default_log_analytics_workspace_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#enabled FirewallPolicy#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#enabled FirewallPolicy#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -1734,14 +1734,14 @@ class FirewallPolicyInsights:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FirewallPolicyInsightsLogAnalyticsWorkspace"]]]:
         '''log_analytics_workspace block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#log_analytics_workspace FirewallPolicy#log_analytics_workspace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#log_analytics_workspace FirewallPolicy#log_analytics_workspace}
         '''
         result = self._values.get("log_analytics_workspace")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FirewallPolicyInsightsLogAnalyticsWorkspace"]]], result)
 
     @builtins.property
     def retention_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#retention_in_days FirewallPolicy#retention_in_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#retention_in_days FirewallPolicy#retention_in_days}.'''
         result = self._values.get("retention_in_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1765,8 +1765,8 @@ class FirewallPolicyInsights:
 class FirewallPolicyInsightsLogAnalyticsWorkspace:
     def __init__(self, *, firewall_location: builtins.str, id: builtins.str) -> None:
         '''
-        :param firewall_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#firewall_location FirewallPolicy#firewall_location}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#id FirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param firewall_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#firewall_location FirewallPolicy#firewall_location}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#id FirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2cddac0de5522459bb6cd4e11d7b1a744fce0ea22937321b5368f3e8d83f5ac)
@@ -1779,14 +1779,14 @@ class FirewallPolicyInsightsLogAnalyticsWorkspace:
 
     @builtins.property
     def firewall_location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#firewall_location FirewallPolicy#firewall_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#firewall_location FirewallPolicy#firewall_location}.'''
         result = self._values.get("firewall_location")
         assert result is not None, "Required property 'firewall_location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#id FirewallPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#id FirewallPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2122,10 +2122,10 @@ class FirewallPolicyIntrusionDetection:
         traffic_bypass: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["FirewallPolicyIntrusionDetectionTrafficBypass", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#mode FirewallPolicy#mode}.
-        :param private_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#private_ranges FirewallPolicy#private_ranges}.
-        :param signature_overrides: signature_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#signature_overrides FirewallPolicy#signature_overrides}
-        :param traffic_bypass: traffic_bypass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#traffic_bypass FirewallPolicy#traffic_bypass}
+        :param mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#mode FirewallPolicy#mode}.
+        :param private_ranges: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#private_ranges FirewallPolicy#private_ranges}.
+        :param signature_overrides: signature_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#signature_overrides FirewallPolicy#signature_overrides}
+        :param traffic_bypass: traffic_bypass block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#traffic_bypass FirewallPolicy#traffic_bypass}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__24f3d5a771fa9830b444599be942d50c5b9c2a5bbd828fbadb728d347df93b09)
@@ -2145,13 +2145,13 @@ class FirewallPolicyIntrusionDetection:
 
     @builtins.property
     def mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#mode FirewallPolicy#mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#mode FirewallPolicy#mode}.'''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def private_ranges(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#private_ranges FirewallPolicy#private_ranges}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#private_ranges FirewallPolicy#private_ranges}.'''
         result = self._values.get("private_ranges")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2161,7 +2161,7 @@ class FirewallPolicyIntrusionDetection:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FirewallPolicyIntrusionDetectionSignatureOverrides"]]]:
         '''signature_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#signature_overrides FirewallPolicy#signature_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#signature_overrides FirewallPolicy#signature_overrides}
         '''
         result = self._values.get("signature_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FirewallPolicyIntrusionDetectionSignatureOverrides"]]], result)
@@ -2172,7 +2172,7 @@ class FirewallPolicyIntrusionDetection:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FirewallPolicyIntrusionDetectionTrafficBypass"]]]:
         '''traffic_bypass block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#traffic_bypass FirewallPolicy#traffic_bypass}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#traffic_bypass FirewallPolicy#traffic_bypass}
         '''
         result = self._values.get("traffic_bypass")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FirewallPolicyIntrusionDetectionTrafficBypass"]]], result)
@@ -2340,8 +2340,8 @@ class FirewallPolicyIntrusionDetectionSignatureOverrides:
         state: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#id FirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#state FirewallPolicy#state}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#id FirewallPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#state FirewallPolicy#state}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f08f9491697c42a9d84c5643f220013f2ad75d888405ad1bd66f623d0cd60948)
@@ -2355,7 +2355,7 @@ class FirewallPolicyIntrusionDetectionSignatureOverrides:
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#id FirewallPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#id FirewallPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2365,7 +2365,7 @@ class FirewallPolicyIntrusionDetectionSignatureOverrides:
 
     @builtins.property
     def state(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#state FirewallPolicy#state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#state FirewallPolicy#state}.'''
         result = self._values.get("state")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2588,14 +2588,14 @@ class FirewallPolicyIntrusionDetectionTrafficBypass:
         source_ip_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#name FirewallPolicy#name}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#protocol FirewallPolicy#protocol}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#description FirewallPolicy#description}.
-        :param destination_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#destination_addresses FirewallPolicy#destination_addresses}.
-        :param destination_ip_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#destination_ip_groups FirewallPolicy#destination_ip_groups}.
-        :param destination_ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#destination_ports FirewallPolicy#destination_ports}.
-        :param source_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#source_addresses FirewallPolicy#source_addresses}.
-        :param source_ip_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#source_ip_groups FirewallPolicy#source_ip_groups}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#name FirewallPolicy#name}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#protocol FirewallPolicy#protocol}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#description FirewallPolicy#description}.
+        :param destination_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#destination_addresses FirewallPolicy#destination_addresses}.
+        :param destination_ip_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#destination_ip_groups FirewallPolicy#destination_ip_groups}.
+        :param destination_ports: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#destination_ports FirewallPolicy#destination_ports}.
+        :param source_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#source_addresses FirewallPolicy#source_addresses}.
+        :param source_ip_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#source_ip_groups FirewallPolicy#source_ip_groups}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cf86781917a240e35c5efd532139e67cd2b40e8cbf929f3c4efade9ebcc92796)
@@ -2626,51 +2626,51 @@ class FirewallPolicyIntrusionDetectionTrafficBypass:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#name FirewallPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#name FirewallPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#protocol FirewallPolicy#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#protocol FirewallPolicy#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#description FirewallPolicy#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#description FirewallPolicy#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def destination_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#destination_addresses FirewallPolicy#destination_addresses}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#destination_addresses FirewallPolicy#destination_addresses}.'''
         result = self._values.get("destination_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def destination_ip_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#destination_ip_groups FirewallPolicy#destination_ip_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#destination_ip_groups FirewallPolicy#destination_ip_groups}.'''
         result = self._values.get("destination_ip_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def destination_ports(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#destination_ports FirewallPolicy#destination_ports}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#destination_ports FirewallPolicy#destination_ports}.'''
         result = self._values.get("destination_ports")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def source_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#source_addresses FirewallPolicy#source_addresses}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#source_addresses FirewallPolicy#source_addresses}.'''
         result = self._values.get("source_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def source_ip_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#source_ip_groups FirewallPolicy#source_ip_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#source_ip_groups FirewallPolicy#source_ip_groups}.'''
         result = self._values.get("source_ip_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2996,8 +2996,8 @@ class FirewallPolicyThreatIntelligenceAllowlistStruct:
         ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#fqdns FirewallPolicy#fqdns}.
-        :param ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#ip_addresses FirewallPolicy#ip_addresses}.
+        :param fqdns: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#fqdns FirewallPolicy#fqdns}.
+        :param ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#ip_addresses FirewallPolicy#ip_addresses}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae85f2896b303ff4feb10528b5ec91181c2f244bf1133ffbdccfdbad64c96e26)
@@ -3011,13 +3011,13 @@ class FirewallPolicyThreatIntelligenceAllowlistStruct:
 
     @builtins.property
     def fqdns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#fqdns FirewallPolicy#fqdns}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#fqdns FirewallPolicy#fqdns}.'''
         result = self._values.get("fqdns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def ip_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#ip_addresses FirewallPolicy#ip_addresses}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#ip_addresses FirewallPolicy#ip_addresses}.'''
         result = self._values.get("ip_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -3133,10 +3133,10 @@ class FirewallPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#create FirewallPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#delete FirewallPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#read FirewallPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#update FirewallPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#create FirewallPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#delete FirewallPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#read FirewallPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#update FirewallPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b56d3f3749a2ab7e352a9e812a8b3f4b5b4dd88e1ed2d063104fc834925da85b)
@@ -3156,25 +3156,25 @@ class FirewallPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#create FirewallPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#create FirewallPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#delete FirewallPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#delete FirewallPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#read FirewallPolicy#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#read FirewallPolicy#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#update FirewallPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#update FirewallPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3325,8 +3325,8 @@ class FirewallPolicyTlsCertificate:
         name: builtins.str,
     ) -> None:
         '''
-        :param key_vault_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#key_vault_secret_id FirewallPolicy#key_vault_secret_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#name FirewallPolicy#name}.
+        :param key_vault_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#key_vault_secret_id FirewallPolicy#key_vault_secret_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#name FirewallPolicy#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d663d173b8230bbd3cc632c6b37a09d567512037870905363a0da79a731c2b0c)
@@ -3339,14 +3339,14 @@ class FirewallPolicyTlsCertificate:
 
     @builtins.property
     def key_vault_secret_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#key_vault_secret_id FirewallPolicy#key_vault_secret_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#key_vault_secret_id FirewallPolicy#key_vault_secret_id}.'''
         result = self._values.get("key_vault_secret_id")
         assert result is not None, "Required property 'key_vault_secret_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/firewall_policy#name FirewallPolicy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/firewall_policy#name FirewallPolicy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)

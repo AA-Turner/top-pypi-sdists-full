@@ -1,7 +1,7 @@
 r'''
 # `azurerm_netapp_account_encryption`
 
-Refer to the Terraform Registry for docs: [`azurerm_netapp_account_encryption`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption).
+Refer to the Terraform Registry for docs: [`azurerm_netapp_account_encryption`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetappAccountEncryption(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.netappAccountEncryption.NetappAccountEncryption",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption azurerm_netapp_account_encryption}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption azurerm_netapp_account_encryption}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class NetappAccountEncryption(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption azurerm_netapp_account_encryption} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption azurerm_netapp_account_encryption} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param encryption_key: The versionless encryption key url. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#encryption_key NetappAccountEncryption#encryption_key}
-        :param netapp_account_id: The ID of the NetApp Account where encryption will be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#netapp_account_id NetappAccountEncryption#netapp_account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#id NetappAccountEncryption#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param system_assigned_identity_principal_id: The Principal ID of the System Assigned Identity to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#system_assigned_identity_principal_id NetappAccountEncryption#system_assigned_identity_principal_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#timeouts NetappAccountEncryption#timeouts}
-        :param user_assigned_identity_id: The resource ID of the User Assigned Identity to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#user_assigned_identity_id NetappAccountEncryption#user_assigned_identity_id}
+        :param encryption_key: The versionless encryption key url. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#encryption_key NetappAccountEncryption#encryption_key}
+        :param netapp_account_id: The ID of the NetApp Account where encryption will be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#netapp_account_id NetappAccountEncryption#netapp_account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#id NetappAccountEncryption#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param system_assigned_identity_principal_id: The Principal ID of the System Assigned Identity to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#system_assigned_identity_principal_id NetappAccountEncryption#system_assigned_identity_principal_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#timeouts NetappAccountEncryption#timeouts}
+        :param user_assigned_identity_id: The resource ID of the User Assigned Identity to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#user_assigned_identity_id NetappAccountEncryption#user_assigned_identity_id}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class NetappAccountEncryption(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetappAccountEncryption to import.
-        :param import_from_id: The id of the existing NetappAccountEncryption that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetappAccountEncryption that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetappAccountEncryption to import is found.
         '''
         if __debug__:
@@ -139,10 +139,10 @@ class NetappAccountEncryption(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#create NetappAccountEncryption#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#delete NetappAccountEncryption#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#read NetappAccountEncryption#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#update NetappAccountEncryption#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#create NetappAccountEncryption#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#delete NetappAccountEncryption#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#read NetappAccountEncryption#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#update NetappAccountEncryption#update}.
         '''
         value = NetappAccountEncryptionTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -324,12 +324,12 @@ class NetappAccountEncryptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param encryption_key: The versionless encryption key url. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#encryption_key NetappAccountEncryption#encryption_key}
-        :param netapp_account_id: The ID of the NetApp Account where encryption will be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#netapp_account_id NetappAccountEncryption#netapp_account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#id NetappAccountEncryption#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param system_assigned_identity_principal_id: The Principal ID of the System Assigned Identity to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#system_assigned_identity_principal_id NetappAccountEncryption#system_assigned_identity_principal_id}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#timeouts NetappAccountEncryption#timeouts}
-        :param user_assigned_identity_id: The resource ID of the User Assigned Identity to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#user_assigned_identity_id NetappAccountEncryption#user_assigned_identity_id}
+        :param encryption_key: The versionless encryption key url. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#encryption_key NetappAccountEncryption#encryption_key}
+        :param netapp_account_id: The ID of the NetApp Account where encryption will be set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#netapp_account_id NetappAccountEncryption#netapp_account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#id NetappAccountEncryption#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param system_assigned_identity_principal_id: The Principal ID of the System Assigned Identity to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#system_assigned_identity_principal_id NetappAccountEncryption#system_assigned_identity_principal_id}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#timeouts NetappAccountEncryption#timeouts}
+        :param user_assigned_identity_id: The resource ID of the User Assigned Identity to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#user_assigned_identity_id NetappAccountEncryption#user_assigned_identity_id}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -445,7 +445,7 @@ class NetappAccountEncryptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encryption_key(self) -> builtins.str:
         '''The versionless encryption key url.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#encryption_key NetappAccountEncryption#encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#encryption_key NetappAccountEncryption#encryption_key}
         '''
         result = self._values.get("encryption_key")
         assert result is not None, "Required property 'encryption_key' is missing"
@@ -455,7 +455,7 @@ class NetappAccountEncryptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def netapp_account_id(self) -> builtins.str:
         '''The ID of the NetApp Account where encryption will be set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#netapp_account_id NetappAccountEncryption#netapp_account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#netapp_account_id NetappAccountEncryption#netapp_account_id}
         '''
         result = self._values.get("netapp_account_id")
         assert result is not None, "Required property 'netapp_account_id' is missing"
@@ -463,7 +463,7 @@ class NetappAccountEncryptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#id NetappAccountEncryption#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#id NetappAccountEncryption#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -475,7 +475,7 @@ class NetappAccountEncryptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def system_assigned_identity_principal_id(self) -> typing.Optional[builtins.str]:
         '''The Principal ID of the System Assigned Identity to use for encryption.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#system_assigned_identity_principal_id NetappAccountEncryption#system_assigned_identity_principal_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#system_assigned_identity_principal_id NetappAccountEncryption#system_assigned_identity_principal_id}
         '''
         result = self._values.get("system_assigned_identity_principal_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -484,7 +484,7 @@ class NetappAccountEncryptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NetappAccountEncryptionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#timeouts NetappAccountEncryption#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#timeouts NetappAccountEncryption#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetappAccountEncryptionTimeouts"], result)
@@ -493,7 +493,7 @@ class NetappAccountEncryptionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def user_assigned_identity_id(self) -> typing.Optional[builtins.str]:
         '''The resource ID of the User Assigned Identity to use for encryption.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#user_assigned_identity_id NetappAccountEncryption#user_assigned_identity_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#user_assigned_identity_id NetappAccountEncryption#user_assigned_identity_id}
         '''
         result = self._values.get("user_assigned_identity_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -530,10 +530,10 @@ class NetappAccountEncryptionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#create NetappAccountEncryption#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#delete NetappAccountEncryption#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#read NetappAccountEncryption#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#update NetappAccountEncryption#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#create NetappAccountEncryption#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#delete NetappAccountEncryption#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#read NetappAccountEncryption#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#update NetappAccountEncryption#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__12a2067206a6fa538b761a5449ea2328d86a67f4980611379504aeaa9b687df4)
@@ -553,25 +553,25 @@ class NetappAccountEncryptionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#create NetappAccountEncryption#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#create NetappAccountEncryption#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#delete NetappAccountEncryption#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#delete NetappAccountEncryption#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#read NetappAccountEncryption#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#read NetappAccountEncryption#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/netapp_account_encryption#update NetappAccountEncryption#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/netapp_account_encryption#update NetappAccountEncryption#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

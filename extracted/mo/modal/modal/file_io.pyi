@@ -62,7 +62,7 @@ class _FileIO(typing.Generic[T]):
 
     **Usage**
 
-    ```python
+    ```python notest
     import modal
 
     app = modal.App.lookup("my-app", create_if_missing=True)
@@ -232,7 +232,7 @@ class FileIO(typing.Generic[T]):
 
     **Usage**
 
-    ```python
+    ```python notest
     import modal
 
     app = modal.App.lookup("my-app", create_if_missing=True)

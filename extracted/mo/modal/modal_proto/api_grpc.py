@@ -275,6 +275,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def FunctionCallFromId(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.FunctionCallFromIdRequest, modal_proto.api_pb2.FunctionCallFromIdResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def FunctionCallGetDataIn(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.FunctionCallGetDataRequest, modal_proto.api_pb2.DataChunk]') -> None:
         pass
 
@@ -292,6 +296,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def FunctionCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.FunctionCreateRequest, modal_proto.api_pb2.FunctionCreateResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def FunctionFinishInputs(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.FunctionFinishInputsRequest, google.protobuf.empty_pb2.Empty]') -> None:
         pass
 
     @abc.abstractmethod
@@ -1060,6 +1068,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.FunctionCallCancelRequest,
                 google.protobuf.empty_pb2.Empty,
             ),
+            '/modal.client.ModalClient/FunctionCallFromId': grpclib.const.Handler(
+                self.FunctionCallFromId,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.FunctionCallFromIdRequest,
+                modal_proto.api_pb2.FunctionCallFromIdResponse,
+            ),
             '/modal.client.ModalClient/FunctionCallGetDataIn': grpclib.const.Handler(
                 self.FunctionCallGetDataIn,
                 grpclib.const.Cardinality.UNARY_STREAM,
@@ -1089,6 +1103,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.FunctionCreateRequest,
                 modal_proto.api_pb2.FunctionCreateResponse,
+            ),
+            '/modal.client.ModalClient/FunctionFinishInputs': grpclib.const.Handler(
+                self.FunctionFinishInputs,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.FunctionFinishInputsRequest,
+                google.protobuf.empty_pb2.Empty,
             ),
             '/modal.client.ModalClient/FunctionGet': grpclib.const.Handler(
                 self.FunctionGet,
@@ -2050,6 +2070,12 @@ class ModalClientStub:
             modal_proto.api_pb2.FunctionCallCancelRequest,
             google.protobuf.empty_pb2.Empty,
         )
+        self.FunctionCallFromId = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/FunctionCallFromId',
+            modal_proto.api_pb2.FunctionCallFromIdRequest,
+            modal_proto.api_pb2.FunctionCallFromIdResponse,
+        )
         self.FunctionCallGetDataIn = grpclib.client.UnaryStreamMethod(
             channel,
             '/modal.client.ModalClient/FunctionCallGetDataIn',
@@ -2079,6 +2105,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/FunctionCreate',
             modal_proto.api_pb2.FunctionCreateRequest,
             modal_proto.api_pb2.FunctionCreateResponse,
+        )
+        self.FunctionFinishInputs = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/FunctionFinishInputs',
+            modal_proto.api_pb2.FunctionFinishInputsRequest,
+            google.protobuf.empty_pb2.Empty,
         )
         self.FunctionGet = grpclib.client.UnaryUnaryMethod(
             channel,

@@ -64,6 +64,7 @@ class ControlSourceType(str, Enum):
     OLIGOINTEGRATION = 'OligoIntegration'
     ACUNETIXINTEGRATION = 'AcunetixIntegration'
     MENDINTEGRATION = 'MendIntegration'
+    DYNATRACEINTEGRATION = 'DynatraceIntegration'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

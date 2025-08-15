@@ -4,9 +4,9 @@ Section extraction from documents.
 
 import re
 from typing import Dict, List, Optional, Tuple
+
 from edgar.documents.document import Document, Section
 from edgar.documents.nodes import Node, HeadingNode, SectionNode
-from edgar.documents.types import SemanticType
 
 
 class SectionExtractor:

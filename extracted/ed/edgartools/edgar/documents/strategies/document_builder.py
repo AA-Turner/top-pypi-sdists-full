@@ -2,18 +2,18 @@
 Document builder that converts parsed HTML tree into document nodes.
 """
 
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional
+
 from lxml.html import HtmlElement
-import re
 
 from edgar.documents.config import ParserConfig
 from edgar.documents.nodes import (
     Node, DocumentNode, TextNode, ParagraphNode, HeadingNode,
     ContainerNode, SectionNode, ListNode, ListItemNode, LinkNode, ImageNode
 )
-from edgar.documents.table_nodes import TableNode, Cell, Row
-from edgar.documents.types import Style, ParseContext, NodeType, SemanticType
 from edgar.documents.strategies.style_parser import StyleParser
+from edgar.documents.table_nodes import TableNode, Cell, Row
+from edgar.documents.types import Style, ParseContext, SemanticType
 
 
 class DocumentBuilder:

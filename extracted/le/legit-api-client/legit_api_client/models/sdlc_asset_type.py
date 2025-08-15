@@ -139,6 +139,8 @@ class SdlcAssetType(str, Enum):
     ACUNETIX = 'Acunetix'
     MEND = 'Mend'
     HACKERONE = 'HackerOne'
+    DYNATRACE = 'Dynatrace'
+    FORTIFYSSC = 'FortifySsc'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

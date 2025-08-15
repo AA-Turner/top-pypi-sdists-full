@@ -220,7 +220,14 @@ SnaplockTypeType = Literal["COMPLIANCE", "ENTERPRISE"]
 SnapshotFilterNameType = Literal["file-system-id", "volume-id"]
 SnapshotLifecycleType = Literal["AVAILABLE", "CREATING", "DELETING", "PENDING"]
 StatusType = Literal[
-    "COMPLETED", "FAILED", "IN_PROGRESS", "OPTIMIZING", "PENDING", "UPDATED_OPTIMIZING"
+    "CANCELLED",
+    "COMPLETED",
+    "FAILED",
+    "IN_PROGRESS",
+    "OPTIMIZING",
+    "PAUSED",
+    "PENDING",
+    "UPDATED_OPTIMIZING",
 ]
 StorageTypeType = Literal["HDD", "INTELLIGENT_TIERING", "SSD"]
 StorageVirtualMachineFilterNameType = Literal["file-system-id"]
@@ -288,6 +295,7 @@ ServiceName = Literal[
     "batch",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

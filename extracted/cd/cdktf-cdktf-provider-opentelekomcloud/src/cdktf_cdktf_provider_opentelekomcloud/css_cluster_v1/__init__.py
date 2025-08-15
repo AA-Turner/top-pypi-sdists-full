@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_css_cluster_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_css_cluster_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_css_cluster_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CssClusterV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.cssClusterV1.CssClusterV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1 opentelekomcloud_css_cluster_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1 opentelekomcloud_css_cluster_v1}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class CssClusterV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1 opentelekomcloud_css_cluster_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1 opentelekomcloud_css_cluster_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#name CssClusterV1#name}.
-        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#node_config CssClusterV1#node_config}
-        :param admin_pass: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#admin_pass CssClusterV1#admin_pass}.
-        :param backup_strategy: backup_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#backup_strategy CssClusterV1#backup_strategy}
-        :param datastore: datastore block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#datastore CssClusterV1#datastore}
-        :param enable_authority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#enable_authority CssClusterV1#enable_authority}.
-        :param enable_https: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#enable_https CssClusterV1#enable_https}.
-        :param expect_node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#expect_node_num CssClusterV1#expect_node_num}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#id CssClusterV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param public_access: public_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#public_access CssClusterV1#public_access}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#tags CssClusterV1#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#timeouts CssClusterV1#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#name CssClusterV1#name}.
+        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#node_config CssClusterV1#node_config}
+        :param admin_pass: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#admin_pass CssClusterV1#admin_pass}.
+        :param backup_strategy: backup_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#backup_strategy CssClusterV1#backup_strategy}
+        :param datastore: datastore block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#datastore CssClusterV1#datastore}
+        :param enable_authority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#enable_authority CssClusterV1#enable_authority}.
+        :param enable_https: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#enable_https CssClusterV1#enable_https}.
+        :param expect_node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#expect_node_num CssClusterV1#expect_node_num}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#id CssClusterV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param public_access: public_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#public_access CssClusterV1#public_access}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#tags CssClusterV1#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#timeouts CssClusterV1#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class CssClusterV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CssClusterV1 to import.
-        :param import_from_id: The id of the existing CssClusterV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CssClusterV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CssClusterV1 to import is found.
         '''
         if __debug__:
@@ -156,9 +156,9 @@ class CssClusterV1(
         start_time: builtins.str,
     ) -> None:
         '''
-        :param keep_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#keep_days CssClusterV1#keep_days}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#prefix CssClusterV1#prefix}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#start_time CssClusterV1#start_time}.
+        :param keep_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#keep_days CssClusterV1#keep_days}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#prefix CssClusterV1#prefix}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#start_time CssClusterV1#start_time}.
         '''
         value = CssClusterV1BackupStrategy(
             keep_days=keep_days, prefix=prefix, start_time=start_time
@@ -174,8 +174,8 @@ class CssClusterV1(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#type CssClusterV1#type}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#version CssClusterV1#version}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#type CssClusterV1#type}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#version CssClusterV1#version}.
         '''
         value = CssClusterV1Datastore(type=type, version=version)
 
@@ -191,10 +191,10 @@ class CssClusterV1(
         availability_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#flavor CssClusterV1#flavor}.
-        :param network_info: network_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#network_info CssClusterV1#network_info}
-        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#volume CssClusterV1#volume}
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#availability_zone CssClusterV1#availability_zone}.
+        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#flavor CssClusterV1#flavor}.
+        :param network_info: network_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#network_info CssClusterV1#network_info}
+        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#volume CssClusterV1#volume}
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#availability_zone CssClusterV1#availability_zone}.
         '''
         value = CssClusterV1NodeConfig(
             flavor=flavor,
@@ -214,9 +214,9 @@ class CssClusterV1(
         whitelist: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bandwidth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#bandwidth CssClusterV1#bandwidth}.
-        :param whitelist_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#whitelist_enabled CssClusterV1#whitelist_enabled}.
-        :param whitelist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#whitelist CssClusterV1#whitelist}.
+        :param bandwidth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#bandwidth CssClusterV1#bandwidth}.
+        :param whitelist_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#whitelist_enabled CssClusterV1#whitelist_enabled}.
+        :param whitelist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#whitelist CssClusterV1#whitelist}.
         '''
         value = CssClusterV1PublicAccess(
             bandwidth=bandwidth,
@@ -234,8 +234,8 @@ class CssClusterV1(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#create CssClusterV1#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#update CssClusterV1#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#create CssClusterV1#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#update CssClusterV1#update}.
         '''
         value = CssClusterV1Timeouts(create=create, update=update)
 
@@ -521,9 +521,9 @@ class CssClusterV1BackupStrategy:
         start_time: builtins.str,
     ) -> None:
         '''
-        :param keep_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#keep_days CssClusterV1#keep_days}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#prefix CssClusterV1#prefix}.
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#start_time CssClusterV1#start_time}.
+        :param keep_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#keep_days CssClusterV1#keep_days}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#prefix CssClusterV1#prefix}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#start_time CssClusterV1#start_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e5059d4d8223e361d2b7dc68799e71fbe664f9a05aa53a26832ce580c141c8c2)
@@ -538,21 +538,21 @@ class CssClusterV1BackupStrategy:
 
     @builtins.property
     def keep_days(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#keep_days CssClusterV1#keep_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#keep_days CssClusterV1#keep_days}.'''
         result = self._values.get("keep_days")
         assert result is not None, "Required property 'keep_days' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def prefix(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#prefix CssClusterV1#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#prefix CssClusterV1#prefix}.'''
         result = self._values.get("prefix")
         assert result is not None, "Required property 'prefix' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def start_time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#start_time CssClusterV1#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#start_time CssClusterV1#start_time}.'''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
         return typing.cast(builtins.str, result)
@@ -713,18 +713,18 @@ class CssClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#name CssClusterV1#name}.
-        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#node_config CssClusterV1#node_config}
-        :param admin_pass: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#admin_pass CssClusterV1#admin_pass}.
-        :param backup_strategy: backup_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#backup_strategy CssClusterV1#backup_strategy}
-        :param datastore: datastore block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#datastore CssClusterV1#datastore}
-        :param enable_authority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#enable_authority CssClusterV1#enable_authority}.
-        :param enable_https: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#enable_https CssClusterV1#enable_https}.
-        :param expect_node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#expect_node_num CssClusterV1#expect_node_num}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#id CssClusterV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param public_access: public_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#public_access CssClusterV1#public_access}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#tags CssClusterV1#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#timeouts CssClusterV1#timeouts}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#name CssClusterV1#name}.
+        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#node_config CssClusterV1#node_config}
+        :param admin_pass: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#admin_pass CssClusterV1#admin_pass}.
+        :param backup_strategy: backup_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#backup_strategy CssClusterV1#backup_strategy}
+        :param datastore: datastore block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#datastore CssClusterV1#datastore}
+        :param enable_authority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#enable_authority CssClusterV1#enable_authority}.
+        :param enable_https: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#enable_https CssClusterV1#enable_https}.
+        :param expect_node_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#expect_node_num CssClusterV1#expect_node_num}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#id CssClusterV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param public_access: public_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#public_access CssClusterV1#public_access}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#tags CssClusterV1#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#timeouts CssClusterV1#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -864,7 +864,7 @@ class CssClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#name CssClusterV1#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#name CssClusterV1#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -873,7 +873,7 @@ class CssClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def node_config(self) -> "CssClusterV1NodeConfig":
         '''node_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#node_config CssClusterV1#node_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#node_config CssClusterV1#node_config}
         '''
         result = self._values.get("node_config")
         assert result is not None, "Required property 'node_config' is missing"
@@ -881,7 +881,7 @@ class CssClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def admin_pass(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#admin_pass CssClusterV1#admin_pass}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#admin_pass CssClusterV1#admin_pass}.'''
         result = self._values.get("admin_pass")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -889,7 +889,7 @@ class CssClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup_strategy(self) -> typing.Optional[CssClusterV1BackupStrategy]:
         '''backup_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#backup_strategy CssClusterV1#backup_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#backup_strategy CssClusterV1#backup_strategy}
         '''
         result = self._values.get("backup_strategy")
         return typing.cast(typing.Optional[CssClusterV1BackupStrategy], result)
@@ -898,7 +898,7 @@ class CssClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def datastore(self) -> typing.Optional["CssClusterV1Datastore"]:
         '''datastore block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#datastore CssClusterV1#datastore}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#datastore CssClusterV1#datastore}
         '''
         result = self._values.get("datastore")
         return typing.cast(typing.Optional["CssClusterV1Datastore"], result)
@@ -907,7 +907,7 @@ class CssClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_authority(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#enable_authority CssClusterV1#enable_authority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#enable_authority CssClusterV1#enable_authority}.'''
         result = self._values.get("enable_authority")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -915,19 +915,19 @@ class CssClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_https(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#enable_https CssClusterV1#enable_https}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#enable_https CssClusterV1#enable_https}.'''
         result = self._values.get("enable_https")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def expect_node_num(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#expect_node_num CssClusterV1#expect_node_num}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#expect_node_num CssClusterV1#expect_node_num}.'''
         result = self._values.get("expect_node_num")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#id CssClusterV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#id CssClusterV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -939,14 +939,14 @@ class CssClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def public_access(self) -> typing.Optional["CssClusterV1PublicAccess"]:
         '''public_access block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#public_access CssClusterV1#public_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#public_access CssClusterV1#public_access}
         '''
         result = self._values.get("public_access")
         return typing.cast(typing.Optional["CssClusterV1PublicAccess"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#tags CssClusterV1#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#tags CssClusterV1#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -954,7 +954,7 @@ class CssClusterV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CssClusterV1Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#timeouts CssClusterV1#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#timeouts CssClusterV1#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CssClusterV1Timeouts"], result)
@@ -984,8 +984,8 @@ class CssClusterV1Datastore:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#type CssClusterV1#type}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#version CssClusterV1#version}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#type CssClusterV1#type}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#version CssClusterV1#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__632c1ebcb58e234542fbb6f092a61341f5de0c8d072a08060bd3e45dc11cf35a)
@@ -999,13 +999,13 @@ class CssClusterV1Datastore:
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#type CssClusterV1#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#type CssClusterV1#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#version CssClusterV1#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#version CssClusterV1#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1116,10 +1116,10 @@ class CssClusterV1NodeConfig:
         availability_zone: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#flavor CssClusterV1#flavor}.
-        :param network_info: network_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#network_info CssClusterV1#network_info}
-        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#volume CssClusterV1#volume}
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#availability_zone CssClusterV1#availability_zone}.
+        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#flavor CssClusterV1#flavor}.
+        :param network_info: network_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#network_info CssClusterV1#network_info}
+        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#volume CssClusterV1#volume}
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#availability_zone CssClusterV1#availability_zone}.
         '''
         if isinstance(network_info, dict):
             network_info = CssClusterV1NodeConfigNetworkInfo(**network_info)
@@ -1141,7 +1141,7 @@ class CssClusterV1NodeConfig:
 
     @builtins.property
     def flavor(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#flavor CssClusterV1#flavor}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#flavor CssClusterV1#flavor}.'''
         result = self._values.get("flavor")
         assert result is not None, "Required property 'flavor' is missing"
         return typing.cast(builtins.str, result)
@@ -1150,7 +1150,7 @@ class CssClusterV1NodeConfig:
     def network_info(self) -> "CssClusterV1NodeConfigNetworkInfo":
         '''network_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#network_info CssClusterV1#network_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#network_info CssClusterV1#network_info}
         '''
         result = self._values.get("network_info")
         assert result is not None, "Required property 'network_info' is missing"
@@ -1160,7 +1160,7 @@ class CssClusterV1NodeConfig:
     def volume(self) -> "CssClusterV1NodeConfigVolume":
         '''volume block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#volume CssClusterV1#volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#volume CssClusterV1#volume}
         '''
         result = self._values.get("volume")
         assert result is not None, "Required property 'volume' is missing"
@@ -1168,7 +1168,7 @@ class CssClusterV1NodeConfig:
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#availability_zone CssClusterV1#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#availability_zone CssClusterV1#availability_zone}.'''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1202,9 +1202,9 @@ class CssClusterV1NodeConfigNetworkInfo:
         vpc_id: builtins.str,
     ) -> None:
         '''
-        :param network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#network_id CssClusterV1#network_id}.
-        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#security_group_id CssClusterV1#security_group_id}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#vpc_id CssClusterV1#vpc_id}.
+        :param network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#network_id CssClusterV1#network_id}.
+        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#security_group_id CssClusterV1#security_group_id}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#vpc_id CssClusterV1#vpc_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__08fe6755900468eee5cdf4afafafe283f4b3eef1506730f89f5a072260c5a05a)
@@ -1219,21 +1219,21 @@ class CssClusterV1NodeConfigNetworkInfo:
 
     @builtins.property
     def network_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#network_id CssClusterV1#network_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#network_id CssClusterV1#network_id}.'''
         result = self._values.get("network_id")
         assert result is not None, "Required property 'network_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def security_group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#security_group_id CssClusterV1#security_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#security_group_id CssClusterV1#security_group_id}.'''
         result = self._values.get("security_group_id")
         assert result is not None, "Required property 'security_group_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#vpc_id CssClusterV1#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#vpc_id CssClusterV1#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1366,9 +1366,9 @@ class CssClusterV1NodeConfigOutputReference(
         vpc_id: builtins.str,
     ) -> None:
         '''
-        :param network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#network_id CssClusterV1#network_id}.
-        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#security_group_id CssClusterV1#security_group_id}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#vpc_id CssClusterV1#vpc_id}.
+        :param network_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#network_id CssClusterV1#network_id}.
+        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#security_group_id CssClusterV1#security_group_id}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#vpc_id CssClusterV1#vpc_id}.
         '''
         value = CssClusterV1NodeConfigNetworkInfo(
             network_id=network_id, security_group_id=security_group_id, vpc_id=vpc_id
@@ -1385,9 +1385,9 @@ class CssClusterV1NodeConfigOutputReference(
         encryption_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#size CssClusterV1#size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#volume_type CssClusterV1#volume_type}.
-        :param encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#encryption_key CssClusterV1#encryption_key}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#size CssClusterV1#size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#volume_type CssClusterV1#volume_type}.
+        :param encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#encryption_key CssClusterV1#encryption_key}.
         '''
         value = CssClusterV1NodeConfigVolume(
             size=size, volume_type=volume_type, encryption_key=encryption_key
@@ -1484,9 +1484,9 @@ class CssClusterV1NodeConfigVolume:
         encryption_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#size CssClusterV1#size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#volume_type CssClusterV1#volume_type}.
-        :param encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#encryption_key CssClusterV1#encryption_key}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#size CssClusterV1#size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#volume_type CssClusterV1#volume_type}.
+        :param encryption_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#encryption_key CssClusterV1#encryption_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b060a1b8c5358fdd8b6fde5afa981b3d479e7d74599d47e04f8919927f238ed6)
@@ -1502,21 +1502,21 @@ class CssClusterV1NodeConfigVolume:
 
     @builtins.property
     def size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#size CssClusterV1#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#size CssClusterV1#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def volume_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#volume_type CssClusterV1#volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#volume_type CssClusterV1#volume_type}.'''
         result = self._values.get("volume_type")
         assert result is not None, "Required property 'volume_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def encryption_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#encryption_key CssClusterV1#encryption_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#encryption_key CssClusterV1#encryption_key}.'''
         result = self._values.get("encryption_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1789,9 +1789,9 @@ class CssClusterV1PublicAccess:
         whitelist: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bandwidth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#bandwidth CssClusterV1#bandwidth}.
-        :param whitelist_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#whitelist_enabled CssClusterV1#whitelist_enabled}.
-        :param whitelist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#whitelist CssClusterV1#whitelist}.
+        :param bandwidth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#bandwidth CssClusterV1#bandwidth}.
+        :param whitelist_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#whitelist_enabled CssClusterV1#whitelist_enabled}.
+        :param whitelist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#whitelist CssClusterV1#whitelist}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae25358373247554aef0f7766128dc2083f9f326ce9f71f23413bcc3a848882d)
@@ -1807,7 +1807,7 @@ class CssClusterV1PublicAccess:
 
     @builtins.property
     def bandwidth(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#bandwidth CssClusterV1#bandwidth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#bandwidth CssClusterV1#bandwidth}.'''
         result = self._values.get("bandwidth")
         assert result is not None, "Required property 'bandwidth' is missing"
         return typing.cast(jsii.Number, result)
@@ -1816,14 +1816,14 @@ class CssClusterV1PublicAccess:
     def whitelist_enabled(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#whitelist_enabled CssClusterV1#whitelist_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#whitelist_enabled CssClusterV1#whitelist_enabled}.'''
         result = self._values.get("whitelist_enabled")
         assert result is not None, "Required property 'whitelist_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def whitelist(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#whitelist CssClusterV1#whitelist}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#whitelist CssClusterV1#whitelist}.'''
         result = self._values.get("whitelist")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1952,8 +1952,8 @@ class CssClusterV1Timeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#create CssClusterV1#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#update CssClusterV1#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#create CssClusterV1#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#update CssClusterV1#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e74b6ff83668398d3416f481356a23f22d8fced291144b737fd1f188a4a7fad5)
@@ -1967,13 +1967,13 @@ class CssClusterV1Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#create CssClusterV1#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#create CssClusterV1#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_cluster_v1#update CssClusterV1#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_cluster_v1#update CssClusterV1#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

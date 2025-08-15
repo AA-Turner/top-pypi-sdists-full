@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocstrings-python
-Version: 1.16.12
+Version: 1.17.0
 Summary: A Python handler for mkdocstrings.
 Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
 License-Expression: ISC
@@ -30,9 +30,9 @@ Project-URL: Discussions, https://github.com/mkdocstrings/python/discussions
 Project-URL: Gitter, https://gitter.im/mkdocstrings/python
 Project-URL: Funding, https://github.com/sponsors/pawamoy
 Requires-Python: >=3.9
-Requires-Dist: mkdocstrings>=0.28.3
+Requires-Dist: mkdocstrings>=0.30
 Requires-Dist: mkdocs-autorefs>=1.4
-Requires-Dist: griffe>=1.6.2
+Requires-Dist: griffe>=1.12.1
 Requires-Dist: typing-extensions>=4.0; python_version < "3.11"
 Description-Content-Type: text/markdown
 

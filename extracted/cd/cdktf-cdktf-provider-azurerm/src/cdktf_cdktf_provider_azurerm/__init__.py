@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.39.0
+# CDKTF prebuilt bindings for hashicorp/azurerm provider version 4.40.0
 
-This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform azurerm provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0)
+* [Terraform azurerm provider](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -765,6 +765,7 @@ __all__ = [
     "data_factory_credential_service_principal",
     "data_factory_credential_user_managed_identity",
     "data_factory_custom_dataset",
+    "data_factory_customer_managed_key",
     "data_factory_data_flow",
     "data_factory_dataset_azure_blob",
     "data_factory_dataset_azure_sql_table",
@@ -2268,6 +2269,7 @@ from . import data_factory
 from . import data_factory_credential_service_principal
 from . import data_factory_credential_user_managed_identity
 from . import data_factory_custom_dataset
+from . import data_factory_customer_managed_key
 from . import data_factory_data_flow
 from . import data_factory_dataset_azure_blob
 from . import data_factory_dataset_azure_sql_table

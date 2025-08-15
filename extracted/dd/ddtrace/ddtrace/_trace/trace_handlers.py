@@ -1,10 +1,12 @@
 import functools
 import sys
+from types import TracebackType
 from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 from urllib import parse
 
 import wrapt
@@ -144,10 +146,31 @@ def _start_span(ctx: core.ExecutionContext, call_trace: bool = True, **kwargs) -
     return span
 
 
+def _finish_span(
+    ctx: core.ExecutionContext,
+    exc_info: Tuple[Optional[type], Optional[BaseException], Optional[TracebackType]],
+):
+    """
+    Finish the span in the context.
+    If no span is present, do nothing.
+    """
+    span = ctx.span
+    if not span:
+        return
+
+    exc_type, exc_value, exc_traceback = exc_info
+    if exc_type and exc_value and exc_traceback:
+        span.set_exc_info(exc_type, exc_value, exc_traceback)
+    elif ctx.get_item("should_set_traceback", False):
+        span.set_traceback()
+    span.finish()
+
+
 def _set_web_frameworks_tags(ctx, span, int_config):
     span.set_tag_str(COMPONENT, int_config.integration_name)
     span.set_tag_str(SPAN_KIND, SpanKind.SERVER)
-    span.set_tag(_SPAN_MEASURED_KEY)
+    # PERF: avoid setting via Span.set_tag
+    span.set_metric(_SPAN_MEASURED_KEY, 1)
 
 
 def _on_web_framework_start_request(ctx, int_config):
@@ -447,7 +470,8 @@ def _on_request_span_modifier(
     # RequestContext` and possibly a url rule
     span.resource = " ".join((request.method, request.path))
 
-    span.set_tag(_SPAN_MEASURED_KEY)
+    # PERF: avoid setting via Span.set_tag
+    span.set_metric(_SPAN_MEASURED_KEY, 1)
 
     span.set_tag_str(flask_version, flask_version_str)
 
@@ -522,11 +546,6 @@ def _on_django_func_wrapped(_unused1, _unused2, _unused3, ctx, ignored_excs):
     if ignored_excs:
         for exc in ignored_excs:
             ctx.span._ignore_exception(exc)
-
-
-def _on_django_process_exception(ctx: core.ExecutionContext, should_set_traceback: bool):
-    if should_set_traceback:
-        ctx.span.set_traceback()
 
 
 def _on_django_block_request(ctx: core.ExecutionContext, metadata: Dict[str, str], django_config, url: str, query: str):
@@ -868,7 +887,6 @@ def listen():
     core.on("django.start_response", _on_django_start_response)
     core.on("django.cache", _on_django_cache)
     core.on("django.func.wrapped", _on_django_func_wrapped)
-    core.on("django.process_exception", _on_django_process_exception)
     core.on("django.block_request_callback", _on_django_block_request)
     core.on("django.after_request_headers.post", _on_django_after_request_headers_post)
     core.on("botocore.patched_api_call.exception", _on_botocore_patched_api_call_exception)
@@ -936,6 +954,10 @@ def listen():
         "flask.jsonify",
         "flask.render_template",
         "asgi.__call__",
+        "asgi.websocket.close_message",
+        "asgi.websocket.disconnect_message",
+        "asgi.websocket.receive_message",
+        "asgi.websocket.send_message",
         "wsgi.__call__",
         "django.traced_get_response",
         "django.cache",
@@ -962,6 +984,9 @@ def listen():
         "azure.servicebus.patched_producer",
     ):
         core.on(f"context.started.{context_name}", _start_span)
+
+    for name in ("django.template.render", "django.process_exception"):
+        core.on(f"context.ended.{name}", _finish_span)
 
 
 listen()

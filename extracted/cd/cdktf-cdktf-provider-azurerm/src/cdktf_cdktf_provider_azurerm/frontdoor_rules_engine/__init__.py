@@ -1,7 +1,7 @@
 r'''
 # `azurerm_frontdoor_rules_engine`
 
-Refer to the Terraform Registry for docs: [`azurerm_frontdoor_rules_engine`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine).
+Refer to the Terraform Registry for docs: [`azurerm_frontdoor_rules_engine`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FrontdoorRulesEngine(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.frontdoorRulesEngine.FrontdoorRulesEngine",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine azurerm_frontdoor_rules_engine}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine azurerm_frontdoor_rules_engine}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class FrontdoorRulesEngine(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine azurerm_frontdoor_rules_engine} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine azurerm_frontdoor_rules_engine} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param frontdoor_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#frontdoor_name FrontdoorRulesEngine#frontdoor_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#name FrontdoorRulesEngine#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#resource_group_name FrontdoorRulesEngine#resource_group_name}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#enabled FrontdoorRulesEngine#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#id FrontdoorRulesEngine#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#rule FrontdoorRulesEngine#rule}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#timeouts FrontdoorRulesEngine#timeouts}
+        :param frontdoor_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#frontdoor_name FrontdoorRulesEngine#frontdoor_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#name FrontdoorRulesEngine#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#resource_group_name FrontdoorRulesEngine#resource_group_name}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#enabled FrontdoorRulesEngine#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#id FrontdoorRulesEngine#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#rule FrontdoorRulesEngine#rule}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#timeouts FrontdoorRulesEngine#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class FrontdoorRulesEngine(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FrontdoorRulesEngine to import.
-        :param import_from_id: The id of the existing FrontdoorRulesEngine that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FrontdoorRulesEngine that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FrontdoorRulesEngine to import is found.
         '''
         if __debug__:
@@ -155,10 +155,10 @@ class FrontdoorRulesEngine(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#create FrontdoorRulesEngine#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#delete FrontdoorRulesEngine#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#read FrontdoorRulesEngine#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#update FrontdoorRulesEngine#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#create FrontdoorRulesEngine#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#delete FrontdoorRulesEngine#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#read FrontdoorRulesEngine#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#update FrontdoorRulesEngine#update}.
         '''
         value = FrontdoorRulesEngineTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -362,13 +362,13 @@ class FrontdoorRulesEngineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param frontdoor_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#frontdoor_name FrontdoorRulesEngine#frontdoor_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#name FrontdoorRulesEngine#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#resource_group_name FrontdoorRulesEngine#resource_group_name}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#enabled FrontdoorRulesEngine#enabled}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#id FrontdoorRulesEngine#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#rule FrontdoorRulesEngine#rule}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#timeouts FrontdoorRulesEngine#timeouts}
+        :param frontdoor_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#frontdoor_name FrontdoorRulesEngine#frontdoor_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#name FrontdoorRulesEngine#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#resource_group_name FrontdoorRulesEngine#resource_group_name}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#enabled FrontdoorRulesEngine#enabled}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#id FrontdoorRulesEngine#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#rule FrontdoorRulesEngine#rule}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#timeouts FrontdoorRulesEngine#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -484,21 +484,21 @@ class FrontdoorRulesEngineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def frontdoor_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#frontdoor_name FrontdoorRulesEngine#frontdoor_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#frontdoor_name FrontdoorRulesEngine#frontdoor_name}.'''
         result = self._values.get("frontdoor_name")
         assert result is not None, "Required property 'frontdoor_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#name FrontdoorRulesEngine#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#name FrontdoorRulesEngine#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#resource_group_name FrontdoorRulesEngine#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#resource_group_name FrontdoorRulesEngine#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -507,13 +507,13 @@ class FrontdoorRulesEngineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#enabled FrontdoorRulesEngine#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#enabled FrontdoorRulesEngine#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#id FrontdoorRulesEngine#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#id FrontdoorRulesEngine#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -527,7 +527,7 @@ class FrontdoorRulesEngineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FrontdoorRulesEngineRule"]]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#rule FrontdoorRulesEngine#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#rule FrontdoorRulesEngine#rule}
         '''
         result = self._values.get("rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FrontdoorRulesEngineRule"]]], result)
@@ -536,7 +536,7 @@ class FrontdoorRulesEngineConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FrontdoorRulesEngineTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#timeouts FrontdoorRulesEngine#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#timeouts FrontdoorRulesEngine#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FrontdoorRulesEngineTimeouts"], result)
@@ -573,10 +573,10 @@ class FrontdoorRulesEngineRule:
         match_condition: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["FrontdoorRulesEngineRuleMatchCondition", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#name FrontdoorRulesEngine#name}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#priority FrontdoorRulesEngine#priority}.
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#action FrontdoorRulesEngine#action}
-        :param match_condition: match_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#match_condition FrontdoorRulesEngine#match_condition}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#name FrontdoorRulesEngine#name}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#priority FrontdoorRulesEngine#priority}.
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#action FrontdoorRulesEngine#action}
+        :param match_condition: match_condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#match_condition FrontdoorRulesEngine#match_condition}
         '''
         if isinstance(action, dict):
             action = FrontdoorRulesEngineRuleAction(**action)
@@ -597,14 +597,14 @@ class FrontdoorRulesEngineRule:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#name FrontdoorRulesEngine#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#name FrontdoorRulesEngine#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def priority(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#priority FrontdoorRulesEngine#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#priority FrontdoorRulesEngine#priority}.'''
         result = self._values.get("priority")
         assert result is not None, "Required property 'priority' is missing"
         return typing.cast(jsii.Number, result)
@@ -613,7 +613,7 @@ class FrontdoorRulesEngineRule:
     def action(self) -> typing.Optional["FrontdoorRulesEngineRuleAction"]:
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#action FrontdoorRulesEngine#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#action FrontdoorRulesEngine#action}
         '''
         result = self._values.get("action")
         return typing.cast(typing.Optional["FrontdoorRulesEngineRuleAction"], result)
@@ -624,7 +624,7 @@ class FrontdoorRulesEngineRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FrontdoorRulesEngineRuleMatchCondition"]]]:
         '''match_condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#match_condition FrontdoorRulesEngine#match_condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#match_condition FrontdoorRulesEngine#match_condition}
         '''
         result = self._values.get("match_condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FrontdoorRulesEngineRuleMatchCondition"]]], result)
@@ -657,8 +657,8 @@ class FrontdoorRulesEngineRuleAction:
         response_header: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["FrontdoorRulesEngineRuleActionResponseHeader", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param request_header: request_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#request_header FrontdoorRulesEngine#request_header}
-        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#response_header FrontdoorRulesEngine#response_header}
+        :param request_header: request_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#request_header FrontdoorRulesEngine#request_header}
+        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#response_header FrontdoorRulesEngine#response_header}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7dbb0beaba992bd4b9b01316ae574d829bb0d8417fbb56e509e72917394bd523)
@@ -676,7 +676,7 @@ class FrontdoorRulesEngineRuleAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FrontdoorRulesEngineRuleActionRequestHeader"]]]:
         '''request_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#request_header FrontdoorRulesEngine#request_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#request_header FrontdoorRulesEngine#request_header}
         '''
         result = self._values.get("request_header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FrontdoorRulesEngineRuleActionRequestHeader"]]], result)
@@ -687,7 +687,7 @@ class FrontdoorRulesEngineRuleAction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FrontdoorRulesEngineRuleActionResponseHeader"]]]:
         '''response_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#response_header FrontdoorRulesEngine#response_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#response_header FrontdoorRulesEngine#response_header}
         '''
         result = self._values.get("response_header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FrontdoorRulesEngineRuleActionResponseHeader"]]], result)
@@ -816,9 +816,9 @@ class FrontdoorRulesEngineRuleActionRequestHeader:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param header_action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#header_action_type FrontdoorRulesEngine#header_action_type}.
-        :param header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#header_name FrontdoorRulesEngine#header_name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#value FrontdoorRulesEngine#value}.
+        :param header_action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#header_action_type FrontdoorRulesEngine#header_action_type}.
+        :param header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#header_name FrontdoorRulesEngine#header_name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#value FrontdoorRulesEngine#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__45a5395d9903accddbedaa5733a0e53ea26d61da8c128b2ec845767c8816c597)
@@ -835,19 +835,19 @@ class FrontdoorRulesEngineRuleActionRequestHeader:
 
     @builtins.property
     def header_action_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#header_action_type FrontdoorRulesEngine#header_action_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#header_action_type FrontdoorRulesEngine#header_action_type}.'''
         result = self._values.get("header_action_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def header_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#header_name FrontdoorRulesEngine#header_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#header_name FrontdoorRulesEngine#header_name}.'''
         result = self._values.get("header_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#value FrontdoorRulesEngine#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#value FrontdoorRulesEngine#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1081,9 +1081,9 @@ class FrontdoorRulesEngineRuleActionResponseHeader:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param header_action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#header_action_type FrontdoorRulesEngine#header_action_type}.
-        :param header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#header_name FrontdoorRulesEngine#header_name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#value FrontdoorRulesEngine#value}.
+        :param header_action_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#header_action_type FrontdoorRulesEngine#header_action_type}.
+        :param header_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#header_name FrontdoorRulesEngine#header_name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#value FrontdoorRulesEngine#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d69da37480e6e805ae8d7afe54c58ee9b1e53d1e1a0224e065ba15c63829a90)
@@ -1100,19 +1100,19 @@ class FrontdoorRulesEngineRuleActionResponseHeader:
 
     @builtins.property
     def header_action_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#header_action_type FrontdoorRulesEngine#header_action_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#header_action_type FrontdoorRulesEngine#header_action_type}.'''
         result = self._values.get("header_action_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def header_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#header_name FrontdoorRulesEngine#header_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#header_name FrontdoorRulesEngine#header_name}.'''
         result = self._values.get("header_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#value FrontdoorRulesEngine#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#value FrontdoorRulesEngine#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1442,12 +1442,12 @@ class FrontdoorRulesEngineRuleMatchCondition:
         variable: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#operator FrontdoorRulesEngine#operator}.
-        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#negate_condition FrontdoorRulesEngine#negate_condition}.
-        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#selector FrontdoorRulesEngine#selector}.
-        :param transform: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#transform FrontdoorRulesEngine#transform}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#value FrontdoorRulesEngine#value}.
-        :param variable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#variable FrontdoorRulesEngine#variable}.
+        :param operator: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#operator FrontdoorRulesEngine#operator}.
+        :param negate_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#negate_condition FrontdoorRulesEngine#negate_condition}.
+        :param selector: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#selector FrontdoorRulesEngine#selector}.
+        :param transform: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#transform FrontdoorRulesEngine#transform}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#value FrontdoorRulesEngine#value}.
+        :param variable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#variable FrontdoorRulesEngine#variable}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5088f3dec9a0a6a724a6cf2041b371efa432e68be6896df7ad3e556a5ae9e95d)
@@ -1473,7 +1473,7 @@ class FrontdoorRulesEngineRuleMatchCondition:
 
     @builtins.property
     def operator(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#operator FrontdoorRulesEngine#operator}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#operator FrontdoorRulesEngine#operator}.'''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
         return typing.cast(builtins.str, result)
@@ -1482,31 +1482,31 @@ class FrontdoorRulesEngineRuleMatchCondition:
     def negate_condition(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#negate_condition FrontdoorRulesEngine#negate_condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#negate_condition FrontdoorRulesEngine#negate_condition}.'''
         result = self._values.get("negate_condition")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def selector(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#selector FrontdoorRulesEngine#selector}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#selector FrontdoorRulesEngine#selector}.'''
         result = self._values.get("selector")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def transform(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#transform FrontdoorRulesEngine#transform}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#transform FrontdoorRulesEngine#transform}.'''
         result = self._values.get("transform")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def value(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#value FrontdoorRulesEngine#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#value FrontdoorRulesEngine#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def variable(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#variable FrontdoorRulesEngine#variable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#variable FrontdoorRulesEngine#variable}.'''
         result = self._values.get("variable")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1822,8 +1822,8 @@ class FrontdoorRulesEngineRuleOutputReference(
         response_header: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[FrontdoorRulesEngineRuleActionResponseHeader, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param request_header: request_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#request_header FrontdoorRulesEngine#request_header}
-        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#response_header FrontdoorRulesEngine#response_header}
+        :param request_header: request_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#request_header FrontdoorRulesEngine#request_header}
+        :param response_header: response_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#response_header FrontdoorRulesEngine#response_header}
         '''
         value = FrontdoorRulesEngineRuleAction(
             request_header=request_header, response_header=response_header
@@ -1946,10 +1946,10 @@ class FrontdoorRulesEngineTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#create FrontdoorRulesEngine#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#delete FrontdoorRulesEngine#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#read FrontdoorRulesEngine#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#update FrontdoorRulesEngine#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#create FrontdoorRulesEngine#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#delete FrontdoorRulesEngine#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#read FrontdoorRulesEngine#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#update FrontdoorRulesEngine#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__568543d392c13f577b49abab47ebab19d9d33a3aa2624f3442f900c77ce4073b)
@@ -1969,25 +1969,25 @@ class FrontdoorRulesEngineTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#create FrontdoorRulesEngine#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#create FrontdoorRulesEngine#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#delete FrontdoorRulesEngine#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#delete FrontdoorRulesEngine#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#read FrontdoorRulesEngine#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#read FrontdoorRulesEngine#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/frontdoor_rules_engine#update FrontdoorRulesEngine#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/frontdoor_rules_engine#update FrontdoorRulesEngine#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

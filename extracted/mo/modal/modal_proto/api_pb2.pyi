@@ -3734,7 +3734,7 @@ class DictListResponse(google.protobuf.message.Message):
         METADATA_FIELD_NUMBER: builtins.int
         name: builtins.str
         created_at: builtins.float
-        """Superseded by metadata, used by clients up to 1.1.1"""
+        """Superseded by metadata, used by clients up to 1.1.2"""
         dict_id: builtins.str
         @property
         def metadata(self) -> global___DictMetadata: ...
@@ -4805,25 +4805,58 @@ class FunctionCallCancelRequest(google.protobuf.message.Message):
 
 global___FunctionCallCancelRequest = FunctionCallCancelRequest
 
-class FunctionCallGetDataRequest(google.protobuf.message.Message):
+class FunctionCallFromIdRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     FUNCTION_CALL_ID_FIELD_NUMBER: builtins.int
-    LAST_INDEX_FIELD_NUMBER: builtins.int
-    ATTEMPT_TOKEN_FIELD_NUMBER: builtins.int
     function_call_id: builtins.str
-    last_index: builtins.int
-    attempt_token: builtins.str
     def __init__(
         self,
         *,
         function_call_id: builtins.str = ...,
-        last_index: builtins.int = ...,
-        attempt_token: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_attempt_token", b"_attempt_token", "attempt_token", b"attempt_token"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_attempt_token", b"_attempt_token", "attempt_token", b"attempt_token", "function_call_id", b"function_call_id", "last_index", b"last_index"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["_attempt_token", b"_attempt_token"]) -> typing_extensions.Literal["attempt_token"] | None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["function_call_id", b"function_call_id"]) -> None: ...
+
+global___FunctionCallFromIdRequest = FunctionCallFromIdRequest
+
+class FunctionCallFromIdResponse(google.protobuf.message.Message):
+    """Everything you need to build a FunctionCallHandler."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    FUNCTION_CALL_ID_FIELD_NUMBER: builtins.int
+    NUM_INPUTS_FIELD_NUMBER: builtins.int
+    function_call_id: builtins.str
+    num_inputs: builtins.int
+    def __init__(
+        self,
+        *,
+        function_call_id: builtins.str = ...,
+        num_inputs: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["function_call_id", b"function_call_id", "num_inputs", b"num_inputs"]) -> None: ...
+
+global___FunctionCallFromIdResponse = FunctionCallFromIdResponse
+
+class FunctionCallGetDataRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    FUNCTION_CALL_ID_FIELD_NUMBER: builtins.int
+    ATTEMPT_TOKEN_FIELD_NUMBER: builtins.int
+    LAST_INDEX_FIELD_NUMBER: builtins.int
+    function_call_id: builtins.str
+    attempt_token: builtins.str
+    last_index: builtins.int
+    def __init__(
+        self,
+        *,
+        function_call_id: builtins.str = ...,
+        attempt_token: builtins.str = ...,
+        last_index: builtins.int = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["attempt_token", b"attempt_token", "call_info", b"call_info", "function_call_id", b"function_call_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["attempt_token", b"attempt_token", "call_info", b"call_info", "function_call_id", b"function_call_id", "last_index", b"last_index"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["call_info", b"call_info"]) -> typing_extensions.Literal["function_call_id", "attempt_token"] | None: ...
 
 global___FunctionCallGetDataRequest = FunctionCallGetDataRequest
 
@@ -4909,17 +4942,22 @@ class FunctionCallPutDataRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     FUNCTION_CALL_ID_FIELD_NUMBER: builtins.int
+    ATTEMPT_TOKEN_FIELD_NUMBER: builtins.int
     DATA_CHUNKS_FIELD_NUMBER: builtins.int
     function_call_id: builtins.str
+    attempt_token: builtins.str
     @property
     def data_chunks(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___DataChunk]: ...
     def __init__(
         self,
         *,
         function_call_id: builtins.str = ...,
+        attempt_token: builtins.str = ...,
         data_chunks: collections.abc.Iterable[global___DataChunk] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["data_chunks", b"data_chunks", "function_call_id", b"function_call_id"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["attempt_token", b"attempt_token", "call_info", b"call_info", "function_call_id", b"function_call_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["attempt_token", b"attempt_token", "call_info", b"call_info", "data_chunks", b"data_chunks", "function_call_id", b"function_call_id"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["call_info", b"call_info"]) -> typing_extensions.Literal["function_call_id", "attempt_token"] | None: ...
 
 global___FunctionCallPutDataRequest = FunctionCallPutDataRequest
 
@@ -5211,6 +5249,26 @@ class FunctionExtended(google.protobuf.message.Message):
 
 global___FunctionExtended = FunctionExtended
 
+class FunctionFinishInputsRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    FUNCTION_ID_FIELD_NUMBER: builtins.int
+    FUNCTION_CALL_ID_FIELD_NUMBER: builtins.int
+    NUM_INPUTS_FIELD_NUMBER: builtins.int
+    function_id: builtins.str
+    function_call_id: builtins.str
+    num_inputs: builtins.int
+    def __init__(
+        self,
+        *,
+        function_id: builtins.str = ...,
+        function_call_id: builtins.str = ...,
+        num_inputs: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["function_call_id", b"function_call_id", "function_id", b"function_id", "num_inputs", b"num_inputs"]) -> None: ...
+
+global___FunctionFinishInputsRequest = FunctionFinishInputsRequest
+
 class FunctionGetCallGraphRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -5303,6 +5361,7 @@ class FunctionGetInputsItem(google.protobuf.message.Message):
     FUNCTION_CALL_INVOCATION_TYPE_FIELD_NUMBER: builtins.int
     RETRY_COUNT_FIELD_NUMBER: builtins.int
     FUNCTION_MAP_IDX_FIELD_NUMBER: builtins.int
+    ATTEMPT_TOKEN_FIELD_NUMBER: builtins.int
     input_id: builtins.str
     @property
     def input(self) -> global___FunctionInput: ...
@@ -5312,6 +5371,7 @@ class FunctionGetInputsItem(google.protobuf.message.Message):
     retry_count: builtins.int
     function_map_idx: builtins.int
     """intercepted and only used by the worker."""
+    attempt_token: builtins.str
     def __init__(
         self,
         *,
@@ -5322,9 +5382,10 @@ class FunctionGetInputsItem(google.protobuf.message.Message):
         function_call_invocation_type: global___FunctionCallInvocationType.ValueType = ...,
         retry_count: builtins.int = ...,
         function_map_idx: builtins.int | None = ...,
+        attempt_token: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_function_map_idx", b"_function_map_idx", "function_map_idx", b"function_map_idx", "input", b"input"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_function_map_idx", b"_function_map_idx", "function_call_id", b"function_call_id", "function_call_invocation_type", b"function_call_invocation_type", "function_map_idx", b"function_map_idx", "input", b"input", "input_id", b"input_id", "kill_switch", b"kill_switch", "retry_count", b"retry_count"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_function_map_idx", b"_function_map_idx", "attempt_token", b"attempt_token", "function_call_id", b"function_call_id", "function_call_invocation_type", b"function_call_invocation_type", "function_map_idx", b"function_map_idx", "input", b"input", "input_id", b"input_id", "kill_switch", b"kill_switch", "retry_count", b"retry_count"]) -> None: ...
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_function_map_idx", b"_function_map_idx"]) -> typing_extensions.Literal["function_map_idx"] | None: ...
 
 global___FunctionGetInputsItem = FunctionGetInputsItem
@@ -5433,6 +5494,7 @@ class FunctionGetOutputsRequest(google.protobuf.message.Message):
     REQUESTED_AT_FIELD_NUMBER: builtins.int
     INPUT_JWTS_FIELD_NUMBER: builtins.int
     START_IDX_FIELD_NUMBER: builtins.int
+    END_IDX_FIELD_NUMBER: builtins.int
     function_call_id: builtins.str
     max_values: builtins.int
     timeout: builtins.float
@@ -5446,6 +5508,8 @@ class FunctionGetOutputsRequest(google.protobuf.message.Message):
         """The jwts the client expects the server to be processing. This is optional and used for sync inputs only."""
     start_idx: builtins.int
     """for async batch requests. this indicates which index to start from."""
+    end_idx: builtins.int
+    """for async batch requests. this indicates which index to end at."""
     def __init__(
         self,
         *,
@@ -5457,9 +5521,13 @@ class FunctionGetOutputsRequest(google.protobuf.message.Message):
         requested_at: builtins.float = ...,
         input_jwts: collections.abc.Iterable[builtins.str] | None = ...,
         start_idx: builtins.int | None = ...,
+        end_idx: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_start_idx", b"_start_idx", "start_idx", b"start_idx"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_start_idx", b"_start_idx", "clear_on_success", b"clear_on_success", "function_call_id", b"function_call_id", "input_jwts", b"input_jwts", "last_entry_id", b"last_entry_id", "max_values", b"max_values", "requested_at", b"requested_at", "start_idx", b"start_idx", "timeout", b"timeout"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_end_idx", b"_end_idx", "_start_idx", b"_start_idx", "end_idx", b"end_idx", "start_idx", b"start_idx"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_end_idx", b"_end_idx", "_start_idx", b"_start_idx", "clear_on_success", b"clear_on_success", "end_idx", b"end_idx", "function_call_id", b"function_call_id", "input_jwts", b"input_jwts", "last_entry_id", b"last_entry_id", "max_values", b"max_values", "requested_at", b"requested_at", "start_idx", b"start_idx", "timeout", b"timeout"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_end_idx", b"_end_idx"]) -> typing_extensions.Literal["end_idx"] | None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_start_idx", b"_start_idx"]) -> typing_extensions.Literal["start_idx"] | None: ...
 
 global___FunctionGetOutputsRequest = FunctionGetOutputsRequest
@@ -5767,6 +5835,8 @@ class FunctionOptions(google.protobuf.message.Message):
     MAX_CONCURRENT_INPUTS_FIELD_NUMBER: builtins.int
     BATCH_MAX_SIZE_FIELD_NUMBER: builtins.int
     BATCH_LINGER_MS_FIELD_NUMBER: builtins.int
+    SCHEDULER_PLACEMENT_FIELD_NUMBER: builtins.int
+    CLOUD_PROVIDER_STR_FIELD_NUMBER: builtins.int
     @property
     def secret_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
     @property
@@ -5789,6 +5859,9 @@ class FunctionOptions(google.protobuf.message.Message):
     max_concurrent_inputs: builtins.int
     batch_max_size: builtins.int
     batch_linger_ms: builtins.int
+    @property
+    def scheduler_placement(self) -> global___SchedulerPlacement: ...
+    cloud_provider_str: builtins.str
     def __init__(
         self,
         *,
@@ -5808,15 +5881,19 @@ class FunctionOptions(google.protobuf.message.Message):
         max_concurrent_inputs: builtins.int | None = ...,
         batch_max_size: builtins.int | None = ...,
         batch_linger_ms: builtins.int | None = ...,
+        scheduler_placement: global___SchedulerPlacement | None = ...,
+        cloud_provider_str: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_batch_linger_ms", b"_batch_linger_ms", "_batch_max_size", b"_batch_max_size", "_buffer_containers", b"_buffer_containers", "_concurrency_limit", b"_concurrency_limit", "_max_concurrent_inputs", b"_max_concurrent_inputs", "_resources", b"_resources", "_retry_policy", b"_retry_policy", "_target_concurrent_inputs", b"_target_concurrent_inputs", "_task_idle_timeout_secs", b"_task_idle_timeout_secs", "_timeout_secs", b"_timeout_secs", "_warm_pool_size", b"_warm_pool_size", "batch_linger_ms", b"batch_linger_ms", "batch_max_size", b"batch_max_size", "buffer_containers", b"buffer_containers", "concurrency_limit", b"concurrency_limit", "max_concurrent_inputs", b"max_concurrent_inputs", "resources", b"resources", "retry_policy", b"retry_policy", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "warm_pool_size", b"warm_pool_size"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_batch_linger_ms", b"_batch_linger_ms", "_batch_max_size", b"_batch_max_size", "_buffer_containers", b"_buffer_containers", "_concurrency_limit", b"_concurrency_limit", "_max_concurrent_inputs", b"_max_concurrent_inputs", "_resources", b"_resources", "_retry_policy", b"_retry_policy", "_target_concurrent_inputs", b"_target_concurrent_inputs", "_task_idle_timeout_secs", b"_task_idle_timeout_secs", "_timeout_secs", b"_timeout_secs", "_warm_pool_size", b"_warm_pool_size", "batch_linger_ms", b"batch_linger_ms", "batch_max_size", b"batch_max_size", "buffer_containers", b"buffer_containers", "concurrency_limit", b"concurrency_limit", "max_concurrent_inputs", b"max_concurrent_inputs", "mount_ids", b"mount_ids", "replace_secret_ids", b"replace_secret_ids", "replace_volume_mounts", b"replace_volume_mounts", "resources", b"resources", "retry_policy", b"retry_policy", "secret_ids", b"secret_ids", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "volume_mounts", b"volume_mounts", "warm_pool_size", b"warm_pool_size"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_batch_linger_ms", b"_batch_linger_ms", "_batch_max_size", b"_batch_max_size", "_buffer_containers", b"_buffer_containers", "_cloud_provider_str", b"_cloud_provider_str", "_concurrency_limit", b"_concurrency_limit", "_max_concurrent_inputs", b"_max_concurrent_inputs", "_resources", b"_resources", "_retry_policy", b"_retry_policy", "_scheduler_placement", b"_scheduler_placement", "_target_concurrent_inputs", b"_target_concurrent_inputs", "_task_idle_timeout_secs", b"_task_idle_timeout_secs", "_timeout_secs", b"_timeout_secs", "_warm_pool_size", b"_warm_pool_size", "batch_linger_ms", b"batch_linger_ms", "batch_max_size", b"batch_max_size", "buffer_containers", b"buffer_containers", "cloud_provider_str", b"cloud_provider_str", "concurrency_limit", b"concurrency_limit", "max_concurrent_inputs", b"max_concurrent_inputs", "resources", b"resources", "retry_policy", b"retry_policy", "scheduler_placement", b"scheduler_placement", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "warm_pool_size", b"warm_pool_size"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_batch_linger_ms", b"_batch_linger_ms", "_batch_max_size", b"_batch_max_size", "_buffer_containers", b"_buffer_containers", "_cloud_provider_str", b"_cloud_provider_str", "_concurrency_limit", b"_concurrency_limit", "_max_concurrent_inputs", b"_max_concurrent_inputs", "_resources", b"_resources", "_retry_policy", b"_retry_policy", "_scheduler_placement", b"_scheduler_placement", "_target_concurrent_inputs", b"_target_concurrent_inputs", "_task_idle_timeout_secs", b"_task_idle_timeout_secs", "_timeout_secs", b"_timeout_secs", "_warm_pool_size", b"_warm_pool_size", "batch_linger_ms", b"batch_linger_ms", "batch_max_size", b"batch_max_size", "buffer_containers", b"buffer_containers", "cloud_provider_str", b"cloud_provider_str", "concurrency_limit", b"concurrency_limit", "max_concurrent_inputs", b"max_concurrent_inputs", "mount_ids", b"mount_ids", "replace_secret_ids", b"replace_secret_ids", "replace_volume_mounts", b"replace_volume_mounts", "resources", b"resources", "retry_policy", b"retry_policy", "scheduler_placement", b"scheduler_placement", "secret_ids", b"secret_ids", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "volume_mounts", b"volume_mounts", "warm_pool_size", b"warm_pool_size"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_batch_linger_ms", b"_batch_linger_ms"]) -> typing_extensions.Literal["batch_linger_ms"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_batch_max_size", b"_batch_max_size"]) -> typing_extensions.Literal["batch_max_size"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_buffer_containers", b"_buffer_containers"]) -> typing_extensions.Literal["buffer_containers"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_cloud_provider_str", b"_cloud_provider_str"]) -> typing_extensions.Literal["cloud_provider_str"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_concurrency_limit", b"_concurrency_limit"]) -> typing_extensions.Literal["concurrency_limit"] | None: ...
     @typing.overload
@@ -5825,6 +5902,8 @@ class FunctionOptions(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_resources", b"_resources"]) -> typing_extensions.Literal["resources"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_retry_policy", b"_retry_policy"]) -> typing_extensions.Literal["retry_policy"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_scheduler_placement", b"_scheduler_placement"]) -> typing_extensions.Literal["scheduler_placement"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_target_concurrent_inputs", b"_target_concurrent_inputs"]) -> typing_extensions.Literal["target_concurrent_inputs"] | None: ...
     @typing.overload
@@ -7983,7 +8062,7 @@ class QueueListResponse(google.protobuf.message.Message):
         METADATA_FIELD_NUMBER: builtins.int
         name: builtins.str
         created_at: builtins.float
-        """Superseded by metadata, used by clients up to 1.1.1"""
+        """Superseded by metadata, used by clients up to 1.1.2"""
         num_partitions: builtins.int
         total_size: builtins.int
         queue_id: builtins.str
@@ -8305,6 +8384,7 @@ class Sandbox(google.protobuf.message.Message):
     VERBOSE_FIELD_NUMBER: builtins.int
     NAME_FIELD_NUMBER: builtins.int
     EXPERIMENTAL_OPTIONS_FIELD_NUMBER: builtins.int
+    PRELOAD_PATH_PREFIXES_FIELD_NUMBER: builtins.int
     @property
     def entrypoint_args(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
     @property
@@ -8365,6 +8445,9 @@ class Sandbox(google.protobuf.message.Message):
     @property
     def experimental_options(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.bool]:
         """Experimental options"""
+    @property
+    def preload_path_prefixes(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
+        """Internal use only."""
     def __init__(
         self,
         *,
@@ -8397,9 +8480,10 @@ class Sandbox(google.protobuf.message.Message):
         verbose: builtins.bool = ...,
         name: builtins.str | None = ...,
         experimental_options: collections.abc.Mapping[builtins.str, builtins.bool] | None = ...,
+        preload_path_prefixes: collections.abc.Iterable[builtins.str] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_name", b"_name", "_proxy_id", b"_proxy_id", "_runsc_runtime_version", b"_runsc_runtime_version", "_runtime", b"_runtime", "_scheduler_placement", b"_scheduler_placement", "_snapshot_version", b"_snapshot_version", "_workdir", b"_workdir", "name", b"name", "network_access", b"network_access", "open_ports", b"open_ports", "open_ports_oneof", b"open_ports_oneof", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "resources", b"resources", "runsc_runtime_version", b"runsc_runtime_version", "runtime", b"runtime", "scheduler_placement", b"scheduler_placement", "snapshot_version", b"snapshot_version", "workdir", b"workdir"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_name", b"_name", "_proxy_id", b"_proxy_id", "_runsc_runtime_version", b"_runsc_runtime_version", "_runtime", b"_runtime", "_scheduler_placement", b"_scheduler_placement", "_snapshot_version", b"_snapshot_version", "_workdir", b"_workdir", "block_network", b"block_network", "cloud_bucket_mounts", b"cloud_bucket_mounts", "cloud_provider", b"cloud_provider", "cloud_provider_str", b"cloud_provider_str", "enable_snapshot", b"enable_snapshot", "entrypoint_args", b"entrypoint_args", "experimental_options", b"experimental_options", "i6pn_enabled", b"i6pn_enabled", "image_id", b"image_id", "mount_ids", b"mount_ids", "name", b"name", "network_access", b"network_access", "nfs_mounts", b"nfs_mounts", "open_ports", b"open_ports", "open_ports_oneof", b"open_ports_oneof", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "resources", b"resources", "runsc_runtime_version", b"runsc_runtime_version", "runtime", b"runtime", "runtime_debug", b"runtime_debug", "s3_mounts", b"s3_mounts", "scheduler_placement", b"scheduler_placement", "secret_ids", b"secret_ids", "snapshot_version", b"snapshot_version", "timeout_secs", b"timeout_secs", "verbose", b"verbose", "volume_mounts", b"volume_mounts", "workdir", b"workdir", "worker_id", b"worker_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_name", b"_name", "_proxy_id", b"_proxy_id", "_runsc_runtime_version", b"_runsc_runtime_version", "_runtime", b"_runtime", "_scheduler_placement", b"_scheduler_placement", "_snapshot_version", b"_snapshot_version", "_workdir", b"_workdir", "block_network", b"block_network", "cloud_bucket_mounts", b"cloud_bucket_mounts", "cloud_provider", b"cloud_provider", "cloud_provider_str", b"cloud_provider_str", "enable_snapshot", b"enable_snapshot", "entrypoint_args", b"entrypoint_args", "experimental_options", b"experimental_options", "i6pn_enabled", b"i6pn_enabled", "image_id", b"image_id", "mount_ids", b"mount_ids", "name", b"name", "network_access", b"network_access", "nfs_mounts", b"nfs_mounts", "open_ports", b"open_ports", "open_ports_oneof", b"open_ports_oneof", "preload_path_prefixes", b"preload_path_prefixes", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "resources", b"resources", "runsc_runtime_version", b"runsc_runtime_version", "runtime", b"runtime", "runtime_debug", b"runtime_debug", "s3_mounts", b"s3_mounts", "scheduler_placement", b"scheduler_placement", "secret_ids", b"secret_ids", "snapshot_version", b"snapshot_version", "timeout_secs", b"timeout_secs", "verbose", b"verbose", "volume_mounts", b"volume_mounts", "workdir", b"workdir", "worker_id", b"worker_id"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_name", b"_name"]) -> typing_extensions.Literal["name"] | None: ...
     @typing.overload
@@ -9343,7 +9427,7 @@ class SecretListItem(google.protobuf.message.Message):
     METADATA_FIELD_NUMBER: builtins.int
     label: builtins.str
     created_at: builtins.float
-    """Superseded by metadata, used by clients up to 1.1.1"""
+    """Superseded by metadata, used by clients up to 1.1.2"""
     last_used_at: builtins.float
     environment_name: builtins.str
     """Unused by client"""
@@ -10589,7 +10673,7 @@ class VolumeListItem(google.protobuf.message.Message):
     """app name of object entity app"""
     volume_id: builtins.str
     created_at: builtins.float
-    """Superseded by metadata, used by clients up to 1.1.1"""
+    """Superseded by metadata, used by clients up to 1.1.2"""
     @property
     def metadata(self) -> global___VolumeMetadata: ...
     def __init__(

@@ -1282,6 +1282,7 @@ class STBox:
         duration: Optional[Union[timedelta, str]] = None,
         origin: Optional[shp.BaseGeometry] = None,
         start: Union[datetime, str, None] = None,
+        border_inc: bool = True,
     ) -> List[STBox]:
         """
         Returns a list of `STBox` instances representing the tiles of
@@ -1298,6 +1299,7 @@ class STBox:
                 origin will be (0, 0, 0).
             start: The start time of the temporal tiling. If not provided,
                 the start time used by default is Monday, January 3, 2000.
+            border_inc: Whether the border is inclusive or not.
 
         Returns:
             A list of `STBox` instances.
@@ -1336,7 +1338,9 @@ class STBox:
                 else pgis_geometry_in("Point(0 0 0)", -1)
             )
         )
-        tiles, count = stbox_space_time_tiles(self._inner, sz, sz, sz, dt, gs, st)
+        tiles, count = stbox_space_time_tiles(
+            self._inner, sz, sz, sz, dt, gs, st, border_inc
+        )
         return [STBox(_inner=tiles + i) for i in range(count)]
 
     # ------------------------- Comparisons -----------------------------------

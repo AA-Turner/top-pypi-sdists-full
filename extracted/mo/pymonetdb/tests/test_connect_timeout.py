@@ -19,7 +19,7 @@ import unittest
 
 import pymonetdb
 
-from tests.util import dead_address, test_args
+from tests.util import test_args, test_full
 
 log_format = '%(levelname)s:t=%(relativeCreated).1f:proc=%(processName)s:%(name)s:%(message)s'
 logging.basicConfig(level=logging.DEBUG, format=log_format)
@@ -29,43 +29,23 @@ logging.basicConfig(level=logging.DEBUG, format=log_format)
 SPAWN_CONTEXT = multiprocessing.get_context('spawn')
 
 
-class NotDeadError(Exception):
-    """The given address was expected to be dead but a connection could be established"""
-    pass
-
-
-VERIFIED_DEAD = set()
-
-
-def verify_dead_address(host, port):
-    addr = (host, port)
-    if addr in VERIFIED_DEAD:
-        return
-    try:
-        logging.debug(f'checking if {addr} is dead')
-        socket.create_connection(addr, timeout=1.0)
-    except socket.timeout:
-        logging.debug("it's dead")
-        VERIFIED_DEAD.add(addr)
-        return
-    logging.error(f'connection to supposedly dead {addr} succeeded')
-    raise NotDeadError()
-
-
 class ConnectTimeoutTests(unittest.TestCase):
-    addr: str
+    server_sock: socket.socket
     host: str
     port: int
 
     def setUp(self):
-        if dead_address is None:
-            raise unittest.SkipTest("TSTDEADADDRESS not set")
-        host, port = dead_address.split(':', 1)
-        port = int(port)
-        self.host = host
-        self.port = port
-        self.addr = dead_address
-        verify_dead_address(host, port)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # force ipv4 because ipv6 urls need awkward square brackets
+        sock.bind(('127.0.0.1', 0))
+        sock.listen()
+        self.server_sock = sock
+        addr = sock.getsockname()
+        self.host = addr[0]
+        self.port = addr[1]
+
+    def tearDown(self):
+        self.server_sock.close()
 
     def run_isolated(self, socket_timeout, global_timeout, expected_exception, expected_duration, use_tls=False):  # noqa C901
         epsilon = 0.5
@@ -76,7 +56,7 @@ class ConnectTimeoutTests(unittest.TestCase):
         kill_timeout += 1
 
         scheme = 'monetdbs' if use_tls else 'monetdb'
-        url = f'{scheme}://{self.addr}/'
+        url = f'{scheme}://{self.host}:{self.port}/'
         if socket_timeout is not None:
             url += f'?connect_timeout={socket_timeout}'
         cmd = [sys.executable, '-m', 'tests.timeout_helper', url]
@@ -182,6 +162,7 @@ class ConnectTimeoutTests(unittest.TestCase):
             expected_exception='ProgrammingError', expected_duration=0.0,
         )
 
+    @unittest.skipUnless(test_full, "full test disabled")
     def test_local_0_sys_none(self):
         # Rule 3.
         self.run_isolated(
@@ -196,6 +177,7 @@ class ConnectTimeoutTests(unittest.TestCase):
             expected_exception='timed out', expected_duration=1.0,
         )
 
+    @unittest.skipUnless(test_full, "full test disabled")
     def test_local_0_sys_2(self):
         # Rule 3.
         self.run_isolated(
@@ -203,6 +185,7 @@ class ConnectTimeoutTests(unittest.TestCase):
             expected_exception=None, expected_duration=None,
         )
 
+    @unittest.skipUnless(test_full, "full test disabled")
     def test_local_1_sys_2(self):
         # Rule 4.
         self.run_isolated(
@@ -210,6 +193,7 @@ class ConnectTimeoutTests(unittest.TestCase):
             expected_exception='timed out', expected_duration=1.0,
         )
 
+    @unittest.skipUnless(test_full, "full test disabled")
     def test_local_none_sys_none(self):
         # Rule 5.
         self.run_isolated(
@@ -217,6 +201,7 @@ class ConnectTimeoutTests(unittest.TestCase):
             expected_exception=None, expected_duration=None,
         )
 
+    @unittest.skipUnless(test_full, "full test disabled")
     def test_local_none_sys_2(self):
         # Rule 5.
         self.run_isolated(
@@ -224,6 +209,7 @@ class ConnectTimeoutTests(unittest.TestCase):
             expected_exception='timed out', expected_duration=2.0,
         )
 
+    @unittest.skipUnless(test_full, "full test disabled")
     def test_local_minus1_sys_none(self):
         # Rule 5.
         self.run_isolated(
@@ -231,6 +217,7 @@ class ConnectTimeoutTests(unittest.TestCase):
             expected_exception='timed out', expected_duration=None,
         )
 
+    @unittest.skipUnless(test_full, "full test disabled")
     def test_local_minus1_sys_2(self):
         # Rule 5.
         self.run_isolated(
@@ -261,5 +248,5 @@ class ConnectTimeoutTests(unittest.TestCase):
         our_timeout = 3.1415
         self.assertNotEqual(default_timeout, our_timeout)
         with self.connect_with_timeout(our_timeout) as conn:
-            sock = conn.mapi.socket
+            sock = conn.mapi.sock
             self.assertEqual(default_timeout, sock.gettimeout())

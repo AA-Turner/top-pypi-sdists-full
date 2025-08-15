@@ -29,7 +29,7 @@ class WdiAutofocusProvider:
         return self._provider_id
 
     def __init__(self, provider_id: int):
-        self._provider_id = provider_id
+        self._provider_id: int = provider_id
 
     @staticmethod
     def open_tcp(

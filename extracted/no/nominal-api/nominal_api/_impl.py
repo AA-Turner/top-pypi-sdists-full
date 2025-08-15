@@ -37607,6 +37607,7 @@ class scout_comparisonnotebook_api_AggregationType(ConjureUnionType):
     _min: Optional["scout_comparisonnotebook_api_Min"] = None
     _mean: Optional["scout_comparisonnotebook_api_Mean"] = None
     _standard_deviation: Optional["scout_comparisonnotebook_api_StandardDeviation"] = None
+    _count: Optional["scout_comparisonnotebook_api_Count"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -37614,7 +37615,8 @@ class scout_comparisonnotebook_api_AggregationType(ConjureUnionType):
             'max': ConjureFieldDefinition('max', scout_comparisonnotebook_api_Max),
             'min': ConjureFieldDefinition('min', scout_comparisonnotebook_api_Min),
             'mean': ConjureFieldDefinition('mean', scout_comparisonnotebook_api_Mean),
-            'standard_deviation': ConjureFieldDefinition('standardDeviation', scout_comparisonnotebook_api_StandardDeviation)
+            'standard_deviation': ConjureFieldDefinition('standardDeviation', scout_comparisonnotebook_api_StandardDeviation),
+            'count': ConjureFieldDefinition('count', scout_comparisonnotebook_api_Count)
         }
 
     def __init__(
@@ -37623,10 +37625,11 @@ class scout_comparisonnotebook_api_AggregationType(ConjureUnionType):
             min: Optional["scout_comparisonnotebook_api_Min"] = None,
             mean: Optional["scout_comparisonnotebook_api_Mean"] = None,
             standard_deviation: Optional["scout_comparisonnotebook_api_StandardDeviation"] = None,
+            count: Optional["scout_comparisonnotebook_api_Count"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (max is not None) + (min is not None) + (mean is not None) + (standard_deviation is not None) != 1:
+            if (max is not None) + (min is not None) + (mean is not None) + (standard_deviation is not None) + (count is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if max is not None:
@@ -37641,6 +37644,9 @@ class scout_comparisonnotebook_api_AggregationType(ConjureUnionType):
             if standard_deviation is not None:
                 self._standard_deviation = standard_deviation
                 self._type = 'standardDeviation'
+            if count is not None:
+                self._count = count
+                self._type = 'count'
 
         elif type_of_union == 'max':
             if max is None:
@@ -37662,6 +37668,11 @@ class scout_comparisonnotebook_api_AggregationType(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._standard_deviation = standard_deviation
             self._type = 'standardDeviation'
+        elif type_of_union == 'count':
+            if count is None:
+                raise ValueError('a union value must not be None')
+            self._count = count
+            self._type = 'count'
 
     @builtins.property
     def max(self) -> Optional["scout_comparisonnotebook_api_Max"]:
@@ -37679,6 +37690,10 @@ class scout_comparisonnotebook_api_AggregationType(ConjureUnionType):
     def standard_deviation(self) -> Optional["scout_comparisonnotebook_api_StandardDeviation"]:
         return self._standard_deviation
 
+    @builtins.property
+    def count(self) -> Optional["scout_comparisonnotebook_api_Count"]:
+        return self._count
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_comparisonnotebook_api_AggregationTypeVisitor):
             raise ValueError('{} is not an instance of scout_comparisonnotebook_api_AggregationTypeVisitor'.format(visitor.__class__.__name__))
@@ -37690,6 +37705,8 @@ class scout_comparisonnotebook_api_AggregationType(ConjureUnionType):
             return visitor._mean(self.mean)
         if self._type == 'standardDeviation' and self.standard_deviation is not None:
             return visitor._standard_deviation(self.standard_deviation)
+        if self._type == 'count' and self.count is not None:
+            return visitor._count(self.count)
 
 
 scout_comparisonnotebook_api_AggregationType.__name__ = "AggregationType"
@@ -37713,6 +37730,10 @@ class scout_comparisonnotebook_api_AggregationTypeVisitor:
 
     @abstractmethod
     def _standard_deviation(self, standard_deviation: "scout_comparisonnotebook_api_StandardDeviation") -> Any:
+        pass
+
+    @abstractmethod
+    def _count(self, count: "scout_comparisonnotebook_api_Count") -> Any:
         pass
 
 
@@ -38647,6 +38668,22 @@ class scout_comparisonnotebook_api_ComputeNodeWithContext(ConjureBeanType):
 scout_comparisonnotebook_api_ComputeNodeWithContext.__name__ = "ComputeNodeWithContext"
 scout_comparisonnotebook_api_ComputeNodeWithContext.__qualname__ = "ComputeNodeWithContext"
 scout_comparisonnotebook_api_ComputeNodeWithContext.__module__ = "nominal_api.scout_comparisonnotebook_api"
+
+
+class scout_comparisonnotebook_api_Count(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_comparisonnotebook_api_Count.__name__ = "Count"
+scout_comparisonnotebook_api_Count.__qualname__ = "Count"
+scout_comparisonnotebook_api_Count.__module__ = "nominal_api.scout_comparisonnotebook_api"
 
 
 class scout_comparisonnotebook_api_Max(ConjureBeanType):
@@ -41734,6 +41771,551 @@ class scout_compute_api_ComputableNodeVisitor:
 scout_compute_api_ComputableNodeVisitor.__name__ = "ComputableNodeVisitor"
 scout_compute_api_ComputableNodeVisitor.__qualname__ = "ComputableNodeVisitor"
 scout_compute_api_ComputableNodeVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_ComputeEventQuery(ConjureUnionType):
+    _search_text: Optional[str] = None
+    _after: Optional["scout_compute_api_TimestampConstant"] = None
+    _before: Optional["scout_compute_api_TimestampConstant"] = None
+    _advanced_time_filter: Optional["scout_compute_api_EventTimeFilter"] = None
+    _asset: Optional["scout_compute_api_StringConstant"] = None
+    _template: Optional["scout_compute_api_StringConstant"] = None
+    _workbook: Optional["scout_compute_api_StringConstant"] = None
+    _data_review: Optional["scout_compute_api_StringConstant"] = None
+    _origin_type: Optional["scout_compute_api_SearchEventOriginType"] = None
+    _data_review_check: Optional["scout_compute_api_StringConstant"] = None
+    _disposition_status: Optional["scout_compute_api_EventDispositionStatus"] = None
+    _priority: Optional["scout_compute_api_StringConstant"] = None
+    _assignee: Optional["scout_compute_api_StringConstant"] = None
+    _event_type: Optional["scout_compute_api_EventType"] = None
+    _created_by: Optional["scout_compute_api_StringConstant"] = None
+    _label: Optional["scout_compute_api_StringConstant"] = None
+    _property: Optional["scout_compute_api_Property"] = None
+    _and_: Optional[List["scout_compute_api_ComputeEventQuery"]] = None
+    _or_: Optional[List["scout_compute_api_ComputeEventQuery"]] = None
+    _not_: Optional["scout_compute_api_ComputeEventQuery"] = None
+    _workspace: Optional["scout_compute_api_StringConstant"] = None
+    _procedure: Optional["scout_compute_api_StringConstant"] = None
+    _procedure_execution: Optional["scout_compute_api_StringConstant"] = None
+    _step_id: Optional["scout_compute_api_StringConstant"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'search_text': ConjureFieldDefinition('searchText', str),
+            'after': ConjureFieldDefinition('after', scout_compute_api_TimestampConstant),
+            'before': ConjureFieldDefinition('before', scout_compute_api_TimestampConstant),
+            'advanced_time_filter': ConjureFieldDefinition('advancedTimeFilter', scout_compute_api_EventTimeFilter),
+            'asset': ConjureFieldDefinition('asset', scout_compute_api_StringConstant),
+            'template': ConjureFieldDefinition('template', scout_compute_api_StringConstant),
+            'workbook': ConjureFieldDefinition('workbook', scout_compute_api_StringConstant),
+            'data_review': ConjureFieldDefinition('dataReview', scout_compute_api_StringConstant),
+            'origin_type': ConjureFieldDefinition('originType', scout_compute_api_SearchEventOriginType),
+            'data_review_check': ConjureFieldDefinition('dataReviewCheck', scout_compute_api_StringConstant),
+            'disposition_status': ConjureFieldDefinition('dispositionStatus', scout_compute_api_EventDispositionStatus),
+            'priority': ConjureFieldDefinition('priority', scout_compute_api_StringConstant),
+            'assignee': ConjureFieldDefinition('assignee', scout_compute_api_StringConstant),
+            'event_type': ConjureFieldDefinition('eventType', scout_compute_api_EventType),
+            'created_by': ConjureFieldDefinition('createdBy', scout_compute_api_StringConstant),
+            'label': ConjureFieldDefinition('label', scout_compute_api_StringConstant),
+            'property': ConjureFieldDefinition('property', scout_compute_api_Property),
+            'and_': ConjureFieldDefinition('and', List[scout_compute_api_ComputeEventQuery]),
+            'or_': ConjureFieldDefinition('or', List[scout_compute_api_ComputeEventQuery]),
+            'not_': ConjureFieldDefinition('not', scout_compute_api_ComputeEventQuery),
+            'workspace': ConjureFieldDefinition('workspace', scout_compute_api_StringConstant),
+            'procedure': ConjureFieldDefinition('procedure', scout_compute_api_StringConstant),
+            'procedure_execution': ConjureFieldDefinition('procedureExecution', scout_compute_api_StringConstant),
+            'step_id': ConjureFieldDefinition('stepId', scout_compute_api_StringConstant)
+        }
+
+    def __init__(
+            self,
+            search_text: Optional[str] = None,
+            after: Optional["scout_compute_api_TimestampConstant"] = None,
+            before: Optional["scout_compute_api_TimestampConstant"] = None,
+            advanced_time_filter: Optional["scout_compute_api_EventTimeFilter"] = None,
+            asset: Optional["scout_compute_api_StringConstant"] = None,
+            template: Optional["scout_compute_api_StringConstant"] = None,
+            workbook: Optional["scout_compute_api_StringConstant"] = None,
+            data_review: Optional["scout_compute_api_StringConstant"] = None,
+            origin_type: Optional["scout_compute_api_SearchEventOriginType"] = None,
+            data_review_check: Optional["scout_compute_api_StringConstant"] = None,
+            disposition_status: Optional["scout_compute_api_EventDispositionStatus"] = None,
+            priority: Optional["scout_compute_api_StringConstant"] = None,
+            assignee: Optional["scout_compute_api_StringConstant"] = None,
+            event_type: Optional["scout_compute_api_EventType"] = None,
+            created_by: Optional["scout_compute_api_StringConstant"] = None,
+            label: Optional["scout_compute_api_StringConstant"] = None,
+            property: Optional["scout_compute_api_Property"] = None,
+            and_: Optional[List["scout_compute_api_ComputeEventQuery"]] = None,
+            or_: Optional[List["scout_compute_api_ComputeEventQuery"]] = None,
+            not_: Optional["scout_compute_api_ComputeEventQuery"] = None,
+            workspace: Optional["scout_compute_api_StringConstant"] = None,
+            procedure: Optional["scout_compute_api_StringConstant"] = None,
+            procedure_execution: Optional["scout_compute_api_StringConstant"] = None,
+            step_id: Optional["scout_compute_api_StringConstant"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (search_text is not None) + (after is not None) + (before is not None) + (advanced_time_filter is not None) + (asset is not None) + (template is not None) + (workbook is not None) + (data_review is not None) + (origin_type is not None) + (data_review_check is not None) + (disposition_status is not None) + (priority is not None) + (assignee is not None) + (event_type is not None) + (created_by is not None) + (label is not None) + (property is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) + (procedure is not None) + (procedure_execution is not None) + (step_id is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if search_text is not None:
+                self._search_text = search_text
+                self._type = 'searchText'
+            if after is not None:
+                self._after = after
+                self._type = 'after'
+            if before is not None:
+                self._before = before
+                self._type = 'before'
+            if advanced_time_filter is not None:
+                self._advanced_time_filter = advanced_time_filter
+                self._type = 'advancedTimeFilter'
+            if asset is not None:
+                self._asset = asset
+                self._type = 'asset'
+            if template is not None:
+                self._template = template
+                self._type = 'template'
+            if workbook is not None:
+                self._workbook = workbook
+                self._type = 'workbook'
+            if data_review is not None:
+                self._data_review = data_review
+                self._type = 'dataReview'
+            if origin_type is not None:
+                self._origin_type = origin_type
+                self._type = 'originType'
+            if data_review_check is not None:
+                self._data_review_check = data_review_check
+                self._type = 'dataReviewCheck'
+            if disposition_status is not None:
+                self._disposition_status = disposition_status
+                self._type = 'dispositionStatus'
+            if priority is not None:
+                self._priority = priority
+                self._type = 'priority'
+            if assignee is not None:
+                self._assignee = assignee
+                self._type = 'assignee'
+            if event_type is not None:
+                self._event_type = event_type
+                self._type = 'eventType'
+            if created_by is not None:
+                self._created_by = created_by
+                self._type = 'createdBy'
+            if label is not None:
+                self._label = label
+                self._type = 'label'
+            if property is not None:
+                self._property = property
+                self._type = 'property'
+            if and_ is not None:
+                self._and_ = and_
+                self._type = 'and'
+            if or_ is not None:
+                self._or_ = or_
+                self._type = 'or'
+            if not_ is not None:
+                self._not_ = not_
+                self._type = 'not'
+            if workspace is not None:
+                self._workspace = workspace
+                self._type = 'workspace'
+            if procedure is not None:
+                self._procedure = procedure
+                self._type = 'procedure'
+            if procedure_execution is not None:
+                self._procedure_execution = procedure_execution
+                self._type = 'procedureExecution'
+            if step_id is not None:
+                self._step_id = step_id
+                self._type = 'stepId'
+
+        elif type_of_union == 'searchText':
+            if search_text is None:
+                raise ValueError('a union value must not be None')
+            self._search_text = search_text
+            self._type = 'searchText'
+        elif type_of_union == 'after':
+            if after is None:
+                raise ValueError('a union value must not be None')
+            self._after = after
+            self._type = 'after'
+        elif type_of_union == 'before':
+            if before is None:
+                raise ValueError('a union value must not be None')
+            self._before = before
+            self._type = 'before'
+        elif type_of_union == 'advancedTimeFilter':
+            if advanced_time_filter is None:
+                raise ValueError('a union value must not be None')
+            self._advanced_time_filter = advanced_time_filter
+            self._type = 'advancedTimeFilter'
+        elif type_of_union == 'asset':
+            if asset is None:
+                raise ValueError('a union value must not be None')
+            self._asset = asset
+            self._type = 'asset'
+        elif type_of_union == 'template':
+            if template is None:
+                raise ValueError('a union value must not be None')
+            self._template = template
+            self._type = 'template'
+        elif type_of_union == 'workbook':
+            if workbook is None:
+                raise ValueError('a union value must not be None')
+            self._workbook = workbook
+            self._type = 'workbook'
+        elif type_of_union == 'dataReview':
+            if data_review is None:
+                raise ValueError('a union value must not be None')
+            self._data_review = data_review
+            self._type = 'dataReview'
+        elif type_of_union == 'originType':
+            if origin_type is None:
+                raise ValueError('a union value must not be None')
+            self._origin_type = origin_type
+            self._type = 'originType'
+        elif type_of_union == 'dataReviewCheck':
+            if data_review_check is None:
+                raise ValueError('a union value must not be None')
+            self._data_review_check = data_review_check
+            self._type = 'dataReviewCheck'
+        elif type_of_union == 'dispositionStatus':
+            if disposition_status is None:
+                raise ValueError('a union value must not be None')
+            self._disposition_status = disposition_status
+            self._type = 'dispositionStatus'
+        elif type_of_union == 'priority':
+            if priority is None:
+                raise ValueError('a union value must not be None')
+            self._priority = priority
+            self._type = 'priority'
+        elif type_of_union == 'assignee':
+            if assignee is None:
+                raise ValueError('a union value must not be None')
+            self._assignee = assignee
+            self._type = 'assignee'
+        elif type_of_union == 'eventType':
+            if event_type is None:
+                raise ValueError('a union value must not be None')
+            self._event_type = event_type
+            self._type = 'eventType'
+        elif type_of_union == 'createdBy':
+            if created_by is None:
+                raise ValueError('a union value must not be None')
+            self._created_by = created_by
+            self._type = 'createdBy'
+        elif type_of_union == 'label':
+            if label is None:
+                raise ValueError('a union value must not be None')
+            self._label = label
+            self._type = 'label'
+        elif type_of_union == 'property':
+            if property is None:
+                raise ValueError('a union value must not be None')
+            self._property = property
+            self._type = 'property'
+        elif type_of_union == 'and':
+            if and_ is None:
+                raise ValueError('a union value must not be None')
+            self._and_ = and_
+            self._type = 'and'
+        elif type_of_union == 'or':
+            if or_ is None:
+                raise ValueError('a union value must not be None')
+            self._or_ = or_
+            self._type = 'or'
+        elif type_of_union == 'not':
+            if not_ is None:
+                raise ValueError('a union value must not be None')
+            self._not_ = not_
+            self._type = 'not'
+        elif type_of_union == 'workspace':
+            if workspace is None:
+                raise ValueError('a union value must not be None')
+            self._workspace = workspace
+            self._type = 'workspace'
+        elif type_of_union == 'procedure':
+            if procedure is None:
+                raise ValueError('a union value must not be None')
+            self._procedure = procedure
+            self._type = 'procedure'
+        elif type_of_union == 'procedureExecution':
+            if procedure_execution is None:
+                raise ValueError('a union value must not be None')
+            self._procedure_execution = procedure_execution
+            self._type = 'procedureExecution'
+        elif type_of_union == 'stepId':
+            if step_id is None:
+                raise ValueError('a union value must not be None')
+            self._step_id = step_id
+            self._type = 'stepId'
+
+    @builtins.property
+    def search_text(self) -> Optional[str]:
+        return self._search_text
+
+    @builtins.property
+    def after(self) -> Optional["scout_compute_api_TimestampConstant"]:
+        """Filters to events after this timestamp, exclusive.
+This includes events that start before, but end after this time.
+        """
+        return self._after
+
+    @builtins.property
+    def before(self) -> Optional["scout_compute_api_TimestampConstant"]:
+        """Filters to events before this timestamp, exclusive.
+This includes events that start before, but end after this time.
+        """
+        return self._before
+
+    @builtins.property
+    def advanced_time_filter(self) -> Optional["scout_compute_api_EventTimeFilter"]:
+        return self._advanced_time_filter
+
+    @builtins.property
+    def asset(self) -> Optional["scout_compute_api_StringConstant"]:
+        return self._asset
+
+    @builtins.property
+    def template(self) -> Optional["scout_compute_api_StringConstant"]:
+        return self._template
+
+    @builtins.property
+    def workbook(self) -> Optional["scout_compute_api_StringConstant"]:
+        return self._workbook
+
+    @builtins.property
+    def data_review(self) -> Optional["scout_compute_api_StringConstant"]:
+        return self._data_review
+
+    @builtins.property
+    def origin_type(self) -> Optional["scout_compute_api_SearchEventOriginType"]:
+        return self._origin_type
+
+    @builtins.property
+    def data_review_check(self) -> Optional["scout_compute_api_StringConstant"]:
+        return self._data_review_check
+
+    @builtins.property
+    def disposition_status(self) -> Optional["scout_compute_api_EventDispositionStatus"]:
+        return self._disposition_status
+
+    @builtins.property
+    def priority(self) -> Optional["scout_compute_api_StringConstant"]:
+        return self._priority
+
+    @builtins.property
+    def assignee(self) -> Optional["scout_compute_api_StringConstant"]:
+        return self._assignee
+
+    @builtins.property
+    def event_type(self) -> Optional["scout_compute_api_EventType"]:
+        return self._event_type
+
+    @builtins.property
+    def created_by(self) -> Optional["scout_compute_api_StringConstant"]:
+        return self._created_by
+
+    @builtins.property
+    def label(self) -> Optional["scout_compute_api_StringConstant"]:
+        return self._label
+
+    @builtins.property
+    def property(self) -> Optional["scout_compute_api_Property"]:
+        return self._property
+
+    @builtins.property
+    def and_(self) -> Optional[List["scout_compute_api_ComputeEventQuery"]]:
+        return self._and_
+
+    @builtins.property
+    def or_(self) -> Optional[List["scout_compute_api_ComputeEventQuery"]]:
+        return self._or_
+
+    @builtins.property
+    def not_(self) -> Optional["scout_compute_api_ComputeEventQuery"]:
+        return self._not_
+
+    @builtins.property
+    def workspace(self) -> Optional["scout_compute_api_StringConstant"]:
+        return self._workspace
+
+    @builtins.property
+    def procedure(self) -> Optional["scout_compute_api_StringConstant"]:
+        return self._procedure
+
+    @builtins.property
+    def procedure_execution(self) -> Optional["scout_compute_api_StringConstant"]:
+        return self._procedure_execution
+
+    @builtins.property
+    def step_id(self) -> Optional["scout_compute_api_StringConstant"]:
+        return self._step_id
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_ComputeEventQueryVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_ComputeEventQueryVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'searchText' and self.search_text is not None:
+            return visitor._search_text(self.search_text)
+        if self._type == 'after' and self.after is not None:
+            return visitor._after(self.after)
+        if self._type == 'before' and self.before is not None:
+            return visitor._before(self.before)
+        if self._type == 'advancedTimeFilter' and self.advanced_time_filter is not None:
+            return visitor._advanced_time_filter(self.advanced_time_filter)
+        if self._type == 'asset' and self.asset is not None:
+            return visitor._asset(self.asset)
+        if self._type == 'template' and self.template is not None:
+            return visitor._template(self.template)
+        if self._type == 'workbook' and self.workbook is not None:
+            return visitor._workbook(self.workbook)
+        if self._type == 'dataReview' and self.data_review is not None:
+            return visitor._data_review(self.data_review)
+        if self._type == 'originType' and self.origin_type is not None:
+            return visitor._origin_type(self.origin_type)
+        if self._type == 'dataReviewCheck' and self.data_review_check is not None:
+            return visitor._data_review_check(self.data_review_check)
+        if self._type == 'dispositionStatus' and self.disposition_status is not None:
+            return visitor._disposition_status(self.disposition_status)
+        if self._type == 'priority' and self.priority is not None:
+            return visitor._priority(self.priority)
+        if self._type == 'assignee' and self.assignee is not None:
+            return visitor._assignee(self.assignee)
+        if self._type == 'eventType' and self.event_type is not None:
+            return visitor._event_type(self.event_type)
+        if self._type == 'createdBy' and self.created_by is not None:
+            return visitor._created_by(self.created_by)
+        if self._type == 'label' and self.label is not None:
+            return visitor._label(self.label)
+        if self._type == 'property' and self.property is not None:
+            return visitor._property(self.property)
+        if self._type == 'and' and self.and_ is not None:
+            return visitor._and(self.and_)
+        if self._type == 'or' and self.or_ is not None:
+            return visitor._or(self.or_)
+        if self._type == 'not' and self.not_ is not None:
+            return visitor._not(self.not_)
+        if self._type == 'workspace' and self.workspace is not None:
+            return visitor._workspace(self.workspace)
+        if self._type == 'procedure' and self.procedure is not None:
+            return visitor._procedure(self.procedure)
+        if self._type == 'procedureExecution' and self.procedure_execution is not None:
+            return visitor._procedure_execution(self.procedure_execution)
+        if self._type == 'stepId' and self.step_id is not None:
+            return visitor._step_id(self.step_id)
+
+
+scout_compute_api_ComputeEventQuery.__name__ = "ComputeEventQuery"
+scout_compute_api_ComputeEventQuery.__qualname__ = "ComputeEventQuery"
+scout_compute_api_ComputeEventQuery.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_ComputeEventQueryVisitor:
+
+    @abstractmethod
+    def _search_text(self, search_text: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _after(self, after: "scout_compute_api_TimestampConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _before(self, before: "scout_compute_api_TimestampConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _advanced_time_filter(self, advanced_time_filter: "scout_compute_api_EventTimeFilter") -> Any:
+        pass
+
+    @abstractmethod
+    def _asset(self, asset: "scout_compute_api_StringConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _template(self, template: "scout_compute_api_StringConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _workbook(self, workbook: "scout_compute_api_StringConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _data_review(self, data_review: "scout_compute_api_StringConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _origin_type(self, origin_type: "scout_compute_api_SearchEventOriginType") -> Any:
+        pass
+
+    @abstractmethod
+    def _data_review_check(self, data_review_check: "scout_compute_api_StringConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _disposition_status(self, disposition_status: "scout_compute_api_EventDispositionStatus") -> Any:
+        pass
+
+    @abstractmethod
+    def _priority(self, priority: "scout_compute_api_StringConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _assignee(self, assignee: "scout_compute_api_StringConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _event_type(self, event_type: "scout_compute_api_EventType") -> Any:
+        pass
+
+    @abstractmethod
+    def _created_by(self, created_by: "scout_compute_api_StringConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _label(self, label: "scout_compute_api_StringConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _property(self, property: "scout_compute_api_Property") -> Any:
+        pass
+
+    @abstractmethod
+    def _and(self, and_: List["scout_compute_api_ComputeEventQuery"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _or(self, or_: List["scout_compute_api_ComputeEventQuery"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _not(self, not_: "scout_compute_api_ComputeEventQuery") -> Any:
+        pass
+
+    @abstractmethod
+    def _workspace(self, workspace: "scout_compute_api_StringConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _procedure(self, procedure: "scout_compute_api_StringConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _procedure_execution(self, procedure_execution: "scout_compute_api_StringConstant") -> Any:
+        pass
+
+    @abstractmethod
+    def _step_id(self, step_id: "scout_compute_api_StringConstant") -> Any:
+        pass
+
+
+scout_compute_api_ComputeEventQueryVisitor.__name__ = "ComputeEventQueryVisitor"
+scout_compute_api_ComputeEventQueryVisitor.__qualname__ = "ComputeEventQueryVisitor"
+scout_compute_api_ComputeEventQueryVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_ComputeNode(ConjureUnionType):
@@ -45023,6 +45605,109 @@ scout_compute_api_ErrorResult.__qualname__ = "ErrorResult"
 scout_compute_api_ErrorResult.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_EventDispositionStatus(ConjureEnumType):
+
+    PENDING_REVIEW = 'PENDING_REVIEW'
+    '''PENDING_REVIEW'''
+    CLOSED_IGNORED = 'CLOSED_IGNORED'
+    '''CLOSED_IGNORED'''
+    CLOSED_REQUIRES_FURTHER_ACTION = 'CLOSED_REQUIRES_FURTHER_ACTION'
+    '''CLOSED_REQUIRES_FURTHER_ACTION'''
+    NO_DISPOSITION = 'NO_DISPOSITION'
+    '''NO_DISPOSITION'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_EventDispositionStatus.__name__ = "EventDispositionStatus"
+scout_compute_api_EventDispositionStatus.__qualname__ = "EventDispositionStatus"
+scout_compute_api_EventDispositionStatus.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_EventTimeFilter(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'timestamp': ConjureFieldDefinition('timestamp', scout_compute_api_TimestampConstant),
+            'timestamp_condition': ConjureFieldDefinition('timestampCondition', scout_compute_api_EventTimeFilterCondition)
+        }
+
+    __slots__: List[str] = ['_timestamp', '_timestamp_condition']
+
+    def __init__(self, timestamp: "scout_compute_api_TimestampConstant", timestamp_condition: "scout_compute_api_EventTimeFilterCondition") -> None:
+        self._timestamp = timestamp
+        self._timestamp_condition = timestamp_condition
+
+    @builtins.property
+    def timestamp(self) -> "scout_compute_api_TimestampConstant":
+        return self._timestamp
+
+    @builtins.property
+    def timestamp_condition(self) -> "scout_compute_api_EventTimeFilterCondition":
+        return self._timestamp_condition
+
+
+scout_compute_api_EventTimeFilter.__name__ = "EventTimeFilter"
+scout_compute_api_EventTimeFilter.__qualname__ = "EventTimeFilter"
+scout_compute_api_EventTimeFilter.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_EventTimeFilterCondition(ConjureEnumType):
+
+    START_TIME_BEFORE_INCLUSIVE = 'START_TIME_BEFORE_INCLUSIVE'
+    '''START_TIME_BEFORE_INCLUSIVE'''
+    START_TIME_BEFORE_EXCLUSIVE = 'START_TIME_BEFORE_EXCLUSIVE'
+    '''START_TIME_BEFORE_EXCLUSIVE'''
+    START_TIME_AFTER_INCLUSIVE = 'START_TIME_AFTER_INCLUSIVE'
+    '''START_TIME_AFTER_INCLUSIVE'''
+    START_TIME_AFTER_EXCLUSIVE = 'START_TIME_AFTER_EXCLUSIVE'
+    '''START_TIME_AFTER_EXCLUSIVE'''
+    END_TIME_BEFORE_INCLUSIVE = 'END_TIME_BEFORE_INCLUSIVE'
+    '''END_TIME_BEFORE_INCLUSIVE'''
+    END_TIME_BEFORE_EXCLUSIVE = 'END_TIME_BEFORE_EXCLUSIVE'
+    '''END_TIME_BEFORE_EXCLUSIVE'''
+    END_TIME_AFTER_INCLUSIVE = 'END_TIME_AFTER_INCLUSIVE'
+    '''END_TIME_AFTER_INCLUSIVE'''
+    END_TIME_AFTER_EXCLUSIVE = 'END_TIME_AFTER_EXCLUSIVE'
+    '''END_TIME_AFTER_EXCLUSIVE'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_EventTimeFilterCondition.__name__ = "EventTimeFilterCondition"
+scout_compute_api_EventTimeFilterCondition.__qualname__ = "EventTimeFilterCondition"
+scout_compute_api_EventTimeFilterCondition.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_EventType(ConjureEnumType):
+
+    INFO = 'INFO'
+    '''INFO'''
+    FLAG = 'FLAG'
+    '''FLAG'''
+    ERROR = 'ERROR'
+    '''ERROR'''
+    SUCCESS = 'SUCCESS'
+    '''SUCCESS'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_EventType.__name__ = "EventType"
+scout_compute_api_EventType.__qualname__ = "EventType"
+scout_compute_api_EventType.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_EventsSearchRanges(ConjureBeanType):
     """Produces a range series with a range for each event matching the query.
 Throws if there are more than 1,000 results.
@@ -45031,17 +45716,17 @@ Throws if there are more than 1,000 results.
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'search_query': ConjureFieldDefinition('searchQuery', event_SearchQuery)
+            'query': ConjureFieldDefinition('query', scout_compute_api_ComputeEventQuery)
         }
 
-    __slots__: List[str] = ['_search_query']
+    __slots__: List[str] = ['_query']
 
-    def __init__(self, search_query: "event_SearchQuery") -> None:
-        self._search_query = search_query
+    def __init__(self, query: "scout_compute_api_ComputeEventQuery") -> None:
+        self._query = query
 
     @builtins.property
-    def search_query(self) -> "event_SearchQuery":
-        return self._search_query
+    def query(self) -> "scout_compute_api_ComputeEventQuery":
+        return self._query
 
 
 scout_compute_api_EventsSearchRanges.__name__ = "EventsSearchRanges"
@@ -49533,6 +50218,35 @@ scout_compute_api_ProductSeries.__qualname__ = "ProductSeries"
 scout_compute_api_ProductSeries.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_Property(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', scout_compute_api_StringConstant),
+            'value': ConjureFieldDefinition('value', scout_compute_api_StringConstant)
+        }
+
+    __slots__: List[str] = ['_name', '_value']
+
+    def __init__(self, name: "scout_compute_api_StringConstant", value: "scout_compute_api_StringConstant") -> None:
+        self._name = name
+        self._value = value
+
+    @builtins.property
+    def name(self) -> "scout_compute_api_StringConstant":
+        return self._name
+
+    @builtins.property
+    def value(self) -> "scout_compute_api_StringConstant":
+        return self._value
+
+
+scout_compute_api_Property.__name__ = "Property"
+scout_compute_api_Property.__qualname__ = "Property"
+scout_compute_api_Property.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_Range(ConjureBeanType):
     """The end represents the first timestamp that does not belong to the range. If absent, there is no known
 end to the range.
@@ -51107,6 +51821,30 @@ scout_compute_api_ScatterSummarizationStrategyVisitor.__qualname__ = "ScatterSum
 scout_compute_api_ScatterSummarizationStrategyVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_SearchEventOriginType(ConjureEnumType):
+
+    WORKBOOK = 'WORKBOOK'
+    '''WORKBOOK'''
+    TEMPLATE = 'TEMPLATE'
+    '''TEMPLATE'''
+    API = 'API'
+    '''API'''
+    DATA_REVIEW = 'DATA_REVIEW'
+    '''DATA_REVIEW'''
+    PROCEDURE = 'PROCEDURE'
+    '''PROCEDURE'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_SearchEventOriginType.__name__ = "SearchEventOriginType"
+scout_compute_api_SearchEventOriginType.__qualname__ = "SearchEventOriginType"
+scout_compute_api_SearchEventOriginType.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_SelectIndexFrom1dEnumArraySeries(ConjureBeanType):
     """For each timestamp, selects a single enum value from the 1D enum array at the specified index. If the index
 is out of bounds for an array at a given timestamp, it is omitted.
@@ -52177,6 +52915,8 @@ class scout_compute_api_SummarizationStrategy(ConjureUnionType):
 
     @builtins.property
     def page(self) -> Optional["scout_compute_api_PageStrategy"]:
+        """Paging is only valid for log series.
+        """
         return self._page
 
     def accept(self, visitor) -> Any:
@@ -57300,6 +58040,29 @@ scout_compute_resolved_api_EnumUnionSeriesNode.__qualname__ = "EnumUnionSeriesNo
 scout_compute_resolved_api_EnumUnionSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
+class scout_compute_resolved_api_EventSearchNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'query': ConjureFieldDefinition('query', event_SearchQuery)
+        }
+
+    __slots__: List[str] = ['_query']
+
+    def __init__(self, query: "event_SearchQuery") -> None:
+        self._query = query
+
+    @builtins.property
+    def query(self) -> "event_SearchQuery":
+        return self._query
+
+
+scout_compute_resolved_api_EventSearchNode.__name__ = "EventSearchNode"
+scout_compute_resolved_api_EventSearchNode.__qualname__ = "EventSearchNode"
+scout_compute_resolved_api_EventSearchNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
 class scout_compute_resolved_api_ExponentialCurve(ConjureBeanType):
 
     @builtins.classmethod
@@ -59688,6 +60451,7 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
     _stability_detection: Optional["scout_compute_resolved_api_StabilityDetectionRangesNode"] = None
     _threshold: Optional["scout_compute_resolved_api_ThresholdingRangesNode"] = None
     _union_range: Optional["scout_compute_resolved_api_UnionRangesNode"] = None
+    _event_search: Optional["scout_compute_resolved_api_EventSearchNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -59706,7 +60470,8 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
             'stale_range': ConjureFieldDefinition('staleRange', scout_compute_resolved_api_StaleRangesNode),
             'stability_detection': ConjureFieldDefinition('stabilityDetection', scout_compute_resolved_api_StabilityDetectionRangesNode),
             'threshold': ConjureFieldDefinition('threshold', scout_compute_resolved_api_ThresholdingRangesNode),
-            'union_range': ConjureFieldDefinition('unionRange', scout_compute_resolved_api_UnionRangesNode)
+            'union_range': ConjureFieldDefinition('unionRange', scout_compute_resolved_api_UnionRangesNode),
+            'event_search': ConjureFieldDefinition('eventSearch', scout_compute_resolved_api_EventSearchNode)
         }
 
     def __init__(
@@ -59726,10 +60491,11 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
             stability_detection: Optional["scout_compute_resolved_api_StabilityDetectionRangesNode"] = None,
             threshold: Optional["scout_compute_resolved_api_ThresholdingRangesNode"] = None,
             union_range: Optional["scout_compute_resolved_api_UnionRangesNode"] = None,
+            event_search: Optional["scout_compute_resolved_api_EventSearchNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (duration_filter is not None) + (enum_equality is not None) + (enum_filter is not None) + (extrema is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (range_numeric_aggregation is not None) + (series_crossover_ranges_node is not None) + (stale_range is not None) + (stability_detection is not None) + (threshold is not None) + (union_range is not None) != 1:
+            if (duration_filter is not None) + (enum_equality is not None) + (enum_filter is not None) + (extrema is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (range_numeric_aggregation is not None) + (series_crossover_ranges_node is not None) + (stale_range is not None) + (stability_detection is not None) + (threshold is not None) + (union_range is not None) + (event_search is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if duration_filter is not None:
@@ -59777,6 +60543,9 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
             if union_range is not None:
                 self._union_range = union_range
                 self._type = 'unionRange'
+            if event_search is not None:
+                self._event_search = event_search
+                self._type = 'eventSearch'
 
         elif type_of_union == 'durationFilter':
             if duration_filter is None:
@@ -59853,6 +60622,11 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._union_range = union_range
             self._type = 'unionRange'
+        elif type_of_union == 'eventSearch':
+            if event_search is None:
+                raise ValueError('a union value must not be None')
+            self._event_search = event_search
+            self._type = 'eventSearch'
 
     @builtins.property
     def duration_filter(self) -> Optional["scout_compute_resolved_api_DurationFilterRangesNode"]:
@@ -59914,6 +60688,10 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
     def union_range(self) -> Optional["scout_compute_resolved_api_UnionRangesNode"]:
         return self._union_range
 
+    @builtins.property
+    def event_search(self) -> Optional["scout_compute_resolved_api_EventSearchNode"]:
+        return self._event_search
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_RangesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_RangesNodeVisitor'.format(visitor.__class__.__name__))
@@ -59947,6 +60725,8 @@ class scout_compute_resolved_api_RangesNode(ConjureUnionType):
             return visitor._threshold(self.threshold)
         if self._type == 'unionRange' and self.union_range is not None:
             return visitor._union_range(self.union_range)
+        if self._type == 'eventSearch' and self.event_search is not None:
+            return visitor._event_search(self.event_search)
 
 
 scout_compute_resolved_api_RangesNode.__name__ = "RangesNode"
@@ -60014,6 +60794,10 @@ class scout_compute_resolved_api_RangesNodeVisitor:
 
     @abstractmethod
     def _union_range(self, union_range: "scout_compute_resolved_api_UnionRangesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _event_search(self, event_search: "scout_compute_resolved_api_EventSearchNode") -> Any:
         pass
 
 

@@ -6,6 +6,7 @@ from .call import call, call_async, call_sync
 from .dto import requests as dto
 from .dto.log_output_mode import LogOutputMode
 from .dto.device_db_source_type import DeviceDbSourceType
+from .dto.device_db_source import DeviceDbSource
 
 
 class Library:
@@ -49,6 +50,22 @@ class Library:
             url_or_file_path=url_or_file_path,
         )
         call_sync("device_db/set_source", request)
+
+    @staticmethod
+    def set_device_db_sources(
+            *sources: DeviceDbSource
+    ) -> None:
+        """
+        Sets a sequence of sources. When the library needs device information,
+        it will try each source in the order they are provided.
+
+        Args:
+            sources: The list of sources the library will access data from.
+        """
+        request = dto.SetDeviceDbLayeredSourcesRequest(
+            sources=list(sources),
+        )
+        call_sync("device_db/set_sources", request)
 
     @staticmethod
     def enable_device_db_store(
@@ -154,7 +171,7 @@ class Library:
         """
         request = dto.CheckVersionRequest(
             host="py",
-            version="7.10.0",
+            version="7.11.0",
         )
         call_sync("library/check_version", request)
 

@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_cce_node_pool_v3`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_cce_node_pool_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_cce_node_pool_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CceNodePoolV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.cceNodePoolV3.CceNodePoolV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3 opentelekomcloud_cce_node_pool_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3 opentelekomcloud_cce_node_pool_v3}.'''
 
     def __init__(
         self,
@@ -90,41 +90,41 @@ class CceNodePoolV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3 opentelekomcloud_cce_node_pool_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3 opentelekomcloud_cce_node_pool_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#cluster_id CceNodePoolV3#cluster_id}.
-        :param data_volumes: data_volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#data_volumes CceNodePoolV3#data_volumes}
-        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#flavor CceNodePoolV3#flavor}.
-        :param initial_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#initial_node_count CceNodePoolV3#initial_node_count}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#name CceNodePoolV3#name}.
-        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#root_volume CceNodePoolV3#root_volume}
-        :param agency_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#agency_name CceNodePoolV3#agency_name}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#availability_zone CceNodePoolV3#availability_zone}.
-        :param docker_base_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#docker_base_size CceNodePoolV3#docker_base_size}.
-        :param docker_lvm_config_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#docker_lvm_config_override CceNodePoolV3#docker_lvm_config_override}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#id CceNodePoolV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param k8_s_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#k8s_tags CceNodePoolV3#k8s_tags}.
-        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#key_pair CceNodePoolV3#key_pair}.
-        :param max_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#max_node_count CceNodePoolV3#max_node_count}.
-        :param max_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#max_pods CceNodePoolV3#max_pods}.
-        :param min_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#min_node_count CceNodePoolV3#min_node_count}.
-        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#os CceNodePoolV3#os}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#password CceNodePoolV3#password}.
-        :param postinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#postinstall CceNodePoolV3#postinstall}.
-        :param preinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#preinstall CceNodePoolV3#preinstall}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#priority CceNodePoolV3#priority}.
-        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#runtime CceNodePoolV3#runtime}.
-        :param scale_down_cooldown_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#scale_down_cooldown_time CceNodePoolV3#scale_down_cooldown_time}.
-        :param scale_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#scale_enable CceNodePoolV3#scale_enable}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#security_group_ids CceNodePoolV3#security_group_ids}.
-        :param server_group_reference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#server_group_reference CceNodePoolV3#server_group_reference}.
-        :param storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#storage CceNodePoolV3#storage}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#subnet_id CceNodePoolV3#subnet_id}.
-        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#taints CceNodePoolV3#taints}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#timeouts CceNodePoolV3#timeouts}
-        :param user_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#user_tags CceNodePoolV3#user_tags}.
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#cluster_id CceNodePoolV3#cluster_id}.
+        :param data_volumes: data_volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#data_volumes CceNodePoolV3#data_volumes}
+        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#flavor CceNodePoolV3#flavor}.
+        :param initial_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#initial_node_count CceNodePoolV3#initial_node_count}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#name CceNodePoolV3#name}.
+        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#root_volume CceNodePoolV3#root_volume}
+        :param agency_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#agency_name CceNodePoolV3#agency_name}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#availability_zone CceNodePoolV3#availability_zone}.
+        :param docker_base_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#docker_base_size CceNodePoolV3#docker_base_size}.
+        :param docker_lvm_config_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#docker_lvm_config_override CceNodePoolV3#docker_lvm_config_override}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#id CceNodePoolV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param k8_s_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#k8s_tags CceNodePoolV3#k8s_tags}.
+        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#key_pair CceNodePoolV3#key_pair}.
+        :param max_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#max_node_count CceNodePoolV3#max_node_count}.
+        :param max_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#max_pods CceNodePoolV3#max_pods}.
+        :param min_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#min_node_count CceNodePoolV3#min_node_count}.
+        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#os CceNodePoolV3#os}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#password CceNodePoolV3#password}.
+        :param postinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#postinstall CceNodePoolV3#postinstall}.
+        :param preinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#preinstall CceNodePoolV3#preinstall}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#priority CceNodePoolV3#priority}.
+        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#runtime CceNodePoolV3#runtime}.
+        :param scale_down_cooldown_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#scale_down_cooldown_time CceNodePoolV3#scale_down_cooldown_time}.
+        :param scale_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#scale_enable CceNodePoolV3#scale_enable}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#security_group_ids CceNodePoolV3#security_group_ids}.
+        :param server_group_reference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#server_group_reference CceNodePoolV3#server_group_reference}.
+        :param storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#storage CceNodePoolV3#storage}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#subnet_id CceNodePoolV3#subnet_id}.
+        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#taints CceNodePoolV3#taints}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#timeouts CceNodePoolV3#timeouts}
+        :param user_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#user_tags CceNodePoolV3#user_tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -193,7 +193,7 @@ class CceNodePoolV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CceNodePoolV3 to import.
-        :param import_from_id: The id of the existing CceNodePoolV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CceNodePoolV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CceNodePoolV3 to import is found.
         '''
         if __debug__:
@@ -228,11 +228,11 @@ class CceNodePoolV3(
         kms_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#size CceNodePoolV3#size}.
-        :param volumetype: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#volumetype CceNodePoolV3#volumetype}.
-        :param extend_param: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#extend_param CceNodePoolV3#extend_param}.
-        :param extend_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#extend_params CceNodePoolV3#extend_params}.
-        :param kms_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#kms_id CceNodePoolV3#kms_id}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#size CceNodePoolV3#size}.
+        :param volumetype: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#volumetype CceNodePoolV3#volumetype}.
+        :param extend_param: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#extend_param CceNodePoolV3#extend_param}.
+        :param extend_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#extend_params CceNodePoolV3#extend_params}.
+        :param kms_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#kms_id CceNodePoolV3#kms_id}.
         '''
         value = CceNodePoolV3RootVolume(
             size=size,
@@ -267,10 +267,10 @@ class CceNodePoolV3(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#create CceNodePoolV3#create}.
-        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#default CceNodePoolV3#default}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#delete CceNodePoolV3#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#update CceNodePoolV3#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#create CceNodePoolV3#create}.
+        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#default CceNodePoolV3#default}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#delete CceNodePoolV3#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#update CceNodePoolV3#update}.
         '''
         value = CceNodePoolV3Timeouts(
             create=create, default=default, delete=delete, update=update
@@ -1006,37 +1006,37 @@ class CceNodePoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#cluster_id CceNodePoolV3#cluster_id}.
-        :param data_volumes: data_volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#data_volumes CceNodePoolV3#data_volumes}
-        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#flavor CceNodePoolV3#flavor}.
-        :param initial_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#initial_node_count CceNodePoolV3#initial_node_count}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#name CceNodePoolV3#name}.
-        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#root_volume CceNodePoolV3#root_volume}
-        :param agency_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#agency_name CceNodePoolV3#agency_name}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#availability_zone CceNodePoolV3#availability_zone}.
-        :param docker_base_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#docker_base_size CceNodePoolV3#docker_base_size}.
-        :param docker_lvm_config_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#docker_lvm_config_override CceNodePoolV3#docker_lvm_config_override}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#id CceNodePoolV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param k8_s_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#k8s_tags CceNodePoolV3#k8s_tags}.
-        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#key_pair CceNodePoolV3#key_pair}.
-        :param max_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#max_node_count CceNodePoolV3#max_node_count}.
-        :param max_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#max_pods CceNodePoolV3#max_pods}.
-        :param min_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#min_node_count CceNodePoolV3#min_node_count}.
-        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#os CceNodePoolV3#os}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#password CceNodePoolV3#password}.
-        :param postinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#postinstall CceNodePoolV3#postinstall}.
-        :param preinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#preinstall CceNodePoolV3#preinstall}.
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#priority CceNodePoolV3#priority}.
-        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#runtime CceNodePoolV3#runtime}.
-        :param scale_down_cooldown_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#scale_down_cooldown_time CceNodePoolV3#scale_down_cooldown_time}.
-        :param scale_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#scale_enable CceNodePoolV3#scale_enable}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#security_group_ids CceNodePoolV3#security_group_ids}.
-        :param server_group_reference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#server_group_reference CceNodePoolV3#server_group_reference}.
-        :param storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#storage CceNodePoolV3#storage}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#subnet_id CceNodePoolV3#subnet_id}.
-        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#taints CceNodePoolV3#taints}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#timeouts CceNodePoolV3#timeouts}
-        :param user_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#user_tags CceNodePoolV3#user_tags}.
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#cluster_id CceNodePoolV3#cluster_id}.
+        :param data_volumes: data_volumes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#data_volumes CceNodePoolV3#data_volumes}
+        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#flavor CceNodePoolV3#flavor}.
+        :param initial_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#initial_node_count CceNodePoolV3#initial_node_count}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#name CceNodePoolV3#name}.
+        :param root_volume: root_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#root_volume CceNodePoolV3#root_volume}
+        :param agency_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#agency_name CceNodePoolV3#agency_name}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#availability_zone CceNodePoolV3#availability_zone}.
+        :param docker_base_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#docker_base_size CceNodePoolV3#docker_base_size}.
+        :param docker_lvm_config_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#docker_lvm_config_override CceNodePoolV3#docker_lvm_config_override}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#id CceNodePoolV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param k8_s_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#k8s_tags CceNodePoolV3#k8s_tags}.
+        :param key_pair: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#key_pair CceNodePoolV3#key_pair}.
+        :param max_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#max_node_count CceNodePoolV3#max_node_count}.
+        :param max_pods: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#max_pods CceNodePoolV3#max_pods}.
+        :param min_node_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#min_node_count CceNodePoolV3#min_node_count}.
+        :param os: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#os CceNodePoolV3#os}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#password CceNodePoolV3#password}.
+        :param postinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#postinstall CceNodePoolV3#postinstall}.
+        :param preinstall: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#preinstall CceNodePoolV3#preinstall}.
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#priority CceNodePoolV3#priority}.
+        :param runtime: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#runtime CceNodePoolV3#runtime}.
+        :param scale_down_cooldown_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#scale_down_cooldown_time CceNodePoolV3#scale_down_cooldown_time}.
+        :param scale_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#scale_enable CceNodePoolV3#scale_enable}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#security_group_ids CceNodePoolV3#security_group_ids}.
+        :param server_group_reference: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#server_group_reference CceNodePoolV3#server_group_reference}.
+        :param storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#storage CceNodePoolV3#storage}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#subnet_id CceNodePoolV3#subnet_id}.
+        :param taints: taints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#taints CceNodePoolV3#taints}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#timeouts CceNodePoolV3#timeouts}
+        :param user_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#user_tags CceNodePoolV3#user_tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1223,7 +1223,7 @@ class CceNodePoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cluster_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#cluster_id CceNodePoolV3#cluster_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#cluster_id CceNodePoolV3#cluster_id}.'''
         result = self._values.get("cluster_id")
         assert result is not None, "Required property 'cluster_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1234,7 +1234,7 @@ class CceNodePoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CceNodePoolV3DataVolumes"]]:
         '''data_volumes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#data_volumes CceNodePoolV3#data_volumes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#data_volumes CceNodePoolV3#data_volumes}
         '''
         result = self._values.get("data_volumes")
         assert result is not None, "Required property 'data_volumes' is missing"
@@ -1242,21 +1242,21 @@ class CceNodePoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def flavor(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#flavor CceNodePoolV3#flavor}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#flavor CceNodePoolV3#flavor}.'''
         result = self._values.get("flavor")
         assert result is not None, "Required property 'flavor' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def initial_node_count(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#initial_node_count CceNodePoolV3#initial_node_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#initial_node_count CceNodePoolV3#initial_node_count}.'''
         result = self._values.get("initial_node_count")
         assert result is not None, "Required property 'initial_node_count' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#name CceNodePoolV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#name CceNodePoolV3#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1265,7 +1265,7 @@ class CceNodePoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def root_volume(self) -> "CceNodePoolV3RootVolume":
         '''root_volume block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#root_volume CceNodePoolV3#root_volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#root_volume CceNodePoolV3#root_volume}
         '''
         result = self._values.get("root_volume")
         assert result is not None, "Required property 'root_volume' is missing"
@@ -1273,31 +1273,31 @@ class CceNodePoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def agency_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#agency_name CceNodePoolV3#agency_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#agency_name CceNodePoolV3#agency_name}.'''
         result = self._values.get("agency_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#availability_zone CceNodePoolV3#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#availability_zone CceNodePoolV3#availability_zone}.'''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def docker_base_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#docker_base_size CceNodePoolV3#docker_base_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#docker_base_size CceNodePoolV3#docker_base_size}.'''
         result = self._values.get("docker_base_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def docker_lvm_config_override(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#docker_lvm_config_override CceNodePoolV3#docker_lvm_config_override}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#docker_lvm_config_override CceNodePoolV3#docker_lvm_config_override}.'''
         result = self._values.get("docker_lvm_config_override")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#id CceNodePoolV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#id CceNodePoolV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1307,73 +1307,73 @@ class CceNodePoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def k8_s_tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#k8s_tags CceNodePoolV3#k8s_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#k8s_tags CceNodePoolV3#k8s_tags}.'''
         result = self._values.get("k8_s_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def key_pair(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#key_pair CceNodePoolV3#key_pair}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#key_pair CceNodePoolV3#key_pair}.'''
         result = self._values.get("key_pair")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_node_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#max_node_count CceNodePoolV3#max_node_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#max_node_count CceNodePoolV3#max_node_count}.'''
         result = self._values.get("max_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_pods(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#max_pods CceNodePoolV3#max_pods}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#max_pods CceNodePoolV3#max_pods}.'''
         result = self._values.get("max_pods")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_node_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#min_node_count CceNodePoolV3#min_node_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#min_node_count CceNodePoolV3#min_node_count}.'''
         result = self._values.get("min_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def os(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#os CceNodePoolV3#os}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#os CceNodePoolV3#os}.'''
         result = self._values.get("os")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#password CceNodePoolV3#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#password CceNodePoolV3#password}.'''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def postinstall(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#postinstall CceNodePoolV3#postinstall}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#postinstall CceNodePoolV3#postinstall}.'''
         result = self._values.get("postinstall")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def preinstall(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#preinstall CceNodePoolV3#preinstall}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#preinstall CceNodePoolV3#preinstall}.'''
         result = self._values.get("preinstall")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#priority CceNodePoolV3#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#priority CceNodePoolV3#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def runtime(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#runtime CceNodePoolV3#runtime}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#runtime CceNodePoolV3#runtime}.'''
         result = self._values.get("runtime")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scale_down_cooldown_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#scale_down_cooldown_time CceNodePoolV3#scale_down_cooldown_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#scale_down_cooldown_time CceNodePoolV3#scale_down_cooldown_time}.'''
         result = self._values.get("scale_down_cooldown_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1381,31 +1381,31 @@ class CceNodePoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def scale_enable(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#scale_enable CceNodePoolV3#scale_enable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#scale_enable CceNodePoolV3#scale_enable}.'''
         result = self._values.get("scale_enable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#security_group_ids CceNodePoolV3#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#security_group_ids CceNodePoolV3#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def server_group_reference(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#server_group_reference CceNodePoolV3#server_group_reference}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#server_group_reference CceNodePoolV3#server_group_reference}.'''
         result = self._values.get("server_group_reference")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#storage CceNodePoolV3#storage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#storage CceNodePoolV3#storage}.'''
         result = self._values.get("storage")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def subnet_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#subnet_id CceNodePoolV3#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#subnet_id CceNodePoolV3#subnet_id}.'''
         result = self._values.get("subnet_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1415,7 +1415,7 @@ class CceNodePoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CceNodePoolV3Taints"]]]:
         '''taints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#taints CceNodePoolV3#taints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#taints CceNodePoolV3#taints}
         '''
         result = self._values.get("taints")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CceNodePoolV3Taints"]]], result)
@@ -1424,14 +1424,14 @@ class CceNodePoolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CceNodePoolV3Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#timeouts CceNodePoolV3#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#timeouts CceNodePoolV3#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CceNodePoolV3Timeouts"], result)
 
     @builtins.property
     def user_tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#user_tags CceNodePoolV3#user_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#user_tags CceNodePoolV3#user_tags}.'''
         result = self._values.get("user_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1469,11 +1469,11 @@ class CceNodePoolV3DataVolumes:
         kms_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#size CceNodePoolV3#size}.
-        :param volumetype: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#volumetype CceNodePoolV3#volumetype}.
-        :param extend_param: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#extend_param CceNodePoolV3#extend_param}.
-        :param extend_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#extend_params CceNodePoolV3#extend_params}.
-        :param kms_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#kms_id CceNodePoolV3#kms_id}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#size CceNodePoolV3#size}.
+        :param volumetype: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#volumetype CceNodePoolV3#volumetype}.
+        :param extend_param: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#extend_param CceNodePoolV3#extend_param}.
+        :param extend_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#extend_params CceNodePoolV3#extend_params}.
+        :param kms_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#kms_id CceNodePoolV3#kms_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__907228f26e61905fb25aac4fa0997f4ccd86a856a66c871dcedcd52e07a49928)
@@ -1495,21 +1495,21 @@ class CceNodePoolV3DataVolumes:
 
     @builtins.property
     def size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#size CceNodePoolV3#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#size CceNodePoolV3#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def volumetype(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#volumetype CceNodePoolV3#volumetype}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#volumetype CceNodePoolV3#volumetype}.'''
         result = self._values.get("volumetype")
         assert result is not None, "Required property 'volumetype' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def extend_param(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#extend_param CceNodePoolV3#extend_param}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#extend_param CceNodePoolV3#extend_param}.'''
         result = self._values.get("extend_param")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1517,13 +1517,13 @@ class CceNodePoolV3DataVolumes:
     def extend_params(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#extend_params CceNodePoolV3#extend_params}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#extend_params CceNodePoolV3#extend_params}.'''
         result = self._values.get("extend_params")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def kms_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#kms_id CceNodePoolV3#kms_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#kms_id CceNodePoolV3#kms_id}.'''
         result = self._values.get("kms_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1794,11 +1794,11 @@ class CceNodePoolV3RootVolume:
         kms_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#size CceNodePoolV3#size}.
-        :param volumetype: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#volumetype CceNodePoolV3#volumetype}.
-        :param extend_param: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#extend_param CceNodePoolV3#extend_param}.
-        :param extend_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#extend_params CceNodePoolV3#extend_params}.
-        :param kms_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#kms_id CceNodePoolV3#kms_id}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#size CceNodePoolV3#size}.
+        :param volumetype: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#volumetype CceNodePoolV3#volumetype}.
+        :param extend_param: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#extend_param CceNodePoolV3#extend_param}.
+        :param extend_params: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#extend_params CceNodePoolV3#extend_params}.
+        :param kms_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#kms_id CceNodePoolV3#kms_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dccf5e4fa7ef2a5c9bb7f61b245bf953731a9adb1119dac1b12df982dd0ee52b)
@@ -1820,21 +1820,21 @@ class CceNodePoolV3RootVolume:
 
     @builtins.property
     def size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#size CceNodePoolV3#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#size CceNodePoolV3#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def volumetype(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#volumetype CceNodePoolV3#volumetype}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#volumetype CceNodePoolV3#volumetype}.'''
         result = self._values.get("volumetype")
         assert result is not None, "Required property 'volumetype' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def extend_param(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#extend_param CceNodePoolV3#extend_param}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#extend_param CceNodePoolV3#extend_param}.'''
         result = self._values.get("extend_param")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1842,13 +1842,13 @@ class CceNodePoolV3RootVolume:
     def extend_params(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#extend_params CceNodePoolV3#extend_params}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#extend_params CceNodePoolV3#extend_params}.'''
         result = self._values.get("extend_params")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def kms_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#kms_id CceNodePoolV3#kms_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#kms_id CceNodePoolV3#kms_id}.'''
         result = self._values.get("kms_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2010,9 +2010,9 @@ class CceNodePoolV3Taints:
         value: builtins.str,
     ) -> None:
         '''
-        :param effect: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#effect CceNodePoolV3#effect}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#key CceNodePoolV3#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#value CceNodePoolV3#value}.
+        :param effect: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#effect CceNodePoolV3#effect}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#key CceNodePoolV3#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#value CceNodePoolV3#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7e7f8e8363e827c3b7c33ce5f2640c9a184ce5112df6a9cca172cf61656426b5)
@@ -2027,21 +2027,21 @@ class CceNodePoolV3Taints:
 
     @builtins.property
     def effect(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#effect CceNodePoolV3#effect}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#effect CceNodePoolV3#effect}.'''
         result = self._values.get("effect")
         assert result is not None, "Required property 'effect' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#key CceNodePoolV3#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#key CceNodePoolV3#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#value CceNodePoolV3#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#value CceNodePoolV3#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2263,10 +2263,10 @@ class CceNodePoolV3Timeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#create CceNodePoolV3#create}.
-        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#default CceNodePoolV3#default}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#delete CceNodePoolV3#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#update CceNodePoolV3#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#create CceNodePoolV3#create}.
+        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#default CceNodePoolV3#default}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#delete CceNodePoolV3#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#update CceNodePoolV3#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1eba4d3c70e1ca8860fa09427f3ba6d3871ede1c3d3fcddb9941a5f4ecc901c2)
@@ -2286,25 +2286,25 @@ class CceNodePoolV3Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#create CceNodePoolV3#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#create CceNodePoolV3#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def default(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#default CceNodePoolV3#default}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#default CceNodePoolV3#default}.'''
         result = self._values.get("default")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#delete CceNodePoolV3#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#delete CceNodePoolV3#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cce_node_pool_v3#update CceNodePoolV3#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cce_node_pool_v3#update CceNodePoolV3#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

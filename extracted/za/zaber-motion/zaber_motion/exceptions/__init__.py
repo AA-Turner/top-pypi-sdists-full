@@ -68,6 +68,7 @@ from ..dto.exceptions.command_failed_exception_data import CommandFailedExceptio
 from ..dto.exceptions.command_too_long_exception_data import CommandTooLongExceptionData as CommandTooLongExceptionData
 from ..dto.exceptions.device_address_conflict_exception_data import DeviceAddressConflictExceptionData as DeviceAddressConflictExceptionData
 from ..dto.exceptions.device_db_failed_exception_data import DeviceDbFailedExceptionData as DeviceDbFailedExceptionData
+from ..dto.exceptions.device_db_inner_error import DeviceDbInnerError as DeviceDbInnerError
 from ..dto.exceptions.g_code_execution_exception_data import GCodeExecutionExceptionData as GCodeExecutionExceptionData
 from ..dto.exceptions.g_code_syntax_exception_data import GCodeSyntaxExceptionData as GCodeSyntaxExceptionData
 from ..dto.exceptions.invalid_packet_exception_data import InvalidPacketExceptionData as InvalidPacketExceptionData

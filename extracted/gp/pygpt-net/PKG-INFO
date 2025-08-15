@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.1
+Version: 2.6.3
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, o1, o3, GPT-4, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: py_gpt,py-gpt,pygpt,desktop,app,o1,o3,gpt-5,gpt,gpt4,gpt-4o,gpt-4v,gpt3.5,gpt-4,gpt-4-vision,gpt-3.5,llama3,mistral,gemini,grok,deepseek,bielik,claude,tts,whisper,vision,chatgpt,dall-e,chat,chatbot,assistant,text completion,image generation,ai,api,openai,api key,langchain,llama-index,ollama,presets,ui,qt,pyside
@@ -31,6 +31,8 @@ Requires-Dist: chromadb (>=0.5.20,<0.6.0)
 Requires-Dist: croniter (>=2.0.7,<3.0.0)
 Requires-Dist: docker (>=7.1.0,<8.0.0)
 Requires-Dist: docx2txt (>=0.8,<0.9)
+Requires-Dist: gkeepapi (>=0.15.1,<0.16.0)
+Requires-Dist: google-api-python-client (>=2.173.0,<3.0.0)
 Requires-Dist: google-generativeai (>=0.8.5,<0.9.0)
 Requires-Dist: httpx (>=0.28.1,<0.29.0)
 Requires-Dist: httpx-socks (>=0.10.1,<0.11.0)
@@ -106,7 +108,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.1** | build: **2025-08-14** | Python: **>=3.10, <3.14**
+Release: **2.6.3** | build: **2025-08-15* | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -1448,6 +1450,20 @@ as well as list and create directories.
 
 - `Mailer` - Provides the ability to send, receive and read emails.
 
+- `Google` - Access Gmail, Drive, Calendar, Contacts, YouTube, Keep for managing emails, files, events, notes, video info, and contacts.
+
+- `Facebook` - Manage user info, pages, posts, and photos on Facebook pages.
+
+- `Slack` - Handle users, conversations, messages, and files on Slack.
+
+- `Telegram` - Send messages, photos, and documents; manage chats and contacts.
+
+- `X/Twitter` - Interact with tweets and users, manage bookmarks and media, perform likes, retweets, and more.
+
+- `GitHub` - Access GitHub API to manage repositories, issues, and pull requests.
+
+- `Bitbucket` - Access Bitbucket API to manage repositories, issues, and pull requests.
+
 ## Audio Input
 
 The plugin facilitates speech recognition (by default using the `Whisper` model from OpenAI, `Google` and `Bing` are also available). It allows for voice commands to be relayed to the AI using your own voice. Whisper doesn't require any extra API keys or additional configurations; it uses the main OpenAI key. In the plugin's configuration options, you should adjust the volume level (min energy) at which the plugin will respond to your microphone. Once the plugin is activated, a new `Speak` option will appear at the bottom near the `Send` button  -  when this is enabled, the application will respond to the voice received from the microphone.
@@ -2744,6 +2760,129 @@ All active extra prompts defined on list will be appended to the system prompt i
 The plugin provides voice control command execution within a conversation.
 
 See the ``Accessibility`` section for more details.
+
+## Google (Gmail, Drive, Calendar, Contacts, YT, Keep)
+
+- Listing recent emails from Gmail.
+- Listing all emails from Gmail.
+- Searching emails in Gmail.
+- Retrieving email details by ID in Gmail.
+- Sending an email via Gmail.
+- Listing recent calendar events.
+- Listing today's calendar events.
+- Listing tomorrow's calendar events.
+- Listing all calendar events.
+- Retrieving calendar events by a specific date.
+- Adding a new event to the calendar.
+- Deleting an event from the calendar.
+- Listing notes from Google Keep.
+- Adding a new note to Google Keep.
+- Listing files from Google Drive.
+- Finding a file in Google Drive by its path.
+- Downloading a file from Google Drive.
+- Uploading a file to Google Drive.
+- Retrieving information about a YouTube video.
+- Retrieving the transcript of a YouTube video.
+- Listing contacts from Google Contacts.
+- Adding a new contact to Google Contacts.
+
+## Facebook
+
+- Retrieving basic information about the authenticated user.
+- Listing all Facebook pages the user has access to.
+- Setting a specified Facebook page as the default.
+- Retrieving a list of posts from a Facebook page.
+- Creating a new post on a Facebook page.
+- Deleting a post from a Facebook page.
+- Uploading a photo to a Facebook page.
+
+## Slack
+
+- Retrieving a list of users.
+- Listing all conversations.
+- Accessing conversation history.
+- Retrieving conversation replies.
+- Opening a conversation.
+- Posting a message in a chat.
+- Deleting a chat message.
+- Uploading files to Slack.
+
+## Telegram
+
+- Sending text messages to a chat or channel.
+- Sending photos with an optional caption to a chat or channel.
+- Sending documents or files to a chat or channel.
+- Retrieving information about a specific chat or channel.
+- Polling for updates in bot mode.
+- Downloading files using a file identifier.
+- Listing contacts in user mode.
+- Listing recent dialogs or chats in user mode.
+- Retrieving recent messages from a specific chat or channel in user mode.
+
+## X/Twitter
+
+- Retrieve user details by providing their username.
+- Fetch user information using their unique ID.
+- Access recent tweets from a specific user.
+- Search for recent tweets using specific keywords or hashtags.
+- Create a new tweet and post it on the platform.
+- Remove an existing tweet from your profile.
+- Reply to a specific tweet with a new comment.
+- Quote a tweet while adding your own comments or thoughts.
+- Like a tweet to show appreciation or support.
+- Remove a like from a previously liked tweet.
+- Retweet a tweet to share it with your followers.
+- Undo a retweet to remove it from your profile.
+- Hide a specific reply to a tweet.
+- List all bookmarked tweets for easy access.
+- Add a tweet to your bookmarks for later reference.
+- Remove a tweet from your bookmarks.
+- Upload media files such as images or videos for tweeting.
+- Set alternative text for uploaded media for accessibility.
+
+## GitHub
+
+- Retrieve details about your GitHub profile.
+- Get information about a specific GitHub user.
+- List repositories for a user or organization.
+- Retrieve details about a specific repository.
+- Create a new repository.
+- Delete an existing repository.
+- Retrieve the contents of a file in a repository.
+- Upload or update a file in a repository.
+- Delete a file from a repository.
+- List issues in a repository.
+- Create a new issue in a repository.
+- Add a comment to an existing issue.
+- Close an existing issue.
+- List pull requests in a repository.
+- Create a new pull request.
+- Merge an existing pull request.
+- Search for repositories based on a query.
+- Search for issues based on a query.
+- Search for code based on a query.
+
+
+## Bitbucket
+
+- Retrieve details about the authenticated user.
+- Get information about a specific user.
+- List available workspaces.
+- List repositories in a workspace.
+- Get details about a specific repository.
+- Create a new repository.
+- Delete an existing repository.
+- Retrieve contents of a file in a repository.
+- Upload a file to a repository.
+- Delete a file from a repository.
+- List issues in a repository.
+- Create a new issue.
+- Comment on an existing issue.
+- Update details of an issue.
+- List pull requests in a repository.
+- Create a new pull request.
+- Merge an existing pull request.
+- Search for repositories.
 
 
 # Creating Your Own Plugins
@@ -4374,6 +4513,15 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.3 (2025-08-15)**
+
+- Optimized streaming and CPU usage.
+- Fixed crash on set label color and ctx duplicate.
+
+**2.6.2 (2025-08-15)**
+
+- Added plugins (beta): Google, Facebook, X/Twitter, Telegram, Slack, GitHub, Bitbucket.
 
 **2.6.1 (2025-08-14)**
 

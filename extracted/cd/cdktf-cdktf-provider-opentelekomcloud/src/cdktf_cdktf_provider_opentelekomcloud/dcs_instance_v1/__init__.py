@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_dcs_instance_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_dcs_instance_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_dcs_instance_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DcsInstanceV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.dcsInstanceV1.DcsInstanceV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1 opentelekomcloud_dcs_instance_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1 opentelekomcloud_dcs_instance_v1}.'''
 
     def __init__(
         self,
@@ -85,36 +85,36 @@ class DcsInstanceV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1 opentelekomcloud_dcs_instance_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1 opentelekomcloud_dcs_instance_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param available_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#available_zones DcsInstanceV1#available_zones}.
-        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#capacity DcsInstanceV1#capacity}.
-        :param engine: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#engine DcsInstanceV1#engine}.
-        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#engine_version DcsInstanceV1#engine_version}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#name DcsInstanceV1#name}.
-        :param product_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#product_id DcsInstanceV1#product_id}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#subnet_id DcsInstanceV1#subnet_id}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#vpc_id DcsInstanceV1#vpc_id}.
-        :param backup_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_at DcsInstanceV1#backup_at}.
-        :param backup_policy: backup_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_policy DcsInstanceV1#backup_policy}
-        :param backup_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_type DcsInstanceV1#backup_type}.
-        :param begin_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#begin_at DcsInstanceV1#begin_at}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#configuration DcsInstanceV1#configuration}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#description DcsInstanceV1#description}.
-        :param enable_whitelist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#enable_whitelist DcsInstanceV1#enable_whitelist}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#id DcsInstanceV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param maintain_begin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#maintain_begin DcsInstanceV1#maintain_begin}.
-        :param maintain_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#maintain_end DcsInstanceV1#maintain_end}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#password DcsInstanceV1#password}.
-        :param period_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#period_type DcsInstanceV1#period_type}.
-        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#private_ip DcsInstanceV1#private_ip}.
-        :param save_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#save_days DcsInstanceV1#save_days}.
-        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#security_group_id DcsInstanceV1#security_group_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#tags DcsInstanceV1#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#timeouts DcsInstanceV1#timeouts}
-        :param whitelist: whitelist block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#whitelist DcsInstanceV1#whitelist}
+        :param available_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#available_zones DcsInstanceV1#available_zones}.
+        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#capacity DcsInstanceV1#capacity}.
+        :param engine: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#engine DcsInstanceV1#engine}.
+        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#engine_version DcsInstanceV1#engine_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#name DcsInstanceV1#name}.
+        :param product_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#product_id DcsInstanceV1#product_id}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#subnet_id DcsInstanceV1#subnet_id}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#vpc_id DcsInstanceV1#vpc_id}.
+        :param backup_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_at DcsInstanceV1#backup_at}.
+        :param backup_policy: backup_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_policy DcsInstanceV1#backup_policy}
+        :param backup_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_type DcsInstanceV1#backup_type}.
+        :param begin_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#begin_at DcsInstanceV1#begin_at}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#configuration DcsInstanceV1#configuration}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#description DcsInstanceV1#description}.
+        :param enable_whitelist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#enable_whitelist DcsInstanceV1#enable_whitelist}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#id DcsInstanceV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param maintain_begin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#maintain_begin DcsInstanceV1#maintain_begin}.
+        :param maintain_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#maintain_end DcsInstanceV1#maintain_end}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#password DcsInstanceV1#password}.
+        :param period_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#period_type DcsInstanceV1#period_type}.
+        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#private_ip DcsInstanceV1#private_ip}.
+        :param save_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#save_days DcsInstanceV1#save_days}.
+        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#security_group_id DcsInstanceV1#security_group_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#tags DcsInstanceV1#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#timeouts DcsInstanceV1#timeouts}
+        :param whitelist: whitelist block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#whitelist DcsInstanceV1#whitelist}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -178,7 +178,7 @@ class DcsInstanceV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DcsInstanceV1 to import.
-        :param import_from_id: The id of the existing DcsInstanceV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DcsInstanceV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DcsInstanceV1 to import is found.
         '''
         if __debug__:
@@ -200,11 +200,11 @@ class DcsInstanceV1(
         save_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param backup_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_at DcsInstanceV1#backup_at}.
-        :param begin_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#begin_at DcsInstanceV1#begin_at}.
-        :param period_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#period_type DcsInstanceV1#period_type}.
-        :param backup_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_type DcsInstanceV1#backup_type}.
-        :param save_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#save_days DcsInstanceV1#save_days}.
+        :param backup_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_at DcsInstanceV1#backup_at}.
+        :param begin_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#begin_at DcsInstanceV1#begin_at}.
+        :param period_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#period_type DcsInstanceV1#period_type}.
+        :param backup_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_type DcsInstanceV1#backup_type}.
+        :param save_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#save_days DcsInstanceV1#save_days}.
         '''
         value = DcsInstanceV1BackupPolicy(
             backup_at=backup_at,
@@ -238,9 +238,9 @@ class DcsInstanceV1(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#create DcsInstanceV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#delete DcsInstanceV1#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#update DcsInstanceV1#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#create DcsInstanceV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#delete DcsInstanceV1#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#update DcsInstanceV1#update}.
         '''
         value = DcsInstanceV1Timeouts(create=create, delete=delete, update=update)
 
@@ -869,11 +869,11 @@ class DcsInstanceV1BackupPolicy:
         save_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param backup_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_at DcsInstanceV1#backup_at}.
-        :param begin_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#begin_at DcsInstanceV1#begin_at}.
-        :param period_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#period_type DcsInstanceV1#period_type}.
-        :param backup_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_type DcsInstanceV1#backup_type}.
-        :param save_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#save_days DcsInstanceV1#save_days}.
+        :param backup_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_at DcsInstanceV1#backup_at}.
+        :param begin_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#begin_at DcsInstanceV1#begin_at}.
+        :param period_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#period_type DcsInstanceV1#period_type}.
+        :param backup_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_type DcsInstanceV1#backup_type}.
+        :param save_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#save_days DcsInstanceV1#save_days}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__87f7f978ec511b0f4bea7d9920076d2cb252d7349d817e924ef54071961bf79a)
@@ -894,34 +894,34 @@ class DcsInstanceV1BackupPolicy:
 
     @builtins.property
     def backup_at(self) -> typing.List[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_at DcsInstanceV1#backup_at}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_at DcsInstanceV1#backup_at}.'''
         result = self._values.get("backup_at")
         assert result is not None, "Required property 'backup_at' is missing"
         return typing.cast(typing.List[jsii.Number], result)
 
     @builtins.property
     def begin_at(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#begin_at DcsInstanceV1#begin_at}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#begin_at DcsInstanceV1#begin_at}.'''
         result = self._values.get("begin_at")
         assert result is not None, "Required property 'begin_at' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def period_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#period_type DcsInstanceV1#period_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#period_type DcsInstanceV1#period_type}.'''
         result = self._values.get("period_type")
         assert result is not None, "Required property 'period_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def backup_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_type DcsInstanceV1#backup_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_type DcsInstanceV1#backup_type}.'''
         result = self._values.get("backup_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def save_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#save_days DcsInstanceV1#save_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#save_days DcsInstanceV1#save_days}.'''
         result = self._values.get("save_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1148,32 +1148,32 @@ class DcsInstanceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param available_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#available_zones DcsInstanceV1#available_zones}.
-        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#capacity DcsInstanceV1#capacity}.
-        :param engine: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#engine DcsInstanceV1#engine}.
-        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#engine_version DcsInstanceV1#engine_version}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#name DcsInstanceV1#name}.
-        :param product_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#product_id DcsInstanceV1#product_id}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#subnet_id DcsInstanceV1#subnet_id}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#vpc_id DcsInstanceV1#vpc_id}.
-        :param backup_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_at DcsInstanceV1#backup_at}.
-        :param backup_policy: backup_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_policy DcsInstanceV1#backup_policy}
-        :param backup_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_type DcsInstanceV1#backup_type}.
-        :param begin_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#begin_at DcsInstanceV1#begin_at}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#configuration DcsInstanceV1#configuration}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#description DcsInstanceV1#description}.
-        :param enable_whitelist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#enable_whitelist DcsInstanceV1#enable_whitelist}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#id DcsInstanceV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param maintain_begin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#maintain_begin DcsInstanceV1#maintain_begin}.
-        :param maintain_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#maintain_end DcsInstanceV1#maintain_end}.
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#password DcsInstanceV1#password}.
-        :param period_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#period_type DcsInstanceV1#period_type}.
-        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#private_ip DcsInstanceV1#private_ip}.
-        :param save_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#save_days DcsInstanceV1#save_days}.
-        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#security_group_id DcsInstanceV1#security_group_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#tags DcsInstanceV1#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#timeouts DcsInstanceV1#timeouts}
-        :param whitelist: whitelist block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#whitelist DcsInstanceV1#whitelist}
+        :param available_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#available_zones DcsInstanceV1#available_zones}.
+        :param capacity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#capacity DcsInstanceV1#capacity}.
+        :param engine: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#engine DcsInstanceV1#engine}.
+        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#engine_version DcsInstanceV1#engine_version}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#name DcsInstanceV1#name}.
+        :param product_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#product_id DcsInstanceV1#product_id}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#subnet_id DcsInstanceV1#subnet_id}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#vpc_id DcsInstanceV1#vpc_id}.
+        :param backup_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_at DcsInstanceV1#backup_at}.
+        :param backup_policy: backup_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_policy DcsInstanceV1#backup_policy}
+        :param backup_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_type DcsInstanceV1#backup_type}.
+        :param begin_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#begin_at DcsInstanceV1#begin_at}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#configuration DcsInstanceV1#configuration}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#description DcsInstanceV1#description}.
+        :param enable_whitelist: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#enable_whitelist DcsInstanceV1#enable_whitelist}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#id DcsInstanceV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param maintain_begin: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#maintain_begin DcsInstanceV1#maintain_begin}.
+        :param maintain_end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#maintain_end DcsInstanceV1#maintain_end}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#password DcsInstanceV1#password}.
+        :param period_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#period_type DcsInstanceV1#period_type}.
+        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#private_ip DcsInstanceV1#private_ip}.
+        :param save_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#save_days DcsInstanceV1#save_days}.
+        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#security_group_id DcsInstanceV1#security_group_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#tags DcsInstanceV1#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#timeouts DcsInstanceV1#timeouts}
+        :param whitelist: whitelist block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#whitelist DcsInstanceV1#whitelist}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1343,63 +1343,63 @@ class DcsInstanceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def available_zones(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#available_zones DcsInstanceV1#available_zones}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#available_zones DcsInstanceV1#available_zones}.'''
         result = self._values.get("available_zones")
         assert result is not None, "Required property 'available_zones' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def capacity(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#capacity DcsInstanceV1#capacity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#capacity DcsInstanceV1#capacity}.'''
         result = self._values.get("capacity")
         assert result is not None, "Required property 'capacity' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def engine(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#engine DcsInstanceV1#engine}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#engine DcsInstanceV1#engine}.'''
         result = self._values.get("engine")
         assert result is not None, "Required property 'engine' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def engine_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#engine_version DcsInstanceV1#engine_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#engine_version DcsInstanceV1#engine_version}.'''
         result = self._values.get("engine_version")
         assert result is not None, "Required property 'engine_version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#name DcsInstanceV1#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#name DcsInstanceV1#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def product_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#product_id DcsInstanceV1#product_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#product_id DcsInstanceV1#product_id}.'''
         result = self._values.get("product_id")
         assert result is not None, "Required property 'product_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subnet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#subnet_id DcsInstanceV1#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#subnet_id DcsInstanceV1#subnet_id}.'''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#vpc_id DcsInstanceV1#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#vpc_id DcsInstanceV1#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def backup_at(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_at DcsInstanceV1#backup_at}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_at DcsInstanceV1#backup_at}.'''
         result = self._values.get("backup_at")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
 
@@ -1407,20 +1407,20 @@ class DcsInstanceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup_policy(self) -> typing.Optional[DcsInstanceV1BackupPolicy]:
         '''backup_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_policy DcsInstanceV1#backup_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_policy DcsInstanceV1#backup_policy}
         '''
         result = self._values.get("backup_policy")
         return typing.cast(typing.Optional[DcsInstanceV1BackupPolicy], result)
 
     @builtins.property
     def backup_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#backup_type DcsInstanceV1#backup_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#backup_type DcsInstanceV1#backup_type}.'''
         result = self._values.get("backup_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def begin_at(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#begin_at DcsInstanceV1#begin_at}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#begin_at DcsInstanceV1#begin_at}.'''
         result = self._values.get("begin_at")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1430,14 +1430,14 @@ class DcsInstanceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DcsInstanceV1Configuration"]]]:
         '''configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#configuration DcsInstanceV1#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#configuration DcsInstanceV1#configuration}
         '''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DcsInstanceV1Configuration"]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#description DcsInstanceV1#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#description DcsInstanceV1#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1445,13 +1445,13 @@ class DcsInstanceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_whitelist(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#enable_whitelist DcsInstanceV1#enable_whitelist}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#enable_whitelist DcsInstanceV1#enable_whitelist}.'''
         result = self._values.get("enable_whitelist")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#id DcsInstanceV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#id DcsInstanceV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1461,49 +1461,49 @@ class DcsInstanceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def maintain_begin(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#maintain_begin DcsInstanceV1#maintain_begin}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#maintain_begin DcsInstanceV1#maintain_begin}.'''
         result = self._values.get("maintain_begin")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def maintain_end(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#maintain_end DcsInstanceV1#maintain_end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#maintain_end DcsInstanceV1#maintain_end}.'''
         result = self._values.get("maintain_end")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#password DcsInstanceV1#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#password DcsInstanceV1#password}.'''
         result = self._values.get("password")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def period_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#period_type DcsInstanceV1#period_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#period_type DcsInstanceV1#period_type}.'''
         result = self._values.get("period_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def private_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#private_ip DcsInstanceV1#private_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#private_ip DcsInstanceV1#private_ip}.'''
         result = self._values.get("private_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def save_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#save_days DcsInstanceV1#save_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#save_days DcsInstanceV1#save_days}.'''
         result = self._values.get("save_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def security_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#security_group_id DcsInstanceV1#security_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#security_group_id DcsInstanceV1#security_group_id}.'''
         result = self._values.get("security_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#tags DcsInstanceV1#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#tags DcsInstanceV1#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1511,7 +1511,7 @@ class DcsInstanceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DcsInstanceV1Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#timeouts DcsInstanceV1#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#timeouts DcsInstanceV1#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DcsInstanceV1Timeouts"], result)
@@ -1522,7 +1522,7 @@ class DcsInstanceV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DcsInstanceV1WhitelistStruct"]]]:
         '''whitelist block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#whitelist DcsInstanceV1#whitelist}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#whitelist DcsInstanceV1#whitelist}
         '''
         result = self._values.get("whitelist")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DcsInstanceV1WhitelistStruct"]]], result)
@@ -1557,9 +1557,9 @@ class DcsInstanceV1Configuration:
         parameter_value: builtins.str,
     ) -> None:
         '''
-        :param parameter_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#parameter_id DcsInstanceV1#parameter_id}.
-        :param parameter_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#parameter_name DcsInstanceV1#parameter_name}.
-        :param parameter_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#parameter_value DcsInstanceV1#parameter_value}.
+        :param parameter_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#parameter_id DcsInstanceV1#parameter_id}.
+        :param parameter_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#parameter_name DcsInstanceV1#parameter_name}.
+        :param parameter_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#parameter_value DcsInstanceV1#parameter_value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f31fff96239829549f4d63a03d73680614e233efc480db0ad6708166332843c0)
@@ -1574,21 +1574,21 @@ class DcsInstanceV1Configuration:
 
     @builtins.property
     def parameter_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#parameter_id DcsInstanceV1#parameter_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#parameter_id DcsInstanceV1#parameter_id}.'''
         result = self._values.get("parameter_id")
         assert result is not None, "Required property 'parameter_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def parameter_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#parameter_name DcsInstanceV1#parameter_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#parameter_name DcsInstanceV1#parameter_name}.'''
         result = self._values.get("parameter_name")
         assert result is not None, "Required property 'parameter_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def parameter_value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#parameter_value DcsInstanceV1#parameter_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#parameter_value DcsInstanceV1#parameter_value}.'''
         result = self._values.get("parameter_value")
         assert result is not None, "Required property 'parameter_value' is missing"
         return typing.cast(builtins.str, result)
@@ -1804,9 +1804,9 @@ class DcsInstanceV1Timeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#create DcsInstanceV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#delete DcsInstanceV1#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#update DcsInstanceV1#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#create DcsInstanceV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#delete DcsInstanceV1#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#update DcsInstanceV1#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27e2d2c8a9c95055b9378c053145ec6cbd957665453b3b64f3871d55e9054227)
@@ -1823,19 +1823,19 @@ class DcsInstanceV1Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#create DcsInstanceV1#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#create DcsInstanceV1#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#delete DcsInstanceV1#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#delete DcsInstanceV1#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#update DcsInstanceV1#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#update DcsInstanceV1#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1965,8 +1965,8 @@ class DcsInstanceV1WhitelistStruct:
         ip_list: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#group_name DcsInstanceV1#group_name}.
-        :param ip_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#ip_list DcsInstanceV1#ip_list}.
+        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#group_name DcsInstanceV1#group_name}.
+        :param ip_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#ip_list DcsInstanceV1#ip_list}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f7304a4fec9176eb5d7a97d937078507da933280ee69151fbad408f83c2a839)
@@ -1979,14 +1979,14 @@ class DcsInstanceV1WhitelistStruct:
 
     @builtins.property
     def group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#group_name DcsInstanceV1#group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#group_name DcsInstanceV1#group_name}.'''
         result = self._values.get("group_name")
         assert result is not None, "Required property 'group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ip_list(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/dcs_instance_v1#ip_list DcsInstanceV1#ip_list}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/dcs_instance_v1#ip_list DcsInstanceV1#ip_list}.'''
         result = self._values.get("ip_list")
         assert result is not None, "Required property 'ip_list' is missing"
         return typing.cast(typing.List[builtins.str], result)

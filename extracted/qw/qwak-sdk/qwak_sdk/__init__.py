@@ -1,6 +1,6 @@
 # fmt: off
 __author__ = '''Qwak.ai'''
-__version__ = '0.5.97'
+__version__ = '0.5.98'
 
 from qwak.inner import wire_dependencies
 

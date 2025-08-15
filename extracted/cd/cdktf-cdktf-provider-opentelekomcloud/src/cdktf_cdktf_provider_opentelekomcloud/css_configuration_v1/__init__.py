@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_css_configuration_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_css_configuration_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_css_configuration_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CssConfigurationV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.cssConfigurationV1.CssConfigurationV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1 opentelekomcloud_css_configuration_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1 opentelekomcloud_css_configuration_v1}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class CssConfigurationV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1 opentelekomcloud_css_configuration_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1 opentelekomcloud_css_configuration_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster_id: The CSS cluster ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#cluster_id CssConfigurationV1#cluster_id}
-        :param auto_create_index: Whether to auto-create index. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#auto_create_index CssConfigurationV1#auto_create_index}
-        :param http_cors_allow_credentials: Whether to return the Access-Control-Allow-Credentials of the header during cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_allow_credentials CssConfigurationV1#http_cors_allow_credentials}
-        :param http_cors_allow_headers: Headers allowed for cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_allow_headers CssConfigurationV1#http_cors_allow_headers}
-        :param http_cors_allow_methods: Methods allowed for cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_allow_methods CssConfigurationV1#http_cors_allow_methods}
-        :param http_cors_allow_origin: Origin IP address allowed for cross-domain access, for example, **122.122.122.122:9200**. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_allow_origin CssConfigurationV1#http_cors_allow_origin}
-        :param http_cors_enabled: Whether to allow cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_enabled CssConfigurationV1#http_cors_enabled}
-        :param http_cors_max_age: Cache duration of the browser. The cache is automatically cleared after the time range you specify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_max_age CssConfigurationV1#http_cors_max_age}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#id CssConfigurationV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param indices_queries_cache_size: Cache size in the query phase. Value range: **1** to **100**. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#indices_queries_cache_size CssConfigurationV1#indices_queries_cache_size}
-        :param reindex_remote_whitelist: Configured for migrating data from the current cluster to the target cluster through the reindex API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#reindex_remote_whitelist CssConfigurationV1#reindex_remote_whitelist}
-        :param thread_pool_force_merge_size: Queue size in the force merge thread pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#thread_pool_force_merge_size CssConfigurationV1#thread_pool_force_merge_size}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#timeouts CssConfigurationV1#timeouts}
+        :param cluster_id: The CSS cluster ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#cluster_id CssConfigurationV1#cluster_id}
+        :param auto_create_index: Whether to auto-create index. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#auto_create_index CssConfigurationV1#auto_create_index}
+        :param http_cors_allow_credentials: Whether to return the Access-Control-Allow-Credentials of the header during cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_allow_credentials CssConfigurationV1#http_cors_allow_credentials}
+        :param http_cors_allow_headers: Headers allowed for cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_allow_headers CssConfigurationV1#http_cors_allow_headers}
+        :param http_cors_allow_methods: Methods allowed for cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_allow_methods CssConfigurationV1#http_cors_allow_methods}
+        :param http_cors_allow_origin: Origin IP address allowed for cross-domain access, for example, **122.122.122.122:9200**. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_allow_origin CssConfigurationV1#http_cors_allow_origin}
+        :param http_cors_enabled: Whether to allow cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_enabled CssConfigurationV1#http_cors_enabled}
+        :param http_cors_max_age: Cache duration of the browser. The cache is automatically cleared after the time range you specify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_max_age CssConfigurationV1#http_cors_max_age}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#id CssConfigurationV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param indices_queries_cache_size: Cache size in the query phase. Value range: **1** to **100**. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#indices_queries_cache_size CssConfigurationV1#indices_queries_cache_size}
+        :param reindex_remote_whitelist: Configured for migrating data from the current cluster to the target cluster through the reindex API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#reindex_remote_whitelist CssConfigurationV1#reindex_remote_whitelist}
+        :param thread_pool_force_merge_size: Queue size in the force merge thread pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#thread_pool_force_merge_size CssConfigurationV1#thread_pool_force_merge_size}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#timeouts CssConfigurationV1#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class CssConfigurationV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CssConfigurationV1 to import.
-        :param import_from_id: The id of the existing CssConfigurationV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CssConfigurationV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CssConfigurationV1 to import is found.
         '''
         if __debug__:
@@ -158,8 +158,8 @@ class CssConfigurationV1(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#create CssConfigurationV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#delete CssConfigurationV1#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#create CssConfigurationV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#delete CssConfigurationV1#delete}.
         '''
         value = CssConfigurationV1Timeouts(create=create, delete=delete)
 
@@ -507,19 +507,19 @@ class CssConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster_id: The CSS cluster ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#cluster_id CssConfigurationV1#cluster_id}
-        :param auto_create_index: Whether to auto-create index. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#auto_create_index CssConfigurationV1#auto_create_index}
-        :param http_cors_allow_credentials: Whether to return the Access-Control-Allow-Credentials of the header during cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_allow_credentials CssConfigurationV1#http_cors_allow_credentials}
-        :param http_cors_allow_headers: Headers allowed for cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_allow_headers CssConfigurationV1#http_cors_allow_headers}
-        :param http_cors_allow_methods: Methods allowed for cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_allow_methods CssConfigurationV1#http_cors_allow_methods}
-        :param http_cors_allow_origin: Origin IP address allowed for cross-domain access, for example, **122.122.122.122:9200**. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_allow_origin CssConfigurationV1#http_cors_allow_origin}
-        :param http_cors_enabled: Whether to allow cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_enabled CssConfigurationV1#http_cors_enabled}
-        :param http_cors_max_age: Cache duration of the browser. The cache is automatically cleared after the time range you specify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_max_age CssConfigurationV1#http_cors_max_age}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#id CssConfigurationV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param indices_queries_cache_size: Cache size in the query phase. Value range: **1** to **100**. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#indices_queries_cache_size CssConfigurationV1#indices_queries_cache_size}
-        :param reindex_remote_whitelist: Configured for migrating data from the current cluster to the target cluster through the reindex API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#reindex_remote_whitelist CssConfigurationV1#reindex_remote_whitelist}
-        :param thread_pool_force_merge_size: Queue size in the force merge thread pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#thread_pool_force_merge_size CssConfigurationV1#thread_pool_force_merge_size}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#timeouts CssConfigurationV1#timeouts}
+        :param cluster_id: The CSS cluster ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#cluster_id CssConfigurationV1#cluster_id}
+        :param auto_create_index: Whether to auto-create index. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#auto_create_index CssConfigurationV1#auto_create_index}
+        :param http_cors_allow_credentials: Whether to return the Access-Control-Allow-Credentials of the header during cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_allow_credentials CssConfigurationV1#http_cors_allow_credentials}
+        :param http_cors_allow_headers: Headers allowed for cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_allow_headers CssConfigurationV1#http_cors_allow_headers}
+        :param http_cors_allow_methods: Methods allowed for cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_allow_methods CssConfigurationV1#http_cors_allow_methods}
+        :param http_cors_allow_origin: Origin IP address allowed for cross-domain access, for example, **122.122.122.122:9200**. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_allow_origin CssConfigurationV1#http_cors_allow_origin}
+        :param http_cors_enabled: Whether to allow cross-domain access. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_enabled CssConfigurationV1#http_cors_enabled}
+        :param http_cors_max_age: Cache duration of the browser. The cache is automatically cleared after the time range you specify. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_max_age CssConfigurationV1#http_cors_max_age}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#id CssConfigurationV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param indices_queries_cache_size: Cache size in the query phase. Value range: **1** to **100**. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#indices_queries_cache_size CssConfigurationV1#indices_queries_cache_size}
+        :param reindex_remote_whitelist: Configured for migrating data from the current cluster to the target cluster through the reindex API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#reindex_remote_whitelist CssConfigurationV1#reindex_remote_whitelist}
+        :param thread_pool_force_merge_size: Queue size in the force merge thread pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#thread_pool_force_merge_size CssConfigurationV1#thread_pool_force_merge_size}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#timeouts CssConfigurationV1#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -657,7 +657,7 @@ class CssConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster_id(self) -> builtins.str:
         '''The CSS cluster ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#cluster_id CssConfigurationV1#cluster_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#cluster_id CssConfigurationV1#cluster_id}
         '''
         result = self._values.get("cluster_id")
         assert result is not None, "Required property 'cluster_id' is missing"
@@ -667,7 +667,7 @@ class CssConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_create_index(self) -> typing.Optional[builtins.str]:
         '''Whether to auto-create index.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#auto_create_index CssConfigurationV1#auto_create_index}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#auto_create_index CssConfigurationV1#auto_create_index}
         '''
         result = self._values.get("auto_create_index")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -676,7 +676,7 @@ class CssConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def http_cors_allow_credentials(self) -> typing.Optional[builtins.str]:
         '''Whether to return the Access-Control-Allow-Credentials of the header during cross-domain access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_allow_credentials CssConfigurationV1#http_cors_allow_credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_allow_credentials CssConfigurationV1#http_cors_allow_credentials}
         '''
         result = self._values.get("http_cors_allow_credentials")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -685,7 +685,7 @@ class CssConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def http_cors_allow_headers(self) -> typing.Optional[builtins.str]:
         '''Headers allowed for cross-domain access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_allow_headers CssConfigurationV1#http_cors_allow_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_allow_headers CssConfigurationV1#http_cors_allow_headers}
         '''
         result = self._values.get("http_cors_allow_headers")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -694,7 +694,7 @@ class CssConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def http_cors_allow_methods(self) -> typing.Optional[builtins.str]:
         '''Methods allowed for cross-domain access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_allow_methods CssConfigurationV1#http_cors_allow_methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_allow_methods CssConfigurationV1#http_cors_allow_methods}
         '''
         result = self._values.get("http_cors_allow_methods")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -703,7 +703,7 @@ class CssConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def http_cors_allow_origin(self) -> typing.Optional[builtins.str]:
         '''Origin IP address allowed for cross-domain access, for example, **122.122.122.122:9200**.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_allow_origin CssConfigurationV1#http_cors_allow_origin}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_allow_origin CssConfigurationV1#http_cors_allow_origin}
         '''
         result = self._values.get("http_cors_allow_origin")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -712,7 +712,7 @@ class CssConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def http_cors_enabled(self) -> typing.Optional[builtins.str]:
         '''Whether to allow cross-domain access.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_enabled CssConfigurationV1#http_cors_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_enabled CssConfigurationV1#http_cors_enabled}
         '''
         result = self._values.get("http_cors_enabled")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -721,14 +721,14 @@ class CssConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def http_cors_max_age(self) -> typing.Optional[builtins.str]:
         '''Cache duration of the browser. The cache is automatically cleared after the time range you specify.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#http_cors_max_age CssConfigurationV1#http_cors_max_age}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#http_cors_max_age CssConfigurationV1#http_cors_max_age}
         '''
         result = self._values.get("http_cors_max_age")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#id CssConfigurationV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#id CssConfigurationV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -740,7 +740,7 @@ class CssConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def indices_queries_cache_size(self) -> typing.Optional[builtins.str]:
         '''Cache size in the query phase. Value range: **1** to **100**.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#indices_queries_cache_size CssConfigurationV1#indices_queries_cache_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#indices_queries_cache_size CssConfigurationV1#indices_queries_cache_size}
         '''
         result = self._values.get("indices_queries_cache_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -749,7 +749,7 @@ class CssConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def reindex_remote_whitelist(self) -> typing.Optional[builtins.str]:
         '''Configured for migrating data from the current cluster to the target cluster through the reindex API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#reindex_remote_whitelist CssConfigurationV1#reindex_remote_whitelist}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#reindex_remote_whitelist CssConfigurationV1#reindex_remote_whitelist}
         '''
         result = self._values.get("reindex_remote_whitelist")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -758,7 +758,7 @@ class CssConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def thread_pool_force_merge_size(self) -> typing.Optional[builtins.str]:
         '''Queue size in the force merge thread pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#thread_pool_force_merge_size CssConfigurationV1#thread_pool_force_merge_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#thread_pool_force_merge_size CssConfigurationV1#thread_pool_force_merge_size}
         '''
         result = self._values.get("thread_pool_force_merge_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -767,7 +767,7 @@ class CssConfigurationV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CssConfigurationV1Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#timeouts CssConfigurationV1#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#timeouts CssConfigurationV1#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CssConfigurationV1Timeouts"], result)
@@ -797,8 +797,8 @@ class CssConfigurationV1Timeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#create CssConfigurationV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#delete CssConfigurationV1#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#create CssConfigurationV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#delete CssConfigurationV1#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a3e07a6a522ea6c641d224b49bbc76ed4990726a672a2966ca55171f2b2ea651)
@@ -812,13 +812,13 @@ class CssConfigurationV1Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#create CssConfigurationV1#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#create CssConfigurationV1#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/css_configuration_v1#delete CssConfigurationV1#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/css_configuration_v1#delete CssConfigurationV1#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

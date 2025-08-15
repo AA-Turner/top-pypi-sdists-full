@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-class ILoggerService(ABC):
+class ILogger(ABC):
 
     @abstractmethod
     def info(self, message: str) -> None:

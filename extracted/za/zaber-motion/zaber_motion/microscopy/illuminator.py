@@ -32,8 +32,8 @@ class Illuminator:
         Creates instance of `Illuminator` based on the given device.
         If the device is identified, this constructor will ensure it is an illuminator.
         """
-        self._device = device
-        self._io = DeviceIO(device)
+        self._device: Device = device
+        self._io: DeviceIO = DeviceIO(device)
         self.__verify_is_illuminator()
 
     def get_channel(

@@ -23,7 +23,7 @@ class AllAxes:
         return self._device
 
     def __init__(self, device: 'Device'):
-        self._device = device
+        self._device: 'Device' = device
 
     def home(
             self,

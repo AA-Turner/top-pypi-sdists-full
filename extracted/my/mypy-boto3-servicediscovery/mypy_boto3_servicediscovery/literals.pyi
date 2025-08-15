@@ -58,7 +58,7 @@ ListInstancesPaginatorName = Literal["list_instances"]
 ListNamespacesPaginatorName = Literal["list_namespaces"]
 ListOperationsPaginatorName = Literal["list_operations"]
 ListServicesPaginatorName = Literal["list_services"]
-NamespaceFilterNameType = Literal["HTTP_NAME", "NAME", "TYPE"]
+NamespaceFilterNameType = Literal["HTTP_NAME", "NAME", "RESOURCE_OWNER", "TYPE"]
 NamespaceTypeType = Literal["DNS_PRIVATE", "DNS_PUBLIC", "HTTP"]
 OperationFilterNameType = Literal["NAMESPACE_ID", "SERVICE_ID", "STATUS", "TYPE", "UPDATE_DATE"]
 OperationStatusType = Literal["FAIL", "PENDING", "SUBMITTED", "SUCCESS"]
@@ -73,7 +73,7 @@ OperationTypeType = Literal[
 ]
 RecordTypeType = Literal["A", "AAAA", "CNAME", "SRV"]
 RoutingPolicyType = Literal["MULTIVALUE", "WEIGHTED"]
-ServiceFilterNameType = Literal["NAMESPACE_ID"]
+ServiceFilterNameType = Literal["NAMESPACE_ID", "RESOURCE_OWNER"]
 ServiceTypeOptionType = Literal["HTTP"]
 ServiceTypeType = Literal["DNS", "DNS_HTTP", "HTTP"]
 ServiceDiscoveryServiceName = Literal["servicediscovery"]
@@ -104,6 +104,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -117,6 +118,7 @@ ServiceName = Literal[
     "batch",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

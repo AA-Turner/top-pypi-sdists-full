@@ -2,10 +2,11 @@
 Currency column merger for handling separated currency symbols in SEC filings.
 """
 
-from typing import List, Tuple, Optional
-from edgar.documents.utils.table_matrix import TableMatrix, MatrixCell
-from edgar.documents.table_nodes import Cell
 import re
+from typing import List, Tuple
+
+from edgar.documents.table_nodes import Cell
+from edgar.documents.utils.table_matrix import TableMatrix, MatrixCell
 
 
 class CurrencyColumnMerger:

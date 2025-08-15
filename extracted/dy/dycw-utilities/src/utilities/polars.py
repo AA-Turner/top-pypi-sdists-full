@@ -3,7 +3,6 @@ from __future__ import annotations
 import enum
 from collections.abc import Callable, Iterator, Sequence
 from collections.abc import Set as AbstractSet
-from contextlib import suppress
 from dataclasses import asdict, dataclass
 from functools import partial, reduce
 from itertools import chain, pairwise, product
@@ -33,9 +32,11 @@ from polars import (
     any_horizontal,
     col,
     concat,
+    concat_list,
     datetime_range,
     int_range,
     lit,
+    max_horizontal,
     struct,
     sum_horizontal,
     when,
@@ -43,23 +44,22 @@ from polars import (
 from polars._typing import PolarsDataType
 from polars.datatypes import DataType, DataTypeClass
 from polars.exceptions import (
-    ColumnNotFoundError,  # pyright: ignore[reportAttributeAccessIssue]
+    ColumnNotFoundError,
     NoRowsReturnedError,
-    OutOfBoundsError,  # pyright: ignore[reportAttributeAccessIssue]
+    OutOfBoundsError,
     PolarsInefficientMapWarning,
 )
 from polars.schema import Schema
 from polars.testing import assert_frame_equal, assert_series_equal
 from whenever import DateDelta, DateTimeDelta, PlainDateTime, TimeDelta, ZonedDateTime
 
+import utilities.math
 from utilities.dataclasses import yield_fields
 from utilities.errors import ImpossibleCaseError
 from utilities.functions import (
-    EnsureIntError,
-    ensure_int,
+    get_class_name,
     is_dataclass_class,
     is_dataclass_instance,
-    is_iterable_of,
     make_isinstance,
 )
 from utilities.gzip import read_binary
@@ -80,18 +80,17 @@ from utilities.iterables import (
 )
 from utilities.json import write_formatted_json
 from utilities.math import (
+    MAX_DECIMALS,
     CheckIntegerError,
     check_integer,
     ewm_parameters,
     is_less_than,
     is_non_negative,
-    number_of_decimals,
 )
 from utilities.reprlib import get_repr
 from utilities.types import MaybeStr, Number, PathLike, WeekDay
 from utilities.typing import (
     get_args,
-    get_type_hints,
     is_frozenset_type,
     is_list_type,
     is_literal_type,
@@ -340,8 +339,8 @@ def are_frames_equal(
     check_column_order: bool = True,
     check_dtypes: bool = True,
     check_exact: bool = False,
-    rtol: float = 1e-5,
-    atol: float = 1e-8,
+    rel_tol: float = 1e-5,
+    abs_tol: float = 1e-8,
     categorical_as_str: bool = False,
 ) -> bool:
     """Check if two DataFrames are equal."""
@@ -353,8 +352,8 @@ def are_frames_equal(
             check_column_order=check_column_order,
             check_dtypes=check_dtypes,
             check_exact=check_exact,
-            rtol=rtol,
-            atol=atol,
+            rel_tol=rel_tol,
+            abs_tol=abs_tol,
             categorical_as_str=categorical_as_str,
         )
     except AssertionError:
@@ -786,15 +785,6 @@ def choice(
 ##
 
 
-def collect_series(expr: Expr, /) -> Series:
-    """Collect a column expression into a Series."""
-    data = DataFrame().with_columns(expr)
-    return data[one(data.columns)]
-
-
-##
-
-
 def columns_to_dict(df: DataFrame, key: str, value: str, /) -> dict[Any, Any]:
     """Map a pair of columns into a dictionary. Must be unique on `key`."""
     col_key = df[key]
@@ -1047,7 +1037,9 @@ def _dataclass_to_dataframe_cast(series: Series, /) -> Series:
     is_path = series.map_elements(make_isinstance(Path), return_dtype=Boolean).all()
     is_uuid = series.map_elements(make_isinstance(UUID), return_dtype=Boolean).all()
     if is_path or is_uuid:
-        with suppress_warnings(category=PolarsInefficientMapWarning):
+        with suppress_warnings(
+            category=cast("type[Warning]", PolarsInefficientMapWarning)
+        ):
             return series.map_elements(str, return_dtype=String)
     if series.map_elements(make_isinstance(whenever.Time), return_dtype=Boolean).all():
         return series.map_elements(lambda x: x.py_time(), return_dtype=pl.Time)
@@ -1188,27 +1180,6 @@ def _dataclass_to_schema_one(
 ##
 
 
-def drop_null_struct_series(series: Series, /) -> Series:
-    """Drop nulls in a struct-dtype Series as per the <= 1.1 definition."""
-    try:
-        is_not_null = is_not_null_struct_series(series)
-    except IsNotNullStructSeriesError as error:
-        raise DropNullStructSeriesError(series=error.series) from None
-    return series.filter(is_not_null)
-
-
-@dataclass(kw_only=True, slots=True)
-class DropNullStructSeriesError(Exception):
-    series: Series
-
-    @override
-    def __str__(self) -> str:
-        return f"Series must have Struct-dtype; got {self.series.dtype}"
-
-
-##
-
-
 def ensure_data_type(dtype: PolarsDataType, /) -> DataType:
     """Ensure a data type is returned."""
     return dtype if isinstance(dtype, DataType) else dtype()
@@ -1238,6 +1209,14 @@ def ensure_expr_or_series_many(
     args = map(ensure_expr_or_series, columns)
     kwargs = (ensure_expr_or_series(v).alias(k) for k, v in named_columns.items())
     return list(chain(args, kwargs))
+
+
+##
+
+
+def expr_to_series(expr: Expr, /) -> Series:
+    """Collect a column expression into a Series."""
+    return one_column(DataFrame().with_columns(expr))
 
 
 ##
@@ -1346,6 +1325,32 @@ class _FiniteEWMWeightsError(Exception):
 ##
 
 
+@overload
+def first_true_horizontal(column: Series, /) -> Series: ...
+@overload
+def first_true_horizontal(column1: Series, column2: Series, /) -> Series: ...
+@overload
+def first_true_horizontal(
+    column1: Series, column2: Series, column3: Series, /
+) -> Series: ...
+@overload
+def first_true_horizontal(
+    column1: Series, column2: Series, column3: Series, column4: Series, /
+) -> Series: ...
+@overload
+def first_true_horizontal(*columns: Series) -> Series: ...
+@overload
+def first_true_horizontal(*columns: IntoExprColumn) -> ExprOrSeries: ...
+def first_true_horizontal(*columns: IntoExprColumn) -> ExprOrSeries:
+    """Get the index of the first true in each row."""
+    columns2 = ensure_expr_or_series_many(*columns)
+    expr = when(any_horizontal(*columns2)).then(concat_list(*columns2).list.arg_max())
+    return try_reify_expr(expr, *columns2)
+
+
+##
+
+
 def get_data_type_or_series_time_zone(
     dtype_or_series: PolarsDataType | Series, /
 ) -> ZoneInfo:
@@ -1417,8 +1422,7 @@ def get_expr_name(obj: Series | DataFrame, expr: IntoExprColumn, /) -> str:
         case Series() as series:
             return get_expr_name(series.to_frame(), expr)
         case DataFrame() as df:
-            selected = df.select(expr)
-            return one(selected.columns)
+            return one_column(df.select(expr)).name
         case never:
             assert_never(never)
 
@@ -1435,56 +1439,6 @@ def get_frequency_spectrum(series: Series, /, *, d: int = 1) -> DataFrame:
     return DataFrame(
         data=spectrum, schema={"frequency": Float64, "amplitude": Float64}, orient="row"
     )
-
-
-##
-
-
-@overload
-def get_series_number_of_decimals(
-    series: Series, /, *, nullable: Literal[True]
-) -> int | None: ...
-@overload
-def get_series_number_of_decimals(
-    series: Series, /, *, nullable: Literal[False] = False
-) -> int: ...
-@overload
-def get_series_number_of_decimals(
-    series: Series, /, *, nullable: bool = False
-) -> int | None: ...
-def get_series_number_of_decimals(
-    series: Series, /, *, nullable: bool = False
-) -> int | None:
-    """Get the number of decimals of a series."""
-    if not isinstance(dtype := series.dtype, Float64):
-        raise _GetSeriesNumberOfDecimalsNotFloatError(dtype=dtype)
-    decimals = series.map_elements(number_of_decimals, return_dtype=Int64).max()
-    try:
-        return ensure_int(decimals, nullable=nullable)
-    except EnsureIntError:
-        raise _GetSeriesNumberOfDecimalsAllNullError(series=series) from None
-
-
-@dataclass(kw_only=True, slots=True)
-class GetSeriesNumberOfDecimalsError(Exception): ...
-
-
-@dataclass(kw_only=True, slots=True)
-class _GetSeriesNumberOfDecimalsNotFloatError(GetSeriesNumberOfDecimalsError):
-    dtype: DataType
-
-    @override
-    def __str__(self) -> str:
-        return f"Data type must be Float64; got {self.dtype}"
-
-
-@dataclass(kw_only=True, slots=True)
-class _GetSeriesNumberOfDecimalsAllNullError(GetSeriesNumberOfDecimalsError):
-    series: Series
-
-    @override
-    def __str__(self) -> str:
-        return f"Series must not be all-null; got {self.series}"
 
 
 ##
@@ -1656,6 +1610,42 @@ def integers(
 
 
 @overload
+def is_close(
+    x: ExprLike, y: ExprLike, /, *, rel_tol: float = 1e-9, abs_tol: float = 0
+) -> Expr: ...
+@overload
+def is_close(
+    x: Series, y: Series, /, *, rel_tol: float = 1e-9, abs_tol: float = 0
+) -> Series: ...
+@overload
+def is_close(
+    x: IntoExprColumn,
+    y: IntoExprColumn,
+    /,
+    *,
+    rel_tol: float = 1e-9,
+    abs_tol: float = 0,
+) -> ExprOrSeries: ...
+def is_close(
+    x: IntoExprColumn,
+    y: IntoExprColumn,
+    /,
+    *,
+    rel_tol: float = 1e-9,
+    abs_tol: float = 0,
+) -> ExprOrSeries:
+    """Check if two columns are close."""
+    x, y = map(ensure_expr_or_series, [x, y])
+    result = (x - y).abs() <= max_horizontal(
+        rel_tol * max_horizontal(x.abs(), y.abs()), abs_tol
+    )
+    return try_reify_expr(result, x, y)
+
+
+##
+
+
+@overload
 def is_near_event(
     *exprs: ExprLike, before: int = 0, after: int = 0, **named_exprs: ExprLike
 ) -> Expr: ...
@@ -1718,68 +1708,28 @@ class _IsNearEventAfterError(IsNearEventError):
 ##
 
 
-def is_not_null_struct_series(series: Series, /) -> Series:
-    """Check if a struct-dtype Series is not null as per the <= 1.1 definition."""
-    try:
-        return ~is_null_struct_series(series)
-    except IsNullStructSeriesError as error:
-        raise IsNotNullStructSeriesError(series=error.series) from None
+@overload
+def is_true(column: ExprLike, /) -> Expr: ...
+@overload
+def is_true(column: Series, /) -> Series: ...
+@overload
+def is_true(column: IntoExprColumn, /) -> ExprOrSeries: ...
+def is_true(column: IntoExprColumn, /) -> ExprOrSeries:
+    """Compute when a boolean series is True."""
+    column = ensure_expr_or_series(column)
+    return (column.is_not_null()) & column
 
 
-@dataclass(kw_only=True, slots=True)
-class IsNotNullStructSeriesError(Exception):
-    series: Series
-
-    @override
-    def __str__(self) -> str:
-        return f"Series must have Struct-dtype; got {self.series.dtype}"
-
-
-##
-
-
-def is_null_struct_series(series: Series, /) -> Series:
-    """Check if a struct-dtype Series is null as per the <= 1.1 definition."""
-    if not isinstance(series.dtype, Struct):
-        raise IsNullStructSeriesError(series=series)
-    paths = _is_null_struct_series_one(series.dtype)
-    paths = list(paths)
-    exprs = map(_is_null_struct_to_expr, paths)
-    expr = all_horizontal(*exprs)
-    return (
-        series.struct.unnest().with_columns(_result=expr)["_result"].rename(series.name)
-    )
-
-
-def _is_null_struct_series_one(
-    dtype: Struct, /, *, root: Iterable[str] = ()
-) -> Iterator[Sequence[str]]:
-    for field in dtype.fields:
-        name = field.name
-        inner = field.dtype
-        path = list(chain(root, [name]))
-        if isinstance(inner, Struct):
-            yield from _is_null_struct_series_one(inner, root=path)
-        else:
-            yield path
-
-
-def _is_null_struct_to_expr(path: Iterable[str], /) -> Expr:
-    head, *tail = path
-    return reduce(_is_null_struct_to_expr_reducer, tail, col(head)).is_null()
-
-
-def _is_null_struct_to_expr_reducer(expr: Expr, path: str, /) -> Expr:
-    return expr.struct[path]
-
-
-@dataclass(kw_only=True, slots=True)
-class IsNullStructSeriesError(Exception):
-    series: Series
-
-    @override
-    def __str__(self) -> str:
-        return f"Series must have Struct-dtype; got {self.series.dtype}"
+@overload
+def is_false(column: ExprLike, /) -> Expr: ...
+@overload
+def is_false(column: Series, /) -> Series: ...
+@overload
+def is_false(column: IntoExprColumn, /) -> ExprOrSeries: ...
+def is_false(column: IntoExprColumn, /) -> ExprOrSeries:
+    """Compute when a boolean series is False."""
+    column = ensure_expr_or_series(column)
+    return (column.is_not_null()) & (~column)
 
 
 ##
@@ -2040,6 +1990,38 @@ def normal(
 ##
 
 
+@overload
+def number_of_decimals(
+    series: ExprLike, /, *, max_decimals: int = MAX_DECIMALS
+) -> Expr: ...
+@overload
+def number_of_decimals(
+    series: Series, /, *, max_decimals: int = MAX_DECIMALS
+) -> Series: ...
+@overload
+def number_of_decimals(
+    series: IntoExprColumn, /, *, max_decimals: int = MAX_DECIMALS
+) -> ExprOrSeries: ...
+def number_of_decimals(
+    series: IntoExprColumn, /, *, max_decimals: int = MAX_DECIMALS
+) -> ExprOrSeries:
+    """Get the number of decimals."""
+    series = ensure_expr_or_series(series)
+    frac = series - series.floor()
+    results = (
+        _number_of_decimals_check_scale(frac, s) for s in range(max_decimals + 1)
+    )
+    return first_true_horizontal(*results)
+
+
+def _number_of_decimals_check_scale(frac: ExprOrSeries, scale: int, /) -> ExprOrSeries:
+    scaled = 10**scale * frac
+    return is_close(scaled, scaled.round()).alias(str(scale))
+
+
+##
+
+
 def offset_datetime(
     datetime: ZonedDateTime, offset: str, /, *, n: int = 1
 ) -> ZonedDateTime:
@@ -2048,6 +2030,43 @@ def offset_datetime(
     for _ in range(n):
         sr = sr.dt.offset_by(offset)
     return ZonedDateTime.from_py_datetime(sr.item())
+
+
+##
+
+
+def one_column(df: DataFrame, /) -> Series:
+    """Return the unique column in a DataFrame."""
+    try:
+        return df[one(df.columns)]
+    except OneEmptyError:
+        raise OneColumnEmptyError(df=df) from None
+    except OneNonUniqueError as error:
+        raise OneColumnNonUniqueError(
+            df=df, first=error.first, second=error.second
+        ) from None
+
+
+@dataclass(kw_only=True, slots=True)
+class OneColumnError(Exception):
+    df: DataFrame
+
+
+@dataclass(kw_only=True, slots=True)
+class OneColumnEmptyError(OneColumnError):
+    @override
+    def __str__(self) -> str:
+        return "DataFrame must not be empty"
+
+
+@dataclass(kw_only=True, slots=True)
+class OneColumnNonUniqueError(OneColumnError):
+    first: str
+    second: str
+
+    @override
+    def __str__(self) -> str:
+        return f"DataFrame must contain exactly one column; got {self.first!r}, {self.second!r} and perhaps more"
 
 
 ##
@@ -2174,13 +2193,10 @@ def reify_exprs(
         .with_columns(*all_exprs)
         .drop("_index")
     )
-    match len(df.columns):
-        case 0:
-            raise ImpossibleCaseError(case=[f"{df.columns=}"])  # pragma: no cover
-        case 1:
-            return df[one(df.columns)]
-        case _:
-            return df
+    try:
+        return one_column(df)
+    except OneColumnNonUniqueError:
+        return df
 
 
 @dataclass(kw_only=True, slots=True)
@@ -2360,19 +2376,71 @@ def round_to_float(
 ) -> Expr: ...
 @overload
 def round_to_float(
-    x: Series, y: float, /, *, mode: RoundMode = "half_to_even"
+    x: Series, y: float | ExprOrSeries, /, *, mode: RoundMode = "half_to_even"
 ) -> Series: ...
 @overload
 def round_to_float(
-    x: IntoExprColumn, y: float, /, *, mode: RoundMode = "half_to_even"
+    x: ExprLike, y: Series, /, *, mode: RoundMode = "half_to_even"
+) -> Series: ...
+@overload
+def round_to_float(
+    x: ExprLike, y: Expr, /, *, mode: RoundMode = "half_to_even"
+) -> Expr: ...
+@overload
+def round_to_float(
+    x: IntoExprColumn, y: float | Series, /, *, mode: RoundMode = "half_to_even"
 ) -> ExprOrSeries: ...
 def round_to_float(
-    x: IntoExprColumn, y: float, /, *, mode: RoundMode = "half_to_even"
+    x: IntoExprColumn, y: float | IntoExprColumn, /, *, mode: RoundMode = "half_to_even"
 ) -> ExprOrSeries:
     """Round a column to the nearest multiple of another float."""
     x = ensure_expr_or_series(x)
-    z = (x / y).round(mode=mode) * y
-    return z.round(decimals=number_of_decimals(y) + 1)
+    y = y if isinstance(y, int | float) else ensure_expr_or_series(y)
+    match x, y:
+        case Expr() | Series(), int() | float():
+            z = (x / y).round(mode=mode) * y
+            return z.round(decimals=utilities.math.number_of_decimals(y) + 1)
+        case Series(), Expr() | Series():
+            df = (
+                x.to_frame()
+                .with_columns(y)
+                .with_columns(number_of_decimals(y).alias("_decimals"))
+                .with_row_index(name="_index")
+                .group_by("_decimals")
+                .map_groups(_round_to_float_one)
+                .sort("_index")
+            )
+            return df[df.columns[1]]
+        case Expr(), Series():
+            df = y.to_frame().with_columns(x)
+            return round_to_float(df[df.columns[1]], df[df.columns[0]], mode=mode)
+        case Expr(), Expr() | str():
+            raise RoundToFloatError(x=x, y=y)
+        case never:
+            assert_never(never)
+
+
+def _round_to_float_one(df: DataFrame, /) -> DataFrame:
+    decimals: int | None = df["_decimals"].unique().item()
+    name = df.columns[1]
+    match decimals:
+        case int():
+            expr = col(name).round(decimals=decimals)
+        case None:
+            expr = lit(None, dtype=Float64).alias(name)
+        case never:
+            assert_never(never)
+    return df.with_columns(expr)
+
+
+@dataclass(kw_only=True, slots=True)
+class RoundToFloatError(Exception):
+    x: IntoExprColumn
+    y: IntoExprColumn
+
+    @override
+    def __str__(self) -> str:
+        return f"At least 1 of the dividend and/or divisor must be a Series; got {get_class_name(self.x)!r} and {get_class_name(self.y)!r}"
 
 
 ##
@@ -2408,74 +2476,52 @@ def struct_dtype(**kwargs: PolarsDataType) -> Struct:
 ##
 
 
-def struct_from_dataclass(
-    cls: type[Dataclass],
-    /,
-    *,
-    globalns: StrMapping | None = None,
-    localns: StrMapping | None = None,
-    warn_name_errors: bool = False,
-    time_zone: TimeZoneLike | None = None,
-) -> Struct:
-    """Construct the Struct data type for a dataclass."""
-    if not is_dataclass_class(cls):
-        raise _StructFromDataClassNotADataclassError(cls=cls)
-    anns = get_type_hints(
-        cls, globalns=globalns, localns=localns, warn_name_errors=warn_name_errors
-    )
-    data_types = {
-        k: _struct_from_dataclass_one(v, time_zone=time_zone) for k, v in anns.items()
-    }
-    return Struct(data_types)
+@overload
+def to_true(column: ExprLike, /) -> Expr: ...
+@overload
+def to_true(column: Series, /) -> Series: ...
+@overload
+def to_true(column: IntoExprColumn, /) -> ExprOrSeries: ...
+def to_true(column: IntoExprColumn, /) -> ExprOrSeries:
+    """Compute when a boolean series turns True."""
+    t = is_true(column)
+    return ((~t).shift() & t).fill_null(value=False)
 
 
-def _struct_from_dataclass_one(
-    ann: Any, /, *, time_zone: TimeZoneLike | None = None
-) -> PolarsDataType:
-    mapping = {
-        bool: Boolean,
-        whenever.Date: pl.Date,
-        float: Float64,
-        int: Int64,
-        str: String,
-    }
-    with suppress(KeyError):
-        return mapping[ann]
-    if is_dataclass_class(ann):
-        return struct_from_dataclass(ann, time_zone=time_zone)
-    if (isinstance(ann, type) and issubclass(ann, enum.Enum)) or (
-        is_literal_type(ann) and is_iterable_of(get_args(ann), str)
-    ):
-        return String
-    if is_optional_type(ann):
-        return _struct_from_dataclass_one(
-            one(get_args(ann, optional_drop_none=True)), time_zone=time_zone
-        )
-    if is_frozenset_type(ann) or is_list_type(ann) or is_set_type(ann):
-        return List(_struct_from_dataclass_one(one(get_args(ann)), time_zone=time_zone))
-    raise _StructFromDataClassTypeError(ann=ann)
+@overload
+def to_not_true(column: ExprLike, /) -> Expr: ...
+@overload
+def to_not_true(column: Series, /) -> Series: ...
+@overload
+def to_not_true(column: IntoExprColumn, /) -> ExprOrSeries: ...
+def to_not_true(column: IntoExprColumn, /) -> ExprOrSeries:
+    """Compute when a boolean series turns non-True."""
+    t = is_true(column)
+    return (t.shift() & (~t)).fill_null(value=False)
 
 
-@dataclass(kw_only=True, slots=True)
-class StructFromDataClassError(Exception): ...
+@overload
+def to_false(column: ExprLike, /) -> Expr: ...
+@overload
+def to_false(column: Series, /) -> Series: ...
+@overload
+def to_false(column: IntoExprColumn, /) -> ExprOrSeries: ...
+def to_false(column: IntoExprColumn, /) -> ExprOrSeries:
+    """Compute when a boolean series turns False."""
+    f = is_false(column)
+    return ((~f).shift() & f).fill_null(value=False)
 
 
-@dataclass(kw_only=True, slots=True)
-class _StructFromDataClassNotADataclassError(StructFromDataClassError):
-    cls: type[Dataclass]
-
-    @override
-    def __str__(self) -> str:
-        return f"Object must be a dataclass; got {self.cls}"
-
-
-@dataclass(kw_only=True, slots=True)
-class _StructFromDataClassTypeError(StructFromDataClassError):
-    ann: Any
-
-    @override
-    def __str__(self) -> str:
-        return f"Unsupported type: {self.ann}"
+@overload
+def to_not_false(column: ExprLike, /) -> Expr: ...
+@overload
+def to_not_false(column: Series, /) -> Series: ...
+@overload
+def to_not_false(column: IntoExprColumn, /) -> ExprOrSeries: ...
+def to_not_false(column: IntoExprColumn, /) -> ExprOrSeries:
+    """Compute when a boolean series turns non-False."""
+    f = is_false(column)
+    return (f.shift() & (~f)).fill_null(value=False)
 
 
 ##
@@ -2597,18 +2643,18 @@ __all__ = [
     "DatetimeUSCentral",
     "DatetimeUSEastern",
     "DatetimeUTC",
-    "DropNullStructSeriesError",
     "ExprOrSeries",
     "FiniteEWMMeanError",
     "GetDataTypeOrSeriesTimeZoneError",
-    "GetSeriesNumberOfDecimalsError",
     "InsertAfterError",
     "InsertBeforeError",
     "InsertBetweenError",
     "IsNearEventError",
-    "IsNullStructSeriesError",
+    "OneColumnEmptyError",
+    "OneColumnError",
+    "OneColumnNonUniqueError",
+    "RoundToFloatError",
     "SetFirstRowAsColumnsError",
-    "StructFromDataClassError",
     "TimePeriodDType",
     "acf",
     "adjust_frequencies",
@@ -2622,7 +2668,6 @@ __all__ = [
     "boolean_value_counts",
     "check_polars_dataframe",
     "choice",
-    "collect_series",
     "columns_to_dict",
     "concat_series",
     "convert_time_zone",
@@ -2631,30 +2676,33 @@ __all__ = [
     "dataclass_to_schema",
     "decreasing_horizontal",
     "deserialize_dataframe",
-    "drop_null_struct_series",
     "ensure_data_type",
     "ensure_expr_or_series",
     "ensure_expr_or_series_many",
+    "expr_to_series",
     "finite_ewm_mean",
+    "first_true_horizontal",
     "get_data_type_or_series_time_zone",
     "get_expr_name",
     "get_frequency_spectrum",
-    "get_series_number_of_decimals",
     "increasing_horizontal",
     "insert_after",
     "insert_before",
     "insert_between",
     "integers",
+    "is_close",
+    "is_false",
     "is_near_event",
-    "is_not_null_struct_series",
-    "is_null_struct_series",
+    "is_true",
     "join",
     "join_into_periods",
     "map_over_columns",
     "nan_sum_agg",
     "nan_sum_cols",
     "normal",
+    "number_of_decimals",
     "offset_datetime",
+    "one_column",
     "order_of_magnitude",
     "period_range",
     "read_dataframe",
@@ -2664,7 +2712,10 @@ __all__ = [
     "serialize_dataframe",
     "set_first_row_as_columns",
     "struct_dtype",
-    "struct_from_dataclass",
+    "to_false",
+    "to_not_false",
+    "to_not_true",
+    "to_true",
     "touch",
     "try_reify_expr",
     "uniform",

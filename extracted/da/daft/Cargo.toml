@@ -246,7 +246,7 @@ name = "daft"
 edition = "2021"
 name = "daft"
 publish = false
-version = "0.5.18"
+version = "0.5.19"
 
 [package.metadata.cargo-machete]
 ignored = ["lzma-sys"]
@@ -367,6 +367,9 @@ default-features = false
 [workspace.dependencies.common-file-formats]
 path = "src/common/file-formats"
 
+[workspace.dependencies.common-image]
+path = "src/common/image"
+
 [workspace.dependencies.common-metrics]
 path = "src/common/metrics"
 
@@ -448,6 +451,10 @@ path = "src/daft-session"
 
 [workspace.dependencies.daft-sql]
 path = "src/daft-sql"
+
+[workspace.dependencies.image]
+version = "0.25.5"
+default-features = false
 
 [workspace.dependencies.jaq-json]
 version = "1.1.2"
@@ -617,4 +624,4 @@ priority = 1
 
 [workspace.package]
 edition = "2021"
-version = "0.5.18"
+version = "0.5.19"

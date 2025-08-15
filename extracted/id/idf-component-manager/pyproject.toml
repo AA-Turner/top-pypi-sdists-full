@@ -10,7 +10,7 @@ include = [
 
 [project]
 name = "idf-component-manager"
-version = "2.2.2"
+version = "2.3.0"
 authors = [
     { name = "Sergei Silnov", email = "sergei.silnov@espressif.com" },
     { name = "Fu Hanxi", email = "fuhanxi@espressif.com" },
@@ -58,6 +58,7 @@ docs = [
     "sphinx-rtd-theme",
     "sphinx-tabs",
     "sphinx_collapse",
+    "autodoc_pydantic"
 ]
 
 test = [
@@ -95,7 +96,7 @@ Changelog = "https://github.com/espressif/idf-component-manager/blob/main/CHANGE
 # Tools #
 #########
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 plugins = [
     "pydantic.mypy"
 ]

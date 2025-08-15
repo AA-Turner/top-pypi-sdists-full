@@ -42,9 +42,9 @@ class Autofocus:
         """
         Creates instance of `Autofocus` based on the given provider id.
         """
-        self._provider_id = provider_id
-        self._focus_axis = focus_axis
-        self._objective_turret = objective_turret
+        self._provider_id: int = provider_id
+        self._focus_axis: Axis = focus_axis
+        self._objective_turret: Optional[Device] = objective_turret
 
     def set_focus_zero(
             self

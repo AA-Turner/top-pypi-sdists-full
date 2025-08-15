@@ -2,8 +2,9 @@
 Table matrix builder for handling complex colspan/rowspan structures.
 """
 
-from typing import List, Optional, Tuple, Dict, Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import List, Optional
+
 from edgar.documents.table_nodes import Cell, Row
 
 

@@ -374,7 +374,6 @@ class TestBasic(unittest.TestCase):
 
     def test_sav_nodates(self):
         df, meta = pyreadstat.read_sav(os.path.join(self.basic_data_folder, "sample.sav"), disable_datetime_conversion=True)
-        #import pdb; pdb.set_trace()
         self.assertTrue(df.equals(self.df_nodates_spss))
 
     def test_sav_chunks(self):
@@ -836,7 +835,6 @@ class TestBasic(unittest.TestCase):
         path = os.path.join(self.write_folder, "dates_write.xpt")
         pyreadstat.write_xport(self.df_sas_dates2, path)
         df, meta = pyreadstat.read_xport(path)
-        #import pdb;pdb.set_trace()
         self.assertTrue(df.equals(self.df_sas_dates2))
 
     def test_sav_write_charnan(self):
@@ -1078,7 +1076,6 @@ class TestBasic(unittest.TestCase):
         self.assertTrue(meta.readstat_variable_types["mychar"]=="string")
         self.assertTrue(meta.readstat_variable_types["myord"]=="double")
         padic = self.df_pandas.to_dict(orient='list')
-        #import pdb;pdb.set_trace()
         for colname, data in df.items():
             curdfcol = df[colname]
             for indx, val in enumerate(data):

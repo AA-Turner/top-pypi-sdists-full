@@ -35,8 +35,8 @@ class ObjectiveChanger:
         Creates instance of `ObjectiveChanger` based on the given device.
         If the device is identified, this constructor will ensure it is an objective changer.
         """
-        self._turret = turret
-        self._focus_axis = focus_axis
+        self._turret: Device = turret
+        self._focus_axis: Axis = focus_axis
         self.__verify_is_changer()
 
     @staticmethod

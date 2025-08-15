@@ -91,7 +91,7 @@ def _create_context_mount_function(
     dockerfile_cmds: list[str] = [],
     dockerfile_path: typing.Optional[pathlib.Path] = None,
     context_mount: typing.Optional[modal.mount._Mount] = None,
-    context_dir: typing.Union[pathlib.Path, str, None] = None,
+    context_dir: typing.Union[str, pathlib.Path, None] = None,
 ): ...
 
 class _ImageRegistryConfig:
@@ -537,7 +537,7 @@ class _Image(modal._object._Object):
         secrets: collections.abc.Sequence[modal.secret._Secret] = [],
         gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
         context_mount: typing.Optional[modal.mount._Mount] = None,
-        context_dir: typing.Union[pathlib.Path, str, None] = None,
+        context_dir: typing.Union[str, pathlib.Path, None] = None,
         force_build: bool = False,
         ignore: typing.Union[
             collections.abc.Sequence[str], collections.abc.Callable[[pathlib.Path], bool]
@@ -748,7 +748,7 @@ class _Image(modal._object._Object):
         *,
         context_mount: typing.Optional[modal.mount._Mount] = None,
         force_build: bool = False,
-        context_dir: typing.Union[pathlib.Path, str, None] = None,
+        context_dir: typing.Union[str, pathlib.Path, None] = None,
         secrets: collections.abc.Sequence[modal.secret._Secret] = [],
         gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
         add_python: typing.Optional[str] = None,
@@ -845,7 +845,7 @@ class _Image(modal._object._Object):
         gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
         cpu: typing.Optional[float] = None,
         memory: typing.Optional[int] = None,
-        timeout: typing.Optional[int] = 3600,
+        timeout: int = 3600,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         force_build: bool = False,
@@ -1381,7 +1381,7 @@ class Image(modal.object.Object):
         secrets: collections.abc.Sequence[modal.secret.Secret] = [],
         gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
         context_mount: typing.Optional[modal.mount.Mount] = None,
-        context_dir: typing.Union[pathlib.Path, str, None] = None,
+        context_dir: typing.Union[str, pathlib.Path, None] = None,
         force_build: bool = False,
         ignore: typing.Union[
             collections.abc.Sequence[str], collections.abc.Callable[[pathlib.Path], bool]
@@ -1592,7 +1592,7 @@ class Image(modal.object.Object):
         *,
         context_mount: typing.Optional[modal.mount.Mount] = None,
         force_build: bool = False,
-        context_dir: typing.Union[pathlib.Path, str, None] = None,
+        context_dir: typing.Union[str, pathlib.Path, None] = None,
         secrets: collections.abc.Sequence[modal.secret.Secret] = [],
         gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
         add_python: typing.Optional[str] = None,
@@ -1689,7 +1689,7 @@ class Image(modal.object.Object):
         gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
         cpu: typing.Optional[float] = None,
         memory: typing.Optional[int] = None,
-        timeout: typing.Optional[int] = 3600,
+        timeout: int = 3600,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         force_build: bool = False,

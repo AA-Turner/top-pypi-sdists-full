@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tools
-Version: 1.0.2
+Version: 1.0.4
 Summary: python syntax tool
 Home-page: https://github.com/jsyoo61/tools
 Author: JaeSung Yoo
@@ -12,7 +12,7 @@ Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 
-# tools-jsyoo61
+# tools
 
 (`tools` package was replaced on 2025.04.28. If you're looking for web scraping tools, visit http://pypi.python.org/pypi/weblib)
 
@@ -28,12 +28,10 @@ jsyoo61@unc.edu
 Most useful functions are in `tools.tools` which is loaded to the main module by default. \
 API dependent tools are in their corresponding folders: `tools.API_name` (i.e. `tools.torch.optim`)
 
-Planning to document using chatGPT,
-Not documented yet, so you'll have to look at documents written inside the codes. (Most codes contain explanation)
+Undocumented, so you'll have to look at documents written inside the codes or with help(). (Most codes contain explanation)
+Planning to document with chatGPT.
 
 I'm happy to discuss questions or suggestions, please contact me via email. :)
 
-1.0.1. (2025.5.1.)
-
-- `tools.sklearn.metrics.r2_score()` `multioutput` argument fixed
-- `tools.sklearn.metrics` axis=None returns a single np.float object
+1.0.4. (2025.8.14.)
+- `tools.sklearn.metrics` stable, has proper arguments `axis_ref`, `axis_bias`

@@ -1,12 +1,14 @@
-import functools
 import json
 import os
 import re
 import subprocess
 import textwrap
+import uuid
 from abc import ABC
+from contextlib import nullcontext
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import click
 from dagster_dg_core.config import normalize_cli_config
@@ -14,9 +16,26 @@ from dagster_dg_core.context import DgContext
 from dagster_dg_core.shared_options import dg_global_options, dg_path_options
 from dagster_dg_core.utils import DgClickCommand
 from dagster_dg_core.utils.telemetry import cli_telemetry_wrapper
+from dagster_dg_core.version import __version__ as dg_version
+from dagster_shared.record import as_dict, record
+
+from dagster_dg_cli.utils.claude_utils import run_claude, run_claude_stream
+from dagster_dg_cli.utils.ui import daggy_spinner_context
 
 
-def _run_git_command(args: list[str]) -> subprocess.CompletedProcess[str]:
+def _get_dg_version() -> str:
+    if dg_version == "1!0+dev":
+        dagster_repo = os.getenv("DAGSTER_GIT_REPO_DIR")
+        if dagster_repo:
+            result = _run_git_command(["rev-parse", "HEAD"], cwd=Path(dagster_repo))
+            return result.stdout.strip()
+
+    return dg_version
+
+
+def _run_git_command(
+    args: list[str], cwd: Optional[Path] = None
+) -> subprocess.CompletedProcess[str]:
     """Run a git command and return the result.
 
     Args:
@@ -29,7 +48,13 @@ def _run_git_command(args: list[str]) -> subprocess.CompletedProcess[str]:
         click.ClickException: If git is not found or command fails
     """
     try:
-        result = subprocess.run(["git"] + args, capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            ["git"] + args,
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=cwd,
+        )
         return result
     except FileNotFoundError:
         raise click.ClickException(
@@ -62,17 +87,21 @@ def _run_gh_command(args: list[str]) -> subprocess.CompletedProcess[str]:
         raise click.ClickException(f"gh command failed: {e.stderr.strip() or e.stdout.strip()}")
 
 
-def create_git_branch(branch_name: str) -> None:
+def create_git_branch(branch_name: str) -> str:
     """Create and checkout a new git branch.
 
     Args:
         branch_name: Name of the branch to create
+
+    Returns:
+        The commit hash of the new branch
 
     Raises:
         click.ClickException: If git operations fail
     """
     _run_git_command(["checkout", "-b", branch_name])
     click.echo(f"Created and checked out new branch: {branch_name}")
+    return _run_git_command(["rev-parse", "HEAD"]).stdout.strip()
 
 
 def create_empty_commit(message: str) -> None:
@@ -86,6 +115,13 @@ def create_empty_commit(message: str) -> None:
     """
     _run_git_command(["commit", "--allow-empty", "-m", message])
     click.echo(f"Created empty commit: {message}")
+
+
+def create_content_commit_and_push(message: str) -> str:
+    _run_git_command(["add", "-A"])
+    _run_git_command(["commit", "-m", message])
+    _run_git_command(["push"])
+    return _run_git_command(["rev-parse", "HEAD"]).stdout.strip()
 
 
 def push_branch_and_create_pr(branch_name: str, pr_title: str, pr_body: str) -> str:
@@ -129,65 +165,37 @@ def _branch_name_prompt(prompt: str) -> str:
     )
 
 
-@functools.cache
-def _find_claude(dg_context: DgContext) -> Optional[list[str]]:
-    try:  # on PATH
-        subprocess.run(
-            ["claude", "--version"],
-            check=False,
-            capture_output=True,
-        )
-        return ["claude"]
-    except FileNotFoundError:
-        pass
+def _scaffolding_prompt(user_input: str) -> str:
+    return (Path(__file__).parent / "scaffold_prompt.md").read_text() + "\n" + user_input
 
-    try:  # check for alias (auto-updating version recommends registering an alias instead of putting on PATH)
-        result = subprocess.run(
-            [os.getenv("SHELL", "bash"), "-ic", "type claude"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        path_match = re.search(r"(/[^\s`\']+)", result.stdout)
-        if path_match:
-            return [path_match.group(1)]
-    except FileNotFoundError:
-        pass
 
-    return None
+def _allowed_commands_scaffolding() -> list[str]:
+    return [
+        "Bash(dg scaffold defs:*)",
+        "Bash(dg list defs:*)",
+        "Bash(dg list components:*)",
+        "Bash(dg docs component:*)",
+        "Bash(dg check yaml:*)",
+        "Bash(dg check defs:*)",
+        "Bash(dg list env:*)",
+        "Bash(dg utils inspect-component:*)",
+        "Bash(dg docs integrations:*)",
+        "Bash(uv add:*)",
+        "Bash(uv sync:*)",
+        # update yaml files
+        "Edit(**/*defs.yaml)",
+        "Replace(**/*defs.yaml)",
+        "Update(**/*defs.yaml)",
+        "Write(**/*defs.yaml)",
+        "Edit(**/*NEXT_STEPS.md)",
+        "Replace(**/*NEXT_STEPS.md)",
+        "Update(**/*NEXT_STEPS.md)",
+        "Write(**/*NEXT_STEPS.md)",
+        "Bash(touch:*)",
+    ]
 
 
 MAX_TURNS = 20
-
-
-def _run_claude(
-    dg_context: DgContext,
-    prompt: str,
-    allowed_tools: list[str],
-    max_turns=MAX_TURNS,
-    output_format="text",
-) -> str:
-    """Runs Claude with the given prompt and allowed tools."""
-    claude_cmd = _find_claude(dg_context)
-    assert claude_cmd is not None
-    cmd = [
-        *claude_cmd,
-        "-p",
-        prompt,
-        "--allowedTools",
-        ",".join(allowed_tools),
-        "--maxTurns",
-        str(max_turns),
-        "--outputFormat",
-        output_format,
-    ]
-    output = subprocess.run(
-        cmd,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    return output.stdout
 
 
 class InputType(ABC):
@@ -215,14 +223,36 @@ def get_branch_name_and_pr_title_from_prompt(
     """Invokes Claude under the hood to generate a reasonable, valid
     git branch name and pull request title based on the user's stated goal.
     """
-    output = _run_claude(
+    output = run_claude(
         dg_context,
         _branch_name_prompt(input_type.get_context(user_input)),
         input_type.additional_allowed_tools(),
-        output_format="text",
     )
     json_output = json.loads(output.strip())
     return json_output["branch-name"], json_output["pr-title"]
+
+
+class PrintOutputChannel:
+    def write(self, text: str) -> None:
+        click.echo(text)
+
+
+def scaffold_content_for_prompt(
+    dg_context: DgContext, user_input: str, input_type: type[InputType], use_spinner: bool = True
+) -> None:
+    """Scaffolds content for the user's prompt."""
+    spinner_ctx = (
+        daggy_spinner_context("Scaffolding")
+        if use_spinner
+        else nullcontext(enter_result=PrintOutputChannel())
+    )
+    with spinner_ctx as spinner:
+        run_claude_stream(
+            dg_context,
+            _scaffolding_prompt(input_type.get_context(user_input)),
+            _allowed_commands_scaffolding() + input_type.additional_allowed_tools(),
+            output_channel=spinner,
+        )
 
 
 class TextInputType(InputType):
@@ -271,18 +301,34 @@ def _is_prompt_valid_git_branch_name(prompt: str) -> bool:
 
 @click.command(name="branch", cls=DgClickCommand, hidden=True)
 @click.argument("prompt", type=str, nargs=-1)
+@click.option("--disable-progress", is_flag=True, help="Disable progress spinner")
+@click.option(
+    "--record",
+    type=Path,
+    help="Directory to write out session information for later analysis.",
+)
 @dg_path_options
 @dg_global_options
 @cli_telemetry_wrapper
 def scaffold_branch_command(
-    prompt: tuple[str, ...], target_path: Path, **other_options: object
+    prompt: tuple[str, ...],
+    target_path: Path,
+    disable_progress: bool,
+    record: Optional[Path],
+    **other_options: object,
 ) -> None:
     """Scaffold a new branch."""
     cli_config = normalize_cli_config(other_options, click.get_current_context())
     dg_context = DgContext.for_workspace_or_project_environment(target_path, cli_config)
 
-    prompt_text = " ".join(prompt)
+    ai_scaffolding = False
+    input_type = None
 
+    if record and (not record.exists() or not record.is_dir()):
+        raise click.UsageError(f"{record} is not an existing directory")
+
+    prompt_text = " ".join(prompt)
+    generated_outputs = {}
     # If the user input a valid git branch name, bypass AI inference and create the branch directly.
     if prompt_text and _is_prompt_valid_git_branch_name(prompt_text.strip()):
         branch_name = prompt_text.strip()
@@ -298,14 +344,25 @@ def scaffold_branch_command(
             TextInputType,
         )
 
-        branch_name, pr_title = get_branch_name_and_pr_title_from_prompt(
-            dg_context, prompt_text, input_type
+        spinner_ctx = (
+            daggy_spinner_context("Generating branch name and PR title")
+            if not disable_progress
+            else nullcontext()
         )
+        with spinner_ctx:
+            branch_name, pr_title = get_branch_name_and_pr_title_from_prompt(
+                dg_context, prompt_text, input_type
+            )
+        generated_outputs["branch_name"] = branch_name
+        generated_outputs["pr_title"] = pr_title
+        # For generated branch names, add a random suffix to avoid conflicts
+        branch_name = branch_name + "-" + str(uuid.uuid4())[:8]
+        ai_scaffolding = True
 
     click.echo(f"Creating new branch: {branch_name}")
 
     # Create and checkout the new branch
-    create_git_branch(branch_name)
+    branch_base_sha = create_git_branch(branch_name)
 
     # Create an empty commit to enable PR creation
     commit_message = f"Initial commit for {branch_name} branch"
@@ -318,3 +375,57 @@ def scaffold_branch_command(
     pr_url = push_branch_and_create_pr(branch_name, pr_title, pr_body)
 
     click.echo(f"✅ Successfully created branch and pull request: {pr_url}")
+
+    first_pass_sha = None
+    if ai_scaffolding and input_type:
+        scaffold_content_for_prompt(
+            dg_context, prompt_text, input_type, use_spinner=not disable_progress
+        )
+        first_pass_sha = create_content_commit_and_push(f"First pass at {branch_name}")
+
+    if record:
+        if first_pass_sha:
+            generated_outputs["first_pass_commit"] = _run_git_command(
+                ["git", "show", first_pass_sha]
+            ).stdout.strip()
+
+        session_data = Session(
+            timestamp=datetime.now().isoformat(),
+            dg_version=_get_dg_version(),
+            branch_name=branch_name,
+            pr_title=pr_title,
+            pr_url=pr_url,
+            branch_base_sha=branch_base_sha,
+            first_pass_sha=first_pass_sha,
+            input={
+                "prompt": prompt_text,
+            },
+            output=generated_outputs,
+        )
+        record_path = record / f"{uuid.uuid4()}.json"
+        record_path.write_text(json.dumps(as_dict(session_data), indent=2))
+        click.echo(f"📝 Session recorded: {record_path}")
+
+
+@record
+class Session:
+    """A recorded session of the `scaffold branch` command, useful for evaluating effectiveness."""
+
+    # isoformat
+    timestamp: str
+    # what code was used - semver for published package, commit hash for local development
+    dg_version: str
+    # the name of the branch created (even if AI not used)
+    branch_name: str
+    # the title of the PR created (even if AI not used)
+    pr_title: str
+    # the URL of the PR created. Used to identify the target repo.
+    pr_url: str
+    # the commit hash of the branch base. Used to identify the state of the target repo.
+    branch_base_sha: str
+    # the commit hash of the generated first pass commit, if done.
+    first_pass_sha: Optional[str]
+    # collection of input information
+    input: dict[str, Any]
+    # collection of generated output
+    output: dict[str, Any]

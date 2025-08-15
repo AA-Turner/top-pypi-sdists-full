@@ -10,7 +10,8 @@ from pydantic import BaseModel, ValidationError
 from va.automation import Automation
 from va.playwright.page import Page
 from va.store import get_store
-from va.logging_handlers import ExecutionLogHandler
+from va.configure_structlog import configure_structlog, bind_execution_id_to_root_logger
+from va.execution_log_handler import ExecutionLogHandler
 from va.utils import is_test_execution, TEST_EXECUTION_PREFIX
 from va.protos.orby.va.public.execution_messages_pb2 import ExecutionStatus
 
@@ -91,10 +92,13 @@ def _process_function_arguments(func, args, kwargs, automation, is_managed_execu
     ]
 
     for logger_param in logger_params:
-        if logger_param not in all_kwargs or all_kwargs[logger_param] is None:
-            # Create managed logger for this execution
-            managed_logger = _create_managed_logger(automation.execution_id)
-            all_kwargs[logger_param] = managed_logger
+        provided_logger = all_kwargs.get(logger_param)
+
+        # If the caller did not supply a logger, create one tied to this execution.
+        if provided_logger is None:
+            provided_logger = _create_managed_logger(automation.execution_id)
+
+        all_kwargs[logger_param] = provided_logger
 
     # Convert back to args and kwargs
     new_args = []
@@ -121,23 +125,10 @@ def _is_pydantic_model(type_hint):
 
 
 def _create_managed_logger(execution_id: str):
-    """Create (or fetch) a managed logger instance for the execution.
-
-    The logger is equipped with a A StreamHandler so that logs still appear on stdout/stderr
-    """
-
+    """Create (or fetch) a managed logger instance for the execution."""
     logger = logging.getLogger(f"va.execution.{execution_id}")
-
-    if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(
-            logging.Formatter(
-                f"[{execution_id[:8]}] %(asctime)s - %(levelname)s - %(message)s"
-            )
-        )
-        logger.addHandler(stream_handler)
-
     logger.setLevel(logging.INFO)
+
     return logger
 
 
@@ -187,6 +178,7 @@ def workflow(workflow_name: str):
     def decorator(func):
         def _setup_execution():
             """Setup execution environment - common logic for sync and async."""
+
             # create VA_EXECUTION_ID if it is not set
             if "VA_EXECUTION_ID" in os.environ:
                 execution_id = os.environ["VA_EXECUTION_ID"]
@@ -195,8 +187,14 @@ def workflow(workflow_name: str):
                 execution_id = TEST_EXECUTION_PREFIX + "-" + str(uuid.uuid4())
                 is_managed_execution = False
 
-            store = get_store(is_managed_execution)
+            # Configure JSON output immediately so that **all** subsequent logs (even those coming
+            # from libraries imported later) benefit from the formatter.
+            configure_structlog()
 
+            # Ensure *every* log record generated in this process carries the execution_id
+            bind_execution_id_to_root_logger(execution_id)
+
+            store = get_store(is_managed_execution)
             # Attach a single root-level ExecutionLogHandler bound to this execution
             # (if not a local test execution) so all relevant logs are forwarded to the backend
             if not is_test_execution(execution_id):
@@ -236,6 +234,7 @@ def workflow(workflow_name: str):
                     return result
 
                 except Exception:
+                    logging.getLogger().exception("Workflow execution failed")
                     automation.execution.mark_stop(status=ExecutionStatus.FAILED)
                     raise
                 finally:
@@ -257,6 +256,7 @@ def workflow(workflow_name: str):
                     return result
 
                 except Exception:
+                    logging.getLogger().exception("Workflow execution failed")
                     # Failure – update status then re-raise.
                     automation.execution.mark_stop(status=ExecutionStatus.FAILED)
                     raise

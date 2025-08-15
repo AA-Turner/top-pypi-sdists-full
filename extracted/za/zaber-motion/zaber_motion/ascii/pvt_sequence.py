@@ -66,9 +66,9 @@ class PvtSequence:
         return self._io
 
     def __init__(self, device: 'Device', pvt_id: int):
-        self._device = device
-        self._pvt_id = pvt_id
-        self._io = PvtIo(device, pvt_id)
+        self._device: 'Device' = device
+        self._pvt_id: int = pvt_id
+        self._io: PvtIo = PvtIo(device, pvt_id)
 
     def setup_live_composite(
             self,
@@ -1144,11 +1144,12 @@ class PvtSequence:
 
         Units must be wrapped in parens or square braces: ie. (µm/s), [µm/s].
         Additionally, native units are the default if no units are specified.
+        Time values default to milliseconds if no units are provided.
         If no header is included, then column order is assumed to be "T,P1,V1,P2,V2,...".
         In this case the number of columns must be odd.
 
         Args:
-            path: The path from which the csv file will be loaded.
+            path: The path to the csv file to load.
 
         Returns:
             The PVT csv data loaded from the file.
@@ -1183,11 +1184,12 @@ class PvtSequence:
 
         Units must be wrapped in parens or square braces: ie. (µm/s), [µm/s].
         Additionally, native units are the default if no units are specified.
+        Time values default to milliseconds if no units are provided.
         If no header is included, then column order is assumed to be "T,P1,V1,P2,V2,...".
         In this case the number of columns must be odd.
 
         Args:
-            path: The path from which the csv file will be loaded.
+            path: The path to the csv file to load.
 
         Returns:
             The PVT csv data loaded from the file.

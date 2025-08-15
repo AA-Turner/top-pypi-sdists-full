@@ -16,8 +16,8 @@ class Warnings:
     """
 
     def __init__(self, device: 'Device', axis_number: int):
-        self._device = device
-        self._axis_number = axis_number
+        self._device: 'Device' = device
+        self._axis_number: int = axis_number
 
     def get_flags(
             self

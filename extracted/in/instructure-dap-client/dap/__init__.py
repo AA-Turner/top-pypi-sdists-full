@@ -6,7 +6,7 @@ to data collected across various educational products in bulk with high fidelity
 a canonical data model.
 """
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 __copyright__ = "Copyright 2022-2025, Instructure, Inc."
 __license__ = "MIT"
 __maintainer__ = "Instructure, Inc."

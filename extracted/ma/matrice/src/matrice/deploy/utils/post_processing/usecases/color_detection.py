@@ -140,6 +140,7 @@ class ColorDetectionUseCase(BaseProcessor):
 
         self._ascending_alert_list: List[int] = []
         self.current_incident_end_timestamp: str = "N/A"
+        self.color_det_dict = {}
 
     def reset_tracker(self) -> None:
         """Reset the advanced tracker instance."""
@@ -262,7 +263,9 @@ class ColorDetectionUseCase(BaseProcessor):
             color = det.get('main_color')
             track_id = det.get('track_id')
             if cat and track_id is not None:
-                # If color not yet computed at this stage, fall back to category-only key
+                # if track_id not in self.color_det_dict:
+                #     self.color_det_dict[track_id] = color  
+                    # If color not yet computed at this stage, fall back to category-only key
                 key = f"{cat}:{color}" if color else cat
                 self._color_total_track_ids[key].add(track_id)
                 self._color_current_frame_track_ids[key].add(track_id)
@@ -411,8 +414,9 @@ class ColorDetectionUseCase(BaseProcessor):
             # Step 5: Deduplicate detections
             #color_processed_data = self._deduplicate_detections(color_processed_data, iou_thresh=0.7)
             
-            # Step 6: Update tracking state
-            self._update_color_tracking_state(color_processed_data)
+            # Step 6: Update tracking state (will be done after color analysis)
+            # self._update_color_tracking_state(color_processed_data)  # Removed - colors not available yet
+            print("--------------------tracking state will be updated after color analysis-------------------")
             color_processed_data = self._attach_masks_to_detections(color_processed_data, raw_processed_data)
             self._total_frame_counter += 1
             
@@ -553,6 +557,9 @@ class ColorDetectionUseCase(BaseProcessor):
             self._color_total_track_ids = defaultdict(set, existing_store)
         else:
             self._color_total_track_ids = existing_store
+        # Reset current frame tracking for this frame
+        self._color_current_frame_track_ids = defaultdict(set)
+        
         for rec in color_analysis:
             cat = rec.get('category')
             color = rec.get('main_color')
@@ -560,8 +567,13 @@ class ColorDetectionUseCase(BaseProcessor):
             if track_id is None:
                 track_id = rec.get('detection_id')
             if cat and track_id is not None:
-                key = f"{cat}:{color}" if color else cat
-                self._color_total_track_ids[key].add(track_id)
+                # Update the color_det_dict with the actual color
+                if color and track_id not in self.color_det_dict:
+                    self.color_det_dict[track_id] = color
+                    key = f"{cat}:{color}" if color else cat
+                    self._color_total_track_ids[key].add(track_id)
+                    # Also update current frame tracking
+                    self._color_current_frame_track_ids[key].add(track_id)
     
     def _is_video_bytes(self, media_bytes: bytes) -> bool:
         """Determine if bytes represent a video file."""
@@ -1019,6 +1031,9 @@ class ColorDetectionUseCase(BaseProcessor):
         high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
 
         camera_info = self.get_camera_info_from_stream(stream_info)
+        print("----------------COLOR_DICT----------------")
+        print(self.color_det_dict)
+        print("----------------COLOR_DICT----------------")
         human_text_lines = []
 
         # CURRENT FRAME section
@@ -1047,6 +1062,7 @@ class ColorDetectionUseCase(BaseProcessor):
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
         human_text_lines.append(f"\t- Total Detected (by color): {cumulative_total}")
         # Add category-wise totals
+        
         if total_category_counts_dict:
             human_text_lines.append("\t- Categories:")
             for cat, count in total_category_counts_dict.items():

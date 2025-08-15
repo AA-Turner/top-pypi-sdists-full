@@ -335,6 +335,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.FunctionCallCancelRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 )
+        self.FunctionCallFromId = channel.unary_unary(
+                '/modal.client.ModalClient/FunctionCallFromId',
+                request_serializer=modal__proto_dot_api__pb2.FunctionCallFromIdRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.FunctionCallFromIdResponse.FromString,
+                )
         self.FunctionCallGetDataIn = channel.unary_stream(
                 '/modal.client.ModalClient/FunctionCallGetDataIn',
                 request_serializer=modal__proto_dot_api__pb2.FunctionCallGetDataRequest.SerializeToString,
@@ -359,6 +364,11 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/FunctionCreate',
                 request_serializer=modal__proto_dot_api__pb2.FunctionCreateRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.FunctionCreateResponse.FromString,
+                )
+        self.FunctionFinishInputs = channel.unary_unary(
+                '/modal.client.ModalClient/FunctionFinishInputs',
+                request_serializer=modal__proto_dot_api__pb2.FunctionFinishInputsRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 )
         self.FunctionGet = channel.unary_unary(
                 '/modal.client.ModalClient/FunctionGet',
@@ -939,8 +949,6 @@ class ModalClientServicer(object):
 
     def AttemptAwait(self, request, context):
         """Input Plane
-        These RPCs are experimental, not deployed to production, and can be changed / removed
-        without needing to worry about backwards compatibility.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1239,6 +1247,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def FunctionCallFromId(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def FunctionCallGetDataIn(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1265,6 +1279,13 @@ class ModalClientServicer(object):
 
     def FunctionCreate(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def FunctionFinishInputs(self, request, context):
+        """For map RPCs, to signal that all inputs have been sent
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -2180,6 +2201,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.FunctionCallCancelRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
+            'FunctionCallFromId': grpc.unary_unary_rpc_method_handler(
+                    servicer.FunctionCallFromId,
+                    request_deserializer=modal__proto_dot_api__pb2.FunctionCallFromIdRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.FunctionCallFromIdResponse.SerializeToString,
+            ),
             'FunctionCallGetDataIn': grpc.unary_stream_rpc_method_handler(
                     servicer.FunctionCallGetDataIn,
                     request_deserializer=modal__proto_dot_api__pb2.FunctionCallGetDataRequest.FromString,
@@ -2204,6 +2230,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.FunctionCreate,
                     request_deserializer=modal__proto_dot_api__pb2.FunctionCreateRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.FunctionCreateResponse.SerializeToString,
+            ),
+            'FunctionFinishInputs': grpc.unary_unary_rpc_method_handler(
+                    servicer.FunctionFinishInputs,
+                    request_deserializer=modal__proto_dot_api__pb2.FunctionFinishInputsRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
             'FunctionGet': grpc.unary_unary_rpc_method_handler(
                     servicer.FunctionGet,
@@ -3779,6 +3810,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def FunctionCallFromId(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/FunctionCallFromId',
+            modal__proto_dot_api__pb2.FunctionCallFromIdRequest.SerializeToString,
+            modal__proto_dot_api__pb2.FunctionCallFromIdResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def FunctionCallGetDataIn(request,
             target,
             options=(),
@@ -3860,6 +3908,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/FunctionCreate',
             modal__proto_dot_api__pb2.FunctionCreateRequest.SerializeToString,
             modal__proto_dot_api__pb2.FunctionCreateResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def FunctionFinishInputs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/FunctionFinishInputs',
+            modal__proto_dot_api__pb2.FunctionFinishInputsRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

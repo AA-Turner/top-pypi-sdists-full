@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_swr_domain_v2`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_swr_domain_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_swr_domain_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SwrDomainV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.swrDomainV2.SwrDomainV2",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2 opentelekomcloud_swr_domain_v2}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2 opentelekomcloud_swr_domain_v2}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class SwrDomainV2(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2 opentelekomcloud_swr_domain_v2} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2 opentelekomcloud_swr_domain_v2} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param access_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#access_domain SwrDomainV2#access_domain}.
-        :param deadline: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#deadline SwrDomainV2#deadline}.
-        :param organization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#organization SwrDomainV2#organization}.
-        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#permission SwrDomainV2#permission}.
-        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#repository SwrDomainV2#repository}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#description SwrDomainV2#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#id SwrDomainV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#timeouts SwrDomainV2#timeouts}
+        :param access_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#access_domain SwrDomainV2#access_domain}.
+        :param deadline: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#deadline SwrDomainV2#deadline}.
+        :param organization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#organization SwrDomainV2#organization}.
+        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#permission SwrDomainV2#permission}.
+        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#repository SwrDomainV2#repository}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#description SwrDomainV2#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#id SwrDomainV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#timeouts SwrDomainV2#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class SwrDomainV2(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SwrDomainV2 to import.
-        :param import_from_id: The id of the existing SwrDomainV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SwrDomainV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SwrDomainV2 to import is found.
         '''
         if __debug__:
@@ -138,7 +138,7 @@ class SwrDomainV2(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, default: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#default SwrDomainV2#default}.
+        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#default SwrDomainV2#default}.
         '''
         value = SwrDomainV2Timeouts(default=default)
 
@@ -375,14 +375,14 @@ class SwrDomainV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param access_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#access_domain SwrDomainV2#access_domain}.
-        :param deadline: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#deadline SwrDomainV2#deadline}.
-        :param organization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#organization SwrDomainV2#organization}.
-        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#permission SwrDomainV2#permission}.
-        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#repository SwrDomainV2#repository}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#description SwrDomainV2#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#id SwrDomainV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#timeouts SwrDomainV2#timeouts}
+        :param access_domain: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#access_domain SwrDomainV2#access_domain}.
+        :param deadline: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#deadline SwrDomainV2#deadline}.
+        :param organization: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#organization SwrDomainV2#organization}.
+        :param permission: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#permission SwrDomainV2#permission}.
+        :param repository: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#repository SwrDomainV2#repository}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#description SwrDomainV2#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#id SwrDomainV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#timeouts SwrDomainV2#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -499,48 +499,48 @@ class SwrDomainV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def access_domain(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#access_domain SwrDomainV2#access_domain}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#access_domain SwrDomainV2#access_domain}.'''
         result = self._values.get("access_domain")
         assert result is not None, "Required property 'access_domain' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def deadline(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#deadline SwrDomainV2#deadline}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#deadline SwrDomainV2#deadline}.'''
         result = self._values.get("deadline")
         assert result is not None, "Required property 'deadline' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def organization(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#organization SwrDomainV2#organization}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#organization SwrDomainV2#organization}.'''
         result = self._values.get("organization")
         assert result is not None, "Required property 'organization' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def permission(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#permission SwrDomainV2#permission}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#permission SwrDomainV2#permission}.'''
         result = self._values.get("permission")
         assert result is not None, "Required property 'permission' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def repository(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#repository SwrDomainV2#repository}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#repository SwrDomainV2#repository}.'''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#description SwrDomainV2#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#description SwrDomainV2#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#id SwrDomainV2#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#id SwrDomainV2#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -552,7 +552,7 @@ class SwrDomainV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["SwrDomainV2Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#timeouts SwrDomainV2#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#timeouts SwrDomainV2#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["SwrDomainV2Timeouts"], result)
@@ -577,7 +577,7 @@ class SwrDomainV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 class SwrDomainV2Timeouts:
     def __init__(self, *, default: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#default SwrDomainV2#default}.
+        :param default: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#default SwrDomainV2#default}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36e5ded0e9d57f0d103230f3162a5395d30949f96465498b2498e57d1d8d5170)
@@ -588,7 +588,7 @@ class SwrDomainV2Timeouts:
 
     @builtins.property
     def default(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/swr_domain_v2#default SwrDomainV2#default}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/swr_domain_v2#default SwrDomainV2#default}.'''
         result = self._values.get("default")
         return typing.cast(typing.Optional[builtins.str], result)
 

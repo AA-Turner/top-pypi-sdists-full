@@ -21,7 +21,9 @@ Usage::
         ListInvitationsPaginator,
         ListMembersPaginator,
         ListOrganizationAdminAccountsPaginator,
+        ListThreatEntitySetsPaginator,
         ListThreatIntelSetsPaginator,
+        ListTrustedEntitySetsPaginator,
     )
 
     session = Session()
@@ -36,7 +38,9 @@ Usage::
     list_invitations_paginator: ListInvitationsPaginator = client.get_paginator("list_invitations")
     list_members_paginator: ListMembersPaginator = client.get_paginator("list_members")
     list_organization_admin_accounts_paginator: ListOrganizationAdminAccountsPaginator = client.get_paginator("list_organization_admin_accounts")
+    list_threat_entity_sets_paginator: ListThreatEntitySetsPaginator = client.get_paginator("list_threat_entity_sets")
     list_threat_intel_sets_paginator: ListThreatIntelSetsPaginator = client.get_paginator("list_threat_intel_sets")
+    list_trusted_entity_sets_paginator: ListTrustedEntitySetsPaginator = client.get_paginator("list_trusted_entity_sets")
     ```
 """
 
@@ -66,8 +70,12 @@ from .type_defs import (
     ListMembersResponseTypeDef,
     ListOrganizationAdminAccountsRequestPaginateTypeDef,
     ListOrganizationAdminAccountsResponseTypeDef,
+    ListThreatEntitySetsRequestPaginateTypeDef,
+    ListThreatEntitySetsResponseTypeDef,
     ListThreatIntelSetsRequestPaginateTypeDef,
     ListThreatIntelSetsResponseTypeDef,
+    ListTrustedEntitySetsRequestPaginateTypeDef,
+    ListTrustedEntitySetsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -86,7 +94,9 @@ __all__ = (
     "ListInvitationsPaginator",
     "ListMembersPaginator",
     "ListOrganizationAdminAccountsPaginator",
+    "ListThreatEntitySetsPaginator",
     "ListThreatIntelSetsPaginator",
+    "ListTrustedEntitySetsPaginator",
 )
 
 
@@ -282,6 +292,27 @@ class ListOrganizationAdminAccountsPaginator(_ListOrganizationAdminAccountsPagin
 
 
 if TYPE_CHECKING:
+    _ListThreatEntitySetsPaginatorBase = Paginator[ListThreatEntitySetsResponseTypeDef]
+else:
+    _ListThreatEntitySetsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListThreatEntitySetsPaginator(_ListThreatEntitySetsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListThreatEntitySets.html#GuardDuty.Paginator.ListThreatEntitySets)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/paginators/#listthreatentitysetspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListThreatEntitySetsRequestPaginateTypeDef]
+    ) -> PageIterator[ListThreatEntitySetsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListThreatEntitySets.html#GuardDuty.Paginator.ListThreatEntitySets.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/paginators/#listthreatentitysetspaginator)
+        """
+
+
+if TYPE_CHECKING:
     _ListThreatIntelSetsPaginatorBase = Paginator[ListThreatIntelSetsResponseTypeDef]
 else:
     _ListThreatIntelSetsPaginatorBase = Paginator  # type: ignore[assignment]
@@ -299,4 +330,25 @@ class ListThreatIntelSetsPaginator(_ListThreatIntelSetsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListThreatIntelSets.html#GuardDuty.Paginator.ListThreatIntelSets.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/paginators/#listthreatintelsetspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListTrustedEntitySetsPaginatorBase = Paginator[ListTrustedEntitySetsResponseTypeDef]
+else:
+    _ListTrustedEntitySetsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListTrustedEntitySetsPaginator(_ListTrustedEntitySetsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListTrustedEntitySets.html#GuardDuty.Paginator.ListTrustedEntitySets)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/paginators/#listtrustedentitysetspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTrustedEntitySetsRequestPaginateTypeDef]
+    ) -> PageIterator[ListTrustedEntitySetsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListTrustedEntitySets.html#GuardDuty.Paginator.ListTrustedEntitySets.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_guardduty/paginators/#listtrustedentitysetspaginator)
         """

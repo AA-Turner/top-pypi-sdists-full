@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: daft
-Version: 0.5.18
+Version: 0.5.19
 Requires-Dist: pyarrow>=8.0.0
 Requires-Dist: fsspec
 Requires-Dist: tqdm
-Requires-Dist: typing-extensions>=4.0.0 ; python_full_version < '3.10'
+Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: daft[aws,azure,gcp,ray,pandas,numpy,iceberg,deltalake,spark,sql,unity] ; extra == 'all'
 Requires-Dist: boto3 ; extra == 'aws'
 Requires-Dist: deltalake ; extra == 'deltalake'

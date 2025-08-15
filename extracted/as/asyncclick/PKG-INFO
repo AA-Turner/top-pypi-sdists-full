@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncclick
-Version: 8.2.2
+Version: 8.2.2.2
 Summary: Composable command line interface toolkit, async fork
 Maintainer-email: Matthias Urlichs <matthias@urlichs.de>
 Requires-Python: >=3.11

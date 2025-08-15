@@ -27,6 +27,7 @@ class IOContext:
     input_ids: list[str]
     retry_counts: list[int]
     function_call_ids: list[str]
+    attempt_tokens: list[str]
     function_inputs: list[modal_proto.api_pb2.FunctionInput]
     finalized_function: modal._runtime.user_code_imports.FinalizedFunction
     _cancel_issued: bool
@@ -37,6 +38,7 @@ class IOContext:
         input_ids: list[str],
         retry_counts: list[int],
         function_call_ids: list[str],
+        attempt_tokens: list[str],
         finalized_function: modal._runtime.user_code_imports.FinalizedFunction,
         function_inputs: list[modal_proto.api_pb2.FunctionInput],
         is_batched: bool,
@@ -50,7 +52,7 @@ class IOContext:
         cls,
         client: modal.client._Client,
         finalized_functions: dict[str, modal._runtime.user_code_imports.FinalizedFunction],
-        inputs: list[tuple[str, int, str, modal_proto.api_pb2.FunctionInput]],
+        inputs: list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput]],
         is_batched: bool,
     ) -> IOContext: ...
     def set_cancel_callback(self, cb: collections.abc.Callable[[], None]): ...
@@ -133,12 +135,19 @@ class _ContainerIOManager:
     async def _dynamic_concurrency_loop(self): ...
     def serialize_data_format(self, obj: typing.Any, data_format: int) -> bytes: ...
     async def format_blob_data(self, data: bytes) -> dict[str, typing.Any]: ...
-    def get_data_in(self, function_call_id: str) -> collections.abc.AsyncIterator[typing.Any]:
+    def get_data_in(
+        self, function_call_id: str, attempt_token: typing.Optional[str]
+    ) -> collections.abc.AsyncIterator[typing.Any]:
         """Read from the `data_in` stream of a function call."""
         ...
 
     async def put_data_out(
-        self, function_call_id: str, start_index: int, data_format: int, serialized_messages: list[typing.Any]
+        self,
+        function_call_id: str,
+        attempt_token: str,
+        start_index: int,
+        data_format: int,
+        serialized_messages: list[typing.Any],
     ) -> None:
         """Put data onto the `data_out` stream of a function call.
 
@@ -149,7 +158,7 @@ class _ContainerIOManager:
         ...
 
     def generator_output_sender(
-        self, function_call_id: str, data_format: int, message_rx: asyncio.queues.Queue
+        self, function_call_id: str, attempt_token: str, data_format: int, message_rx: asyncio.queues.Queue
     ) -> typing.AsyncContextManager[None]:
         """Runs background task that feeds generator outputs into a function call's `data_out` stream."""
         ...
@@ -166,7 +175,7 @@ class _ContainerIOManager:
     def get_max_inputs_to_fetch(self): ...
     def _generate_inputs(
         self, batch_max_size: int, batch_wait_ms: int
-    ) -> collections.abc.AsyncIterator[list[tuple[str, int, str, modal_proto.api_pb2.FunctionInput]]]: ...
+    ) -> collections.abc.AsyncIterator[list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput]]]: ...
     def run_inputs_outputs(
         self,
         finalized_functions: dict[str, modal._runtime.user_code_imports.FinalizedFunction],
@@ -332,11 +341,15 @@ class ContainerIOManager:
     format_blob_data: __format_blob_data_spec[typing_extensions.Self]
 
     class __get_data_in_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, function_call_id: str) -> typing.Iterator[typing.Any]:
+        def __call__(
+            self, /, function_call_id: str, attempt_token: typing.Optional[str]
+        ) -> typing.Iterator[typing.Any]:
             """Read from the `data_in` stream of a function call."""
             ...
 
-        def aio(self, /, function_call_id: str) -> collections.abc.AsyncIterator[typing.Any]:
+        def aio(
+            self, /, function_call_id: str, attempt_token: typing.Optional[str]
+        ) -> collections.abc.AsyncIterator[typing.Any]:
             """Read from the `data_in` stream of a function call."""
             ...
 
@@ -344,7 +357,13 @@ class ContainerIOManager:
 
     class __put_data_out_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
-            self, /, function_call_id: str, start_index: int, data_format: int, serialized_messages: list[typing.Any]
+            self,
+            /,
+            function_call_id: str,
+            attempt_token: str,
+            start_index: int,
+            data_format: int,
+            serialized_messages: list[typing.Any],
         ) -> None:
             """Put data onto the `data_out` stream of a function call.
 
@@ -355,7 +374,13 @@ class ContainerIOManager:
             ...
 
         async def aio(
-            self, /, function_call_id: str, start_index: int, data_format: int, serialized_messages: list[typing.Any]
+            self,
+            /,
+            function_call_id: str,
+            attempt_token: str,
+            start_index: int,
+            data_format: int,
+            serialized_messages: list[typing.Any],
         ) -> None:
             """Put data onto the `data_out` stream of a function call.
 
@@ -369,13 +394,13 @@ class ContainerIOManager:
 
     class __generator_output_sender_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
-            self, /, function_call_id: str, data_format: int, message_rx: asyncio.queues.Queue
+            self, /, function_call_id: str, attempt_token: str, data_format: int, message_rx: asyncio.queues.Queue
         ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]:
             """Runs background task that feeds generator outputs into a function call's `data_out` stream."""
             ...
 
         def aio(
-            self, /, function_call_id: str, data_format: int, message_rx: asyncio.queues.Queue
+            self, /, function_call_id: str, attempt_token: str, data_format: int, message_rx: asyncio.queues.Queue
         ) -> typing.AsyncContextManager[None]:
             """Runs background task that feeds generator outputs into a function call's `data_out` stream."""
             ...
@@ -410,10 +435,10 @@ class ContainerIOManager:
     class ___generate_inputs_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self, /, batch_max_size: int, batch_wait_ms: int
-        ) -> typing.Iterator[list[tuple[str, int, str, modal_proto.api_pb2.FunctionInput]]]: ...
+        ) -> typing.Iterator[list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput]]]: ...
         def aio(
             self, /, batch_max_size: int, batch_wait_ms: int
-        ) -> collections.abc.AsyncIterator[list[tuple[str, int, str, modal_proto.api_pb2.FunctionInput]]]: ...
+        ) -> collections.abc.AsyncIterator[list[tuple[str, int, str, str, modal_proto.api_pb2.FunctionInput]]]: ...
 
     _generate_inputs: ___generate_inputs_spec[typing_extensions.Self]
 

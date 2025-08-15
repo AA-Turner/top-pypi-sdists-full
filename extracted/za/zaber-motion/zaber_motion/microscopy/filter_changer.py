@@ -23,7 +23,7 @@ class FilterChanger:
         """
         Creates instance of `FilterChanger` based on the given device.
         """
-        self._device = device
+        self._device: Device = device
 
     def get_number_of_filters(
             self

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GANDLF
-Version: 0.1.4
+Version: 0.1.5
 Summary: PyTorch-based framework that handles segmentation/regression/classification using various DL architectures for medical imaging.
 Author: MLCommons
 Author-email: gandlf@mlcommons.org
@@ -18,9 +18,9 @@ Classifier: Topic :: Scientific/Engineering :: Medical Science Apps.
 Requires-Python: >3.9, <3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: torch==2.5.0
+Requires-Dist: torch==2.7.1
 Requires-Dist: black==23.11.0
-Requires-Dist: lightning==2.4.0
+Requires-Dist: lightning==2.5.2
 Requires-Dist: numpy==1.26.4
 Requires-Dist: scipy
 Requires-Dist: SimpleITK!=2.0.*

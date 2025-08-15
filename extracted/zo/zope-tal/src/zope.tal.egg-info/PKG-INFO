@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: zope.tal
-Version: 5.1
+Version: 5.1.1
 Summary: Zope Template Application Language (TAL)
 Home-page: https://github.com/zopefoundation/zope.tal
 Author: Zope Foundation and Contributors
@@ -77,6 +77,12 @@ Detailed documentation for this implementation and its API is available at https
 =========
  Changes
 =========
+
+5.1.1 (2025-08-14)
+==================
+
+- Fix tests for Python 3.13.6+ compatibility.
+
 
 5.1 (2025-02-14)
 ================

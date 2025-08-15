@@ -29,6 +29,7 @@ from orbax.checkpoint._src.checkpointers import abstract_checkpointer
 from orbax.checkpoint._src.futures import synchronization
 from orbax.checkpoint._src.handlers import checkpoint_handler
 from orbax.checkpoint._src.handlers import composite_checkpoint_handler
+from orbax.checkpoint._src.logging import event_tracking
 from orbax.checkpoint._src.metadata import checkpoint
 from orbax.checkpoint._src.metadata import step_metadata_serialization
 from orbax.checkpoint._src.multihost import multihost
@@ -303,6 +304,9 @@ class Checkpointer(
     logging.info('Restoring checkpoint from %s.', directory)
     ckpt_args = construct_checkpoint_args(self._handler, False, *args, **kwargs)
     restored = self._restore(directory, args=ckpt_args)
+
+    event_tracking.record_read_event(directory)
+
     multihost.sync_global_processes(
         multihost.unique_barrier_key(
             'Checkpointer:restore',
@@ -323,10 +327,35 @@ class Checkpointer(
   ) -> Any:
     return self._handler.restore(directory, args=args)
 
-  def metadata(self, directory: epath.PathLike) -> StepMetadata | Any | None:
+  def metadata(self, directory: epath.PathLike) -> StepMetadata:
     """See superclass documentation."""
     directory = epath.Path(directory)
-    return self._handler.metadata(directory)
+
+    if isinstance(
+        self._handler, composite_checkpoint_handler.CompositeCheckpointHandler
+    ):
+      # CompositeHandler contains metadata for all items in this step.
+      return self._handler.metadata(directory)
+
+    serialized_metadata = self._metadata_store.read(
+        checkpoint.step_metadata_file_path(directory)
+    )
+    if serialized_metadata is None:
+      step_metadata = StepMetadata()
+    else:
+      step_metadata = step_metadata_serialization.deserialize(
+          serialized_metadata
+      )
+
+    try:
+      step_metadata.item_metadata = self._handler.metadata(directory)
+    except (FileNotFoundError, NotImplementedError, ValueError, TypeError):
+      logging.warning(
+          'Failed to get item metadata from directory %s. Either it was not'
+          ' present in the checkpoint, or the handler does not support it.',
+          directory,
+      )
+    return step_metadata
 
   def _save_step_metadata(
       self, directory: epath.Path, custom_metadata: dict[str, Any] | None

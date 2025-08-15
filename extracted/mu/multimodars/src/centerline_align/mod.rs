@@ -9,11 +9,11 @@ use crate::io::{
     input::{Centerline, Contour},
     Geometry,
 };
-use crate::processing::geometries::GeometryPair;
+use crate::processing::align_between::GeometryPair;
 use anyhow::Error;
 
 use crate::io::output::{write_geometry_vec_to_obj, GeometryType};
-use crate::processing::process_case::interpolate_contours;
+use crate::processing::process_utils::interpolate_contours;
 use crate::texture::write_mtl_geometry;
 use align_algorithms::best_rotation_three_point;
 use preprocessing::{prepare_geometry_alignment, remove_leading_points_cl};
@@ -29,7 +29,7 @@ pub fn align_three_point_rs(
     interpolation_steps: usize,
     output_dir: &str,
     case_name: &str,
-) -> GeometryPair {
+) -> (GeometryPair, Centerline) {
     let mut geom = prepare_geometry_alignment(geometry_pair);
     let mut cl = centerline.clone();
     ensure_descending_z(&mut cl);
@@ -57,7 +57,7 @@ pub fn align_three_point_rs(
         write_aligned_meshes(geom.clone(), interpolation_steps, output_dir, case_name).unwrap();
     }
 
-    geom
+    (geom, resampled_centerline)
 }
 
 pub fn align_manual_rs(
@@ -69,7 +69,7 @@ pub fn align_manual_rs(
     interpolation_steps: usize,
     output_dir: &str,
     case_name: &str,
-) -> GeometryPair {
+) -> (GeometryPair, Centerline) {
     let mut geom = prepare_geometry_alignment(geometry_pair);
     let mut cl = centerline.clone();
     ensure_descending_z(&mut cl);
@@ -91,7 +91,7 @@ pub fn align_manual_rs(
         write_aligned_meshes(geom.clone(), interpolation_steps, output_dir, case_name).unwrap();
     }
 
-    geom
+    (geom, resampled_centerline)
 }
 
 // pub fn align_hausdorff() -> () {

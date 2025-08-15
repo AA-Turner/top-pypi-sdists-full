@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_sfs_share_access_rules_v2`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_sfs_share_access_rules_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_sfs_share_access_rules_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SfsShareAccessRulesV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.sfsShareAccessRulesV2.SfsShareAccessRulesV2",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2 opentelekomcloud_sfs_share_access_rules_v2}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2 opentelekomcloud_sfs_share_access_rules_v2}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class SfsShareAccessRulesV2(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2 opentelekomcloud_sfs_share_access_rules_v2} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2 opentelekomcloud_sfs_share_access_rules_v2} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param access_rule: access_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#access_rule SfsShareAccessRulesV2#access_rule}
-        :param share_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#share_id SfsShareAccessRulesV2#share_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#id SfsShareAccessRulesV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param access_rule: access_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#access_rule SfsShareAccessRulesV2#access_rule}
+        :param share_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#share_id SfsShareAccessRulesV2#share_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#id SfsShareAccessRulesV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class SfsShareAccessRulesV2(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SfsShareAccessRulesV2 to import.
-        :param import_from_id: The id of the existing SfsShareAccessRulesV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SfsShareAccessRulesV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SfsShareAccessRulesV2 to import is found.
         '''
         if __debug__:
@@ -215,9 +215,9 @@ class SfsShareAccessRulesV2AccessRule:
         access_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#access_level SfsShareAccessRulesV2#access_level}.
-        :param access_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#access_to SfsShareAccessRulesV2#access_to}.
-        :param access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#access_type SfsShareAccessRulesV2#access_type}.
+        :param access_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#access_level SfsShareAccessRulesV2#access_level}.
+        :param access_to: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#access_to SfsShareAccessRulesV2#access_to}.
+        :param access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#access_type SfsShareAccessRulesV2#access_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b5614e04556324c7081ab3153f872b8c98eb63912a32d213364d5e8880d46698)
@@ -233,21 +233,21 @@ class SfsShareAccessRulesV2AccessRule:
 
     @builtins.property
     def access_level(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#access_level SfsShareAccessRulesV2#access_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#access_level SfsShareAccessRulesV2#access_level}.'''
         result = self._values.get("access_level")
         assert result is not None, "Required property 'access_level' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def access_to(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#access_to SfsShareAccessRulesV2#access_to}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#access_to SfsShareAccessRulesV2#access_to}.'''
         result = self._values.get("access_to")
         assert result is not None, "Required property 'access_to' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def access_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#access_type SfsShareAccessRulesV2#access_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#access_type SfsShareAccessRulesV2#access_type}.'''
         result = self._values.get("access_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -504,9 +504,9 @@ class SfsShareAccessRulesV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param access_rule: access_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#access_rule SfsShareAccessRulesV2#access_rule}
-        :param share_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#share_id SfsShareAccessRulesV2#share_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#id SfsShareAccessRulesV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param access_rule: access_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#access_rule SfsShareAccessRulesV2#access_rule}
+        :param share_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#share_id SfsShareAccessRulesV2#share_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#id SfsShareAccessRulesV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -613,7 +613,7 @@ class SfsShareAccessRulesV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[SfsShareAccessRulesV2AccessRule]]:
         '''access_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#access_rule SfsShareAccessRulesV2#access_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#access_rule SfsShareAccessRulesV2#access_rule}
         '''
         result = self._values.get("access_rule")
         assert result is not None, "Required property 'access_rule' is missing"
@@ -621,14 +621,14 @@ class SfsShareAccessRulesV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def share_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#share_id SfsShareAccessRulesV2#share_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#share_id SfsShareAccessRulesV2#share_id}.'''
         result = self._values.get("share_id")
         assert result is not None, "Required property 'share_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/sfs_share_access_rules_v2#id SfsShareAccessRulesV2#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/sfs_share_access_rules_v2#id SfsShareAccessRulesV2#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

@@ -355,6 +355,7 @@ __all__ = (
     "Ac3SettingsTypeDef",
     "AcceptInputDeviceTransferRequestTypeDef",
     "AccountConfigurationTypeDef",
+    "AdditionalDestinationsTypeDef",
     "AncillarySourceSettingsTypeDef",
     "AnywhereSettingsTypeDef",
     "ArchiveCdnSettingsTypeDef",
@@ -1014,6 +1015,9 @@ class AcceptInputDeviceTransferRequestTypeDef(TypedDict):
 class AccountConfigurationTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
 
+class OutputLocationRefTypeDef(TypedDict):
+    DestinationRefId: NotRequired[str]
+
 class AncillarySourceSettingsTypeDef(TypedDict):
     SourceAncillaryChannelNumber: NotRequired[int]
 
@@ -1023,9 +1027,6 @@ class AnywhereSettingsTypeDef(TypedDict):
 
 class ArchiveS3SettingsTypeDef(TypedDict):
     CannedAcl: NotRequired[S3CannedAclType]
-
-class OutputLocationRefTypeDef(TypedDict):
-    DestinationRefId: NotRequired[str]
 
 class InputChannelLevelTypeDef(TypedDict):
     Gain: int
@@ -2357,8 +2358,8 @@ class VideoSelectorProgramIdTypeDef(TypedDict):
 class UpdateAccountConfigurationRequestTypeDef(TypedDict):
     AccountConfiguration: NotRequired[AccountConfigurationTypeDef]
 
-class ArchiveCdnSettingsTypeDef(TypedDict):
-    ArchiveS3Settings: NotRequired[ArchiveS3SettingsTypeDef]
+class AdditionalDestinationsTypeDef(TypedDict):
+    Destination: OutputLocationRefTypeDef
 
 class MediaPackageGroupSettingsTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef
@@ -2389,6 +2390,9 @@ class RtmpOutputSettingsTypeDef(TypedDict):
     CertificateMode: NotRequired[RtmpOutputCertificateModeType]
     ConnectionRetryInterval: NotRequired[int]
     NumRetries: NotRequired[int]
+
+class ArchiveCdnSettingsTypeDef(TypedDict):
+    ArchiveS3Settings: NotRequired[ArchiveS3SettingsTypeDef]
 
 class AudioChannelMappingOutputTypeDef(TypedDict):
     InputChannelLevels: List[InputChannelLevelTypeDef]
@@ -2806,42 +2810,6 @@ class ClusterNetworkSettingsTypeDef(TypedDict):
 class ClusterNetworkSettingsUpdateRequestTypeDef(TypedDict):
     DefaultRoute: NotRequired[str]
     InterfaceMappings: NotRequired[Sequence[InterfaceMappingUpdateRequestTypeDef]]
-
-class CmafIngestGroupSettingsOutputTypeDef(TypedDict):
-    Destination: OutputLocationRefTypeDef
-    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
-    Scte35Type: NotRequired[Scte35TypeType]
-    SegmentLength: NotRequired[int]
-    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
-    SendDelayMs: NotRequired[int]
-    KlvBehavior: NotRequired[CmafKLVBehaviorType]
-    KlvNameModifier: NotRequired[str]
-    NielsenId3NameModifier: NotRequired[str]
-    Scte35NameModifier: NotRequired[str]
-    Id3Behavior: NotRequired[CmafId3BehaviorType]
-    Id3NameModifier: NotRequired[str]
-    CaptionLanguageMappings: NotRequired[List[CmafIngestCaptionLanguageMappingTypeDef]]
-    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
-    TimedMetadataId3Period: NotRequired[int]
-    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
-
-class CmafIngestGroupSettingsTypeDef(TypedDict):
-    Destination: OutputLocationRefTypeDef
-    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
-    Scte35Type: NotRequired[Scte35TypeType]
-    SegmentLength: NotRequired[int]
-    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
-    SendDelayMs: NotRequired[int]
-    KlvBehavior: NotRequired[CmafKLVBehaviorType]
-    KlvNameModifier: NotRequired[str]
-    NielsenId3NameModifier: NotRequired[str]
-    Scte35NameModifier: NotRequired[str]
-    Id3Behavior: NotRequired[CmafId3BehaviorType]
-    Id3NameModifier: NotRequired[str]
-    CaptionLanguageMappings: NotRequired[Sequence[CmafIngestCaptionLanguageMappingTypeDef]]
-    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
-    TimedMetadataId3Period: NotRequired[int]
-    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
 
 class ColorCorrectionSettingsOutputTypeDef(TypedDict):
     GlobalColorCorrections: List[ColorCorrectionTypeDef]
@@ -3719,6 +3687,44 @@ class ThumbnailDetailTypeDef(TypedDict):
 class VideoSelectorSettingsTypeDef(TypedDict):
     VideoSelectorPid: NotRequired[VideoSelectorPidTypeDef]
     VideoSelectorProgramId: NotRequired[VideoSelectorProgramIdTypeDef]
+
+class CmafIngestGroupSettingsOutputTypeDef(TypedDict):
+    Destination: OutputLocationRefTypeDef
+    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
+    Scte35Type: NotRequired[Scte35TypeType]
+    SegmentLength: NotRequired[int]
+    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
+    SendDelayMs: NotRequired[int]
+    KlvBehavior: NotRequired[CmafKLVBehaviorType]
+    KlvNameModifier: NotRequired[str]
+    NielsenId3NameModifier: NotRequired[str]
+    Scte35NameModifier: NotRequired[str]
+    Id3Behavior: NotRequired[CmafId3BehaviorType]
+    Id3NameModifier: NotRequired[str]
+    CaptionLanguageMappings: NotRequired[List[CmafIngestCaptionLanguageMappingTypeDef]]
+    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
+    TimedMetadataId3Period: NotRequired[int]
+    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
+    AdditionalDestinations: NotRequired[List[AdditionalDestinationsTypeDef]]
+
+class CmafIngestGroupSettingsTypeDef(TypedDict):
+    Destination: OutputLocationRefTypeDef
+    NielsenId3Behavior: NotRequired[CmafNielsenId3BehaviorType]
+    Scte35Type: NotRequired[Scte35TypeType]
+    SegmentLength: NotRequired[int]
+    SegmentLengthUnits: NotRequired[CmafIngestSegmentLengthUnitsType]
+    SendDelayMs: NotRequired[int]
+    KlvBehavior: NotRequired[CmafKLVBehaviorType]
+    KlvNameModifier: NotRequired[str]
+    NielsenId3NameModifier: NotRequired[str]
+    Scte35NameModifier: NotRequired[str]
+    Id3Behavior: NotRequired[CmafId3BehaviorType]
+    Id3NameModifier: NotRequired[str]
+    CaptionLanguageMappings: NotRequired[Sequence[CmafIngestCaptionLanguageMappingTypeDef]]
+    TimedMetadataId3Frame: NotRequired[CmafTimedMetadataId3FrameType]
+    TimedMetadataId3Period: NotRequired[int]
+    TimedMetadataPassthrough: NotRequired[CmafTimedMetadataPassthroughType]
+    AdditionalDestinations: NotRequired[Sequence[AdditionalDestinationsTypeDef]]
 
 class ArchiveGroupSettingsTypeDef(TypedDict):
     Destination: OutputLocationRefTypeDef

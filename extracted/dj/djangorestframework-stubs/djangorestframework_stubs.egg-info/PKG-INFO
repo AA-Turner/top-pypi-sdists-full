@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangorestframework-stubs
-Version: 3.16.1
+Version: 3.16.2
 Summary: PEP-484 stubs for django-rest-framework
 Home-page: https://github.com/typeddjango/djangorestframework-stubs
 Author: Maksim Kurnikov
@@ -21,13 +21,13 @@ Classifier: Framework :: Django
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: django-stubs>=5.2.1
+Requires-Dist: django-stubs>=5.2.2
 Requires-Dist: typing-extensions>=4.0
 Requires-Dist: requests>=2.0
 Requires-Dist: types-requests
 Requires-Dist: types-PyYAML
 Provides-Extra: compatible-mypy
-Requires-Dist: mypy<1.17,>=1.13; extra == "compatible-mypy"
+Requires-Dist: mypy<1.18,>=1.13; extra == "compatible-mypy"
 Requires-Dist: django-stubs[compatible-mypy]; extra == "compatible-mypy"
 Provides-Extra: coreapi
 Requires-Dist: coreapi>=2.0.0; extra == "coreapi"
@@ -91,7 +91,7 @@ class MyModelSerializer(serializers.ModelSerializer[MyModel]):
         fields = ("id", "example")
 ```
 
-Which means that methods where the model is being passed around will know the actual type of the model instead of being `Any`. The `instance` attribute on the above serializer will be `Union[MyModel, typing.Sequence[MyModel], None]`.
+Which means that methods where the model is being passed around will know the actual type of the model instead of being `Any`. The `instance` attribute on the above serializer will be `MyModel | typing.Sequence[MyModel] | None`.
 
 ## To get help
 

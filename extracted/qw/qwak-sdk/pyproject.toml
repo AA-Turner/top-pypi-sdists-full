@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qwak-sdk"
-version = "0.5.97"
+version = "0.5.98"
 description = "Qwak SDK and CLI for qwak models"
 authors = ["Qwak <info@qwak.com>"]
 readme = "README.md"
@@ -29,7 +29,7 @@ qwak = "qwak_sdk.main:qwak_cli"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
-qwak-core = ">=0.4.297"
+qwak-core = ">=0.4.312"
 qwak-inference = "^0.1.20"
 croniter = "1.4.1"
 tabulate = ">=0.8.0"

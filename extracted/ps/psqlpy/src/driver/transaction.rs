@@ -3,7 +3,7 @@ use std::sync::Arc;
 use futures::future;
 use pyo3::{
     pyclass, pymethods,
-    types::{PyAnyMethods, PyList, PyTuple},
+    types::{PyAnyMethods, PyList, PyListMethods, PyTuple},
     Py, PyAny, PyErr, PyResult,
 };
 use tokio::sync::RwLock;
@@ -309,7 +309,7 @@ impl Transaction {
     /// Execute many queries in a transaction.
     ///
     /// More information in a documentation:
-    /// https://psqlpy-python.github.io/components/transaction.html#pipeline
+    /// `<https://psqlpy-python.github.io/components/transaction.html#pipeline>`
     ///
     /// # Errors
     /// Can return error if there is a problem with DB communication.
@@ -331,7 +331,7 @@ impl Transaction {
             let mut futures = vec![];
             if let Some(queries) = queries {
                 let gil_result = pyo3::Python::with_gil(|gil| -> PyResult<()> {
-                    for single_query in queries.into_bound(gil).try_iter() {
+                    for single_query in queries.into_bound(gil).iter() {
                         let query_tuple = single_query.downcast::<PyTuple>().map_err(|err| {
                             RustPSQLDriverError::PyToRustValueConversionError(format!(
                                 "Cannot cast to tuple: {err}",

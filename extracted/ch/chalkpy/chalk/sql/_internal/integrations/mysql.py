@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Union
 from chalk.integrations.named import create_integration_variable, load_integration_variable
 from chalk.sql._internal.sql_source import BaseSQLSource, SQLSourceKind, TableIngestMixIn
 from chalk.sql.protocols import SQLSourceWithTableIngestProtocol
+from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.missing_dependency import missing_dependency_exception
 
 if TYPE_CHECKING:
@@ -32,11 +33,19 @@ class MySQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIngestP
         async_engine_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
     ):
-        try:
-            import pymysql
-        except ModuleNotFoundError:
-            raise missing_dependency_exception("chalkpy[mysql]")
-        del pymysql
+        self._use_mysql_connector = env_var_bool("CHALK_USE_MYSQL_CONNECTOR_DRIVER")
+
+        if self._use_mysql_connector:
+            try:
+                import mysql.connector  # type: ignore[import-not-found]
+            except ModuleNotFoundError:
+                raise missing_dependency_exception("mysql-connector-python")
+        else:
+            try:
+                import pymysql
+            except ModuleNotFoundError:
+                raise missing_dependency_exception("chalkpy[mysql]")
+            del pymysql
         self.name = name
         self.host = host or load_integration_variable(
             name=_MYSQL_HOST_NAME, integration_name=name, override=integration_variable_override
@@ -83,8 +92,9 @@ class MySQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIngestP
     def local_engine_url(self) -> URL:
         from sqlalchemy.engine.url import URL
 
+        drivername = "mysql+mysqlconnector" if self._use_mysql_connector else "mysql+pymysql"
         return URL.create(
-            drivername="mysql+pymysql",
+            drivername=drivername,
             username=self.user,
             password=self.password,
             host=self.host,

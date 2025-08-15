@@ -55,12 +55,12 @@ class IlluminatorChannel:
         return self._warnings
 
     def __init__(self, illuminator: 'Illuminator', channel_number: int):
-        self._illuminator = illuminator
-        self._channel_number = channel_number
-        self._axis = Axis(illuminator.device, channel_number)
-        self._settings = AxisSettings(self._axis)
-        self._storage = AxisStorage(self._axis)
-        self._warnings = Warnings(illuminator.device, channel_number)
+        self._illuminator: 'Illuminator' = illuminator
+        self._channel_number: int = channel_number
+        self._axis: Axis = Axis(illuminator.device, channel_number)
+        self._settings: AxisSettings = AxisSettings(self._axis)
+        self._storage: AxisStorage = AxisStorage(self._axis)
+        self._warnings: Warnings = Warnings(illuminator.device, channel_number)
 
     def on(
             self

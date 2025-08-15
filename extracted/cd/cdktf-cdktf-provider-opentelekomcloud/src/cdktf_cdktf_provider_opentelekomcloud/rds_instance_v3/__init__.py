@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_rds_instance_v3`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_rds_instance_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_rds_instance_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RdsInstanceV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.rdsInstanceV3.RdsInstanceV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3 opentelekomcloud_rds_instance_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3 opentelekomcloud_rds_instance_v3}.'''
 
     def __init__(
         self,
@@ -81,32 +81,32 @@ class RdsInstanceV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3 opentelekomcloud_rds_instance_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3 opentelekomcloud_rds_instance_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#availability_zone RdsInstanceV3#availability_zone}.
-        :param db: db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#db RdsInstanceV3#db}
-        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#flavor RdsInstanceV3#flavor}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#name RdsInstanceV3#name}.
-        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#security_group_id RdsInstanceV3#security_group_id}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#subnet_id RdsInstanceV3#subnet_id}.
-        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#volume RdsInstanceV3#volume}
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#vpc_id RdsInstanceV3#vpc_id}.
-        :param backup_strategy: backup_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#backup_strategy RdsInstanceV3#backup_strategy}
-        :param ha_replication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#ha_replication_mode RdsInstanceV3#ha_replication_mode}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#id RdsInstanceV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lower_case_table_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#lower_case_table_names RdsInstanceV3#lower_case_table_names}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#parameters RdsInstanceV3#parameters}.
-        :param param_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#param_group_id RdsInstanceV3#param_group_id}.
-        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#private_ip RdsInstanceV3#private_ip}.
-        :param public_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#public_ips RdsInstanceV3#public_ips}.
-        :param restore_from_backup: restore_from_backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#restore_from_backup RdsInstanceV3#restore_from_backup}
-        :param restore_point: restore_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#restore_point RdsInstanceV3#restore_point}
-        :param ssl_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#ssl_enable RdsInstanceV3#ssl_enable}.
-        :param tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#tag RdsInstanceV3#tag}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#tags RdsInstanceV3#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#timeouts RdsInstanceV3#timeouts}
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#availability_zone RdsInstanceV3#availability_zone}.
+        :param db: db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#db RdsInstanceV3#db}
+        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#flavor RdsInstanceV3#flavor}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#name RdsInstanceV3#name}.
+        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#security_group_id RdsInstanceV3#security_group_id}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#subnet_id RdsInstanceV3#subnet_id}.
+        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#volume RdsInstanceV3#volume}
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#vpc_id RdsInstanceV3#vpc_id}.
+        :param backup_strategy: backup_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#backup_strategy RdsInstanceV3#backup_strategy}
+        :param ha_replication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#ha_replication_mode RdsInstanceV3#ha_replication_mode}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#id RdsInstanceV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lower_case_table_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#lower_case_table_names RdsInstanceV3#lower_case_table_names}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#parameters RdsInstanceV3#parameters}.
+        :param param_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#param_group_id RdsInstanceV3#param_group_id}.
+        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#private_ip RdsInstanceV3#private_ip}.
+        :param public_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#public_ips RdsInstanceV3#public_ips}.
+        :param restore_from_backup: restore_from_backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#restore_from_backup RdsInstanceV3#restore_from_backup}
+        :param restore_point: restore_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#restore_point RdsInstanceV3#restore_point}
+        :param ssl_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#ssl_enable RdsInstanceV3#ssl_enable}.
+        :param tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#tag RdsInstanceV3#tag}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#tags RdsInstanceV3#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#timeouts RdsInstanceV3#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -166,7 +166,7 @@ class RdsInstanceV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RdsInstanceV3 to import.
-        :param import_from_id: The id of the existing RdsInstanceV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RdsInstanceV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RdsInstanceV3 to import is found.
         '''
         if __debug__:
@@ -186,9 +186,9 @@ class RdsInstanceV3(
         period: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#start_time RdsInstanceV3#start_time}.
-        :param keep_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#keep_days RdsInstanceV3#keep_days}.
-        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#period RdsInstanceV3#period}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#start_time RdsInstanceV3#start_time}.
+        :param keep_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#keep_days RdsInstanceV3#keep_days}.
+        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#period RdsInstanceV3#period}.
         '''
         value = RdsInstanceV3BackupStrategy(
             start_time=start_time, keep_days=keep_days, period=period
@@ -206,10 +206,10 @@ class RdsInstanceV3(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#password RdsInstanceV3#password}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#port RdsInstanceV3#port}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#version RdsInstanceV3#version}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#password RdsInstanceV3#password}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#port RdsInstanceV3#port}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#version RdsInstanceV3#version}.
         '''
         value = RdsInstanceV3Db(
             password=password, port=port, type=type, version=version
@@ -227,10 +227,10 @@ class RdsInstanceV3(
         restore_time: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param source_instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#source_instance_id RdsInstanceV3#source_instance_id}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.
-        :param backup_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#backup_id RdsInstanceV3#backup_id}.
-        :param restore_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#restore_time RdsInstanceV3#restore_time}.
+        :param source_instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#source_instance_id RdsInstanceV3#source_instance_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.
+        :param backup_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#backup_id RdsInstanceV3#backup_id}.
+        :param restore_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#restore_time RdsInstanceV3#restore_time}.
         '''
         value = RdsInstanceV3RestoreFromBackup(
             source_instance_id=source_instance_id,
@@ -250,9 +250,9 @@ class RdsInstanceV3(
         restore_time: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#instance_id RdsInstanceV3#instance_id}.
-        :param backup_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#backup_id RdsInstanceV3#backup_id}.
-        :param restore_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#restore_time RdsInstanceV3#restore_time}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#instance_id RdsInstanceV3#instance_id}.
+        :param backup_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#backup_id RdsInstanceV3#backup_id}.
+        :param restore_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#restore_time RdsInstanceV3#restore_time}.
         '''
         value = RdsInstanceV3RestorePoint(
             instance_id=instance_id, backup_id=backup_id, restore_time=restore_time
@@ -268,8 +268,8 @@ class RdsInstanceV3(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#create RdsInstanceV3#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#update RdsInstanceV3#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#create RdsInstanceV3#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#update RdsInstanceV3#update}.
         '''
         value = RdsInstanceV3Timeouts(create=create, update=update)
 
@@ -286,11 +286,11 @@ class RdsInstanceV3(
         trigger_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#size RdsInstanceV3#size}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.
-        :param disk_encryption_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#disk_encryption_id RdsInstanceV3#disk_encryption_id}.
-        :param limit_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#limit_size RdsInstanceV3#limit_size}.
-        :param trigger_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#trigger_threshold RdsInstanceV3#trigger_threshold}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#size RdsInstanceV3#size}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.
+        :param disk_encryption_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#disk_encryption_id RdsInstanceV3#disk_encryption_id}.
+        :param limit_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#limit_size RdsInstanceV3#limit_size}.
+        :param trigger_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#trigger_threshold RdsInstanceV3#trigger_threshold}.
         '''
         value = RdsInstanceV3Volume(
             size=size,
@@ -763,9 +763,9 @@ class RdsInstanceV3BackupStrategy:
         period: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#start_time RdsInstanceV3#start_time}.
-        :param keep_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#keep_days RdsInstanceV3#keep_days}.
-        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#period RdsInstanceV3#period}.
+        :param start_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#start_time RdsInstanceV3#start_time}.
+        :param keep_days: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#keep_days RdsInstanceV3#keep_days}.
+        :param period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#period RdsInstanceV3#period}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a5b7f9f0c40e5bda291877fe2e0925d7edaad5d2a9fe59197aa3a1791d103cda)
@@ -782,20 +782,20 @@ class RdsInstanceV3BackupStrategy:
 
     @builtins.property
     def start_time(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#start_time RdsInstanceV3#start_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#start_time RdsInstanceV3#start_time}.'''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def keep_days(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#keep_days RdsInstanceV3#keep_days}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#keep_days RdsInstanceV3#keep_days}.'''
         result = self._values.get("keep_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def period(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#period RdsInstanceV3#period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#period RdsInstanceV3#period}.'''
         result = self._values.get("period")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -983,28 +983,28 @@ class RdsInstanceV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#availability_zone RdsInstanceV3#availability_zone}.
-        :param db: db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#db RdsInstanceV3#db}
-        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#flavor RdsInstanceV3#flavor}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#name RdsInstanceV3#name}.
-        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#security_group_id RdsInstanceV3#security_group_id}.
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#subnet_id RdsInstanceV3#subnet_id}.
-        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#volume RdsInstanceV3#volume}
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#vpc_id RdsInstanceV3#vpc_id}.
-        :param backup_strategy: backup_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#backup_strategy RdsInstanceV3#backup_strategy}
-        :param ha_replication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#ha_replication_mode RdsInstanceV3#ha_replication_mode}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#id RdsInstanceV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param lower_case_table_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#lower_case_table_names RdsInstanceV3#lower_case_table_names}.
-        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#parameters RdsInstanceV3#parameters}.
-        :param param_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#param_group_id RdsInstanceV3#param_group_id}.
-        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#private_ip RdsInstanceV3#private_ip}.
-        :param public_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#public_ips RdsInstanceV3#public_ips}.
-        :param restore_from_backup: restore_from_backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#restore_from_backup RdsInstanceV3#restore_from_backup}
-        :param restore_point: restore_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#restore_point RdsInstanceV3#restore_point}
-        :param ssl_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#ssl_enable RdsInstanceV3#ssl_enable}.
-        :param tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#tag RdsInstanceV3#tag}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#tags RdsInstanceV3#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#timeouts RdsInstanceV3#timeouts}
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#availability_zone RdsInstanceV3#availability_zone}.
+        :param db: db block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#db RdsInstanceV3#db}
+        :param flavor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#flavor RdsInstanceV3#flavor}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#name RdsInstanceV3#name}.
+        :param security_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#security_group_id RdsInstanceV3#security_group_id}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#subnet_id RdsInstanceV3#subnet_id}.
+        :param volume: volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#volume RdsInstanceV3#volume}
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#vpc_id RdsInstanceV3#vpc_id}.
+        :param backup_strategy: backup_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#backup_strategy RdsInstanceV3#backup_strategy}
+        :param ha_replication_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#ha_replication_mode RdsInstanceV3#ha_replication_mode}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#id RdsInstanceV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param lower_case_table_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#lower_case_table_names RdsInstanceV3#lower_case_table_names}.
+        :param parameters: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#parameters RdsInstanceV3#parameters}.
+        :param param_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#param_group_id RdsInstanceV3#param_group_id}.
+        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#private_ip RdsInstanceV3#private_ip}.
+        :param public_ips: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#public_ips RdsInstanceV3#public_ips}.
+        :param restore_from_backup: restore_from_backup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#restore_from_backup RdsInstanceV3#restore_from_backup}
+        :param restore_point: restore_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#restore_point RdsInstanceV3#restore_point}
+        :param ssl_enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#ssl_enable RdsInstanceV3#ssl_enable}.
+        :param tag: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#tag RdsInstanceV3#tag}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#tags RdsInstanceV3#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#timeouts RdsInstanceV3#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1170,7 +1170,7 @@ class RdsInstanceV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def availability_zone(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#availability_zone RdsInstanceV3#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#availability_zone RdsInstanceV3#availability_zone}.'''
         result = self._values.get("availability_zone")
         assert result is not None, "Required property 'availability_zone' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1179,7 +1179,7 @@ class RdsInstanceV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def db(self) -> "RdsInstanceV3Db":
         '''db block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#db RdsInstanceV3#db}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#db RdsInstanceV3#db}
         '''
         result = self._values.get("db")
         assert result is not None, "Required property 'db' is missing"
@@ -1187,28 +1187,28 @@ class RdsInstanceV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def flavor(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#flavor RdsInstanceV3#flavor}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#flavor RdsInstanceV3#flavor}.'''
         result = self._values.get("flavor")
         assert result is not None, "Required property 'flavor' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#name RdsInstanceV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#name RdsInstanceV3#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def security_group_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#security_group_id RdsInstanceV3#security_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#security_group_id RdsInstanceV3#security_group_id}.'''
         result = self._values.get("security_group_id")
         assert result is not None, "Required property 'security_group_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def subnet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#subnet_id RdsInstanceV3#subnet_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#subnet_id RdsInstanceV3#subnet_id}.'''
         result = self._values.get("subnet_id")
         assert result is not None, "Required property 'subnet_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1217,7 +1217,7 @@ class RdsInstanceV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def volume(self) -> "RdsInstanceV3Volume":
         '''volume block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#volume RdsInstanceV3#volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#volume RdsInstanceV3#volume}
         '''
         result = self._values.get("volume")
         assert result is not None, "Required property 'volume' is missing"
@@ -1225,7 +1225,7 @@ class RdsInstanceV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#vpc_id RdsInstanceV3#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#vpc_id RdsInstanceV3#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)
@@ -1234,20 +1234,20 @@ class RdsInstanceV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup_strategy(self) -> typing.Optional[RdsInstanceV3BackupStrategy]:
         '''backup_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#backup_strategy RdsInstanceV3#backup_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#backup_strategy RdsInstanceV3#backup_strategy}
         '''
         result = self._values.get("backup_strategy")
         return typing.cast(typing.Optional[RdsInstanceV3BackupStrategy], result)
 
     @builtins.property
     def ha_replication_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#ha_replication_mode RdsInstanceV3#ha_replication_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#ha_replication_mode RdsInstanceV3#ha_replication_mode}.'''
         result = self._values.get("ha_replication_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#id RdsInstanceV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#id RdsInstanceV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1257,31 +1257,31 @@ class RdsInstanceV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def lower_case_table_names(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#lower_case_table_names RdsInstanceV3#lower_case_table_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#lower_case_table_names RdsInstanceV3#lower_case_table_names}.'''
         result = self._values.get("lower_case_table_names")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#parameters RdsInstanceV3#parameters}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#parameters RdsInstanceV3#parameters}.'''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def param_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#param_group_id RdsInstanceV3#param_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#param_group_id RdsInstanceV3#param_group_id}.'''
         result = self._values.get("param_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def private_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#private_ip RdsInstanceV3#private_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#private_ip RdsInstanceV3#private_ip}.'''
         result = self._values.get("private_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def public_ips(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#public_ips RdsInstanceV3#public_ips}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#public_ips RdsInstanceV3#public_ips}.'''
         result = self._values.get("public_ips")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1289,7 +1289,7 @@ class RdsInstanceV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def restore_from_backup(self) -> typing.Optional["RdsInstanceV3RestoreFromBackup"]:
         '''restore_from_backup block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#restore_from_backup RdsInstanceV3#restore_from_backup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#restore_from_backup RdsInstanceV3#restore_from_backup}
         '''
         result = self._values.get("restore_from_backup")
         return typing.cast(typing.Optional["RdsInstanceV3RestoreFromBackup"], result)
@@ -1298,7 +1298,7 @@ class RdsInstanceV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def restore_point(self) -> typing.Optional["RdsInstanceV3RestorePoint"]:
         '''restore_point block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#restore_point RdsInstanceV3#restore_point}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#restore_point RdsInstanceV3#restore_point}
         '''
         result = self._values.get("restore_point")
         return typing.cast(typing.Optional["RdsInstanceV3RestorePoint"], result)
@@ -1307,19 +1307,19 @@ class RdsInstanceV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def ssl_enable(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#ssl_enable RdsInstanceV3#ssl_enable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#ssl_enable RdsInstanceV3#ssl_enable}.'''
         result = self._values.get("ssl_enable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tag(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#tag RdsInstanceV3#tag}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#tag RdsInstanceV3#tag}.'''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#tags RdsInstanceV3#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#tags RdsInstanceV3#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1327,7 +1327,7 @@ class RdsInstanceV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["RdsInstanceV3Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#timeouts RdsInstanceV3#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#timeouts RdsInstanceV3#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["RdsInstanceV3Timeouts"], result)
@@ -1364,10 +1364,10 @@ class RdsInstanceV3Db:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#password RdsInstanceV3#password}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#port RdsInstanceV3#port}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#version RdsInstanceV3#version}.
+        :param password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#password RdsInstanceV3#password}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#port RdsInstanceV3#port}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#version RdsInstanceV3#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b410d106d80c4b057b931cb8917197a304194dffa3f541453e48a84b6bbbbe5b)
@@ -1387,26 +1387,26 @@ class RdsInstanceV3Db:
 
     @builtins.property
     def password(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#password RdsInstanceV3#password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#password RdsInstanceV3#password}.'''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#port RdsInstanceV3#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#port RdsInstanceV3#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#version RdsInstanceV3#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#version RdsInstanceV3#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1718,10 +1718,10 @@ class RdsInstanceV3RestoreFromBackup:
         restore_time: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param source_instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#source_instance_id RdsInstanceV3#source_instance_id}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.
-        :param backup_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#backup_id RdsInstanceV3#backup_id}.
-        :param restore_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#restore_time RdsInstanceV3#restore_time}.
+        :param source_instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#source_instance_id RdsInstanceV3#source_instance_id}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.
+        :param backup_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#backup_id RdsInstanceV3#backup_id}.
+        :param restore_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#restore_time RdsInstanceV3#restore_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a5dddbd7b9b44b3eb2114cbeabbe7dc6686452e02b257923798e1d33828870e6)
@@ -1740,27 +1740,27 @@ class RdsInstanceV3RestoreFromBackup:
 
     @builtins.property
     def source_instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#source_instance_id RdsInstanceV3#source_instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#source_instance_id RdsInstanceV3#source_instance_id}.'''
         result = self._values.get("source_instance_id")
         assert result is not None, "Required property 'source_instance_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def backup_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#backup_id RdsInstanceV3#backup_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#backup_id RdsInstanceV3#backup_id}.'''
         result = self._values.get("backup_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def restore_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#restore_time RdsInstanceV3#restore_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#restore_time RdsInstanceV3#restore_time}.'''
         result = self._values.get("restore_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1906,9 +1906,9 @@ class RdsInstanceV3RestorePoint:
         restore_time: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#instance_id RdsInstanceV3#instance_id}.
-        :param backup_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#backup_id RdsInstanceV3#backup_id}.
-        :param restore_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#restore_time RdsInstanceV3#restore_time}.
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#instance_id RdsInstanceV3#instance_id}.
+        :param backup_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#backup_id RdsInstanceV3#backup_id}.
+        :param restore_time: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#restore_time RdsInstanceV3#restore_time}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85b9e9753a653b236faa474d96d56c9e95507653ea0a5e20b84425c93d9a9909)
@@ -1925,20 +1925,20 @@ class RdsInstanceV3RestorePoint:
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#instance_id RdsInstanceV3#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#instance_id RdsInstanceV3#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def backup_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#backup_id RdsInstanceV3#backup_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#backup_id RdsInstanceV3#backup_id}.'''
         result = self._values.get("backup_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def restore_time(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#restore_time RdsInstanceV3#restore_time}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#restore_time RdsInstanceV3#restore_time}.'''
         result = self._values.get("restore_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2059,8 +2059,8 @@ class RdsInstanceV3Timeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#create RdsInstanceV3#create}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#update RdsInstanceV3#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#create RdsInstanceV3#create}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#update RdsInstanceV3#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14c39c3c7b022515b3b624a766be24f33766fc3f363246a9f1ac25b035bba725)
@@ -2074,13 +2074,13 @@ class RdsInstanceV3Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#create RdsInstanceV3#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#create RdsInstanceV3#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#update RdsInstanceV3#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#update RdsInstanceV3#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2198,11 +2198,11 @@ class RdsInstanceV3Volume:
         trigger_threshold: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#size RdsInstanceV3#size}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.
-        :param disk_encryption_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#disk_encryption_id RdsInstanceV3#disk_encryption_id}.
-        :param limit_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#limit_size RdsInstanceV3#limit_size}.
-        :param trigger_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#trigger_threshold RdsInstanceV3#trigger_threshold}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#size RdsInstanceV3#size}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.
+        :param disk_encryption_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#disk_encryption_id RdsInstanceV3#disk_encryption_id}.
+        :param limit_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#limit_size RdsInstanceV3#limit_size}.
+        :param trigger_threshold: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#trigger_threshold RdsInstanceV3#trigger_threshold}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1899b18b7cec9b1905f6a98fbb36e3d674bfa8df5b5c8957e7f112c0a0844fa8)
@@ -2224,33 +2224,33 @@ class RdsInstanceV3Volume:
 
     @builtins.property
     def size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#size RdsInstanceV3#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#size RdsInstanceV3#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#type RdsInstanceV3#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def disk_encryption_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#disk_encryption_id RdsInstanceV3#disk_encryption_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#disk_encryption_id RdsInstanceV3#disk_encryption_id}.'''
         result = self._values.get("disk_encryption_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def limit_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#limit_size RdsInstanceV3#limit_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#limit_size RdsInstanceV3#limit_size}.'''
         result = self._values.get("limit_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def trigger_threshold(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/rds_instance_v3#trigger_threshold RdsInstanceV3#trigger_threshold}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/rds_instance_v3#trigger_threshold RdsInstanceV3#trigger_threshold}.'''
         result = self._values.get("trigger_threshold")
         return typing.cast(typing.Optional[jsii.Number], result)
 

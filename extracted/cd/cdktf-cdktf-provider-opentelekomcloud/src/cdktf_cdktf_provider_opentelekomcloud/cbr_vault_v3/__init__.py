@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_cbr_vault_v3`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_cbr_vault_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_cbr_vault_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CbrVaultV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.cbrVaultV3.CbrVaultV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3 opentelekomcloud_cbr_vault_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3 opentelekomcloud_cbr_vault_v3}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class CbrVaultV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3 opentelekomcloud_cbr_vault_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3 opentelekomcloud_cbr_vault_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param billing: billing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#billing CbrVaultV3#billing}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#name CbrVaultV3#name}.
-        :param auto_bind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#auto_bind CbrVaultV3#auto_bind}.
-        :param auto_expand: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#auto_expand CbrVaultV3#auto_expand}.
-        :param backup_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#backup_policy_id CbrVaultV3#backup_policy_id}.
-        :param bind_rules: bind_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#bind_rules CbrVaultV3#bind_rules}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#description CbrVaultV3#description}.
-        :param enterprise_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#enterprise_project_id CbrVaultV3#enterprise_project_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#id CbrVaultV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param locked: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#locked CbrVaultV3#locked}.
-        :param resource: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#resource CbrVaultV3#resource}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#tags CbrVaultV3#tags}.
+        :param billing: billing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#billing CbrVaultV3#billing}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#name CbrVaultV3#name}.
+        :param auto_bind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#auto_bind CbrVaultV3#auto_bind}.
+        :param auto_expand: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#auto_expand CbrVaultV3#auto_expand}.
+        :param backup_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#backup_policy_id CbrVaultV3#backup_policy_id}.
+        :param bind_rules: bind_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#bind_rules CbrVaultV3#bind_rules}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#description CbrVaultV3#description}.
+        :param enterprise_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#enterprise_project_id CbrVaultV3#enterprise_project_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#id CbrVaultV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param locked: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#locked CbrVaultV3#locked}.
+        :param resource: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#resource CbrVaultV3#resource}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#tags CbrVaultV3#tags}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class CbrVaultV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CbrVaultV3 to import.
-        :param import_from_id: The id of the existing CbrVaultV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CbrVaultV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CbrVaultV3 to import is found.
         '''
         if __debug__:
@@ -165,18 +165,18 @@ class CbrVaultV3(
         period_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param object_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#object_type CbrVaultV3#object_type}.
-        :param protect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#protect_type CbrVaultV3#protect_type}.
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#size CbrVaultV3#size}.
-        :param charging_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#charging_mode CbrVaultV3#charging_mode}.
-        :param cloud_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#cloud_type CbrVaultV3#cloud_type}.
-        :param consistent_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#consistent_level CbrVaultV3#consistent_level}.
-        :param console_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#console_url CbrVaultV3#console_url}.
-        :param extra_info: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#extra_info CbrVaultV3#extra_info}.
-        :param is_auto_pay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#is_auto_pay CbrVaultV3#is_auto_pay}.
-        :param is_auto_renew: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#is_auto_renew CbrVaultV3#is_auto_renew}.
-        :param period_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#period_num CbrVaultV3#period_num}.
-        :param period_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#period_type CbrVaultV3#period_type}.
+        :param object_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#object_type CbrVaultV3#object_type}.
+        :param protect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#protect_type CbrVaultV3#protect_type}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#size CbrVaultV3#size}.
+        :param charging_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#charging_mode CbrVaultV3#charging_mode}.
+        :param cloud_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#cloud_type CbrVaultV3#cloud_type}.
+        :param consistent_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#consistent_level CbrVaultV3#consistent_level}.
+        :param console_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#console_url CbrVaultV3#console_url}.
+        :param extra_info: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#extra_info CbrVaultV3#extra_info}.
+        :param is_auto_pay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#is_auto_pay CbrVaultV3#is_auto_pay}.
+        :param is_auto_renew: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#is_auto_renew CbrVaultV3#is_auto_renew}.
+        :param period_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#period_num CbrVaultV3#period_num}.
+        :param period_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#period_type CbrVaultV3#period_type}.
         '''
         value = CbrVaultV3Billing(
             object_type=object_type,
@@ -533,18 +533,18 @@ class CbrVaultV3Billing:
         period_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param object_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#object_type CbrVaultV3#object_type}.
-        :param protect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#protect_type CbrVaultV3#protect_type}.
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#size CbrVaultV3#size}.
-        :param charging_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#charging_mode CbrVaultV3#charging_mode}.
-        :param cloud_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#cloud_type CbrVaultV3#cloud_type}.
-        :param consistent_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#consistent_level CbrVaultV3#consistent_level}.
-        :param console_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#console_url CbrVaultV3#console_url}.
-        :param extra_info: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#extra_info CbrVaultV3#extra_info}.
-        :param is_auto_pay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#is_auto_pay CbrVaultV3#is_auto_pay}.
-        :param is_auto_renew: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#is_auto_renew CbrVaultV3#is_auto_renew}.
-        :param period_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#period_num CbrVaultV3#period_num}.
-        :param period_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#period_type CbrVaultV3#period_type}.
+        :param object_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#object_type CbrVaultV3#object_type}.
+        :param protect_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#protect_type CbrVaultV3#protect_type}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#size CbrVaultV3#size}.
+        :param charging_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#charging_mode CbrVaultV3#charging_mode}.
+        :param cloud_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#cloud_type CbrVaultV3#cloud_type}.
+        :param consistent_level: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#consistent_level CbrVaultV3#consistent_level}.
+        :param console_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#console_url CbrVaultV3#console_url}.
+        :param extra_info: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#extra_info CbrVaultV3#extra_info}.
+        :param is_auto_pay: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#is_auto_pay CbrVaultV3#is_auto_pay}.
+        :param is_auto_renew: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#is_auto_renew CbrVaultV3#is_auto_renew}.
+        :param period_num: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#period_num CbrVaultV3#period_num}.
+        :param period_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#period_type CbrVaultV3#period_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fa15f27a51fb6b7d6704d362243232d647ce278bd1b8064d9a7e088dd02ba52e)
@@ -586,52 +586,52 @@ class CbrVaultV3Billing:
 
     @builtins.property
     def object_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#object_type CbrVaultV3#object_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#object_type CbrVaultV3#object_type}.'''
         result = self._values.get("object_type")
         assert result is not None, "Required property 'object_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protect_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#protect_type CbrVaultV3#protect_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#protect_type CbrVaultV3#protect_type}.'''
         result = self._values.get("protect_type")
         assert result is not None, "Required property 'protect_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#size CbrVaultV3#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#size CbrVaultV3#size}.'''
         result = self._values.get("size")
         assert result is not None, "Required property 'size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def charging_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#charging_mode CbrVaultV3#charging_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#charging_mode CbrVaultV3#charging_mode}.'''
         result = self._values.get("charging_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cloud_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#cloud_type CbrVaultV3#cloud_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#cloud_type CbrVaultV3#cloud_type}.'''
         result = self._values.get("cloud_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def consistent_level(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#consistent_level CbrVaultV3#consistent_level}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#consistent_level CbrVaultV3#consistent_level}.'''
         result = self._values.get("consistent_level")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def console_url(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#console_url CbrVaultV3#console_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#console_url CbrVaultV3#console_url}.'''
         result = self._values.get("console_url")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def extra_info(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#extra_info CbrVaultV3#extra_info}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#extra_info CbrVaultV3#extra_info}.'''
         result = self._values.get("extra_info")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -639,7 +639,7 @@ class CbrVaultV3Billing:
     def is_auto_pay(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#is_auto_pay CbrVaultV3#is_auto_pay}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#is_auto_pay CbrVaultV3#is_auto_pay}.'''
         result = self._values.get("is_auto_pay")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -647,19 +647,19 @@ class CbrVaultV3Billing:
     def is_auto_renew(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#is_auto_renew CbrVaultV3#is_auto_renew}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#is_auto_renew CbrVaultV3#is_auto_renew}.'''
         result = self._values.get("is_auto_renew")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def period_num(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#period_num CbrVaultV3#period_num}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#period_num CbrVaultV3#period_num}.'''
         result = self._values.get("period_num")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def period_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#period_type CbrVaultV3#period_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#period_type CbrVaultV3#period_type}.'''
         result = self._values.get("period_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1008,8 +1008,8 @@ class CbrVaultV3BillingOutputReference(
 class CbrVaultV3BindRules:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#key CbrVaultV3#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#value CbrVaultV3#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#key CbrVaultV3#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#value CbrVaultV3#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__61f905291637465e15585557c94cad534c404756b750be4e2c562dff54eb4830)
@@ -1022,14 +1022,14 @@ class CbrVaultV3BindRules:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#key CbrVaultV3#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#key CbrVaultV3#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#value CbrVaultV3#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#value CbrVaultV3#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -1271,18 +1271,18 @@ class CbrVaultV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param billing: billing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#billing CbrVaultV3#billing}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#name CbrVaultV3#name}.
-        :param auto_bind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#auto_bind CbrVaultV3#auto_bind}.
-        :param auto_expand: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#auto_expand CbrVaultV3#auto_expand}.
-        :param backup_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#backup_policy_id CbrVaultV3#backup_policy_id}.
-        :param bind_rules: bind_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#bind_rules CbrVaultV3#bind_rules}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#description CbrVaultV3#description}.
-        :param enterprise_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#enterprise_project_id CbrVaultV3#enterprise_project_id}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#id CbrVaultV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param locked: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#locked CbrVaultV3#locked}.
-        :param resource: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#resource CbrVaultV3#resource}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#tags CbrVaultV3#tags}.
+        :param billing: billing block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#billing CbrVaultV3#billing}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#name CbrVaultV3#name}.
+        :param auto_bind: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#auto_bind CbrVaultV3#auto_bind}.
+        :param auto_expand: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#auto_expand CbrVaultV3#auto_expand}.
+        :param backup_policy_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#backup_policy_id CbrVaultV3#backup_policy_id}.
+        :param bind_rules: bind_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#bind_rules CbrVaultV3#bind_rules}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#description CbrVaultV3#description}.
+        :param enterprise_project_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#enterprise_project_id CbrVaultV3#enterprise_project_id}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#id CbrVaultV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param locked: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#locked CbrVaultV3#locked}.
+        :param resource: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#resource CbrVaultV3#resource}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#tags CbrVaultV3#tags}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1416,7 +1416,7 @@ class CbrVaultV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def billing(self) -> CbrVaultV3Billing:
         '''billing block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#billing CbrVaultV3#billing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#billing CbrVaultV3#billing}
         '''
         result = self._values.get("billing")
         assert result is not None, "Required property 'billing' is missing"
@@ -1424,7 +1424,7 @@ class CbrVaultV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#name CbrVaultV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#name CbrVaultV3#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1433,7 +1433,7 @@ class CbrVaultV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_bind(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#auto_bind CbrVaultV3#auto_bind}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#auto_bind CbrVaultV3#auto_bind}.'''
         result = self._values.get("auto_bind")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1441,13 +1441,13 @@ class CbrVaultV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_expand(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#auto_expand CbrVaultV3#auto_expand}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#auto_expand CbrVaultV3#auto_expand}.'''
         result = self._values.get("auto_expand")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def backup_policy_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#backup_policy_id CbrVaultV3#backup_policy_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#backup_policy_id CbrVaultV3#backup_policy_id}.'''
         result = self._values.get("backup_policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1457,26 +1457,26 @@ class CbrVaultV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[CbrVaultV3BindRules]]]:
         '''bind_rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#bind_rules CbrVaultV3#bind_rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#bind_rules CbrVaultV3#bind_rules}
         '''
         result = self._values.get("bind_rules")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[CbrVaultV3BindRules]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#description CbrVaultV3#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#description CbrVaultV3#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def enterprise_project_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#enterprise_project_id CbrVaultV3#enterprise_project_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#enterprise_project_id CbrVaultV3#enterprise_project_id}.'''
         result = self._values.get("enterprise_project_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#id CbrVaultV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#id CbrVaultV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1488,7 +1488,7 @@ class CbrVaultV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def locked(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#locked CbrVaultV3#locked}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#locked CbrVaultV3#locked}.'''
         result = self._values.get("locked")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1496,13 +1496,13 @@ class CbrVaultV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def resource(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CbrVaultV3Resource"]]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#resource CbrVaultV3#resource}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#resource CbrVaultV3#resource}.'''
         result = self._values.get("resource")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CbrVaultV3Resource"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#tags CbrVaultV3#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#tags CbrVaultV3#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1548,15 +1548,15 @@ class CbrVaultV3Resource:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param backup_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#backup_count CbrVaultV3#backup_count}.
-        :param backup_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#backup_size CbrVaultV3#backup_size}.
-        :param exclude_volumes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#exclude_volumes CbrVaultV3#exclude_volumes}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#id CbrVaultV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include_volumes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#include_volumes CbrVaultV3#include_volumes}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#name CbrVaultV3#name}.
-        :param protect_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#protect_status CbrVaultV3#protect_status}.
-        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#size CbrVaultV3#size}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#type CbrVaultV3#type}.
+        :param backup_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#backup_count CbrVaultV3#backup_count}.
+        :param backup_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#backup_size CbrVaultV3#backup_size}.
+        :param exclude_volumes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#exclude_volumes CbrVaultV3#exclude_volumes}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#id CbrVaultV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include_volumes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#include_volumes CbrVaultV3#include_volumes}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#name CbrVaultV3#name}.
+        :param protect_status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#protect_status CbrVaultV3#protect_status}.
+        :param size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#size CbrVaultV3#size}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#type CbrVaultV3#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e09a4a56e25733e2e525e278d3903e137f620a88526b667b11dee17c220c2148)
@@ -1591,25 +1591,25 @@ class CbrVaultV3Resource:
 
     @builtins.property
     def backup_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#backup_count CbrVaultV3#backup_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#backup_count CbrVaultV3#backup_count}.'''
         result = self._values.get("backup_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def backup_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#backup_size CbrVaultV3#backup_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#backup_size CbrVaultV3#backup_size}.'''
         result = self._values.get("backup_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def exclude_volumes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#exclude_volumes CbrVaultV3#exclude_volumes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#exclude_volumes CbrVaultV3#exclude_volumes}.'''
         result = self._values.get("exclude_volumes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#id CbrVaultV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#id CbrVaultV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1619,31 +1619,31 @@ class CbrVaultV3Resource:
 
     @builtins.property
     def include_volumes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#include_volumes CbrVaultV3#include_volumes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#include_volumes CbrVaultV3#include_volumes}.'''
         result = self._values.get("include_volumes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#name CbrVaultV3#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#name CbrVaultV3#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def protect_status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#protect_status CbrVaultV3#protect_status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#protect_status CbrVaultV3#protect_status}.'''
         result = self._values.get("protect_status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#size CbrVaultV3#size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#size CbrVaultV3#size}.'''
         result = self._values.get("size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cbr_vault_v3#type CbrVaultV3#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cbr_vault_v3#type CbrVaultV3#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: icecream
-Version: 2.1.5
+Version: 2.1.6
 Summary: Never use print() to debug again; inspect variables, expressions, and program execution with a single, simple function call.
 Home-page: https://github.com/gruns/icecream
 Author: Ansgar Grunseid

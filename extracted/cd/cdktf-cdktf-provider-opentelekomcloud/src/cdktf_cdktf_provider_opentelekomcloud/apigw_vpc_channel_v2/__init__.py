@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_apigw_vpc_channel_v2`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_apigw_vpc_channel_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_apigw_vpc_channel_v2`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApigwVpcChannelV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.apigwVpcChannelV2.ApigwVpcChannelV2",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2 opentelekomcloud_apigw_vpc_channel_v2}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2 opentelekomcloud_apigw_vpc_channel_v2}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class ApigwVpcChannelV2(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2 opentelekomcloud_apigw_vpc_channel_v2} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2 opentelekomcloud_apigw_vpc_channel_v2} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#gateway_id ApigwVpcChannelV2#gateway_id}.
-        :param lb_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#lb_algorithm ApigwVpcChannelV2#lb_algorithm}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.
-        :param health_check: health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#health_check ApigwVpcChannelV2#health_check}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#id ApigwVpcChannelV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param member: member block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#member ApigwVpcChannelV2#member}
-        :param member_group: member_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#member_group ApigwVpcChannelV2#member_group}
-        :param member_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#member_type ApigwVpcChannelV2#member_type}.
-        :param microservice: microservice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#microservice ApigwVpcChannelV2#microservice}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#type ApigwVpcChannelV2#type}.
+        :param gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#gateway_id ApigwVpcChannelV2#gateway_id}.
+        :param lb_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#lb_algorithm ApigwVpcChannelV2#lb_algorithm}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.
+        :param health_check: health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#health_check ApigwVpcChannelV2#health_check}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#id ApigwVpcChannelV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param member: member block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#member ApigwVpcChannelV2#member}
+        :param member_group: member_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#member_group ApigwVpcChannelV2#member_group}
+        :param member_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#member_type ApigwVpcChannelV2#member_type}.
+        :param microservice: microservice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#microservice ApigwVpcChannelV2#microservice}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#type ApigwVpcChannelV2#type}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class ApigwVpcChannelV2(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApigwVpcChannelV2 to import.
-        :param import_from_id: The id of the existing ApigwVpcChannelV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApigwVpcChannelV2 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApigwVpcChannelV2 to import is found.
         '''
         if __debug__:
@@ -161,17 +161,17 @@ class ApigwVpcChannelV2(
         status: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#interval ApigwVpcChannelV2#interval}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#protocol ApigwVpcChannelV2#protocol}.
-        :param threshold_abnormal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#threshold_abnormal ApigwVpcChannelV2#threshold_abnormal}.
-        :param threshold_normal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#threshold_normal ApigwVpcChannelV2#threshold_normal}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#timeout ApigwVpcChannelV2#timeout}.
-        :param enable_client_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#enable_client_ssl ApigwVpcChannelV2#enable_client_ssl}.
-        :param http_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#http_codes ApigwVpcChannelV2#http_codes}.
-        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#method ApigwVpcChannelV2#method}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#path ApigwVpcChannelV2#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#status ApigwVpcChannelV2#status}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#interval ApigwVpcChannelV2#interval}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#protocol ApigwVpcChannelV2#protocol}.
+        :param threshold_abnormal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#threshold_abnormal ApigwVpcChannelV2#threshold_abnormal}.
+        :param threshold_normal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#threshold_normal ApigwVpcChannelV2#threshold_normal}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#timeout ApigwVpcChannelV2#timeout}.
+        :param enable_client_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#enable_client_ssl ApigwVpcChannelV2#enable_client_ssl}.
+        :param http_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#http_codes ApigwVpcChannelV2#http_codes}.
+        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#method ApigwVpcChannelV2#method}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#path ApigwVpcChannelV2#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#status ApigwVpcChannelV2#status}.
         '''
         value = ApigwVpcChannelV2HealthCheck(
             interval=interval,
@@ -223,8 +223,8 @@ class ApigwVpcChannelV2(
         cse_config: typing.Optional[typing.Union["ApigwVpcChannelV2MicroserviceCseConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cce_config: cce_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#cce_config ApigwVpcChannelV2#cce_config}
-        :param cse_config: cse_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#cse_config ApigwVpcChannelV2#cse_config}
+        :param cce_config: cce_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#cce_config ApigwVpcChannelV2#cce_config}
+        :param cse_config: cse_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#cse_config ApigwVpcChannelV2#cse_config}
         '''
         value = ApigwVpcChannelV2Microservice(
             cce_config=cce_config, cse_config=cse_config
@@ -507,17 +507,17 @@ class ApigwVpcChannelV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#gateway_id ApigwVpcChannelV2#gateway_id}.
-        :param lb_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#lb_algorithm ApigwVpcChannelV2#lb_algorithm}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.
-        :param health_check: health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#health_check ApigwVpcChannelV2#health_check}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#id ApigwVpcChannelV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param member: member block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#member ApigwVpcChannelV2#member}
-        :param member_group: member_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#member_group ApigwVpcChannelV2#member_group}
-        :param member_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#member_type ApigwVpcChannelV2#member_type}.
-        :param microservice: microservice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#microservice ApigwVpcChannelV2#microservice}
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#type ApigwVpcChannelV2#type}.
+        :param gateway_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#gateway_id ApigwVpcChannelV2#gateway_id}.
+        :param lb_algorithm: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#lb_algorithm ApigwVpcChannelV2#lb_algorithm}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.
+        :param health_check: health_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#health_check ApigwVpcChannelV2#health_check}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#id ApigwVpcChannelV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param member: member block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#member ApigwVpcChannelV2#member}
+        :param member_group: member_group block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#member_group ApigwVpcChannelV2#member_group}
+        :param member_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#member_type ApigwVpcChannelV2#member_type}.
+        :param microservice: microservice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#microservice ApigwVpcChannelV2#microservice}
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#type ApigwVpcChannelV2#type}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -646,28 +646,28 @@ class ApigwVpcChannelV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def gateway_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#gateway_id ApigwVpcChannelV2#gateway_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#gateway_id ApigwVpcChannelV2#gateway_id}.'''
         result = self._values.get("gateway_id")
         assert result is not None, "Required property 'gateway_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def lb_algorithm(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#lb_algorithm ApigwVpcChannelV2#lb_algorithm}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#lb_algorithm ApigwVpcChannelV2#lb_algorithm}.'''
         result = self._values.get("lb_algorithm")
         assert result is not None, "Required property 'lb_algorithm' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
@@ -676,14 +676,14 @@ class ApigwVpcChannelV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def health_check(self) -> typing.Optional["ApigwVpcChannelV2HealthCheck"]:
         '''health_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#health_check ApigwVpcChannelV2#health_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#health_check ApigwVpcChannelV2#health_check}
         '''
         result = self._values.get("health_check")
         return typing.cast(typing.Optional["ApigwVpcChannelV2HealthCheck"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#id ApigwVpcChannelV2#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#id ApigwVpcChannelV2#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -697,7 +697,7 @@ class ApigwVpcChannelV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigwVpcChannelV2Member"]]]:
         '''member block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#member ApigwVpcChannelV2#member}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#member ApigwVpcChannelV2#member}
         '''
         result = self._values.get("member")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigwVpcChannelV2Member"]]], result)
@@ -708,14 +708,14 @@ class ApigwVpcChannelV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigwVpcChannelV2MemberGroup"]]]:
         '''member_group block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#member_group ApigwVpcChannelV2#member_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#member_group ApigwVpcChannelV2#member_group}
         '''
         result = self._values.get("member_group")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigwVpcChannelV2MemberGroup"]]], result)
 
     @builtins.property
     def member_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#member_type ApigwVpcChannelV2#member_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#member_type ApigwVpcChannelV2#member_type}.'''
         result = self._values.get("member_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -723,14 +723,14 @@ class ApigwVpcChannelV2Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def microservice(self) -> typing.Optional["ApigwVpcChannelV2Microservice"]:
         '''microservice block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#microservice ApigwVpcChannelV2#microservice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#microservice ApigwVpcChannelV2#microservice}
         '''
         result = self._values.get("microservice")
         return typing.cast(typing.Optional["ApigwVpcChannelV2Microservice"], result)
 
     @builtins.property
     def type(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#type ApigwVpcChannelV2#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#type ApigwVpcChannelV2#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -780,17 +780,17 @@ class ApigwVpcChannelV2HealthCheck:
         status: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#interval ApigwVpcChannelV2#interval}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#protocol ApigwVpcChannelV2#protocol}.
-        :param threshold_abnormal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#threshold_abnormal ApigwVpcChannelV2#threshold_abnormal}.
-        :param threshold_normal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#threshold_normal ApigwVpcChannelV2#threshold_normal}.
-        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#timeout ApigwVpcChannelV2#timeout}.
-        :param enable_client_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#enable_client_ssl ApigwVpcChannelV2#enable_client_ssl}.
-        :param http_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#http_codes ApigwVpcChannelV2#http_codes}.
-        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#method ApigwVpcChannelV2#method}.
-        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#path ApigwVpcChannelV2#path}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#status ApigwVpcChannelV2#status}.
+        :param interval: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#interval ApigwVpcChannelV2#interval}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#protocol ApigwVpcChannelV2#protocol}.
+        :param threshold_abnormal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#threshold_abnormal ApigwVpcChannelV2#threshold_abnormal}.
+        :param threshold_normal: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#threshold_normal ApigwVpcChannelV2#threshold_normal}.
+        :param timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#timeout ApigwVpcChannelV2#timeout}.
+        :param enable_client_ssl: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#enable_client_ssl ApigwVpcChannelV2#enable_client_ssl}.
+        :param http_codes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#http_codes ApigwVpcChannelV2#http_codes}.
+        :param method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#method ApigwVpcChannelV2#method}.
+        :param path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#path ApigwVpcChannelV2#path}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#status ApigwVpcChannelV2#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__261c3de2a33117f4dc245e14d2da0d4833887b3b86da06b93fade2f29b0b1467)
@@ -827,35 +827,35 @@ class ApigwVpcChannelV2HealthCheck:
 
     @builtins.property
     def interval(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#interval ApigwVpcChannelV2#interval}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#interval ApigwVpcChannelV2#interval}.'''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#protocol ApigwVpcChannelV2#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#protocol ApigwVpcChannelV2#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def threshold_abnormal(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#threshold_abnormal ApigwVpcChannelV2#threshold_abnormal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#threshold_abnormal ApigwVpcChannelV2#threshold_abnormal}.'''
         result = self._values.get("threshold_abnormal")
         assert result is not None, "Required property 'threshold_abnormal' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def threshold_normal(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#threshold_normal ApigwVpcChannelV2#threshold_normal}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#threshold_normal ApigwVpcChannelV2#threshold_normal}.'''
         result = self._values.get("threshold_normal")
         assert result is not None, "Required property 'threshold_normal' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def timeout(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#timeout ApigwVpcChannelV2#timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#timeout ApigwVpcChannelV2#timeout}.'''
         result = self._values.get("timeout")
         assert result is not None, "Required property 'timeout' is missing"
         return typing.cast(jsii.Number, result)
@@ -864,37 +864,37 @@ class ApigwVpcChannelV2HealthCheck:
     def enable_client_ssl(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#enable_client_ssl ApigwVpcChannelV2#enable_client_ssl}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#enable_client_ssl ApigwVpcChannelV2#enable_client_ssl}.'''
         result = self._values.get("enable_client_ssl")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def http_codes(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#http_codes ApigwVpcChannelV2#http_codes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#http_codes ApigwVpcChannelV2#http_codes}.'''
         result = self._values.get("http_codes")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def method(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#method ApigwVpcChannelV2#method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#method ApigwVpcChannelV2#method}.'''
         result = self._values.get("method")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#path ApigwVpcChannelV2#path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#path ApigwVpcChannelV2#path}.'''
         result = self._values.get("path")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def status(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#status ApigwVpcChannelV2#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#status ApigwVpcChannelV2#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1192,14 +1192,14 @@ class ApigwVpcChannelV2Member:
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#group_name ApigwVpcChannelV2#group_name}.
-        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#host ApigwVpcChannelV2#host}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#id ApigwVpcChannelV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param is_backup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#is_backup ApigwVpcChannelV2#is_backup}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#status ApigwVpcChannelV2#status}.
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#weight ApigwVpcChannelV2#weight}.
+        :param group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#group_name ApigwVpcChannelV2#group_name}.
+        :param host: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#host ApigwVpcChannelV2#host}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#id ApigwVpcChannelV2#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param is_backup: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#is_backup ApigwVpcChannelV2#is_backup}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#status ApigwVpcChannelV2#status}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#weight ApigwVpcChannelV2#weight}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1ff7c6ee88f01776a0440ecc73f24be222d4eba7a2ac0f05cc88233e7511e3d)
@@ -1231,19 +1231,19 @@ class ApigwVpcChannelV2Member:
 
     @builtins.property
     def group_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#group_name ApigwVpcChannelV2#group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#group_name ApigwVpcChannelV2#group_name}.'''
         result = self._values.get("group_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def host(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#host ApigwVpcChannelV2#host}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#host ApigwVpcChannelV2#host}.'''
         result = self._values.get("host")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#id ApigwVpcChannelV2#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#id ApigwVpcChannelV2#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1255,31 +1255,31 @@ class ApigwVpcChannelV2Member:
     def is_backup(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#is_backup ApigwVpcChannelV2#is_backup}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#is_backup ApigwVpcChannelV2#is_backup}.'''
         result = self._values.get("is_backup")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#port ApigwVpcChannelV2#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def status(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#status ApigwVpcChannelV2#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#status ApigwVpcChannelV2#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#weight ApigwVpcChannelV2#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#weight ApigwVpcChannelV2#weight}.'''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1319,12 +1319,12 @@ class ApigwVpcChannelV2MemberGroup:
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#description ApigwVpcChannelV2#description}.
-        :param microservice_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#microservice_port ApigwVpcChannelV2#microservice_port}.
-        :param microservice_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#microservice_tags ApigwVpcChannelV2#microservice_tags}.
-        :param microservice_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#microservice_version ApigwVpcChannelV2#microservice_version}.
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#weight ApigwVpcChannelV2#weight}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#description ApigwVpcChannelV2#description}.
+        :param microservice_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#microservice_port ApigwVpcChannelV2#microservice_port}.
+        :param microservice_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#microservice_tags ApigwVpcChannelV2#microservice_tags}.
+        :param microservice_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#microservice_version ApigwVpcChannelV2#microservice_version}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#weight ApigwVpcChannelV2#weight}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__164e8538e273469be7a0b7d9fb7df55c908647c4fb3da533c669861d19e3afeb)
@@ -1350,20 +1350,20 @@ class ApigwVpcChannelV2MemberGroup:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#name ApigwVpcChannelV2#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#description ApigwVpcChannelV2#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#description ApigwVpcChannelV2#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def microservice_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#microservice_port ApigwVpcChannelV2#microservice_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#microservice_port ApigwVpcChannelV2#microservice_port}.'''
         result = self._values.get("microservice_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1371,19 +1371,19 @@ class ApigwVpcChannelV2MemberGroup:
     def microservice_tags(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#microservice_tags ApigwVpcChannelV2#microservice_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#microservice_tags ApigwVpcChannelV2#microservice_tags}.'''
         result = self._values.get("microservice_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def microservice_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#microservice_version ApigwVpcChannelV2#microservice_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#microservice_version ApigwVpcChannelV2#microservice_version}.'''
         result = self._values.get("microservice_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#weight ApigwVpcChannelV2#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#weight ApigwVpcChannelV2#weight}.'''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1980,8 +1980,8 @@ class ApigwVpcChannelV2Microservice:
         cse_config: typing.Optional[typing.Union["ApigwVpcChannelV2MicroserviceCseConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param cce_config: cce_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#cce_config ApigwVpcChannelV2#cce_config}
-        :param cse_config: cse_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#cse_config ApigwVpcChannelV2#cse_config}
+        :param cce_config: cce_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#cce_config ApigwVpcChannelV2#cce_config}
+        :param cse_config: cse_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#cse_config ApigwVpcChannelV2#cse_config}
         '''
         if isinstance(cce_config, dict):
             cce_config = ApigwVpcChannelV2MicroserviceCceConfig(**cce_config)
@@ -2001,7 +2001,7 @@ class ApigwVpcChannelV2Microservice:
     def cce_config(self) -> typing.Optional["ApigwVpcChannelV2MicroserviceCceConfig"]:
         '''cce_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#cce_config ApigwVpcChannelV2#cce_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#cce_config ApigwVpcChannelV2#cce_config}
         '''
         result = self._values.get("cce_config")
         return typing.cast(typing.Optional["ApigwVpcChannelV2MicroserviceCceConfig"], result)
@@ -2010,7 +2010,7 @@ class ApigwVpcChannelV2Microservice:
     def cse_config(self) -> typing.Optional["ApigwVpcChannelV2MicroserviceCseConfig"]:
         '''cse_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#cse_config ApigwVpcChannelV2#cse_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#cse_config ApigwVpcChannelV2#cse_config}
         '''
         result = self._values.get("cse_config")
         return typing.cast(typing.Optional["ApigwVpcChannelV2MicroserviceCseConfig"], result)
@@ -2051,12 +2051,12 @@ class ApigwVpcChannelV2MicroserviceCceConfig:
         workload_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#cluster_id ApigwVpcChannelV2#cluster_id}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#namespace ApigwVpcChannelV2#namespace}.
-        :param workload_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#workload_type ApigwVpcChannelV2#workload_type}.
-        :param label_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#label_key ApigwVpcChannelV2#label_key}.
-        :param label_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#label_value ApigwVpcChannelV2#label_value}.
-        :param workload_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#workload_name ApigwVpcChannelV2#workload_name}.
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#cluster_id ApigwVpcChannelV2#cluster_id}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#namespace ApigwVpcChannelV2#namespace}.
+        :param workload_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#workload_type ApigwVpcChannelV2#workload_type}.
+        :param label_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#label_key ApigwVpcChannelV2#label_key}.
+        :param label_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#label_value ApigwVpcChannelV2#label_value}.
+        :param workload_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#workload_name ApigwVpcChannelV2#workload_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c6ed27369f28496e85e8062caf711fae4899eb21ff60ea04266e1dac69b8c9a5)
@@ -2080,40 +2080,40 @@ class ApigwVpcChannelV2MicroserviceCceConfig:
 
     @builtins.property
     def cluster_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#cluster_id ApigwVpcChannelV2#cluster_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#cluster_id ApigwVpcChannelV2#cluster_id}.'''
         result = self._values.get("cluster_id")
         assert result is not None, "Required property 'cluster_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def namespace(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#namespace ApigwVpcChannelV2#namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#namespace ApigwVpcChannelV2#namespace}.'''
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def workload_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#workload_type ApigwVpcChannelV2#workload_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#workload_type ApigwVpcChannelV2#workload_type}.'''
         result = self._values.get("workload_type")
         assert result is not None, "Required property 'workload_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def label_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#label_key ApigwVpcChannelV2#label_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#label_key ApigwVpcChannelV2#label_key}.'''
         result = self._values.get("label_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def label_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#label_value ApigwVpcChannelV2#label_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#label_value ApigwVpcChannelV2#label_value}.'''
         result = self._values.get("label_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def workload_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#workload_name ApigwVpcChannelV2#workload_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#workload_name ApigwVpcChannelV2#workload_name}.'''
         result = self._values.get("workload_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2287,8 +2287,8 @@ class ApigwVpcChannelV2MicroserviceCceConfigOutputReference(
 class ApigwVpcChannelV2MicroserviceCseConfig:
     def __init__(self, *, engine_id: builtins.str, service_id: builtins.str) -> None:
         '''
-        :param engine_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#engine_id ApigwVpcChannelV2#engine_id}.
-        :param service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#service_id ApigwVpcChannelV2#service_id}.
+        :param engine_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#engine_id ApigwVpcChannelV2#engine_id}.
+        :param service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#service_id ApigwVpcChannelV2#service_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c83766045212722da5af7a6bda24ce826ae5bf6144d56f5e8bb38b9688833d82)
@@ -2301,14 +2301,14 @@ class ApigwVpcChannelV2MicroserviceCseConfig:
 
     @builtins.property
     def engine_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#engine_id ApigwVpcChannelV2#engine_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#engine_id ApigwVpcChannelV2#engine_id}.'''
         result = self._values.get("engine_id")
         assert result is not None, "Required property 'engine_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#service_id ApigwVpcChannelV2#service_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#service_id ApigwVpcChannelV2#service_id}.'''
         result = self._values.get("service_id")
         assert result is not None, "Required property 'service_id' is missing"
         return typing.cast(builtins.str, result)
@@ -2427,12 +2427,12 @@ class ApigwVpcChannelV2MicroserviceOutputReference(
         workload_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#cluster_id ApigwVpcChannelV2#cluster_id}.
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#namespace ApigwVpcChannelV2#namespace}.
-        :param workload_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#workload_type ApigwVpcChannelV2#workload_type}.
-        :param label_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#label_key ApigwVpcChannelV2#label_key}.
-        :param label_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#label_value ApigwVpcChannelV2#label_value}.
-        :param workload_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#workload_name ApigwVpcChannelV2#workload_name}.
+        :param cluster_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#cluster_id ApigwVpcChannelV2#cluster_id}.
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#namespace ApigwVpcChannelV2#namespace}.
+        :param workload_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#workload_type ApigwVpcChannelV2#workload_type}.
+        :param label_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#label_key ApigwVpcChannelV2#label_key}.
+        :param label_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#label_value ApigwVpcChannelV2#label_value}.
+        :param workload_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#workload_name ApigwVpcChannelV2#workload_name}.
         '''
         value = ApigwVpcChannelV2MicroserviceCceConfig(
             cluster_id=cluster_id,
@@ -2453,8 +2453,8 @@ class ApigwVpcChannelV2MicroserviceOutputReference(
         service_id: builtins.str,
     ) -> None:
         '''
-        :param engine_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#engine_id ApigwVpcChannelV2#engine_id}.
-        :param service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/apigw_vpc_channel_v2#service_id ApigwVpcChannelV2#service_id}.
+        :param engine_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#engine_id ApigwVpcChannelV2#engine_id}.
+        :param service_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/apigw_vpc_channel_v2#service_id ApigwVpcChannelV2#service_id}.
         '''
         value = ApigwVpcChannelV2MicroserviceCseConfig(
             engine_id=engine_id, service_id=service_id

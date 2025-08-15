@@ -1,8 +1,6 @@
 from orionis.container.providers.service_provider import ServiceProvider
 from orionis.test.contracts.unit_test import IUnitTest
 from orionis.test.core.unit_test import UnitTest
-from orionis.foundation.config.testing.entities.testing import Testing
-import os
 
 class TestingProvider(ServiceProvider):
     """
@@ -39,87 +37,41 @@ class TestingProvider(ServiceProvider):
 
     def register(self) -> None:
         """
-        Register the unit testing service in the application container.
+        Register and configure the unit testing service in the application container.
 
-        This method creates and configures a UnitTest instance using the application's
-        testing configuration, discovers test files based on specified patterns and paths,
-        and registers the configured testing service as a singleton in the dependency
-        injection container with the IUnitTest interface binding.
+        This method loads the testing configuration from the application, instantiates
+        and configures a UnitTest service, and registers it as a singleton in the
+        dependency injection container. The service is bound to the IUnitTest interface
+        and is accessible via the alias "x-orionis.test.core.unit_test".
 
         The registration process includes:
-        - Loading testing configuration from the application config
-        - Creating and configuring a UnitTest instance with various settings
-        - Discovering test files based on configuration parameters
-        - Binding the service to the container with alias "x-orionis.test.core.unit_test"
+            - Retrieving testing configuration from the application settings.
+            - Instantiating the UnitTest service with the appropriate configuration.
+            - Registering the UnitTest service as a singleton in the container.
+            - Binding the service to the IUnitTest interface and alias.
 
         Returns
         -------
         None
             This method does not return any value. It performs side effects by
-            registering the testing service in the application container.
+            registering and binding the testing service in the application container.
         """
 
-        # Load testing configuration from application config and create Testing instance
-        config = Testing(**self.app.config('testing'))
-
-        # Instantiate the UnitTest implementation with application reference
-        unit_test = UnitTest(
-            app=self.app
-        )
-
-        # Apply configuration settings to the UnitTest instance
-        unit_test.configure(
-            verbosity=config.verbosity,                 # Set output verbosity level
-            execution_mode=config.execution_mode,       # Configure test execution mode
-            max_workers=config.max_workers,             # Set maximum worker threads for parallel execution
-            fail_fast=config.fail_fast,                 # Enable/disable fail-fast behavior
-            print_result=config.print_result,           # Control result output printing
-            throw_exception=config.throw_exception,     # Configure exception throwing behavior
-            persistent=config.persistent,               # Enable/disable persistent test results
-            persistent_driver=config.persistent_driver, # Set persistent storage driver
-            web_report=config.web_report                # Enable/disable web-based reporting
-        )
-
-        # Discover and load test files based on configuration criteria
-        unit_test.discoverTests(
-            base_path=config.base_path,                 # Root directory for test discovery
-            folder_path=config.folder_path,             # Specific folder path within base_path
-            pattern=config.pattern,                     # File name pattern for test files
-            test_name_pattern=config.test_name_pattern, # Pattern for test method names
-            tags=config.tags                            # Tags to filter tests during discovery
-        )
-
-        # Register the configured UnitTest instance in the DI container
-        # Binds IUnitTest interface to the UnitTest implementation as a singleton
-        self.app.instance(IUnitTest, unit_test, alias="x-orionis.test.core.unit_test")
+        # Register the UnitTest service as a singleton in the application container.
+        # The service is bound to the IUnitTest interface and can be resolved using the alias.
+        self.app.singleton(IUnitTest, UnitTest, alias="x-orionis.test.core.unit_test")
 
     def boot(self) -> None:
         """
-        Perform post-registration initialization for the testing provider.
+        Finalize initialization for the testing provider after service registration.
 
-        This method is called after the service registration phase to handle any
-        additional setup required for the testing environment. It ensures that
-        the necessary storage directories for testing operations are created
-        and available before test execution begins.
-
-        The boot process includes:
-        - Creating the testing storage directory if it doesn't exist
-        - Setting appropriate permissions for the storage path
-        - Preparing the filesystem structure for test artifacts
+        This method is called after the registration phase to allow for any additional
+        setup required for the testing environment. In this implementation, no further
+        actions are performed during the boot phase.
 
         Returns
         -------
         None
-            This method does not return any value. It performs initialization
-            side effects by creating required directories in the filesystem.
+            This method does not return any value.
         """
-
-        # Retrieve the configured storage path for testing artifacts and temporary files
-        storage_path = self.app.path('storage_testing')
-
-        # Check if the testing storage directory exists in the filesystem
-        if not os.path.exists(storage_path):
-
-            # Create the directory structure recursively, including parent directories
-            # exist_ok=True prevents errors if directory is created by another process
-            os.makedirs(storage_path, exist_ok=True)
+        pass

@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_as_group_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_as_group_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_as_group_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AsGroupV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.asGroupV1.AsGroupV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1 opentelekomcloud_as_group_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1 opentelekomcloud_as_group_v1}.'''
 
     def __init__(
         self,
@@ -82,33 +82,33 @@ class AsGroupV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1 opentelekomcloud_as_group_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1 opentelekomcloud_as_group_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param delete_instances: Whether to delete instances when they are removed from the AS group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#delete_instances AsGroupV1#delete_instances}
-        :param delete_publicip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#delete_publicip AsGroupV1#delete_publicip}.
-        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#networks AsGroupV1#networks}
-        :param scaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#scaling_group_name AsGroupV1#scaling_group_name}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#vpc_id AsGroupV1#vpc_id}.
-        :param available_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#available_zones AsGroupV1#available_zones}.
-        :param cool_down_time: The cooling duration, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#cool_down_time AsGroupV1#cool_down_time}
-        :param desire_instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#desire_instance_number AsGroupV1#desire_instance_number}.
-        :param health_periodic_audit_grace_period: The grace period for instance health check, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#health_periodic_audit_grace_period AsGroupV1#health_periodic_audit_grace_period}
-        :param health_periodic_audit_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#health_periodic_audit_method AsGroupV1#health_periodic_audit_method}.
-        :param health_periodic_audit_time: The health check period for instances, in minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#health_periodic_audit_time AsGroupV1#health_periodic_audit_time}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#id AsGroupV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_terminate_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#instance_terminate_policy AsGroupV1#instance_terminate_policy}.
-        :param lbaas_listeners: lbaas_listeners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#lbaas_listeners AsGroupV1#lbaas_listeners}
-        :param lb_listener_id: The system supports the binding of up to six classic LB listeners, the IDs of which are separated using a comma. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#lb_listener_id AsGroupV1#lb_listener_id}
-        :param max_instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#max_instance_number AsGroupV1#max_instance_number}.
-        :param min_instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#min_instance_number AsGroupV1#min_instance_number}.
-        :param notifications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#notifications AsGroupV1#notifications}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#region AsGroupV1#region}.
-        :param scaling_configuration_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#scaling_configuration_id AsGroupV1#scaling_configuration_id}.
-        :param security_groups: security_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#security_groups AsGroupV1#security_groups}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#tags AsGroupV1#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#timeouts AsGroupV1#timeouts}
+        :param delete_instances: Whether to delete instances when they are removed from the AS group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#delete_instances AsGroupV1#delete_instances}
+        :param delete_publicip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#delete_publicip AsGroupV1#delete_publicip}.
+        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#networks AsGroupV1#networks}
+        :param scaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#scaling_group_name AsGroupV1#scaling_group_name}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#vpc_id AsGroupV1#vpc_id}.
+        :param available_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#available_zones AsGroupV1#available_zones}.
+        :param cool_down_time: The cooling duration, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#cool_down_time AsGroupV1#cool_down_time}
+        :param desire_instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#desire_instance_number AsGroupV1#desire_instance_number}.
+        :param health_periodic_audit_grace_period: The grace period for instance health check, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#health_periodic_audit_grace_period AsGroupV1#health_periodic_audit_grace_period}
+        :param health_periodic_audit_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#health_periodic_audit_method AsGroupV1#health_periodic_audit_method}.
+        :param health_periodic_audit_time: The health check period for instances, in minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#health_periodic_audit_time AsGroupV1#health_periodic_audit_time}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#id AsGroupV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_terminate_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#instance_terminate_policy AsGroupV1#instance_terminate_policy}.
+        :param lbaas_listeners: lbaas_listeners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#lbaas_listeners AsGroupV1#lbaas_listeners}
+        :param lb_listener_id: The system supports the binding of up to six classic LB listeners, the IDs of which are separated using a comma. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#lb_listener_id AsGroupV1#lb_listener_id}
+        :param max_instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#max_instance_number AsGroupV1#max_instance_number}.
+        :param min_instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#min_instance_number AsGroupV1#min_instance_number}.
+        :param notifications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#notifications AsGroupV1#notifications}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#region AsGroupV1#region}.
+        :param scaling_configuration_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#scaling_configuration_id AsGroupV1#scaling_configuration_id}.
+        :param security_groups: security_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#security_groups AsGroupV1#security_groups}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#tags AsGroupV1#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#timeouts AsGroupV1#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -169,7 +169,7 @@ class AsGroupV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AsGroupV1 to import.
-        :param import_from_id: The id of the existing AsGroupV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AsGroupV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AsGroupV1 to import is found.
         '''
         if __debug__:
@@ -209,7 +209,7 @@ class AsGroupV1(
     @jsii.member(jsii_name="putSecurityGroups")
     def put_security_groups(self, *, id: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#id AsGroupV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#id AsGroupV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         value = AsGroupV1SecurityGroups(id=id)
 
@@ -223,8 +223,8 @@ class AsGroupV1(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#create AsGroupV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#delete AsGroupV1#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#create AsGroupV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#delete AsGroupV1#delete}.
         '''
         value = AsGroupV1Timeouts(create=create, delete=delete)
 
@@ -786,29 +786,29 @@ class AsGroupV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param delete_instances: Whether to delete instances when they are removed from the AS group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#delete_instances AsGroupV1#delete_instances}
-        :param delete_publicip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#delete_publicip AsGroupV1#delete_publicip}.
-        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#networks AsGroupV1#networks}
-        :param scaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#scaling_group_name AsGroupV1#scaling_group_name}.
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#vpc_id AsGroupV1#vpc_id}.
-        :param available_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#available_zones AsGroupV1#available_zones}.
-        :param cool_down_time: The cooling duration, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#cool_down_time AsGroupV1#cool_down_time}
-        :param desire_instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#desire_instance_number AsGroupV1#desire_instance_number}.
-        :param health_periodic_audit_grace_period: The grace period for instance health check, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#health_periodic_audit_grace_period AsGroupV1#health_periodic_audit_grace_period}
-        :param health_periodic_audit_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#health_periodic_audit_method AsGroupV1#health_periodic_audit_method}.
-        :param health_periodic_audit_time: The health check period for instances, in minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#health_periodic_audit_time AsGroupV1#health_periodic_audit_time}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#id AsGroupV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_terminate_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#instance_terminate_policy AsGroupV1#instance_terminate_policy}.
-        :param lbaas_listeners: lbaas_listeners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#lbaas_listeners AsGroupV1#lbaas_listeners}
-        :param lb_listener_id: The system supports the binding of up to six classic LB listeners, the IDs of which are separated using a comma. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#lb_listener_id AsGroupV1#lb_listener_id}
-        :param max_instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#max_instance_number AsGroupV1#max_instance_number}.
-        :param min_instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#min_instance_number AsGroupV1#min_instance_number}.
-        :param notifications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#notifications AsGroupV1#notifications}.
-        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#region AsGroupV1#region}.
-        :param scaling_configuration_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#scaling_configuration_id AsGroupV1#scaling_configuration_id}.
-        :param security_groups: security_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#security_groups AsGroupV1#security_groups}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#tags AsGroupV1#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#timeouts AsGroupV1#timeouts}
+        :param delete_instances: Whether to delete instances when they are removed from the AS group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#delete_instances AsGroupV1#delete_instances}
+        :param delete_publicip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#delete_publicip AsGroupV1#delete_publicip}.
+        :param networks: networks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#networks AsGroupV1#networks}
+        :param scaling_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#scaling_group_name AsGroupV1#scaling_group_name}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#vpc_id AsGroupV1#vpc_id}.
+        :param available_zones: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#available_zones AsGroupV1#available_zones}.
+        :param cool_down_time: The cooling duration, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#cool_down_time AsGroupV1#cool_down_time}
+        :param desire_instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#desire_instance_number AsGroupV1#desire_instance_number}.
+        :param health_periodic_audit_grace_period: The grace period for instance health check, in seconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#health_periodic_audit_grace_period AsGroupV1#health_periodic_audit_grace_period}
+        :param health_periodic_audit_method: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#health_periodic_audit_method AsGroupV1#health_periodic_audit_method}.
+        :param health_periodic_audit_time: The health check period for instances, in minutes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#health_periodic_audit_time AsGroupV1#health_periodic_audit_time}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#id AsGroupV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_terminate_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#instance_terminate_policy AsGroupV1#instance_terminate_policy}.
+        :param lbaas_listeners: lbaas_listeners block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#lbaas_listeners AsGroupV1#lbaas_listeners}
+        :param lb_listener_id: The system supports the binding of up to six classic LB listeners, the IDs of which are separated using a comma. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#lb_listener_id AsGroupV1#lb_listener_id}
+        :param max_instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#max_instance_number AsGroupV1#max_instance_number}.
+        :param min_instance_number: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#min_instance_number AsGroupV1#min_instance_number}.
+        :param notifications: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#notifications AsGroupV1#notifications}.
+        :param region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#region AsGroupV1#region}.
+        :param scaling_configuration_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#scaling_configuration_id AsGroupV1#scaling_configuration_id}.
+        :param security_groups: security_groups block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#security_groups AsGroupV1#security_groups}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#tags AsGroupV1#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#timeouts AsGroupV1#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -974,7 +974,7 @@ class AsGroupV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def delete_instances(self) -> builtins.str:
         '''Whether to delete instances when they are removed from the AS group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#delete_instances AsGroupV1#delete_instances}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#delete_instances AsGroupV1#delete_instances}
         '''
         result = self._values.get("delete_instances")
         assert result is not None, "Required property 'delete_instances' is missing"
@@ -984,7 +984,7 @@ class AsGroupV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def delete_publicip(
         self,
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#delete_publicip AsGroupV1#delete_publicip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#delete_publicip AsGroupV1#delete_publicip}.'''
         result = self._values.get("delete_publicip")
         assert result is not None, "Required property 'delete_publicip' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -995,7 +995,7 @@ class AsGroupV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AsGroupV1Networks"]]:
         '''networks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#networks AsGroupV1#networks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#networks AsGroupV1#networks}
         '''
         result = self._values.get("networks")
         assert result is not None, "Required property 'networks' is missing"
@@ -1003,21 +1003,21 @@ class AsGroupV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def scaling_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#scaling_group_name AsGroupV1#scaling_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#scaling_group_name AsGroupV1#scaling_group_name}.'''
         result = self._values.get("scaling_group_name")
         assert result is not None, "Required property 'scaling_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#vpc_id AsGroupV1#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#vpc_id AsGroupV1#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def available_zones(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#available_zones AsGroupV1#available_zones}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#available_zones AsGroupV1#available_zones}.'''
         result = self._values.get("available_zones")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1025,14 +1025,14 @@ class AsGroupV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def cool_down_time(self) -> typing.Optional[jsii.Number]:
         '''The cooling duration, in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#cool_down_time AsGroupV1#cool_down_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#cool_down_time AsGroupV1#cool_down_time}
         '''
         result = self._values.get("cool_down_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def desire_instance_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#desire_instance_number AsGroupV1#desire_instance_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#desire_instance_number AsGroupV1#desire_instance_number}.'''
         result = self._values.get("desire_instance_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1040,14 +1040,14 @@ class AsGroupV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def health_periodic_audit_grace_period(self) -> typing.Optional[jsii.Number]:
         '''The grace period for instance health check, in seconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#health_periodic_audit_grace_period AsGroupV1#health_periodic_audit_grace_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#health_periodic_audit_grace_period AsGroupV1#health_periodic_audit_grace_period}
         '''
         result = self._values.get("health_periodic_audit_grace_period")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def health_periodic_audit_method(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#health_periodic_audit_method AsGroupV1#health_periodic_audit_method}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#health_periodic_audit_method AsGroupV1#health_periodic_audit_method}.'''
         result = self._values.get("health_periodic_audit_method")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1055,14 +1055,14 @@ class AsGroupV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def health_periodic_audit_time(self) -> typing.Optional[jsii.Number]:
         '''The health check period for instances, in minutes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#health_periodic_audit_time AsGroupV1#health_periodic_audit_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#health_periodic_audit_time AsGroupV1#health_periodic_audit_time}
         '''
         result = self._values.get("health_periodic_audit_time")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#id AsGroupV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#id AsGroupV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1072,7 +1072,7 @@ class AsGroupV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_terminate_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#instance_terminate_policy AsGroupV1#instance_terminate_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#instance_terminate_policy AsGroupV1#instance_terminate_policy}.'''
         result = self._values.get("instance_terminate_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1082,7 +1082,7 @@ class AsGroupV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AsGroupV1LbaasListeners"]]]:
         '''lbaas_listeners block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#lbaas_listeners AsGroupV1#lbaas_listeners}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#lbaas_listeners AsGroupV1#lbaas_listeners}
         '''
         result = self._values.get("lbaas_listeners")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AsGroupV1LbaasListeners"]]], result)
@@ -1091,38 +1091,38 @@ class AsGroupV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def lb_listener_id(self) -> typing.Optional[builtins.str]:
         '''The system supports the binding of up to six classic LB listeners, the IDs of which are separated using a comma.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#lb_listener_id AsGroupV1#lb_listener_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#lb_listener_id AsGroupV1#lb_listener_id}
         '''
         result = self._values.get("lb_listener_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_instance_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#max_instance_number AsGroupV1#max_instance_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#max_instance_number AsGroupV1#max_instance_number}.'''
         result = self._values.get("max_instance_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_instance_number(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#min_instance_number AsGroupV1#min_instance_number}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#min_instance_number AsGroupV1#min_instance_number}.'''
         result = self._values.get("min_instance_number")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def notifications(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#notifications AsGroupV1#notifications}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#notifications AsGroupV1#notifications}.'''
         result = self._values.get("notifications")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#region AsGroupV1#region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#region AsGroupV1#region}.'''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scaling_configuration_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#scaling_configuration_id AsGroupV1#scaling_configuration_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#scaling_configuration_id AsGroupV1#scaling_configuration_id}.'''
         result = self._values.get("scaling_configuration_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1130,14 +1130,14 @@ class AsGroupV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def security_groups(self) -> typing.Optional["AsGroupV1SecurityGroups"]:
         '''security_groups block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#security_groups AsGroupV1#security_groups}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#security_groups AsGroupV1#security_groups}
         '''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional["AsGroupV1SecurityGroups"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#tags AsGroupV1#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#tags AsGroupV1#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1145,7 +1145,7 @@ class AsGroupV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AsGroupV1Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#timeouts AsGroupV1#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#timeouts AsGroupV1#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AsGroupV1Timeouts"], result)
@@ -1180,9 +1180,9 @@ class AsGroupV1LbaasListeners:
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#pool_id AsGroupV1#pool_id}.
-        :param protocol_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#protocol_port AsGroupV1#protocol_port}.
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#weight AsGroupV1#weight}.
+        :param pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#pool_id AsGroupV1#pool_id}.
+        :param protocol_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#protocol_port AsGroupV1#protocol_port}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#weight AsGroupV1#weight}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e018b498bccb3aca388ea9af3d0cc03723653e6bfe95a114868828aa5e1f8be)
@@ -1198,21 +1198,21 @@ class AsGroupV1LbaasListeners:
 
     @builtins.property
     def pool_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#pool_id AsGroupV1#pool_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#pool_id AsGroupV1#pool_id}.'''
         result = self._values.get("pool_id")
         assert result is not None, "Required property 'pool_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#protocol_port AsGroupV1#protocol_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#protocol_port AsGroupV1#protocol_port}.'''
         result = self._values.get("protocol_port")
         assert result is not None, "Required property 'protocol_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#weight AsGroupV1#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#weight AsGroupV1#weight}.'''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1425,7 +1425,7 @@ class AsGroupV1LbaasListenersOutputReference(
 class AsGroupV1Networks:
     def __init__(self, *, id: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#id AsGroupV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#id AsGroupV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5287edbd5a3980ec6289e610e78912e9cfaf9ce62a7aacd350e116d14107726a)
@@ -1436,7 +1436,7 @@ class AsGroupV1Networks:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#id AsGroupV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#id AsGroupV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1616,7 +1616,7 @@ class AsGroupV1NetworksOutputReference(
 class AsGroupV1SecurityGroups:
     def __init__(self, *, id: builtins.str) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#id AsGroupV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#id AsGroupV1#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0c5d24a0cdf23932d2115f8597102a63e9cbdf4e59ed0c14c6ab5bc3cce819c)
@@ -1627,7 +1627,7 @@ class AsGroupV1SecurityGroups:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#id AsGroupV1#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#id AsGroupV1#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1711,8 +1711,8 @@ class AsGroupV1Timeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#create AsGroupV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#delete AsGroupV1#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#create AsGroupV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#delete AsGroupV1#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3b9fde9e5a1f42e2bd9a2f57c2400f6631ab34a005fd90ed0485f41001261f45)
@@ -1726,13 +1726,13 @@ class AsGroupV1Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#create AsGroupV1#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#create AsGroupV1#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/as_group_v1#delete AsGroupV1#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/as_group_v1#delete AsGroupV1#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

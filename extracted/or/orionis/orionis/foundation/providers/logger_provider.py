@@ -1,6 +1,6 @@
 from orionis.container.providers.service_provider import ServiceProvider
-from orionis.services.log.contracts.log_service import ILoggerService
-from orionis.services.log.log_service import LoggerService
+from orionis.services.log.contracts.log_service import ILogger
+from orionis.services.log.log_service import Logger
 
 class LoggerProvider(ServiceProvider):
     """
@@ -8,7 +8,7 @@ class LoggerProvider(ServiceProvider):
 
     The LoggerProvider is responsible for registering and configuring the logging
     service implementation in the application's dependency injection container.
-    It binds the concrete LoggerService to the ILoggerService interface, enabling
+    It binds the concrete Logger to the ILogger interface, enabling
     application-wide access to structured logging capabilities.
 
     This provider handles the initialization of the logging service with the
@@ -32,7 +32,7 @@ class LoggerProvider(ServiceProvider):
         """
         Register the logging service in the application container.
 
-        This method binds the `LoggerService` implementation to the `ILoggerService`
+        This method binds the `Logger` implementation to the `ILogger`
         contract within the application's dependency injection container. The service
         is initialized with the application's logging configuration and registered
         with a specific alias for internal framework identification.
@@ -50,15 +50,11 @@ class LoggerProvider(ServiceProvider):
         # Retrieve logging configuration from application config
         logging_config = self.app.config('logging')
 
-        # Create LoggerService instance with the retrieved configuration
-        logger_service = LoggerService(logging_config)
+        # Create Logger instance with the retrieved configuration
+        logger_service = Logger(logging_config)
 
         # Register the service instance in the container with interface binding and alias
-        self.app.instance(
-            ILoggerService,                             # Interface contract
-            logger_service,                             # Concrete implementation instance
-            alias="x-orionis.services.log.log_service"  # Internal framework alias
-        )
+        self.app.instance(ILogger, logger_service, alias="x-orionis.services.log.log_service")
 
     def boot(self) -> None:
         """

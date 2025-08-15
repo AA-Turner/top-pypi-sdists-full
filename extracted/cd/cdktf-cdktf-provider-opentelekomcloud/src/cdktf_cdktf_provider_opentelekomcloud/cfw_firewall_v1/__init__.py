@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_cfw_firewall_v1`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_cfw_firewall_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_cfw_firewall_v1`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CfwFirewallV1(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.cfwFirewallV1.CfwFirewallV1",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1 opentelekomcloud_cfw_firewall_v1}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1 opentelekomcloud_cfw_firewall_v1}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class CfwFirewallV1(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1 opentelekomcloud_cfw_firewall_v1} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1 opentelekomcloud_cfw_firewall_v1} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param charge_info: charge_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#charge_info CfwFirewallV1#charge_info}
-        :param flavor: flavor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#flavor CfwFirewallV1#flavor}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#name CfwFirewallV1#name}.
-        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#service_type CfwFirewallV1#service_type}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#timeouts CfwFirewallV1#timeouts}
+        :param charge_info: charge_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#charge_info CfwFirewallV1#charge_info}
+        :param flavor: flavor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#flavor CfwFirewallV1#flavor}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#name CfwFirewallV1#name}.
+        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#service_type CfwFirewallV1#service_type}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#timeouts CfwFirewallV1#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class CfwFirewallV1(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CfwFirewallV1 to import.
-        :param import_from_id: The id of the existing CfwFirewallV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CfwFirewallV1 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CfwFirewallV1 to import is found.
         '''
         if __debug__:
@@ -129,7 +129,7 @@ class CfwFirewallV1(
     @jsii.member(jsii_name="putChargeInfo")
     def put_charge_info(self, *, charge_mode: builtins.str) -> None:
         '''
-        :param charge_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#charge_mode CfwFirewallV1#charge_mode}.
+        :param charge_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#charge_mode CfwFirewallV1#charge_mode}.
         '''
         value = CfwFirewallV1ChargeInfo(charge_mode=charge_mode)
 
@@ -138,7 +138,7 @@ class CfwFirewallV1(
     @jsii.member(jsii_name="putFlavor")
     def put_flavor(self, *, version: builtins.str) -> None:
         '''
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#version CfwFirewallV1#version}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#version CfwFirewallV1#version}.
         '''
         value = CfwFirewallV1Flavor(version=version)
 
@@ -153,9 +153,9 @@ class CfwFirewallV1(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#create CfwFirewallV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#delete CfwFirewallV1#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#update CfwFirewallV1#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#create CfwFirewallV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#delete CfwFirewallV1#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#update CfwFirewallV1#update}.
         '''
         value = CfwFirewallV1Timeouts(create=create, delete=delete, update=update)
 
@@ -332,7 +332,7 @@ class CfwFirewallV1(
 class CfwFirewallV1ChargeInfo:
     def __init__(self, *, charge_mode: builtins.str) -> None:
         '''
-        :param charge_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#charge_mode CfwFirewallV1#charge_mode}.
+        :param charge_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#charge_mode CfwFirewallV1#charge_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3aaad460efbf57f412ea2e3d5d705adcbcd41da6eea8a8846812db014a7f858)
@@ -343,7 +343,7 @@ class CfwFirewallV1ChargeInfo:
 
     @builtins.property
     def charge_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#charge_mode CfwFirewallV1#charge_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#charge_mode CfwFirewallV1#charge_mode}.'''
         result = self._values.get("charge_mode")
         assert result is not None, "Required property 'charge_mode' is missing"
         return typing.cast(builtins.str, result)
@@ -453,11 +453,11 @@ class CfwFirewallV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param charge_info: charge_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#charge_info CfwFirewallV1#charge_info}
-        :param flavor: flavor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#flavor CfwFirewallV1#flavor}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#name CfwFirewallV1#name}.
-        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#service_type CfwFirewallV1#service_type}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#timeouts CfwFirewallV1#timeouts}
+        :param charge_info: charge_info block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#charge_info CfwFirewallV1#charge_info}
+        :param flavor: flavor block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#flavor CfwFirewallV1#flavor}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#name CfwFirewallV1#name}.
+        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#service_type CfwFirewallV1#service_type}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#timeouts CfwFirewallV1#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -573,7 +573,7 @@ class CfwFirewallV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def charge_info(self) -> CfwFirewallV1ChargeInfo:
         '''charge_info block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#charge_info CfwFirewallV1#charge_info}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#charge_info CfwFirewallV1#charge_info}
         '''
         result = self._values.get("charge_info")
         assert result is not None, "Required property 'charge_info' is missing"
@@ -583,7 +583,7 @@ class CfwFirewallV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def flavor(self) -> "CfwFirewallV1Flavor":
         '''flavor block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#flavor CfwFirewallV1#flavor}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#flavor CfwFirewallV1#flavor}
         '''
         result = self._values.get("flavor")
         assert result is not None, "Required property 'flavor' is missing"
@@ -591,14 +591,14 @@ class CfwFirewallV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#name CfwFirewallV1#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#name CfwFirewallV1#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#service_type CfwFirewallV1#service_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#service_type CfwFirewallV1#service_type}.'''
         result = self._values.get("service_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -606,7 +606,7 @@ class CfwFirewallV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["CfwFirewallV1Timeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#timeouts CfwFirewallV1#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#timeouts CfwFirewallV1#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["CfwFirewallV1Timeouts"], result)
@@ -631,7 +631,7 @@ class CfwFirewallV1Config(_cdktf_9a9027ec.TerraformMetaArguments):
 class CfwFirewallV1Flavor:
     def __init__(self, *, version: builtins.str) -> None:
         '''
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#version CfwFirewallV1#version}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#version CfwFirewallV1#version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8574ad196ceb0998c5b2f7988fd81e25bcf96194db2266111642089a8e1029c9)
@@ -642,7 +642,7 @@ class CfwFirewallV1Flavor:
 
     @builtins.property
     def version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#version CfwFirewallV1#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#version CfwFirewallV1#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
@@ -1082,9 +1082,9 @@ class CfwFirewallV1Timeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#create CfwFirewallV1#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#delete CfwFirewallV1#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#update CfwFirewallV1#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#create CfwFirewallV1#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#delete CfwFirewallV1#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#update CfwFirewallV1#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0056e01dc1209596e4caa3c7b0b01114c2975542d1bf9ad2ea998df4f070c89)
@@ -1101,19 +1101,19 @@ class CfwFirewallV1Timeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#create CfwFirewallV1#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#create CfwFirewallV1#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#delete CfwFirewallV1#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#delete CfwFirewallV1#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cfw_firewall_v1#update CfwFirewallV1#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cfw_firewall_v1#update CfwFirewallV1#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

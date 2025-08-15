@@ -8,8 +8,7 @@ from dspy.adapters.chat_adapter import ChatAdapter
 from dspy.adapters.types import History
 from dspy.evaluate import Evaluate
 from dspy.primitives import Example, Prediction
-
-from ..bootstrap_finetune import TraceData
+from dspy.teleprompt.bootstrap_finetune import TraceData
 
 
 class LoggerAdapter:
@@ -112,7 +111,6 @@ class DspyAdapter(GEPAAdapter[Example, TraceData, Prediction]):
                 metric=self.metric_fn,
                 num_threads=self.num_threads,
                 return_all_scores=True,
-                return_outputs=True,
                 failure_score=self.failure_score,
                 provide_traceback=True,
                 max_errors=len(batch) * 100

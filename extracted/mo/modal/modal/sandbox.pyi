@@ -59,7 +59,7 @@ class _Sandbox(modal._object._Object):
         image: modal.image._Image,
         secrets: collections.abc.Sequence[modal.secret._Secret],
         name: typing.Optional[str] = None,
-        timeout: typing.Optional[int] = None,
+        timeout: int = 300,
         workdir: typing.Optional[str] = None,
         gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
         cloud: typing.Optional[str] = None,
@@ -95,7 +95,7 @@ class _Sandbox(modal._object._Object):
         image: typing.Optional[modal.image._Image] = None,
         secrets: collections.abc.Sequence[modal.secret._Secret] = (),
         network_file_systems: dict[typing.Union[str, os.PathLike], modal.network_file_system._NetworkFileSystem] = {},
-        timeout: typing.Optional[int] = None,
+        timeout: int = 300,
         workdir: typing.Optional[str] = None,
         gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
         cloud: typing.Optional[str] = None,
@@ -120,8 +120,9 @@ class _Sandbox(modal._object._Object):
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
     ) -> _Sandbox:
-        """Create a new Sandbox to run untrusted, arbitrary code. The Sandbox's corresponding container
-        will be created asynchronously.
+        """Create a new Sandbox to run untrusted, arbitrary code.
+
+        The Sandbox's corresponding container will be created asynchronously.
 
         **Usage**
 
@@ -143,7 +144,7 @@ class _Sandbox(modal._object._Object):
         secrets: collections.abc.Sequence[modal.secret._Secret] = (),
         mounts: collections.abc.Sequence[modal.mount._Mount] = (),
         network_file_systems: dict[typing.Union[str, os.PathLike], modal.network_file_system._NetworkFileSystem] = {},
-        timeout: typing.Optional[int] = None,
+        timeout: int = 300,
         workdir: typing.Optional[str] = None,
         gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
         cloud: typing.Optional[str] = None,
@@ -368,7 +369,7 @@ class Sandbox(modal.object.Object):
         image: modal.image.Image,
         secrets: collections.abc.Sequence[modal.secret.Secret],
         name: typing.Optional[str] = None,
-        timeout: typing.Optional[int] = None,
+        timeout: int = 300,
         workdir: typing.Optional[str] = None,
         gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
         cloud: typing.Optional[str] = None,
@@ -407,7 +408,7 @@ class Sandbox(modal.object.Object):
             network_file_systems: dict[
                 typing.Union[str, os.PathLike], modal.network_file_system.NetworkFileSystem
             ] = {},
-            timeout: typing.Optional[int] = None,
+            timeout: int = 300,
             workdir: typing.Optional[str] = None,
             gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
             cloud: typing.Optional[str] = None,
@@ -432,8 +433,9 @@ class Sandbox(modal.object.Object):
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
         ) -> Sandbox:
-            """Create a new Sandbox to run untrusted, arbitrary code. The Sandbox's corresponding container
-            will be created asynchronously.
+            """Create a new Sandbox to run untrusted, arbitrary code.
+
+            The Sandbox's corresponding container will be created asynchronously.
 
             **Usage**
 
@@ -457,7 +459,7 @@ class Sandbox(modal.object.Object):
             network_file_systems: dict[
                 typing.Union[str, os.PathLike], modal.network_file_system.NetworkFileSystem
             ] = {},
-            timeout: typing.Optional[int] = None,
+            timeout: int = 300,
             workdir: typing.Optional[str] = None,
             gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
             cloud: typing.Optional[str] = None,
@@ -482,8 +484,9 @@ class Sandbox(modal.object.Object):
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
         ) -> Sandbox:
-            """Create a new Sandbox to run untrusted, arbitrary code. The Sandbox's corresponding container
-            will be created asynchronously.
+            """Create a new Sandbox to run untrusted, arbitrary code.
+
+            The Sandbox's corresponding container will be created asynchronously.
 
             **Usage**
 
@@ -511,7 +514,7 @@ class Sandbox(modal.object.Object):
             network_file_systems: dict[
                 typing.Union[str, os.PathLike], modal.network_file_system.NetworkFileSystem
             ] = {},
-            timeout: typing.Optional[int] = None,
+            timeout: int = 300,
             workdir: typing.Optional[str] = None,
             gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
             cloud: typing.Optional[str] = None,
@@ -547,7 +550,7 @@ class Sandbox(modal.object.Object):
             network_file_systems: dict[
                 typing.Union[str, os.PathLike], modal.network_file_system.NetworkFileSystem
             ] = {},
-            timeout: typing.Optional[int] = None,
+            timeout: int = 300,
             workdir: typing.Optional[str] = None,
             gpu: typing.Union[None, str, modal.gpu._GPUConfig] = None,
             cloud: typing.Optional[str] = None,

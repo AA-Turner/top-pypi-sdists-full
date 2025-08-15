@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trino
-Version: 0.335.0
+Version: 0.336.0
 Summary: Client for the Trino distributed SQL Engine
 Home-page: https://github.com/trinodb/trino-python-client
 Author: Trino Team
@@ -26,9 +26,10 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: lz4
+Requires-Dist: orjson>=3.11.0; platform_python_implementation != "PyPy"
 Requires-Dist: python-dateutil
 Requires-Dist: pytz
-Requires-Dist: requests>=2.31.0
+Requires-Dist: requests>=2.32.4
 Requires-Dist: tzlocal
 Requires-Dist: zstandard
 Provides-Extra: all

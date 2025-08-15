@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pymonetdb
-Version: 1.8.4
+Version: 1.8.5
 Summary: Native MonetDB client Python API
 Home-page: http://www.monetdb.org/
 Download-URL: https://github.com/MonetDB/pymonetdb

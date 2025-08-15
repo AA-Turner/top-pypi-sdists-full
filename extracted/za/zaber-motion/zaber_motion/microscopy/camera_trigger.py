@@ -31,8 +31,8 @@ class CameraTrigger:
         """
         Creates instance of `CameraTrigger` based on the given device and digital output channel.
         """
-        self._device = device
-        self._channel = channel
+        self._device: Device = device
+        self._channel: int = channel
 
     def trigger(
             self,

@@ -2,6 +2,8 @@ import asyncio
 import collections
 import contextlib
 import json
+import os
+import shutil
 import sys
 import tempfile
 from datetime import datetime
@@ -526,6 +528,7 @@ class CoreRunner:
         symbol_analysis: bool = False,
         fips_mode: bool = False,
         use_pro_naming_for_intrafile: bool = False,
+        group_taint_rules: bool = False,
     ):
         self._binary_path = engine_type.get_binary_path()
         self._jobs = jobs
@@ -544,6 +547,7 @@ class CoreRunner:
         self._symbol_analysis = symbol_analysis
         self._fips_mode = fips_mode
         self._use_pro_naming_for_intrafile = use_pro_naming_for_intrafile
+        self._group_taint_rules = group_taint_rules
 
     def _extract_core_output(
         self,
@@ -847,12 +851,28 @@ Could not find the semgrep-core executable. Your Semgrep install is likely corru
                         """
                     )
                 sys.exit(2)
+
+            # check if ddprof is in PATH, if the trace flag is set, and if DDPROF_OFF is not "1".
+            # if yes, then we wrap the call to semgrep with ddprof for SMS profiling.
+            ddprof = shutil.which("ddprof") and self._trace
+
+            ddprof_on = (
+                os.environ.get("DDPROF_ON") and os.environ.get("DDPROF_ON") != ""
+            )
+
+            if ddprof and not ddprof_on:
+                logger.warning(
+                    "DDPROF_ON is not set, so ddprof will not be used for SMS profiling."
+                )
+                ddprof = False
+
             cmd = [
                 # bugfix: self._binary_path is an Optional[Path]. The
                 # recommended way to convert a Path to a string is to use the
                 # str function. However, mypy allows the use of str to convert
                 # Optional values to strings. Make sure to check against None
                 # even though mypy won't warn you.
+                *(["ddprof"] if ddprof else []),
                 str(self._binary_path),
                 "-json",
             ]
@@ -956,6 +976,9 @@ Could not find the semgrep-core executable. Your Semgrep install is likely corru
             # scans. So let's only add it if that's the case.
             if self._symbol_analysis and engine.is_interfile:
                 cmd.append("-symbol_analysis")
+
+            if self._group_taint_rules:
+                cmd += ["-group_taint_rules"]
 
             # TODO: use exact same command-line arguments so just
             # need to replace the SemgrepCore.path() part.
@@ -1198,12 +1221,17 @@ Exception raised: `{e}`
             output_extra,
         )
 
-    def validate_configs(self, configs: Tuple[str, ...]) -> Sequence[SemgrepError]:
+    def validate_configs(
+        self, configs: Tuple[str, ...], no_python_schema_validation: bool = False
+    ) -> Sequence[SemgrepError]:
         if self._binary_path is None:  # should never happen, doing this for mypy
             raise SemgrepError("semgrep engine not found.")
 
         metachecks = Config.from_config_list(
-            ["p/semgrep-rule-lints"], None, force_jsonschema=True
+            ["p/semgrep-rule-lints"],
+            None,
+            force_jsonschema=True,
+            no_python_schema_validation=no_python_schema_validation,
         )[0].get_rules(True)
 
         parsed_errors = []
@@ -1238,7 +1266,8 @@ Exception raised: `{e}`
             core_output = out.CoreOutput.from_json(output_json)
 
             parsed_errors += [
-                core_error_to_semgrep_error(e) for e in core_output.errors
+                core_error_to_semgrep_error(e, show_details=no_python_schema_validation)
+                for e in core_output.errors
             ]
 
         return dedup_errors(parsed_errors)

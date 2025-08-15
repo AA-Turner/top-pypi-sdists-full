@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray
-Version: 2025.7.1
+Version: 2025.8.0
 Summary: N-D labeled arrays and datasets in Python
 Author-email: xarray Developers <xarray@googlegroups.com>
 License-Expression: Apache-2.0
@@ -31,6 +31,7 @@ Requires-Dist: numbagg>=0.8; extra == "accel"
 Requires-Dist: numba>=0.59; extra == "accel"
 Requires-Dist: flox>=0.9; extra == "accel"
 Requires-Dist: opt_einsum; extra == "accel"
+Requires-Dist: numpy<2.3; extra == "accel"
 Provides-Extra: complete
 Requires-Dist: xarray[accel,etc,io,parallel,viz]; extra == "complete"
 Provides-Extra: io

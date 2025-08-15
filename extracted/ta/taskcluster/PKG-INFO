@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: taskcluster
-Version: 88.0.3
+Version: 88.0.5
 Summary: Python client for Taskcluster
 Home-page: https://github.com/taskcluster/taskcluster
 Author: Mozilla Taskcluster and Release Engineering

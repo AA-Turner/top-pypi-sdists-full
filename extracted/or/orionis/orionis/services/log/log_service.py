@@ -1,12 +1,12 @@
 from orionis.foundation.config.logging.entities.logging import Logging
 from orionis.foundation.config.logging.enums import Level
-from orionis.services.log.contracts.log_service import ILoggerService
+from orionis.services.log.contracts.log_service import ILogger
 from orionis.services.log.exceptions import LoggerRuntimeError
 from orionis.services.log.handlers.filename import FileNameLogger
 from orionis.services.log.handlers.size_rotating import PrefixedSizeRotatingFileHandler
 from orionis.services.log.handlers.timed_rotating import PrefixedTimedRotatingFileHandler
 
-class LoggerService(ILoggerService):
+class Logger(ILogger):
 
     def __init__(
         self,
@@ -14,7 +14,7 @@ class LoggerService(ILoggerService):
         **kwargs
     ):
         """
-        Initializes the LoggerService instance with the provided logging configuration.
+        Initializes the Logger instance with the provided logging configuration.
 
         This constructor sets up the logger configuration using either a `Logging` object,
         a configuration dictionary, or keyword arguments. It validates the input and

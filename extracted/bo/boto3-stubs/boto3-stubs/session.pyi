@@ -58,6 +58,9 @@ from mypy_boto3_backupsearch.client import BackupSearchClient
 from mypy_boto3_batch.client import BatchClient
 from mypy_boto3_bcm_data_exports.client import BillingandCostManagementDataExportsClient
 from mypy_boto3_bcm_pricing_calculator.client import BillingandCostManagementPricingCalculatorClient
+from mypy_boto3_bcm_recommended_actions.client import (
+    BillingandCostManagementRecommendedActionsClient,
+)
 from mypy_boto3_bedrock.client import BedrockClient
 from mypy_boto3_bedrock_agent.client import AgentsforBedrockClient
 from mypy_boto3_bedrock_agent_runtime.client import AgentsforBedrockRuntimeClient
@@ -1249,6 +1252,25 @@ class Session:
     ) -> BillingandCostManagementPricingCalculatorClient:
         """
         Create client for BillingandCostManagementPricingCalculator service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["bcm-recommended-actions"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> BillingandCostManagementRecommendedActionsClient:
+        """
+        Create client for BillingandCostManagementRecommendedActions service.
         """
 
     @overload

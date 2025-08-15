@@ -2,6 +2,11 @@
 use once_cell::sync::Lazy;
 use std::env;
 
+fn is_truthy(value: &str) -> bool {
+    let lower = value.to_lowercase();
+    lower == "true" || lower == "1" || lower == "yes" || lower == "y"
+}
+
 /// Alternative manifest paths to check
 pub static LAZY_DATA_RESOLVER_PATHS: &[&str] = &[
     "/bptr/bptr-manifest",
@@ -22,7 +27,7 @@ pub static TRUSS_TRANSFER_NUM_WORKERS: Lazy<u8> = Lazy::new(|| {
     env::var("TRUSS_TRANSFER_NUM_WORKERS")
         .ok()
         .and_then(|s| s.parse().ok())
-        .unwrap_or(8)
+        .unwrap_or(6)
 });
 
 /// Environment variable for download directory
@@ -36,6 +41,35 @@ pub static TRUSS_TRANSFER_B10FS_CLEANUP_HOURS: Lazy<u64> = Lazy::new(|| {
         .and_then(|s| s.parse().ok())
         .unwrap_or(4 * 24)
 });
+
+pub static TRUSS_TRANSFER_PAGE_AFTER_DOWNLOAD: Lazy<bool> = Lazy::new(|| {
+    env::var("TRUSS_TRANSFER_PAGE_AFTER_DOWNLOAD")
+        .ok()
+        .map(|s| is_truthy(&s))
+        .unwrap_or(false)
+});
+
+pub static TRUSS_TRANSFER_USE_RANGE_DOWNLOAD: Lazy<bool> = Lazy::new(|| {
+    env::var("TRUSS_TRANSFER_USE_RANGE_DOWNLOAD")
+        .ok()
+        .map(|s| is_truthy(&s))
+        .unwrap_or(false)
+});
+
+pub static TRUSS_TRANSFER_RANGE_DOWNLOAD_WORKERS: Lazy<usize> = Lazy::new(|| {
+    env::var("TRUSS_TRANSFER_RANGE_DOWNLOAD_WORKERS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(192)
+});
+
+pub static TRUSS_TRANSFER_RANGE_DOWNLOAD_WORKERS_PER_FILE: Lazy<usize> = Lazy::new(|| {
+    env::var("TRUSS_TRANSFER_RANGE_DOWNLOAD_WORKERS_PER_FILE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(64)
+});
+
 
 /// Fallback download directory
 pub static TRUSS_TRANSFER_DOWNLOAD_DIR_FALLBACK: &str = "/tmp/bptr-resolved";

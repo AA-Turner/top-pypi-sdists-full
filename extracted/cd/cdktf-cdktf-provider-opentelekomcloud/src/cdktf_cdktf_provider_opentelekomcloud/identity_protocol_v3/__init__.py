@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_identity_protocol_v3`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_identity_protocol_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_identity_protocol_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class IdentityProtocolV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.identityProtocolV3.IdentityProtocolV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3 opentelekomcloud_identity_protocol_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3 opentelekomcloud_identity_protocol_v3}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class IdentityProtocolV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3 opentelekomcloud_identity_protocol_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3 opentelekomcloud_identity_protocol_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param mapping_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#mapping_id IdentityProtocolV3#mapping_id}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#protocol IdentityProtocolV3#protocol}.
-        :param provider_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#provider_id IdentityProtocolV3#provider_id}.
-        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#access_config IdentityProtocolV3#access_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#id IdentityProtocolV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#metadata IdentityProtocolV3#metadata}
+        :param mapping_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#mapping_id IdentityProtocolV3#mapping_id}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#protocol IdentityProtocolV3#protocol}.
+        :param provider_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#provider_id IdentityProtocolV3#provider_id}.
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#access_config IdentityProtocolV3#access_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#id IdentityProtocolV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#metadata IdentityProtocolV3#metadata}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class IdentityProtocolV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the IdentityProtocolV3 to import.
-        :param import_from_id: The id of the existing IdentityProtocolV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing IdentityProtocolV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the IdentityProtocolV3 to import is found.
         '''
         if __debug__:
@@ -143,14 +143,14 @@ class IdentityProtocolV3(
         scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#access_type IdentityProtocolV3#access_type}.
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#client_id IdentityProtocolV3#client_id}.
-        :param provider_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#provider_url IdentityProtocolV3#provider_url}.
-        :param signing_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#signing_key IdentityProtocolV3#signing_key}.
-        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#authorization_endpoint IdentityProtocolV3#authorization_endpoint}.
-        :param response_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#response_mode IdentityProtocolV3#response_mode}.
-        :param response_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#response_type IdentityProtocolV3#response_type}.
-        :param scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#scopes IdentityProtocolV3#scopes}.
+        :param access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#access_type IdentityProtocolV3#access_type}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#client_id IdentityProtocolV3#client_id}.
+        :param provider_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#provider_url IdentityProtocolV3#provider_url}.
+        :param signing_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#signing_key IdentityProtocolV3#signing_key}.
+        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#authorization_endpoint IdentityProtocolV3#authorization_endpoint}.
+        :param response_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#response_mode IdentityProtocolV3#response_mode}.
+        :param response_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#response_type IdentityProtocolV3#response_type}.
+        :param scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#scopes IdentityProtocolV3#scopes}.
         '''
         value = IdentityProtocolV3AccessConfig(
             access_type=access_type,
@@ -174,9 +174,9 @@ class IdentityProtocolV3(
         xaccount_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#domain_id IdentityProtocolV3#domain_id}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#metadata IdentityProtocolV3#metadata}.
-        :param xaccount_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#xaccount_type IdentityProtocolV3#xaccount_type}.
+        :param domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#domain_id IdentityProtocolV3#domain_id}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#metadata IdentityProtocolV3#metadata}.
+        :param xaccount_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#xaccount_type IdentityProtocolV3#xaccount_type}.
         '''
         value = IdentityProtocolV3Metadata(
             domain_id=domain_id, metadata=metadata, xaccount_type=xaccount_type
@@ -331,14 +331,14 @@ class IdentityProtocolV3AccessConfig:
         scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#access_type IdentityProtocolV3#access_type}.
-        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#client_id IdentityProtocolV3#client_id}.
-        :param provider_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#provider_url IdentityProtocolV3#provider_url}.
-        :param signing_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#signing_key IdentityProtocolV3#signing_key}.
-        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#authorization_endpoint IdentityProtocolV3#authorization_endpoint}.
-        :param response_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#response_mode IdentityProtocolV3#response_mode}.
-        :param response_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#response_type IdentityProtocolV3#response_type}.
-        :param scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#scopes IdentityProtocolV3#scopes}.
+        :param access_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#access_type IdentityProtocolV3#access_type}.
+        :param client_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#client_id IdentityProtocolV3#client_id}.
+        :param provider_url: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#provider_url IdentityProtocolV3#provider_url}.
+        :param signing_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#signing_key IdentityProtocolV3#signing_key}.
+        :param authorization_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#authorization_endpoint IdentityProtocolV3#authorization_endpoint}.
+        :param response_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#response_mode IdentityProtocolV3#response_mode}.
+        :param response_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#response_type IdentityProtocolV3#response_type}.
+        :param scopes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#scopes IdentityProtocolV3#scopes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c060c2aee236b4c8555735a23b3ddcc8d6bf7c16216e64b83287311e73e1164b)
@@ -367,53 +367,53 @@ class IdentityProtocolV3AccessConfig:
 
     @builtins.property
     def access_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#access_type IdentityProtocolV3#access_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#access_type IdentityProtocolV3#access_type}.'''
         result = self._values.get("access_type")
         assert result is not None, "Required property 'access_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def client_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#client_id IdentityProtocolV3#client_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#client_id IdentityProtocolV3#client_id}.'''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def provider_url(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#provider_url IdentityProtocolV3#provider_url}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#provider_url IdentityProtocolV3#provider_url}.'''
         result = self._values.get("provider_url")
         assert result is not None, "Required property 'provider_url' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def signing_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#signing_key IdentityProtocolV3#signing_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#signing_key IdentityProtocolV3#signing_key}.'''
         result = self._values.get("signing_key")
         assert result is not None, "Required property 'signing_key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def authorization_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#authorization_endpoint IdentityProtocolV3#authorization_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#authorization_endpoint IdentityProtocolV3#authorization_endpoint}.'''
         result = self._values.get("authorization_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def response_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#response_mode IdentityProtocolV3#response_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#response_mode IdentityProtocolV3#response_mode}.'''
         result = self._values.get("response_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def response_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#response_type IdentityProtocolV3#response_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#response_type IdentityProtocolV3#response_type}.'''
         result = self._values.get("response_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scopes(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#scopes IdentityProtocolV3#scopes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#scopes IdentityProtocolV3#scopes}.'''
         result = self._values.get("scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -662,12 +662,12 @@ class IdentityProtocolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param mapping_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#mapping_id IdentityProtocolV3#mapping_id}.
-        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#protocol IdentityProtocolV3#protocol}.
-        :param provider_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#provider_id IdentityProtocolV3#provider_id}.
-        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#access_config IdentityProtocolV3#access_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#id IdentityProtocolV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#metadata IdentityProtocolV3#metadata}
+        :param mapping_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#mapping_id IdentityProtocolV3#mapping_id}.
+        :param protocol: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#protocol IdentityProtocolV3#protocol}.
+        :param provider_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#provider_id IdentityProtocolV3#provider_id}.
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#access_config IdentityProtocolV3#access_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#id IdentityProtocolV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#metadata IdentityProtocolV3#metadata}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -782,21 +782,21 @@ class IdentityProtocolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def mapping_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#mapping_id IdentityProtocolV3#mapping_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#mapping_id IdentityProtocolV3#mapping_id}.'''
         result = self._values.get("mapping_id")
         assert result is not None, "Required property 'mapping_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def protocol(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#protocol IdentityProtocolV3#protocol}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#protocol IdentityProtocolV3#protocol}.'''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def provider_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#provider_id IdentityProtocolV3#provider_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#provider_id IdentityProtocolV3#provider_id}.'''
         result = self._values.get("provider_id")
         assert result is not None, "Required property 'provider_id' is missing"
         return typing.cast(builtins.str, result)
@@ -805,14 +805,14 @@ class IdentityProtocolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def access_config(self) -> typing.Optional[IdentityProtocolV3AccessConfig]:
         '''access_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#access_config IdentityProtocolV3#access_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#access_config IdentityProtocolV3#access_config}
         '''
         result = self._values.get("access_config")
         return typing.cast(typing.Optional[IdentityProtocolV3AccessConfig], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#id IdentityProtocolV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#id IdentityProtocolV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -824,7 +824,7 @@ class IdentityProtocolV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def metadata(self) -> typing.Optional["IdentityProtocolV3Metadata"]:
         '''metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#metadata IdentityProtocolV3#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#metadata IdentityProtocolV3#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional["IdentityProtocolV3Metadata"], result)
@@ -859,9 +859,9 @@ class IdentityProtocolV3Metadata:
         xaccount_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#domain_id IdentityProtocolV3#domain_id}.
-        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#metadata IdentityProtocolV3#metadata}.
-        :param xaccount_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#xaccount_type IdentityProtocolV3#xaccount_type}.
+        :param domain_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#domain_id IdentityProtocolV3#domain_id}.
+        :param metadata: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#metadata IdentityProtocolV3#metadata}.
+        :param xaccount_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#xaccount_type IdentityProtocolV3#xaccount_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e27a8aafec6da09e43d8562adfb6c752c388529c50b218c82a070b31c94a045)
@@ -877,21 +877,21 @@ class IdentityProtocolV3Metadata:
 
     @builtins.property
     def domain_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#domain_id IdentityProtocolV3#domain_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#domain_id IdentityProtocolV3#domain_id}.'''
         result = self._values.get("domain_id")
         assert result is not None, "Required property 'domain_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def metadata(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#metadata IdentityProtocolV3#metadata}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#metadata IdentityProtocolV3#metadata}.'''
         result = self._values.get("metadata")
         assert result is not None, "Required property 'metadata' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def xaccount_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/identity_protocol_v3#xaccount_type IdentityProtocolV3#xaccount_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/identity_protocol_v3#xaccount_type IdentityProtocolV3#xaccount_type}.'''
         result = self._values.get("xaccount_type")
         return typing.cast(typing.Optional[builtins.str], result)
 

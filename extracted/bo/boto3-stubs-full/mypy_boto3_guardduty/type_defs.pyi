@@ -66,8 +66,12 @@ from .literals import (
     ScanStatusType,
     ScanTypeType,
     SignalTypeType,
+    ThreatEntitySetFormatType,
+    ThreatEntitySetStatusType,
     ThreatIntelSetFormatType,
     ThreatIntelSetStatusType,
+    TrustedEntitySetFormatType,
+    TrustedEntitySetStatusType,
     UsageFeatureType,
     UsageStatisticTypeType,
 )
@@ -146,8 +150,12 @@ __all__ = (
     "CreateS3BucketResourceOutputTypeDef",
     "CreateS3BucketResourceTypeDef",
     "CreateSampleFindingsRequestTypeDef",
+    "CreateThreatEntitySetRequestTypeDef",
+    "CreateThreatEntitySetResponseTypeDef",
     "CreateThreatIntelSetRequestTypeDef",
     "CreateThreatIntelSetResponseTypeDef",
+    "CreateTrustedEntitySetRequestTypeDef",
+    "CreateTrustedEntitySetResponseTypeDef",
     "DNSLogsConfigurationResultTypeDef",
     "DataSourceConfigurationsResultTypeDef",
     "DataSourceConfigurationsTypeDef",
@@ -166,7 +174,9 @@ __all__ = (
     "DeleteMembersRequestTypeDef",
     "DeleteMembersResponseTypeDef",
     "DeletePublishingDestinationRequestTypeDef",
+    "DeleteThreatEntitySetRequestTypeDef",
     "DeleteThreatIntelSetRequestTypeDef",
+    "DeleteTrustedEntitySetRequestTypeDef",
     "DescribeMalwareScansRequestPaginateTypeDef",
     "DescribeMalwareScansRequestTypeDef",
     "DescribeMalwareScansResponseTypeDef",
@@ -241,8 +251,12 @@ __all__ = (
     "GetOrganizationStatisticsResponseTypeDef",
     "GetRemainingFreeTrialDaysRequestTypeDef",
     "GetRemainingFreeTrialDaysResponseTypeDef",
+    "GetThreatEntitySetRequestTypeDef",
+    "GetThreatEntitySetResponseTypeDef",
     "GetThreatIntelSetRequestTypeDef",
     "GetThreatIntelSetResponseTypeDef",
+    "GetTrustedEntitySetRequestTypeDef",
+    "GetTrustedEntitySetResponseTypeDef",
     "GetUsageStatisticsRequestTypeDef",
     "GetUsageStatisticsResponseTypeDef",
     "HighestSeverityThreatDetailsTypeDef",
@@ -300,9 +314,15 @@ __all__ = (
     "ListPublishingDestinationsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListThreatEntitySetsRequestPaginateTypeDef",
+    "ListThreatEntitySetsRequestTypeDef",
+    "ListThreatEntitySetsResponseTypeDef",
     "ListThreatIntelSetsRequestPaginateTypeDef",
     "ListThreatIntelSetsRequestTypeDef",
     "ListThreatIntelSetsResponseTypeDef",
+    "ListTrustedEntitySetsRequestPaginateTypeDef",
+    "ListTrustedEntitySetsRequestTypeDef",
+    "ListTrustedEntitySetsResponseTypeDef",
     "LocalIpDetailsTypeDef",
     "LocalPortDetailsTypeDef",
     "LoginAttributeTypeDef",
@@ -435,7 +455,9 @@ __all__ = (
     "UpdateProtectedResourceTypeDef",
     "UpdatePublishingDestinationRequestTypeDef",
     "UpdateS3BucketResourceTypeDef",
+    "UpdateThreatEntitySetRequestTypeDef",
     "UpdateThreatIntelSetRequestTypeDef",
+    "UpdateTrustedEntitySetRequestTypeDef",
     "UsageAccountResultTypeDef",
     "UsageCriteriaTypeDef",
     "UsageDataSourceResultTypeDef",
@@ -689,6 +711,16 @@ class CreateSampleFindingsRequestTypeDef(TypedDict):
     DetectorId: str
     FindingTypes: NotRequired[Sequence[str]]
 
+class CreateThreatEntitySetRequestTypeDef(TypedDict):
+    DetectorId: str
+    Name: str
+    Format: ThreatEntitySetFormatType
+    Location: str
+    Activate: bool
+    ExpectedBucketOwner: NotRequired[str]
+    ClientToken: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+
 class CreateThreatIntelSetRequestTypeDef(TypedDict):
     DetectorId: str
     Name: str
@@ -698,6 +730,16 @@ class CreateThreatIntelSetRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
     ExpectedBucketOwner: NotRequired[str]
+
+class CreateTrustedEntitySetRequestTypeDef(TypedDict):
+    DetectorId: str
+    Name: str
+    Format: TrustedEntitySetFormatType
+    Location: str
+    Activate: bool
+    ExpectedBucketOwner: NotRequired[str]
+    ClientToken: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
 
 class DNSLogsConfigurationResultTypeDef(TypedDict):
     Status: DataSourceStatusType
@@ -752,9 +794,17 @@ class DeletePublishingDestinationRequestTypeDef(TypedDict):
     DetectorId: str
     DestinationId: str
 
+class DeleteThreatEntitySetRequestTypeDef(TypedDict):
+    DetectorId: str
+    ThreatEntitySetId: str
+
 class DeleteThreatIntelSetRequestTypeDef(TypedDict):
     DetectorId: str
     ThreatIntelSetId: str
+
+class DeleteTrustedEntitySetRequestTypeDef(TypedDict):
+    DetectorId: str
+    TrustedEntitySetId: str
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -930,9 +980,17 @@ class GetRemainingFreeTrialDaysRequestTypeDef(TypedDict):
     DetectorId: str
     AccountIds: NotRequired[Sequence[str]]
 
+class GetThreatEntitySetRequestTypeDef(TypedDict):
+    DetectorId: str
+    ThreatEntitySetId: str
+
 class GetThreatIntelSetRequestTypeDef(TypedDict):
     DetectorId: str
     ThreatIntelSetId: str
+
+class GetTrustedEntitySetRequestTypeDef(TypedDict):
+    DetectorId: str
+    TrustedEntitySetId: str
 
 class UsageCriteriaTypeDef(TypedDict):
     AccountIds: NotRequired[Sequence[str]]
@@ -1037,7 +1095,17 @@ class ListPublishingDestinationsRequestTypeDef(TypedDict):
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
 
+class ListThreatEntitySetsRequestTypeDef(TypedDict):
+    DetectorId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
 class ListThreatIntelSetsRequestTypeDef(TypedDict):
+    DetectorId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ListTrustedEntitySetsRequestTypeDef(TypedDict):
     DetectorId: str
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
@@ -1228,6 +1296,14 @@ class UpdateIPSetRequestTypeDef(TypedDict):
 class UpdateS3BucketResourceTypeDef(TypedDict):
     ObjectPrefixes: NotRequired[Sequence[str]]
 
+class UpdateThreatEntitySetRequestTypeDef(TypedDict):
+    DetectorId: str
+    ThreatEntitySetId: str
+    Name: NotRequired[str]
+    Location: NotRequired[str]
+    ExpectedBucketOwner: NotRequired[str]
+    Activate: NotRequired[bool]
+
 class UpdateThreatIntelSetRequestTypeDef(TypedDict):
     DetectorId: str
     ThreatIntelSetId: str
@@ -1235,6 +1311,14 @@ class UpdateThreatIntelSetRequestTypeDef(TypedDict):
     Location: NotRequired[str]
     Activate: NotRequired[bool]
     ExpectedBucketOwner: NotRequired[str]
+
+class UpdateTrustedEntitySetRequestTypeDef(TypedDict):
+    DetectorId: str
+    TrustedEntitySetId: str
+    Name: NotRequired[str]
+    Location: NotRequired[str]
+    ExpectedBucketOwner: NotRequired[str]
+    Activate: NotRequired[bool]
 
 class CreateMembersRequestTypeDef(TypedDict):
     DetectorId: str
@@ -1318,8 +1402,16 @@ class CreatePublishingDestinationResponseTypeDef(TypedDict):
     DestinationId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateThreatEntitySetResponseTypeDef(TypedDict):
+    ThreatEntitySetId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateThreatIntelSetResponseTypeDef(TypedDict):
     ThreatIntelSetId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateTrustedEntitySetResponseTypeDef(TypedDict):
+    TrustedEntitySetId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -1346,6 +1438,18 @@ class GetInvitationsCountResponseTypeDef(TypedDict):
     InvitationsCount: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetThreatEntitySetResponseTypeDef(TypedDict):
+    Name: str
+    Format: ThreatEntitySetFormatType
+    Location: str
+    ExpectedBucketOwner: str
+    Status: ThreatEntitySetStatusType
+    Tags: Dict[str, str]
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    ErrorDetails: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetThreatIntelSetResponseTypeDef(TypedDict):
     Name: str
     Format: ThreatIntelSetFormatType
@@ -1353,6 +1457,18 @@ class GetThreatIntelSetResponseTypeDef(TypedDict):
     Status: ThreatIntelSetStatusType
     Tags: Dict[str, str]
     ExpectedBucketOwner: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetTrustedEntitySetResponseTypeDef(TypedDict):
+    Name: str
+    Format: TrustedEntitySetFormatType
+    Location: str
+    ExpectedBucketOwner: str
+    Status: TrustedEntitySetStatusType
+    Tags: Dict[str, str]
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    ErrorDetails: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDetectorsResponseTypeDef(TypedDict):
@@ -1384,8 +1500,18 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
     Tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListThreatEntitySetsResponseTypeDef(TypedDict):
+    ThreatEntitySetIds: List[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListThreatIntelSetsResponseTypeDef(TypedDict):
     ThreatIntelSetIds: List[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListTrustedEntitySetsResponseTypeDef(TypedDict):
+    TrustedEntitySetIds: List[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1486,7 +1612,15 @@ class ListMembersRequestPaginateTypeDef(TypedDict):
 class ListOrganizationAdminAccountsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListThreatEntitySetsRequestPaginateTypeDef(TypedDict):
+    DetectorId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListThreatIntelSetsRequestPaginateTypeDef(TypedDict):
+    DetectorId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListTrustedEntitySetsRequestPaginateTypeDef(TypedDict):
     DetectorId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 

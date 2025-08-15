@@ -46,6 +46,11 @@ class StreamingConnectionServiceStub(object):
                 request_serializer=nominal_dot_streaming__connection__service_dot_v1_dot_streaming__connection__service__pb2.GetStreamingConnectionRequest.SerializeToString,
                 response_deserializer=nominal_dot_streaming__connection__service_dot_v1_dot_streaming__connection__service__pb2.GetStreamingConnectionResponse.FromString,
                 _registered_method=True)
+        self.ListStreamingConnections = channel.unary_unary(
+                '/nominal.streaming_connection_service.v1.StreamingConnectionService/ListStreamingConnections',
+                request_serializer=nominal_dot_streaming__connection__service_dot_v1_dot_streaming__connection__service__pb2.ListStreamingConnectionsRequest.SerializeToString,
+                response_deserializer=nominal_dot_streaming__connection__service_dot_v1_dot_streaming__connection__service__pb2.ListStreamingConnectionsResponse.FromString,
+                _registered_method=True)
         self.StartStream = channel.unary_unary(
                 '/nominal.streaming_connection_service.v1.StreamingConnectionService/StartStream',
                 request_serializer=nominal_dot_streaming__connection__service_dot_v1_dot_streaming__connection__service__pb2.StartStreamRequest.SerializeToString,
@@ -79,6 +84,13 @@ class StreamingConnectionServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListStreamingConnections(self, request, context):
+        """List all the streaming connections for a set of workspaces
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def StartStream(self, request, context):
         """Starts streaming data for a connection
         """
@@ -105,6 +117,11 @@ def add_StreamingConnectionServiceServicer_to_server(servicer, server):
                     servicer.GetStreamingConnection,
                     request_deserializer=nominal_dot_streaming__connection__service_dot_v1_dot_streaming__connection__service__pb2.GetStreamingConnectionRequest.FromString,
                     response_serializer=nominal_dot_streaming__connection__service_dot_v1_dot_streaming__connection__service__pb2.GetStreamingConnectionResponse.SerializeToString,
+            ),
+            'ListStreamingConnections': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListStreamingConnections,
+                    request_deserializer=nominal_dot_streaming__connection__service_dot_v1_dot_streaming__connection__service__pb2.ListStreamingConnectionsRequest.FromString,
+                    response_serializer=nominal_dot_streaming__connection__service_dot_v1_dot_streaming__connection__service__pb2.ListStreamingConnectionsResponse.SerializeToString,
             ),
             'StartStream': grpc.unary_unary_rpc_method_handler(
                     servicer.StartStream,
@@ -173,6 +190,33 @@ class StreamingConnectionService(object):
             '/nominal.streaming_connection_service.v1.StreamingConnectionService/GetStreamingConnection',
             nominal_dot_streaming__connection__service_dot_v1_dot_streaming__connection__service__pb2.GetStreamingConnectionRequest.SerializeToString,
             nominal_dot_streaming__connection__service_dot_v1_dot_streaming__connection__service__pb2.GetStreamingConnectionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListStreamingConnections(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/nominal.streaming_connection_service.v1.StreamingConnectionService/ListStreamingConnections',
+            nominal_dot_streaming__connection__service_dot_v1_dot_streaming__connection__service__pb2.ListStreamingConnectionsRequest.SerializeToString,
+            nominal_dot_streaming__connection__service_dot_v1_dot_streaming__connection__service__pb2.ListStreamingConnectionsResponse.FromString,
             options,
             channel_credentials,
             insecure,

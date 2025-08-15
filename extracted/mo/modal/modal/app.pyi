@@ -387,7 +387,7 @@ class _App:
 
     def function(
         self,
-        _warn_parentheses_missing: typing.Any = None,
+        _warn_parentheses_missing=None,
         *,
         image: typing.Optional[modal.image._Image] = None,
         schedule: typing.Optional[modal.schedule.Schedule] = None,
@@ -410,7 +410,7 @@ class _App:
         scaledown_window: typing.Optional[int] = None,
         proxy: typing.Optional[modal.proxy._Proxy] = None,
         retries: typing.Union[int, modal.retries.Retries, None] = None,
-        timeout: typing.Optional[int] = None,
+        timeout: int = 300,
         name: typing.Optional[str] = None,
         is_generator: typing.Optional[bool] = None,
         cloud: typing.Optional[str] = None,
@@ -441,7 +441,7 @@ class _App:
     )
     def cls(
         self,
-        _warn_parentheses_missing: typing.Optional[bool] = None,
+        _warn_parentheses_missing=None,
         *,
         image: typing.Optional[modal.image._Image] = None,
         secrets: collections.abc.Sequence[modal.secret._Secret] = (),
@@ -463,7 +463,7 @@ class _App:
         scaledown_window: typing.Optional[int] = None,
         proxy: typing.Optional[modal.proxy._Proxy] = None,
         retries: typing.Union[int, modal.retries.Retries, None] = None,
-        timeout: typing.Optional[int] = None,
+        timeout: int = 300,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         enable_memory_snapshot: bool = False,
@@ -990,7 +990,7 @@ class App:
 
     def function(
         self,
-        _warn_parentheses_missing: typing.Any = None,
+        _warn_parentheses_missing=None,
         *,
         image: typing.Optional[modal.image.Image] = None,
         schedule: typing.Optional[modal.schedule.Schedule] = None,
@@ -1013,7 +1013,7 @@ class App:
         scaledown_window: typing.Optional[int] = None,
         proxy: typing.Optional[modal.proxy.Proxy] = None,
         retries: typing.Union[int, modal.retries.Retries, None] = None,
-        timeout: typing.Optional[int] = None,
+        timeout: int = 300,
         name: typing.Optional[str] = None,
         is_generator: typing.Optional[bool] = None,
         cloud: typing.Optional[str] = None,
@@ -1044,7 +1044,7 @@ class App:
     )
     def cls(
         self,
-        _warn_parentheses_missing: typing.Optional[bool] = None,
+        _warn_parentheses_missing=None,
         *,
         image: typing.Optional[modal.image.Image] = None,
         secrets: collections.abc.Sequence[modal.secret.Secret] = (),
@@ -1066,7 +1066,7 @@ class App:
         scaledown_window: typing.Optional[int] = None,
         proxy: typing.Optional[modal.proxy.Proxy] = None,
         retries: typing.Union[int, modal.retries.Retries, None] = None,
-        timeout: typing.Optional[int] = None,
+        timeout: int = 300,
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         enable_memory_snapshot: bool = False,

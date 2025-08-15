@@ -1,7 +1,7 @@
 r'''
 # `azurerm_vpn_server_configuration`
 
-Refer to the Terraform Registry for docs: [`azurerm_vpn_server_configuration`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration).
+Refer to the Terraform Registry for docs: [`azurerm_vpn_server_configuration`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class VpnServerConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.vpnServerConfiguration.VpnServerConfiguration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration azurerm_vpn_server_configuration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration azurerm_vpn_server_configuration}.'''
 
     def __init__(
         self,
@@ -72,23 +72,23 @@ class VpnServerConfiguration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration azurerm_vpn_server_configuration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration azurerm_vpn_server_configuration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#location VpnServerConfiguration#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#resource_group_name VpnServerConfiguration#resource_group_name}.
-        :param vpn_authentication_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#vpn_authentication_types VpnServerConfiguration#vpn_authentication_types}.
-        :param azure_active_directory_authentication: azure_active_directory_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#azure_active_directory_authentication VpnServerConfiguration#azure_active_directory_authentication}
-        :param client_revoked_certificate: client_revoked_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#client_revoked_certificate VpnServerConfiguration#client_revoked_certificate}
-        :param client_root_certificate: client_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#client_root_certificate VpnServerConfiguration#client_root_certificate}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#id VpnServerConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ipsec_policy: ipsec_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ipsec_policy VpnServerConfiguration#ipsec_policy}
-        :param radius: radius block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#radius VpnServerConfiguration#radius}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#tags VpnServerConfiguration#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#timeouts VpnServerConfiguration#timeouts}
-        :param vpn_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#vpn_protocols VpnServerConfiguration#vpn_protocols}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#location VpnServerConfiguration#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#resource_group_name VpnServerConfiguration#resource_group_name}.
+        :param vpn_authentication_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#vpn_authentication_types VpnServerConfiguration#vpn_authentication_types}.
+        :param azure_active_directory_authentication: azure_active_directory_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#azure_active_directory_authentication VpnServerConfiguration#azure_active_directory_authentication}
+        :param client_revoked_certificate: client_revoked_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#client_revoked_certificate VpnServerConfiguration#client_revoked_certificate}
+        :param client_root_certificate: client_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#client_root_certificate VpnServerConfiguration#client_root_certificate}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#id VpnServerConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ipsec_policy: ipsec_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ipsec_policy VpnServerConfiguration#ipsec_policy}
+        :param radius: radius block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#radius VpnServerConfiguration#radius}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#tags VpnServerConfiguration#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#timeouts VpnServerConfiguration#timeouts}
+        :param vpn_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#vpn_protocols VpnServerConfiguration#vpn_protocols}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -139,7 +139,7 @@ class VpnServerConfiguration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the VpnServerConfiguration to import.
-        :param import_from_id: The id of the existing VpnServerConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing VpnServerConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the VpnServerConfiguration to import is found.
         '''
         if __debug__:
@@ -203,14 +203,14 @@ class VpnServerConfiguration(
         sa_lifetime_seconds: jsii.Number,
     ) -> None:
         '''
-        :param dh_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#dh_group VpnServerConfiguration#dh_group}.
-        :param ike_encryption: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ike_encryption VpnServerConfiguration#ike_encryption}.
-        :param ike_integrity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ike_integrity VpnServerConfiguration#ike_integrity}.
-        :param ipsec_encryption: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ipsec_encryption VpnServerConfiguration#ipsec_encryption}.
-        :param ipsec_integrity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ipsec_integrity VpnServerConfiguration#ipsec_integrity}.
-        :param pfs_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#pfs_group VpnServerConfiguration#pfs_group}.
-        :param sa_data_size_kilobytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#sa_data_size_kilobytes VpnServerConfiguration#sa_data_size_kilobytes}.
-        :param sa_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#sa_lifetime_seconds VpnServerConfiguration#sa_lifetime_seconds}.
+        :param dh_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#dh_group VpnServerConfiguration#dh_group}.
+        :param ike_encryption: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ike_encryption VpnServerConfiguration#ike_encryption}.
+        :param ike_integrity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ike_integrity VpnServerConfiguration#ike_integrity}.
+        :param ipsec_encryption: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ipsec_encryption VpnServerConfiguration#ipsec_encryption}.
+        :param ipsec_integrity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ipsec_integrity VpnServerConfiguration#ipsec_integrity}.
+        :param pfs_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#pfs_group VpnServerConfiguration#pfs_group}.
+        :param sa_data_size_kilobytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#sa_data_size_kilobytes VpnServerConfiguration#sa_data_size_kilobytes}.
+        :param sa_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#sa_lifetime_seconds VpnServerConfiguration#sa_lifetime_seconds}.
         '''
         value = VpnServerConfigurationIpsecPolicy(
             dh_group=dh_group,
@@ -234,9 +234,9 @@ class VpnServerConfiguration(
         server_root_certificate: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["VpnServerConfigurationRadiusServerRootCertificate", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param client_root_certificate: client_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#client_root_certificate VpnServerConfiguration#client_root_certificate}
-        :param server: server block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#server VpnServerConfiguration#server}
-        :param server_root_certificate: server_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#server_root_certificate VpnServerConfiguration#server_root_certificate}
+        :param client_root_certificate: client_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#client_root_certificate VpnServerConfiguration#client_root_certificate}
+        :param server: server block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#server VpnServerConfiguration#server}
+        :param server_root_certificate: server_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#server_root_certificate VpnServerConfiguration#server_root_certificate}
         '''
         value = VpnServerConfigurationRadius(
             client_root_certificate=client_root_certificate,
@@ -256,10 +256,10 @@ class VpnServerConfiguration(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#create VpnServerConfiguration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#delete VpnServerConfiguration#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#read VpnServerConfiguration#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#update VpnServerConfiguration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#create VpnServerConfiguration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#delete VpnServerConfiguration#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#read VpnServerConfiguration#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#update VpnServerConfiguration#update}.
         '''
         value = VpnServerConfigurationTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -528,9 +528,9 @@ class VpnServerConfigurationAzureActiveDirectoryAuthentication:
         tenant: builtins.str,
     ) -> None:
         '''
-        :param audience: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#audience VpnServerConfiguration#audience}.
-        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#issuer VpnServerConfiguration#issuer}.
-        :param tenant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#tenant VpnServerConfiguration#tenant}.
+        :param audience: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#audience VpnServerConfiguration#audience}.
+        :param issuer: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#issuer VpnServerConfiguration#issuer}.
+        :param tenant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#tenant VpnServerConfiguration#tenant}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__31c5546982d6ba6b3aa7b031e4b533032a237610464521091298576d3c9f68cd)
@@ -545,21 +545,21 @@ class VpnServerConfigurationAzureActiveDirectoryAuthentication:
 
     @builtins.property
     def audience(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#audience VpnServerConfiguration#audience}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#audience VpnServerConfiguration#audience}.'''
         result = self._values.get("audience")
         assert result is not None, "Required property 'audience' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def issuer(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#issuer VpnServerConfiguration#issuer}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#issuer VpnServerConfiguration#issuer}.'''
         result = self._values.get("issuer")
         assert result is not None, "Required property 'issuer' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def tenant(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#tenant VpnServerConfiguration#tenant}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#tenant VpnServerConfiguration#tenant}.'''
         result = self._values.get("tenant")
         assert result is not None, "Required property 'tenant' is missing"
         return typing.cast(builtins.str, result)
@@ -772,8 +772,8 @@ class VpnServerConfigurationAzureActiveDirectoryAuthenticationOutputReference(
 class VpnServerConfigurationClientRevokedCertificate:
     def __init__(self, *, name: builtins.str, thumbprint: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.
-        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#thumbprint VpnServerConfiguration#thumbprint}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.
+        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#thumbprint VpnServerConfiguration#thumbprint}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__929416769750305919d78cc450ff52eec2c35ee881f88ba1ee0faf2d96ca62bd)
@@ -786,14 +786,14 @@ class VpnServerConfigurationClientRevokedCertificate:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def thumbprint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#thumbprint VpnServerConfiguration#thumbprint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#thumbprint VpnServerConfiguration#thumbprint}.'''
         result = self._values.get("thumbprint")
         assert result is not None, "Required property 'thumbprint' is missing"
         return typing.cast(builtins.str, result)
@@ -989,8 +989,8 @@ class VpnServerConfigurationClientRevokedCertificateOutputReference(
 class VpnServerConfigurationClientRootCertificate:
     def __init__(self, *, name: builtins.str, public_cert_data: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.
-        :param public_cert_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#public_cert_data VpnServerConfiguration#public_cert_data}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.
+        :param public_cert_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#public_cert_data VpnServerConfiguration#public_cert_data}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef7d32c2cc5efb94066e53bc7e2cabe78bb4c43bd6c37ee2ebd7954edd8b90f8)
@@ -1003,14 +1003,14 @@ class VpnServerConfigurationClientRootCertificate:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def public_cert_data(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#public_cert_data VpnServerConfiguration#public_cert_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#public_cert_data VpnServerConfiguration#public_cert_data}.'''
         result = self._values.get("public_cert_data")
         assert result is not None, "Required property 'public_cert_data' is missing"
         return typing.cast(builtins.str, result)
@@ -1257,19 +1257,19 @@ class VpnServerConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#location VpnServerConfiguration#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#resource_group_name VpnServerConfiguration#resource_group_name}.
-        :param vpn_authentication_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#vpn_authentication_types VpnServerConfiguration#vpn_authentication_types}.
-        :param azure_active_directory_authentication: azure_active_directory_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#azure_active_directory_authentication VpnServerConfiguration#azure_active_directory_authentication}
-        :param client_revoked_certificate: client_revoked_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#client_revoked_certificate VpnServerConfiguration#client_revoked_certificate}
-        :param client_root_certificate: client_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#client_root_certificate VpnServerConfiguration#client_root_certificate}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#id VpnServerConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ipsec_policy: ipsec_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ipsec_policy VpnServerConfiguration#ipsec_policy}
-        :param radius: radius block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#radius VpnServerConfiguration#radius}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#tags VpnServerConfiguration#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#timeouts VpnServerConfiguration#timeouts}
-        :param vpn_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#vpn_protocols VpnServerConfiguration#vpn_protocols}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#location VpnServerConfiguration#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#resource_group_name VpnServerConfiguration#resource_group_name}.
+        :param vpn_authentication_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#vpn_authentication_types VpnServerConfiguration#vpn_authentication_types}.
+        :param azure_active_directory_authentication: azure_active_directory_authentication block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#azure_active_directory_authentication VpnServerConfiguration#azure_active_directory_authentication}
+        :param client_revoked_certificate: client_revoked_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#client_revoked_certificate VpnServerConfiguration#client_revoked_certificate}
+        :param client_root_certificate: client_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#client_root_certificate VpnServerConfiguration#client_root_certificate}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#id VpnServerConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ipsec_policy: ipsec_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ipsec_policy VpnServerConfiguration#ipsec_policy}
+        :param radius: radius block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#radius VpnServerConfiguration#radius}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#tags VpnServerConfiguration#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#timeouts VpnServerConfiguration#timeouts}
+        :param vpn_protocols: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#vpn_protocols VpnServerConfiguration#vpn_protocols}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1406,28 +1406,28 @@ class VpnServerConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#location VpnServerConfiguration#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#location VpnServerConfiguration#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#resource_group_name VpnServerConfiguration#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#resource_group_name VpnServerConfiguration#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def vpn_authentication_types(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#vpn_authentication_types VpnServerConfiguration#vpn_authentication_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#vpn_authentication_types VpnServerConfiguration#vpn_authentication_types}.'''
         result = self._values.get("vpn_authentication_types")
         assert result is not None, "Required property 'vpn_authentication_types' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -1438,7 +1438,7 @@ class VpnServerConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[VpnServerConfigurationAzureActiveDirectoryAuthentication]]]:
         '''azure_active_directory_authentication block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#azure_active_directory_authentication VpnServerConfiguration#azure_active_directory_authentication}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#azure_active_directory_authentication VpnServerConfiguration#azure_active_directory_authentication}
         '''
         result = self._values.get("azure_active_directory_authentication")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[VpnServerConfigurationAzureActiveDirectoryAuthentication]]], result)
@@ -1449,7 +1449,7 @@ class VpnServerConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[VpnServerConfigurationClientRevokedCertificate]]]:
         '''client_revoked_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#client_revoked_certificate VpnServerConfiguration#client_revoked_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#client_revoked_certificate VpnServerConfiguration#client_revoked_certificate}
         '''
         result = self._values.get("client_revoked_certificate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[VpnServerConfigurationClientRevokedCertificate]]], result)
@@ -1460,14 +1460,14 @@ class VpnServerConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[VpnServerConfigurationClientRootCertificate]]]:
         '''client_root_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#client_root_certificate VpnServerConfiguration#client_root_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#client_root_certificate VpnServerConfiguration#client_root_certificate}
         '''
         result = self._values.get("client_root_certificate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[VpnServerConfigurationClientRootCertificate]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#id VpnServerConfiguration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#id VpnServerConfiguration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1479,7 +1479,7 @@ class VpnServerConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ipsec_policy(self) -> typing.Optional["VpnServerConfigurationIpsecPolicy"]:
         '''ipsec_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ipsec_policy VpnServerConfiguration#ipsec_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ipsec_policy VpnServerConfiguration#ipsec_policy}
         '''
         result = self._values.get("ipsec_policy")
         return typing.cast(typing.Optional["VpnServerConfigurationIpsecPolicy"], result)
@@ -1488,14 +1488,14 @@ class VpnServerConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def radius(self) -> typing.Optional["VpnServerConfigurationRadius"]:
         '''radius block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#radius VpnServerConfiguration#radius}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#radius VpnServerConfiguration#radius}
         '''
         result = self._values.get("radius")
         return typing.cast(typing.Optional["VpnServerConfigurationRadius"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#tags VpnServerConfiguration#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#tags VpnServerConfiguration#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1503,14 +1503,14 @@ class VpnServerConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["VpnServerConfigurationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#timeouts VpnServerConfiguration#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#timeouts VpnServerConfiguration#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["VpnServerConfigurationTimeouts"], result)
 
     @builtins.property
     def vpn_protocols(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#vpn_protocols VpnServerConfiguration#vpn_protocols}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#vpn_protocols VpnServerConfiguration#vpn_protocols}.'''
         result = self._values.get("vpn_protocols")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1554,14 +1554,14 @@ class VpnServerConfigurationIpsecPolicy:
         sa_lifetime_seconds: jsii.Number,
     ) -> None:
         '''
-        :param dh_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#dh_group VpnServerConfiguration#dh_group}.
-        :param ike_encryption: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ike_encryption VpnServerConfiguration#ike_encryption}.
-        :param ike_integrity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ike_integrity VpnServerConfiguration#ike_integrity}.
-        :param ipsec_encryption: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ipsec_encryption VpnServerConfiguration#ipsec_encryption}.
-        :param ipsec_integrity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ipsec_integrity VpnServerConfiguration#ipsec_integrity}.
-        :param pfs_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#pfs_group VpnServerConfiguration#pfs_group}.
-        :param sa_data_size_kilobytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#sa_data_size_kilobytes VpnServerConfiguration#sa_data_size_kilobytes}.
-        :param sa_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#sa_lifetime_seconds VpnServerConfiguration#sa_lifetime_seconds}.
+        :param dh_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#dh_group VpnServerConfiguration#dh_group}.
+        :param ike_encryption: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ike_encryption VpnServerConfiguration#ike_encryption}.
+        :param ike_integrity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ike_integrity VpnServerConfiguration#ike_integrity}.
+        :param ipsec_encryption: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ipsec_encryption VpnServerConfiguration#ipsec_encryption}.
+        :param ipsec_integrity: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ipsec_integrity VpnServerConfiguration#ipsec_integrity}.
+        :param pfs_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#pfs_group VpnServerConfiguration#pfs_group}.
+        :param sa_data_size_kilobytes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#sa_data_size_kilobytes VpnServerConfiguration#sa_data_size_kilobytes}.
+        :param sa_lifetime_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#sa_lifetime_seconds VpnServerConfiguration#sa_lifetime_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f5f4adeee27b32f0d75dc865d8295d914a8a033409966aeadb86ab80fd689e83)
@@ -1586,56 +1586,56 @@ class VpnServerConfigurationIpsecPolicy:
 
     @builtins.property
     def dh_group(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#dh_group VpnServerConfiguration#dh_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#dh_group VpnServerConfiguration#dh_group}.'''
         result = self._values.get("dh_group")
         assert result is not None, "Required property 'dh_group' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ike_encryption(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ike_encryption VpnServerConfiguration#ike_encryption}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ike_encryption VpnServerConfiguration#ike_encryption}.'''
         result = self._values.get("ike_encryption")
         assert result is not None, "Required property 'ike_encryption' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ike_integrity(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ike_integrity VpnServerConfiguration#ike_integrity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ike_integrity VpnServerConfiguration#ike_integrity}.'''
         result = self._values.get("ike_integrity")
         assert result is not None, "Required property 'ike_integrity' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ipsec_encryption(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ipsec_encryption VpnServerConfiguration#ipsec_encryption}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ipsec_encryption VpnServerConfiguration#ipsec_encryption}.'''
         result = self._values.get("ipsec_encryption")
         assert result is not None, "Required property 'ipsec_encryption' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def ipsec_integrity(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#ipsec_integrity VpnServerConfiguration#ipsec_integrity}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#ipsec_integrity VpnServerConfiguration#ipsec_integrity}.'''
         result = self._values.get("ipsec_integrity")
         assert result is not None, "Required property 'ipsec_integrity' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def pfs_group(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#pfs_group VpnServerConfiguration#pfs_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#pfs_group VpnServerConfiguration#pfs_group}.'''
         result = self._values.get("pfs_group")
         assert result is not None, "Required property 'pfs_group' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def sa_data_size_kilobytes(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#sa_data_size_kilobytes VpnServerConfiguration#sa_data_size_kilobytes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#sa_data_size_kilobytes VpnServerConfiguration#sa_data_size_kilobytes}.'''
         result = self._values.get("sa_data_size_kilobytes")
         assert result is not None, "Required property 'sa_data_size_kilobytes' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def sa_lifetime_seconds(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#sa_lifetime_seconds VpnServerConfiguration#sa_lifetime_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#sa_lifetime_seconds VpnServerConfiguration#sa_lifetime_seconds}.'''
         result = self._values.get("sa_lifetime_seconds")
         assert result is not None, "Required property 'sa_lifetime_seconds' is missing"
         return typing.cast(jsii.Number, result)
@@ -1842,9 +1842,9 @@ class VpnServerConfigurationRadius:
         server_root_certificate: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["VpnServerConfigurationRadiusServerRootCertificate", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param client_root_certificate: client_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#client_root_certificate VpnServerConfiguration#client_root_certificate}
-        :param server: server block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#server VpnServerConfiguration#server}
-        :param server_root_certificate: server_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#server_root_certificate VpnServerConfiguration#server_root_certificate}
+        :param client_root_certificate: client_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#client_root_certificate VpnServerConfiguration#client_root_certificate}
+        :param server: server block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#server VpnServerConfiguration#server}
+        :param server_root_certificate: server_root_certificate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#server_root_certificate VpnServerConfiguration#server_root_certificate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eee606269f8c42fe614122badc618b9f98b2eabfde2627745c38dedfbb6b6aae)
@@ -1865,7 +1865,7 @@ class VpnServerConfigurationRadius:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VpnServerConfigurationRadiusClientRootCertificate"]]]:
         '''client_root_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#client_root_certificate VpnServerConfiguration#client_root_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#client_root_certificate VpnServerConfiguration#client_root_certificate}
         '''
         result = self._values.get("client_root_certificate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VpnServerConfigurationRadiusClientRootCertificate"]]], result)
@@ -1876,7 +1876,7 @@ class VpnServerConfigurationRadius:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VpnServerConfigurationRadiusServer"]]]:
         '''server block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#server VpnServerConfiguration#server}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#server VpnServerConfiguration#server}
         '''
         result = self._values.get("server")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VpnServerConfigurationRadiusServer"]]], result)
@@ -1887,7 +1887,7 @@ class VpnServerConfigurationRadius:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VpnServerConfigurationRadiusServerRootCertificate"]]]:
         '''server_root_certificate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#server_root_certificate VpnServerConfiguration#server_root_certificate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#server_root_certificate VpnServerConfiguration#server_root_certificate}
         '''
         result = self._values.get("server_root_certificate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["VpnServerConfigurationRadiusServerRootCertificate"]]], result)
@@ -1912,8 +1912,8 @@ class VpnServerConfigurationRadius:
 class VpnServerConfigurationRadiusClientRootCertificate:
     def __init__(self, *, name: builtins.str, thumbprint: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.
-        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#thumbprint VpnServerConfiguration#thumbprint}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.
+        :param thumbprint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#thumbprint VpnServerConfiguration#thumbprint}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80957a74e465d6eba6720b6812a19ce06120126e0f2cd58fd62f7b3507a75b5c)
@@ -1926,14 +1926,14 @@ class VpnServerConfigurationRadiusClientRootCertificate:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def thumbprint(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#thumbprint VpnServerConfiguration#thumbprint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#thumbprint VpnServerConfiguration#thumbprint}.'''
         result = self._values.get("thumbprint")
         assert result is not None, "Required property 'thumbprint' is missing"
         return typing.cast(builtins.str, result)
@@ -2262,9 +2262,9 @@ class VpnServerConfigurationRadiusServer:
         secret: builtins.str,
     ) -> None:
         '''
-        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#address VpnServerConfiguration#address}.
-        :param score: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#score VpnServerConfiguration#score}.
-        :param secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#secret VpnServerConfiguration#secret}.
+        :param address: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#address VpnServerConfiguration#address}.
+        :param score: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#score VpnServerConfiguration#score}.
+        :param secret: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#secret VpnServerConfiguration#secret}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__359a15699d2204bd438d328537ac3e30c833816e8b067c6b515d574b253a4999)
@@ -2279,21 +2279,21 @@ class VpnServerConfigurationRadiusServer:
 
     @builtins.property
     def address(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#address VpnServerConfiguration#address}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#address VpnServerConfiguration#address}.'''
         result = self._values.get("address")
         assert result is not None, "Required property 'address' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def score(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#score VpnServerConfiguration#score}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#score VpnServerConfiguration#score}.'''
         result = self._values.get("score")
         assert result is not None, "Required property 'score' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def secret(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#secret VpnServerConfiguration#secret}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#secret VpnServerConfiguration#secret}.'''
         result = self._values.get("secret")
         assert result is not None, "Required property 'secret' is missing"
         return typing.cast(builtins.str, result)
@@ -2506,8 +2506,8 @@ class VpnServerConfigurationRadiusServerOutputReference(
 class VpnServerConfigurationRadiusServerRootCertificate:
     def __init__(self, *, name: builtins.str, public_cert_data: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.
-        :param public_cert_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#public_cert_data VpnServerConfiguration#public_cert_data}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.
+        :param public_cert_data: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#public_cert_data VpnServerConfiguration#public_cert_data}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3890f8cf6a1a733c8c6c8dc3eee0607392f268df4d0ae9cfb8bbff0c43786c10)
@@ -2520,14 +2520,14 @@ class VpnServerConfigurationRadiusServerRootCertificate:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#name VpnServerConfiguration#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def public_cert_data(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#public_cert_data VpnServerConfiguration#public_cert_data}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#public_cert_data VpnServerConfiguration#public_cert_data}.'''
         result = self._values.get("public_cert_data")
         assert result is not None, "Required property 'public_cert_data' is missing"
         return typing.cast(builtins.str, result)
@@ -2735,10 +2735,10 @@ class VpnServerConfigurationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#create VpnServerConfiguration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#delete VpnServerConfiguration#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#read VpnServerConfiguration#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#update VpnServerConfiguration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#create VpnServerConfiguration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#delete VpnServerConfiguration#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#read VpnServerConfiguration#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#update VpnServerConfiguration#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c4a5451ab3399c276e255cafab6a8aa8eec20d190873a5acc750f91608b2c8b6)
@@ -2758,25 +2758,25 @@ class VpnServerConfigurationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#create VpnServerConfiguration#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#create VpnServerConfiguration#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#delete VpnServerConfiguration#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#delete VpnServerConfiguration#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#read VpnServerConfiguration#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#read VpnServerConfiguration#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/vpn_server_configuration#update VpnServerConfiguration#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/vpn_server_configuration#update VpnServerConfiguration#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

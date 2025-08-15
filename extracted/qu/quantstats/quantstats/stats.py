@@ -938,7 +938,14 @@ def sortino(returns, rf=0, periods=252, annualize=True, smart=False):
         downside = downside * autocorr_penalty(returns)
 
     # Calculate base Sortino ratio
-    res = returns.mean() / downside
+    # Handle both Series (DataFrame input) and scalar (Series input) cases
+    if isinstance(downside, _pd.Series):
+        res = returns.mean() / downside.replace(0, _np.nan)
+    else:
+        if downside == 0:
+            res = _np.nan
+        else:
+            res = returns.mean() / downside
 
     # Annualize if requested
     if annualize:
@@ -1360,8 +1367,15 @@ def gain_to_pain_ratio(returns, rf=0, resolution="D"):
     # Calculate absolute sum of negative returns (pain)
     downside = abs(returns[returns < 0].sum())
 
-    # Return ratio of total gains to total pain
-    return returns.sum() / downside
+    # Handle both Series (DataFrame input) and scalar (Series input) cases
+    if isinstance(downside, _pd.Series):
+        # DataFrame input - element-wise division with zero protection
+        return returns.sum() / downside.replace(0, _np.nan)
+    else:
+        # Series input - scalar division
+        if downside == 0:
+            return _np.nan
+        return returns.sum() / downside
 
 
 def cagr(returns, rf=0.0, compounded=True, periods=252):
@@ -1575,7 +1589,17 @@ def ulcer_performance_index(returns, rf=0):
         >>> print(f"Ulcer Performance Index: {upi_value:.4f}")
     """
     # Calculate excess return divided by Ulcer Index
-    return (comp(returns) - rf) / ulcer_index(returns)
+    ulcer = ulcer_index(returns)
+    
+    # Handle both Series (DataFrame input) and scalar (Series input) cases
+    if isinstance(ulcer, _pd.Series):
+        # DataFrame input - element-wise division with zero protection
+        return (comp(returns) - rf) / ulcer.replace(0, _np.nan)
+    else:
+        # Series input - scalar division
+        if ulcer == 0:
+            return _np.nan
+        return (comp(returns) - rf) / ulcer
 
 
 def upi(returns, rf=0):
@@ -1623,10 +1647,25 @@ def serenity_index(returns, rf=0):
     dd = to_drawdown_series(returns)
 
     # Calculate pitfall measure using conditional value at risk of drawdowns
-    pitfall = -cvar(dd) / returns.std()
-
-    # Calculate serenity index incorporating both ulcer index and pitfall
-    return (returns.sum() - rf) / (ulcer_index(returns) * pitfall)
+    std_returns = returns.std()
+    
+    # Handle both Series (DataFrame input) and scalar (Series input) cases
+    if isinstance(std_returns, _pd.Series):
+        # DataFrame input - element-wise operations
+        pitfall = -cvar(dd) / std_returns.replace(0, _np.nan)
+        denominator = ulcer_index(returns) * pitfall
+        return (returns.sum() - rf) / denominator.replace(0, _np.nan)
+    else:
+        # Series input - scalar operations
+        if std_returns == 0:
+            return _np.nan
+        
+        pitfall = -cvar(dd) / std_returns
+        denominator = ulcer_index(returns) * pitfall
+        
+        if denominator == 0:
+            return _np.nan
+        return (returns.sum() - rf) / denominator
 
 
 def risk_of_ruin(returns, prepare_returns=True):
@@ -1827,7 +1866,25 @@ def tail_ratio(returns, cutoff=0.95, prepare_returns=True):
         returns = _utils._prepare_returns(returns)
 
     # Calculate ratio of right tail to left tail
-    return abs(returns.quantile(cutoff) / returns.quantile(1 - cutoff))
+    upper_quantile = returns.quantile(cutoff)
+    lower_quantile = returns.quantile(1 - cutoff)
+    
+    # Handle edge cases: NaN values or zero denominator
+    # Check if result is a Series (DataFrame input) or scalar (Series input)
+    if isinstance(upper_quantile, _pd.Series):
+        # Handle DataFrame input - apply element-wise
+        result = _pd.Series(index=upper_quantile.index, dtype=float)
+        for col in upper_quantile.index:
+            if _pd.isna(upper_quantile[col]) or _pd.isna(lower_quantile[col]) or lower_quantile[col] == 0:
+                result[col] = _np.nan
+            else:
+                result[col] = abs(upper_quantile[col] / lower_quantile[col])
+        return result
+    else:
+        # Handle Series input - scalar values
+        if _pd.isna(upper_quantile) or _pd.isna(lower_quantile) or lower_quantile == 0:
+            return _np.nan
+        return abs(upper_quantile / lower_quantile)
 
 
 def payoff_ratio(returns, prepare_returns=True):
@@ -1854,7 +1911,10 @@ def payoff_ratio(returns, prepare_returns=True):
         returns = _utils._prepare_returns(returns)
 
     # Calculate ratio of average win to absolute average loss
-    return avg_win(returns) / abs(avg_loss(returns))
+    avg_loss_val = avg_loss(returns)
+    if avg_loss_val == 0:
+        return _np.nan
+    return avg_win(returns) / abs(avg_loss_val)
 
 
 def win_loss_ratio(returns, prepare_returns=True):
@@ -1909,8 +1969,8 @@ def profit_ratio(returns, prepare_returns=True):
         return float('inf')
 
     # Calculate win and loss ratios
-    win_ratio = abs(wins.mean() / wins.count())
-    loss_ratio = abs(loss.mean() / loss.count())
+    win_ratio = abs(wins.mean() / wins.count()) if wins.count() > 0 else 0
+    loss_ratio = abs(loss.mean() / loss.count()) if loss.count() > 0 else 0
 
     try:
         if loss_ratio == 0:
@@ -2040,7 +2100,18 @@ def outlier_win_ratio(returns, quantile=0.99, prepare_returns=True):
         returns = _utils._prepare_returns(returns)
 
     # Calculate ratio of high quantile to mean positive return
-    return returns.quantile(quantile).mean() / returns[returns >= 0].mean()
+    positive_mean = returns[returns >= 0].mean()
+    quantile_mean = returns.quantile(quantile).mean() if isinstance(returns, _pd.DataFrame) else returns.quantile(quantile)
+    
+    # Handle both Series (DataFrame input) and scalar (Series input) cases
+    if isinstance(positive_mean, _pd.Series):
+        # DataFrame input - element-wise division with zero protection
+        return quantile_mean / positive_mean.replace(0, _np.nan)
+    else:
+        # Series input - scalar division
+        if _pd.isna(positive_mean) or positive_mean == 0:
+            return _np.nan
+        return quantile_mean / positive_mean
 
 
 def outlier_loss_ratio(returns, quantile=0.01, prepare_returns=True):
@@ -2068,7 +2139,18 @@ def outlier_loss_ratio(returns, quantile=0.01, prepare_returns=True):
         returns = _utils._prepare_returns(returns)
 
     # Calculate ratio of low quantile to mean negative return
-    return returns.quantile(quantile).mean() / returns[returns < 0].mean()
+    negative_mean = returns[returns < 0].mean()
+    quantile_mean = returns.quantile(quantile).mean() if isinstance(returns, _pd.DataFrame) else returns.quantile(quantile)
+    
+    # Handle both Series (DataFrame input) and scalar (Series input) cases
+    if isinstance(negative_mean, _pd.Series):
+        # DataFrame input - element-wise division with zero protection
+        return quantile_mean / negative_mean.replace(0, _np.nan)
+    else:
+        # Series input - scalar division
+        if _pd.isna(negative_mean) or negative_mean == 0:
+            return _np.nan
+        return quantile_mean / negative_mean
 
 
 def recovery_factor(returns, rf=0.0, prepare_returns=True):
@@ -2101,6 +2183,10 @@ def recovery_factor(returns, rf=0.0, prepare_returns=True):
     # Calculate maximum drawdown
     max_dd = max_drawdown(returns)
 
+    # Handle edge case: no drawdown
+    if max_dd == 0:
+        return _np.nan
+
     # Return ratio of total returns to absolute maximum drawdown
     return abs(total_returns) / abs(max_dd)
 
@@ -2128,7 +2214,17 @@ def risk_return_ratio(returns, prepare_returns=True):
         returns = _utils._prepare_returns(returns)
 
     # Calculate mean return divided by standard deviation
-    return returns.mean() / returns.std()
+    std = returns.std()
+    
+    # Handle both Series (DataFrame input) and scalar (Series input) cases
+    if isinstance(std, _pd.Series):
+        # DataFrame input - element-wise division with zero protection
+        return returns.mean() / std.replace(0, _np.nan)
+    else:
+        # Series input - scalar division
+        if std == 0:
+            return _np.nan
+        return returns.mean() / std
 
 
 def _get_baseline_value(prices):
@@ -2287,6 +2383,8 @@ def kelly_criterion(returns, prepare_returns=True):
     win_prob = win_rate(returns)
     lose_prob = 1 - win_prob
 
+    if win_loss_ratio == 0 or _pd.isna(win_loss_ratio):
+        return _np.nan
     return ((win_loss_ratio * win_prob) - lose_prob) / win_loss_ratio
 
 
@@ -2422,7 +2520,10 @@ def greeks(returns, benchmark, periods=252.0, prepare_returns=True):
     matrix = _np.cov(returns, benchmark)
 
     # Calculate beta (sensitivity to benchmark movements)
-    beta = matrix[0, 1] / matrix[1, 1]
+    if matrix[1, 1] == 0:
+        beta = _np.nan
+    else:
+        beta = matrix[0, 1] / matrix[1, 1]
 
     # Calculate alpha (excess return after adjusting for beta)
     alpha = returns.mean() - beta * benchmark.mean()
@@ -2481,8 +2582,8 @@ def rolling_greeks(returns, benchmark, periods=252, prepare_returns=True):
     corr = df.rolling(int(periods)).corr().unstack()["returns"]["benchmark"]
     std = df.rolling(int(periods)).std()
 
-    # Calculate rolling beta
-    beta = corr * std["returns"] / std["benchmark"]
+    # Calculate rolling beta (protect against division by zero)
+    beta = corr * std["returns"] / std["benchmark"].replace(0, _np.nan)
 
     # Calculate rolling alpha (not annualized for rolling version)
     alpha = df["returns"].mean() - beta * df["benchmark"].mean()
@@ -2561,7 +2662,8 @@ def compare(
         )
 
         # Calculate performance multiplier and win/loss indicator
-        data["Multiplier"] = data["Returns"] / data["Benchmark"]
+        # Protect against division by zero in benchmark
+        data["Multiplier"] = data["Returns"] / data["Benchmark"].replace(0, _np.nan)
         data["Won"] = _np.where(data["Returns"] >= data["Benchmark"], "+", "-")
 
     # Handle DataFrame input (multiple strategies)

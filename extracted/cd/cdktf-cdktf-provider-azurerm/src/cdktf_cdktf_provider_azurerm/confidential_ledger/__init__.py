@@ -1,7 +1,7 @@
 r'''
 # `azurerm_confidential_ledger`
 
-Refer to the Terraform Registry for docs: [`azurerm_confidential_ledger`](https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger).
+Refer to the Terraform Registry for docs: [`azurerm_confidential_ledger`](https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConfidentialLedger(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-azurerm.confidentialLedger.ConfidentialLedger",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger azurerm_confidential_ledger}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger azurerm_confidential_ledger}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class ConfidentialLedger(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger azurerm_confidential_ledger} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger azurerm_confidential_ledger} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param azuread_based_service_principal: azuread_based_service_principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#azuread_based_service_principal ConfidentialLedger#azuread_based_service_principal}
-        :param ledger_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#ledger_type ConfidentialLedger#ledger_type}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#location ConfidentialLedger#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#name ConfidentialLedger#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#resource_group_name ConfidentialLedger#resource_group_name}.
-        :param certificate_based_security_principal: certificate_based_security_principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#certificate_based_security_principal ConfidentialLedger#certificate_based_security_principal}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#id ConfidentialLedger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#tags ConfidentialLedger#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#timeouts ConfidentialLedger#timeouts}
+        :param azuread_based_service_principal: azuread_based_service_principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#azuread_based_service_principal ConfidentialLedger#azuread_based_service_principal}
+        :param ledger_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#ledger_type ConfidentialLedger#ledger_type}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#location ConfidentialLedger#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#name ConfidentialLedger#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#resource_group_name ConfidentialLedger#resource_group_name}.
+        :param certificate_based_security_principal: certificate_based_security_principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#certificate_based_security_principal ConfidentialLedger#certificate_based_security_principal}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#id ConfidentialLedger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#tags ConfidentialLedger#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#timeouts ConfidentialLedger#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class ConfidentialLedger(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConfidentialLedger to import.
-        :param import_from_id: The id of the existing ConfidentialLedger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConfidentialLedger that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConfidentialLedger to import is found.
         '''
         if __debug__:
@@ -174,10 +174,10 @@ class ConfidentialLedger(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#create ConfidentialLedger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#delete ConfidentialLedger#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#read ConfidentialLedger#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#update ConfidentialLedger#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#create ConfidentialLedger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#delete ConfidentialLedger#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#read ConfidentialLedger#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#update ConfidentialLedger#update}.
         '''
         value = ConfidentialLedgerTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -385,9 +385,9 @@ class ConfidentialLedgerAzureadBasedServicePrincipal:
         tenant_id: builtins.str,
     ) -> None:
         '''
-        :param ledger_role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#ledger_role_name ConfidentialLedger#ledger_role_name}.
-        :param principal_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#principal_id ConfidentialLedger#principal_id}.
-        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#tenant_id ConfidentialLedger#tenant_id}.
+        :param ledger_role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#ledger_role_name ConfidentialLedger#ledger_role_name}.
+        :param principal_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#principal_id ConfidentialLedger#principal_id}.
+        :param tenant_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#tenant_id ConfidentialLedger#tenant_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__42292babe2560e1569fea2060225426d2be11247c53167eb71a534f37a87777f)
@@ -402,21 +402,21 @@ class ConfidentialLedgerAzureadBasedServicePrincipal:
 
     @builtins.property
     def ledger_role_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#ledger_role_name ConfidentialLedger#ledger_role_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#ledger_role_name ConfidentialLedger#ledger_role_name}.'''
         result = self._values.get("ledger_role_name")
         assert result is not None, "Required property 'ledger_role_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def principal_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#principal_id ConfidentialLedger#principal_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#principal_id ConfidentialLedger#principal_id}.'''
         result = self._values.get("principal_id")
         assert result is not None, "Required property 'principal_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def tenant_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#tenant_id ConfidentialLedger#tenant_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#tenant_id ConfidentialLedger#tenant_id}.'''
         result = self._values.get("tenant_id")
         assert result is not None, "Required property 'tenant_id' is missing"
         return typing.cast(builtins.str, result)
@@ -637,8 +637,8 @@ class ConfidentialLedgerCertificateBasedSecurityPrincipal:
         pem_public_key: builtins.str,
     ) -> None:
         '''
-        :param ledger_role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#ledger_role_name ConfidentialLedger#ledger_role_name}.
-        :param pem_public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#pem_public_key ConfidentialLedger#pem_public_key}.
+        :param ledger_role_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#ledger_role_name ConfidentialLedger#ledger_role_name}.
+        :param pem_public_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#pem_public_key ConfidentialLedger#pem_public_key}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__847dd2badd22c715c4d018f6fa67de61eeb362f9f81e33d202a30df563891ca1)
@@ -651,14 +651,14 @@ class ConfidentialLedgerCertificateBasedSecurityPrincipal:
 
     @builtins.property
     def ledger_role_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#ledger_role_name ConfidentialLedger#ledger_role_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#ledger_role_name ConfidentialLedger#ledger_role_name}.'''
         result = self._values.get("ledger_role_name")
         assert result is not None, "Required property 'ledger_role_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def pem_public_key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#pem_public_key ConfidentialLedger#pem_public_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#pem_public_key ConfidentialLedger#pem_public_key}.'''
         result = self._values.get("pem_public_key")
         assert result is not None, "Required property 'pem_public_key' is missing"
         return typing.cast(builtins.str, result)
@@ -897,15 +897,15 @@ class ConfidentialLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param azuread_based_service_principal: azuread_based_service_principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#azuread_based_service_principal ConfidentialLedger#azuread_based_service_principal}
-        :param ledger_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#ledger_type ConfidentialLedger#ledger_type}.
-        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#location ConfidentialLedger#location}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#name ConfidentialLedger#name}.
-        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#resource_group_name ConfidentialLedger#resource_group_name}.
-        :param certificate_based_security_principal: certificate_based_security_principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#certificate_based_security_principal ConfidentialLedger#certificate_based_security_principal}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#id ConfidentialLedger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#tags ConfidentialLedger#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#timeouts ConfidentialLedger#timeouts}
+        :param azuread_based_service_principal: azuread_based_service_principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#azuread_based_service_principal ConfidentialLedger#azuread_based_service_principal}
+        :param ledger_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#ledger_type ConfidentialLedger#ledger_type}.
+        :param location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#location ConfidentialLedger#location}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#name ConfidentialLedger#name}.
+        :param resource_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#resource_group_name ConfidentialLedger#resource_group_name}.
+        :param certificate_based_security_principal: certificate_based_security_principal block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#certificate_based_security_principal ConfidentialLedger#certificate_based_security_principal}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#id ConfidentialLedger#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#tags ConfidentialLedger#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#timeouts ConfidentialLedger#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1029,7 +1029,7 @@ class ConfidentialLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ConfidentialLedgerAzureadBasedServicePrincipal]]:
         '''azuread_based_service_principal block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#azuread_based_service_principal ConfidentialLedger#azuread_based_service_principal}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#azuread_based_service_principal ConfidentialLedger#azuread_based_service_principal}
         '''
         result = self._values.get("azuread_based_service_principal")
         assert result is not None, "Required property 'azuread_based_service_principal' is missing"
@@ -1037,28 +1037,28 @@ class ConfidentialLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ledger_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#ledger_type ConfidentialLedger#ledger_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#ledger_type ConfidentialLedger#ledger_type}.'''
         result = self._values.get("ledger_type")
         assert result is not None, "Required property 'ledger_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#location ConfidentialLedger#location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#location ConfidentialLedger#location}.'''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#name ConfidentialLedger#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#name ConfidentialLedger#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def resource_group_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#resource_group_name ConfidentialLedger#resource_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#resource_group_name ConfidentialLedger#resource_group_name}.'''
         result = self._values.get("resource_group_name")
         assert result is not None, "Required property 'resource_group_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1069,14 +1069,14 @@ class ConfidentialLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ConfidentialLedgerCertificateBasedSecurityPrincipal]]]:
         '''certificate_based_security_principal block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#certificate_based_security_principal ConfidentialLedger#certificate_based_security_principal}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#certificate_based_security_principal ConfidentialLedger#certificate_based_security_principal}
         '''
         result = self._values.get("certificate_based_security_principal")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ConfidentialLedgerCertificateBasedSecurityPrincipal]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#id ConfidentialLedger#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#id ConfidentialLedger#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1086,7 +1086,7 @@ class ConfidentialLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#tags ConfidentialLedger#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#tags ConfidentialLedger#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1094,7 +1094,7 @@ class ConfidentialLedgerConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ConfidentialLedgerTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#timeouts ConfidentialLedger#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#timeouts ConfidentialLedger#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ConfidentialLedgerTimeouts"], result)
@@ -1131,10 +1131,10 @@ class ConfidentialLedgerTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#create ConfidentialLedger#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#delete ConfidentialLedger#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#read ConfidentialLedger#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#update ConfidentialLedger#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#create ConfidentialLedger#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#delete ConfidentialLedger#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#read ConfidentialLedger#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#update ConfidentialLedger#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__00d64c756aa6bfaf23413547fcf2251ab120278233f468094f5f6ecdd1c8e764)
@@ -1154,25 +1154,25 @@ class ConfidentialLedgerTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#create ConfidentialLedger#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#create ConfidentialLedger#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#delete ConfidentialLedger#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#delete ConfidentialLedger#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#read ConfidentialLedger#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#read ConfidentialLedger#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.39.0/docs/resources/confidential_ledger#update ConfidentialLedger#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/azurerm/4.40.0/docs/resources/confidential_ledger#update ConfidentialLedger#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

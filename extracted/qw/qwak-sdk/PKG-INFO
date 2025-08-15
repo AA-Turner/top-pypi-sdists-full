@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: qwak-sdk
-Version: 0.5.97
+Version: 0.5.98
 Summary: Qwak SDK and CLI for qwak models
 License: Apache-2.0
 Keywords: mlops,ml,deployment,serving,model
@@ -35,7 +35,7 @@ Requires-Dist: pyarrow (>=6.0.0) ; extra == "batch" or extra == "feature-store"
 Requires-Dist: pyathena (>=2.2.0,!=2.18.0) ; extra == "feature-store"
 Requires-Dist: pyspark (==3.4.2) ; extra == "feature-store"
 Requires-Dist: python-json-logger (>=3.2.1,<4.0.0)
-Requires-Dist: qwak-core (>=0.4.297)
+Requires-Dist: qwak-core (>=0.4.312)
 Requires-Dist: qwak-inference (>=0.1.20,<0.2.0)
 Requires-Dist: rich (>=13.0.0)
 Requires-Dist: tabulate (>=0.8.0)

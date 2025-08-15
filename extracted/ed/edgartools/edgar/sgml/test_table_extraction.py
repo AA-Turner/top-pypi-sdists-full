@@ -3,7 +3,6 @@ Test extraction of financial tables as DataFrames from HTML reports
 """
 
 from pathlib import Path
-import pandas as pd
 from edgar.files.html import Document
 from edgar.sgml.table_to_dataframe import FinancialTableExtractor, extract_statement_dataframe
 
@@ -23,7 +22,7 @@ def test_aapl_income_statement_extraction():
     print(f"Shape: {df.shape}")
     print(f"Columns: {list(df.columns)}")
     print(f"Index (first 10): {list(df.index[:10])}")
-    print(f"\nMetadata:")
+    print("\nMetadata:")
     print(f"  Currency: {df.attrs.get('currency')}")
     print(f"  Units: {df.attrs.get('units')}")
     print(f"  Scaling Factor: {df.attrs.get('scaling_factor')}")

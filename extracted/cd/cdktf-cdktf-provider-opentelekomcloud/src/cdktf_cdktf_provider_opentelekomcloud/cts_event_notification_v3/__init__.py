@@ -1,7 +1,7 @@
 r'''
 # `opentelekomcloud_cts_event_notification_v3`
 
-Refer to the Terraform Registry for docs: [`opentelekomcloud_cts_event_notification_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3).
+Refer to the Terraform Registry for docs: [`opentelekomcloud_cts_event_notification_v3`](https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CtsEventNotificationV3(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-opentelekomcloud.ctsEventNotificationV3.CtsEventNotificationV3",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3 opentelekomcloud_cts_event_notification_v3}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3 opentelekomcloud_cts_event_notification_v3}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class CtsEventNotificationV3(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3 opentelekomcloud_cts_event_notification_v3} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3 opentelekomcloud_cts_event_notification_v3} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param notification_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#notification_name CtsEventNotificationV3#notification_name}.
-        :param operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#operation_type CtsEventNotificationV3#operation_type}.
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#filter CtsEventNotificationV3#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#id CtsEventNotificationV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notify_user_list: notify_user_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#notify_user_list CtsEventNotificationV3#notify_user_list}
-        :param operations: operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#operations CtsEventNotificationV3#operations}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#status CtsEventNotificationV3#status}.
-        :param topic_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#topic_id CtsEventNotificationV3#topic_id}.
+        :param notification_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#notification_name CtsEventNotificationV3#notification_name}.
+        :param operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#operation_type CtsEventNotificationV3#operation_type}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#filter CtsEventNotificationV3#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#id CtsEventNotificationV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notify_user_list: notify_user_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#notify_user_list CtsEventNotificationV3#notify_user_list}
+        :param operations: operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#operations CtsEventNotificationV3#operations}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#status CtsEventNotificationV3#status}.
+        :param topic_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#topic_id CtsEventNotificationV3#topic_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class CtsEventNotificationV3(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CtsEventNotificationV3 to import.
-        :param import_from_id: The id of the existing CtsEventNotificationV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CtsEventNotificationV3 that should be imported. Refer to the {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CtsEventNotificationV3 to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class CtsEventNotificationV3(
         rule: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#condition CtsEventNotificationV3#condition}.
-        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#rule CtsEventNotificationV3#rule}.
+        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#condition CtsEventNotificationV3#condition}.
+        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#rule CtsEventNotificationV3#rule}.
         '''
         value = CtsEventNotificationV3Filter(condition=condition, rule=rule)
 
@@ -402,14 +402,14 @@ class CtsEventNotificationV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param notification_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#notification_name CtsEventNotificationV3#notification_name}.
-        :param operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#operation_type CtsEventNotificationV3#operation_type}.
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#filter CtsEventNotificationV3#filter}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#id CtsEventNotificationV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param notify_user_list: notify_user_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#notify_user_list CtsEventNotificationV3#notify_user_list}
-        :param operations: operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#operations CtsEventNotificationV3#operations}
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#status CtsEventNotificationV3#status}.
-        :param topic_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#topic_id CtsEventNotificationV3#topic_id}.
+        :param notification_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#notification_name CtsEventNotificationV3#notification_name}.
+        :param operation_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#operation_type CtsEventNotificationV3#operation_type}.
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#filter CtsEventNotificationV3#filter}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#id CtsEventNotificationV3#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param notify_user_list: notify_user_list block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#notify_user_list CtsEventNotificationV3#notify_user_list}
+        :param operations: operations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#operations CtsEventNotificationV3#operations}
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#status CtsEventNotificationV3#status}.
+        :param topic_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#topic_id CtsEventNotificationV3#topic_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -529,14 +529,14 @@ class CtsEventNotificationV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def notification_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#notification_name CtsEventNotificationV3#notification_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#notification_name CtsEventNotificationV3#notification_name}.'''
         result = self._values.get("notification_name")
         assert result is not None, "Required property 'notification_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def operation_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#operation_type CtsEventNotificationV3#operation_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#operation_type CtsEventNotificationV3#operation_type}.'''
         result = self._values.get("operation_type")
         assert result is not None, "Required property 'operation_type' is missing"
         return typing.cast(builtins.str, result)
@@ -545,14 +545,14 @@ class CtsEventNotificationV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> typing.Optional["CtsEventNotificationV3Filter"]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#filter CtsEventNotificationV3#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#filter CtsEventNotificationV3#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional["CtsEventNotificationV3Filter"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#id CtsEventNotificationV3#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#id CtsEventNotificationV3#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -566,7 +566,7 @@ class CtsEventNotificationV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CtsEventNotificationV3NotifyUserListStruct"]]]:
         '''notify_user_list block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#notify_user_list CtsEventNotificationV3#notify_user_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#notify_user_list CtsEventNotificationV3#notify_user_list}
         '''
         result = self._values.get("notify_user_list")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CtsEventNotificationV3NotifyUserListStruct"]]], result)
@@ -577,20 +577,20 @@ class CtsEventNotificationV3Config(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CtsEventNotificationV3Operations"]]]:
         '''operations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#operations CtsEventNotificationV3#operations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#operations CtsEventNotificationV3#operations}
         '''
         result = self._values.get("operations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["CtsEventNotificationV3Operations"]]], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#status CtsEventNotificationV3#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#status CtsEventNotificationV3#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def topic_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#topic_id CtsEventNotificationV3#topic_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#topic_id CtsEventNotificationV3#topic_id}.'''
         result = self._values.get("topic_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -619,8 +619,8 @@ class CtsEventNotificationV3Filter:
         rule: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#condition CtsEventNotificationV3#condition}.
-        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#rule CtsEventNotificationV3#rule}.
+        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#condition CtsEventNotificationV3#condition}.
+        :param rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#rule CtsEventNotificationV3#rule}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f267a43355e799ea0f6fcaaad77af447d19886d3e8999d69ace98ce2f0561868)
@@ -633,14 +633,14 @@ class CtsEventNotificationV3Filter:
 
     @builtins.property
     def condition(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#condition CtsEventNotificationV3#condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#condition CtsEventNotificationV3#condition}.'''
         result = self._values.get("condition")
         assert result is not None, "Required property 'condition' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def rule(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#rule CtsEventNotificationV3#rule}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#rule CtsEventNotificationV3#rule}.'''
         result = self._values.get("rule")
         assert result is not None, "Required property 'rule' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -740,8 +740,8 @@ class CtsEventNotificationV3NotifyUserListStruct:
         user_list: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param user_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#user_group CtsEventNotificationV3#user_group}.
-        :param user_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#user_list CtsEventNotificationV3#user_list}.
+        :param user_group: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#user_group CtsEventNotificationV3#user_group}.
+        :param user_list: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#user_list CtsEventNotificationV3#user_list}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3df5f50764e847b22c5300ab7eb728da64cfadec66b07150270a299ecabf2259)
@@ -754,14 +754,14 @@ class CtsEventNotificationV3NotifyUserListStruct:
 
     @builtins.property
     def user_group(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#user_group CtsEventNotificationV3#user_group}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#user_group CtsEventNotificationV3#user_group}.'''
         result = self._values.get("user_group")
         assert result is not None, "Required property 'user_group' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_list(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#user_list CtsEventNotificationV3#user_list}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#user_list CtsEventNotificationV3#user_list}.'''
         result = self._values.get("user_list")
         assert result is not None, "Required property 'user_list' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -967,9 +967,9 @@ class CtsEventNotificationV3Operations:
         trace_names: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#resource_type CtsEventNotificationV3#resource_type}.
-        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#service_type CtsEventNotificationV3#service_type}.
-        :param trace_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#trace_names CtsEventNotificationV3#trace_names}.
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#resource_type CtsEventNotificationV3#resource_type}.
+        :param service_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#service_type CtsEventNotificationV3#service_type}.
+        :param trace_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#trace_names CtsEventNotificationV3#trace_names}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fb6ad64ad39a2bbb6be046a69b60daaff4e0f20c36ca594f4b48d4c7cc0099b2)
@@ -984,21 +984,21 @@ class CtsEventNotificationV3Operations:
 
     @builtins.property
     def resource_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#resource_type CtsEventNotificationV3#resource_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#resource_type CtsEventNotificationV3#resource_type}.'''
         result = self._values.get("resource_type")
         assert result is not None, "Required property 'resource_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#service_type CtsEventNotificationV3#service_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#service_type CtsEventNotificationV3#service_type}.'''
         result = self._values.get("service_type")
         assert result is not None, "Required property 'service_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def trace_names(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.44/docs/resources/cts_event_notification_v3#trace_names CtsEventNotificationV3#trace_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/opentelekomcloud/opentelekomcloud/1.36.45/docs/resources/cts_event_notification_v3#trace_names CtsEventNotificationV3#trace_names}.'''
         result = self._values.get("trace_names")
         assert result is not None, "Required property 'trace_names' is missing"
         return typing.cast(typing.List[builtins.str], result)

@@ -6,13 +6,14 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.06 01:00:00                  #
+# Updated Date: 2025.08.15 01:00:00                  #
 # ================================================== #
 
 import copy
 from typing import Optional, Any, Dict, List
 
-from PySide6.QtCore import QObject, Slot
+from PySide6.QtCore import QObject, Slot, QUrl
+from PySide6.QtGui import QDesktopServices
 
 from pygpt_net.core.bridge.context import BridgeContext
 from pygpt_net.core.events import Event, KernelEvent
@@ -229,6 +230,27 @@ class BasePlugin(QObject):
             elif self.options[name]["type"] == "float":
                 return float(value)
             return self.options[name]["value"]
+
+    def set_option_value(
+            self,
+            name: str,
+            value: Any
+    ):
+        """
+        Set option value
+
+        :param name: option name
+        :param value: option value
+        """
+        if self.has_option(name):
+            if self.options[name]["type"] == "bool":
+                value = bool(value)
+            elif self.options[name]["type"] == "int":
+                value = int(value)
+            elif self.options[name]["type"] == "float":
+                value = float(value)
+            self.options[name]["value"] = value
+            self.refresh_option(name)
 
     def attach(self, window):
         """
@@ -540,3 +562,13 @@ class BasePlugin(QObject):
         :return: True if threaded
         """
         return self.window.controller.kernel.is_threaded()
+
+
+    def open_url(self, url: str):
+        """
+        Open URL in the default web browser
+
+        :param url: URL to open
+        """
+        if url:
+            QDesktopServices.openUrl(QUrl(url))

@@ -342,12 +342,14 @@ class BaseProcessor(ABC):
     
     def create_detection_object(self, category: str, bounding_box: Dict[str, Any],
                                confidence: Optional[float] = None, segmentation: Optional[List] = None,
-                               track_id: Optional[Any] = None) -> Dict[str, Any]:
+                               track_id: Optional[Any] = None,plate_text: Optional[str] = None) -> Dict[str, Any]:
         """Create a standardized detection object for tracking stats."""
         detection = {
             "category": category,
             "bounding_box": bounding_box
         }
+        if plate_text:
+            detection["plate_text"] = plate_text
         
         if segmentation is not None:
             detection["segmentation"] = segmentation

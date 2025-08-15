@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: statsig
-Version: 0.61.0
+Version: 0.63.0
 Summary: Statsig Python Server SDK
 Home-page: https://github.com/statsig-io/python-sdk
 Author: Tore Hanssen, Jiakan Wang

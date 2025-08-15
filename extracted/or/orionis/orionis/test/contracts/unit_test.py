@@ -53,6 +53,60 @@ class IUnitTest(ABC):
         pass
 
     @abstractmethod
+    def discoverTests(
+        self,
+        base_path: str | Path,
+        folder_path: str | List[str],
+        pattern: str,
+        test_name_pattern: Optional[str] = None,
+        tags: Optional[List[str]] = None
+    ) -> 'IUnitTest':
+        """
+        Discover test cases from specified folders using flexible path discovery.
+
+        This method provides a convenient way to discover and load test cases from multiple folders
+        based on various path specifications. It supports wildcard discovery, single folder loading,
+        and multiple folder loading. The method automatically resolves paths relative to the base
+        directory and discovers all folders containing files matching the specified pattern.
+
+        Parameters
+        ----------
+        base_path : str or Path
+            Base directory path for resolving relative folder paths. This serves as the root
+            directory from which all folder searches are conducted.
+        folder_path : str or list of str
+            Specification of folders to search for test cases. Can be:
+            - '*' : Discover all folders containing matching files within base_path
+            - str : Single folder path relative to base_path
+            - list of str : Multiple folder paths relative to base_path
+        pattern : str
+            File name pattern to match test files, supporting wildcards (* and ?).
+            Examples: 'test_*.py', '*_test.py', 'test*.py'
+        test_name_pattern : str, optional
+            Regular expression pattern to filter test method names. Only tests whose
+            names match this pattern will be included. Default is None (no filtering).
+        tags : list of str, optional
+            List of tags to filter tests. Only tests decorated with matching tags
+            will be included. Default is None (no tag filtering).
+
+        Returns
+        -------
+        UnitTest
+            The current UnitTest instance with discovered tests added to the suite,
+            enabling method chaining.
+
+        Notes
+        -----
+        - All paths are resolved as absolute paths relative to the base_path
+        - When folder_path is '*', the method searches recursively through all subdirectories
+        - The method uses the existing discoverTestsInFolder method for actual test discovery
+        - Duplicate folders are automatically eliminated using a set data structure
+        - The method does not validate the existence of specified folders; validation
+          occurs during the actual test discovery process
+        """
+        pass
+
+    @abstractmethod
     def discoverTestsInFolder(
         self,
         *,
