@@ -37,15 +37,17 @@ import hashlib
 import logging
 import os
 import struct
-from typing import Any, BinaryIO, Iterable, Iterator
+from collections.abc import Iterable, Iterator
+from functools import cached_property
+from typing import BinaryIO, cast
 
-from typing_extensions import Literal, TypedDict
+from typing_extensions import TypedDict
 
-from signify import fingerprinter
-from signify.asn1.hashing import ACCEPTED_DIGEST_ALGORITHMS
+from signify._typing import HashFunction
 from signify.authenticode import structures
-from signify.exceptions import AuthenticodeNotSignedError, SignedPEParseError
-from signify.x509 import Certificate
+from signify.authenticode.signed_file import AuthenticodeFile
+from signify.exceptions import AuthenticodeInvalidPageHashError, SignedPEParseError
+from signify.fingerprinter import Fingerprinter, Range
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +60,7 @@ class ParsedCertTable(TypedDict):
     certificate: bytes
 
 
-class SignedPEFile:
+class SignedPEFile(AuthenticodeFile):
     def __init__(self, file_obj: BinaryIO):
         """A PE file that is to be parsed to find the relevant sections for
         Authenticode parsing.
@@ -96,14 +98,10 @@ class SignedPEFile:
             if k in ["checksum", "datadir_certtable", "certtable"]
         }
 
-    def _parse_pe_header_locations(self) -> dict[str, RelRange]:
-        """Parses a PE file to find the sections to exclude from the AuthentiCode hash.
-
-        See http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx for
-        information about the structure.
+    def _seek_start_of_pe(self) -> int:
+        """Seeks in the file to the start of the PE header. After this method,
+        the file header should be after ``b"PE\0\0"``.
         """
-
-        location = {}
 
         # Check if file starts with MZ
         self.file.seek(0, os.SEEK_SET)
@@ -112,7 +110,7 @@ class SignedPEFile:
 
         # Offset to e_lfanew (which is the PE header) is at 0x3C of the MZ header
         self.file.seek(0x3C, os.SEEK_SET)
-        pe_offset = struct.unpack("<I", self.file.read(4))[0]
+        pe_offset = cast(int, struct.unpack("<I", self.file.read(4))[0])
         if pe_offset >= self._filelength:
             raise SignedPEParseError(
                 "PE header location is beyond file boundaries"
@@ -124,7 +122,16 @@ class SignedPEFile:
         if self.file.read(4) != b"PE\0\0":
             raise SignedPEParseError("PE header not found")
 
-        # The COFF header contains the size of the optional header
+        return pe_offset
+
+    def _seek_optional_header(self) -> tuple[int, int]:
+        """Seeks in the file for the start and size of the optional COFF header.
+        After this method, the file header should be at the start of the optional
+        header.
+        """
+
+        pe_offset = self._seek_start_of_pe()
+
         self.file.seek(pe_offset + 20, os.SEEK_SET)
         optional_header_size = struct.unpack("<H", self.file.read(2))[0]
         optional_header_offset = pe_offset + 24
@@ -144,8 +151,20 @@ class SignedPEFile:
                 f"which is insufficient for authenticode",
             )
 
-        # The optional header contains the signature of the image
         self.file.seek(optional_header_offset, os.SEEK_SET)
+        return optional_header_offset, optional_header_size
+
+    def _parse_pe_header_locations(self) -> dict[str, RelRange]:
+        """Parses a PE file to find the sections to exclude from the AuthentiCode hash.
+
+        See http://www.microsoft.com/whdc/system/platform/firmware/PECOFF.mspx for
+        information about the structure.
+        """
+
+        location = {}
+        optional_header_offset, optional_header_size = self._seek_optional_header()
+
+        # The optional header contains the signature of the image
         signature = struct.unpack("<H", self.file.read(2))[0]
         if signature == 0x10B:  # IMAGE_NT_OPTIONAL_HDR32_MAGIC
             rva_base = optional_header_offset + 92  # NumberOfRvaAndSizes
@@ -248,57 +267,48 @@ class SignedPEFile:
             }
             position += length + (8 - length % 8) % 8
 
-    def get_fingerprinter(self) -> fingerprinter.AuthenticodeFingerprinter:
+    @cached_property
+    def page_size(self) -> int:
+        """Gets the page size from the optional COFF header, or if not available,
+        returns 4096 as best guess.
+        """
+        optional_header_offset, optional_header_size = self._seek_optional_header()
+
+        if optional_header_size < 36:
+            return 4096
+
+        self.file.seek(optional_header_offset + 32, os.SEEK_SET)
+        return cast(int, struct.unpack("<I", self.file.read(4))[0])
+
+    def get_fingerprinter(self) -> SignedPEFingerprinter:
         """Returns a fingerprinter object for this file.
 
-        :rtype: signify.fingerprinter.AuthenticodeFingerprinter
+        :rtype: signify.fingerprinter.SignedPEFingerprinter
         """
-        return fingerprinter.AuthenticodeFingerprinter(self.file)
+        return SignedPEFingerprinter(self.file)
 
-    @property
-    def signed_datas(self) -> Iterator[structures.AuthenticodeSignedData]:
-        """Returns an iterator over :class:`AuthenticodeSignedData` objects relevant for
-        this PE file. See :meth:`iter_signed_datas`
+    def get_fingerprint(
+        self,
+        digest_algorithm: HashFunction,
+        start: int = 0,
+        end: int = -1,
+        aligned: bool = False,
+    ) -> bytes:
+        """Gets the fingerprint for this file, with the provided start and end,
+        and optionally aligned to the PE file's alignment.
         """
-
-        yield from self.iter_signed_datas()
+        fingerprinter = self.get_fingerprinter()
+        fingerprinter.add_signed_pe_hashers(
+            digest_algorithm,
+            start=start,
+            end=end,
+            block_size=self.page_size if aligned else None,
+        )
+        return fingerprinter.hash()[digest_algorithm().name]
 
     def iter_signed_datas(
         self, *, include_nested: bool = True, ignore_parse_errors: bool = True
     ) -> Iterator[structures.AuthenticodeSignedData]:
-        """Returns an iterator over :class:`AuthenticodeSignedData` objects relevant
-        for this PE file.
-
-        :param include_nested: Boolean, if True, will also iterate over all nested
-            SignedData structures
-        :param ignore_parse_errors: Indicates how to handle
-            :exc:`SignedPEParseError` that may be raised while fetching
-            embedded :class:`structures.AuthenticodeSignedData` structures.
-
-            When :const:`True`,  which is the default and seems to be how Windows
-            handles this as well, this will fetch as many valid
-            :class:`structures.AuthenticodeSignedData` structures until an exception
-            occurs.
-
-            Note that this will also silence the :exc:`SignedPEParseError` that occurs
-            when there's no valid :class:`AuthenticodeSignedData` to fetch.
-
-            When :const:`False`, this will raise the :exc:`SignedPEParseError` as
-            soon as one occurs.
-        :raises SignedPEParseError: For parse errors in the PEFile
-        :raises signify.authenticode.AuthenticodeParseError: For parse errors in the
-            SignedData
-        :return: iterator of signify.authenticode.SignedData
-        """
-
-        def recursive_nested(
-            signed_data: structures.AuthenticodeSignedData,
-        ) -> Iterator[structures.AuthenticodeSignedData]:
-            yield signed_data
-            if include_nested:
-                for nested in signed_data.signer_info.nested_signed_datas:
-                    yield from recursive_nested(nested)
-
         try:
             found = False
             for certificate in self._parse_cert_table():
@@ -308,11 +318,13 @@ class SignedPEFile:
                     )
 
                 if certificate["type"] == 2:
-                    yield from recursive_nested(
-                        structures.AuthenticodeSignedData.from_envelope(
-                            certificate["certificate"], pefile=self
-                        )
+                    signed_data = structures.AuthenticodeSignedData.from_envelope(
+                        certificate["certificate"], signed_file=self
                     )
+                    if include_nested:
+                        yield from signed_data.iter_recursive_nested()
+                    else:
+                        yield signed_data
                     found = True
 
             if not found:
@@ -329,152 +341,117 @@ class SignedPEFile:
         signed_datas: Iterable[structures.AuthenticodeSignedData],
         expected_hashes: dict[str, bytes] | None = None,
     ) -> dict[str, bytes]:
-        """Calculates the expected hashes that are needed for verification. This
-        provides a small speed-up by pre-calculating all hashes, so that not each
-        individual SignerInfo object is responsible for calculating their own hash.
-
-        :param signed_datas: The signed datas of this object. Provided to allow
-            :meth:`verify` to prefetch these
-        :param expected_hashes: Hashes provided by the caller of :meth:`verify`
-        :return: All required hashes
+        """Optimizes the default implementation of :meth:`_calculate_expected_hashes`
+        by calculating multiple hashes at once.
         """
-
         if expected_hashes is None:
             expected_hashes = {}
 
-        # Calculate which hashes we require for the signedinfos
-        digest_algorithms = set()
-        for signed_data in signed_datas:
-            digest_algorithms.add(signed_data.digest_algorithm)
-
-        # Calculate which hashes are needed
-        provided_hashes = {getattr(hashlib, t) for t in expected_hashes}
-        needed_hashes = digest_algorithms - provided_hashes
+        needed_hashes = self._get_needed_hashes(signed_datas, expected_hashes)
 
         # Calculate the needed hashes
         if needed_hashes:
             fingerprinter = self.get_fingerprinter()
-            fingerprinter.add_authenticode_hashers(*needed_hashes)
+            fingerprinter.add_signed_pe_hashers(*needed_hashes)
             expected_hashes.update(fingerprinter.hashes()["authentihash"])
 
         return expected_hashes
 
-    def verify(
-        self,
-        *,
-        multi_verify_mode: Literal["any", "first", "all", "best"] = "any",
-        expected_hashes: dict[str, bytes] | None = None,
-        ignore_parse_errors: bool = True,
-        **kwargs: Any,
-    ) -> list[tuple[structures.AuthenticodeSignedData, Iterable[list[Certificate]]]]:
-        """Verifies the SignedData structures. This is a little bit more efficient than
-        calling all verify-methods separately.
+    def verify_additional_hashes(
+        self, signed_data: structures.AuthenticodeSignedData
+    ) -> None:
+        """Verifies the page hashes (if available) in the SpcPeImageData field."""
 
-        :param expected_hashes: When provided, should be a mapping of hash names to
-            digests. This could speed up the verification process.
-        :param multi_verify_mode: Indicates how to verify when there are multiple
-            :class:`structures.AuthenticodeSignedData` objects in this PE file. Can be:
+        from signify.authenticode import structures
 
-            * 'any' (default) to indicate that any of the signatures must validate
-              correctly.
-            * 'first' to indicate that the first signature must verify correctly
-              (the default of tools such as sigcheck.exe)
-            * 'all' to indicate that all signatures must verify
-            * 'best' to indicate that the signature using the best hashing algorithm
-              must verify (e.g. if both SHA-1 and SHA-256 are present, only SHA-256
-              is checked); if multiple signatures exist with the same algorithm,
-              any may verify
+        # can only verify page hashes when the indirect data is
+        # microsoft_spc_pe_image_data
+        if signed_data.indirect_data.content_type != "microsoft_spc_pe_image_data":
+            return None
 
-            This argument has no effect when only one signature is present.
-        :param ignore_parse_errors: Indicates how to handle :exc:`SignedPEParseError`
-            that may be raised during parsing of the PE file's certificate table.
-
-            When :const:`True`, which is the default and seems to be how Windows
-            handles this as well, this will verify based on all available
-            :class:`structures.AuthenticodeSignedData` before a parse error occurs.
-
-            :exc:`AuthenticodeNotSignedError` will be raised when no valid
-            :class:`structures.AuthenticodeSignedData` exists.
-
-            When :const:`False`, this will raise the :exc:`SignedPEParseError` as soon
-            as one occurs. This often occurs before :exc:`AuthenticodeNotSignedError`
-            is potentially raised.
-        :return: the used structure(s) in validation, as a list of tuples, in the form
-            (signed data object, certificate chain)
-        :raises AuthenticodeVerificationError: when the verification failed
-        :raises SignedPEParseError: for parse errors in the PEFile
-        """
-
-        # we need to iterate it twice, so we need to prefetch all signed_datas
-        signed_datas = list(
-            self.iter_signed_datas(ignore_parse_errors=ignore_parse_errors)
+        image_data: structures.PeImageData = cast(
+            structures.PeImageData, signed_data.indirect_data.content
         )
 
-        # if there are no signed_datas, the binary is not signed
-        if not signed_datas:
-            raise AuthenticodeNotSignedError("No valid SignedData structure was found.")
-
-        # only consider the first signed_data; by selecting it here we prevent
-        # calculating more hashes than needed
-        if multi_verify_mode == "first":
-            signed_datas = [signed_datas[0]]
-        elif multi_verify_mode == "best":
-            # ACCEPTED_DIGEST_ALGORITHMS contains the algorithms in worst to best order
-            best_algorithm = max(
-                (sd.digest_algorithm for sd in signed_datas),
-                key=lambda alg: [
-                    getattr(hashlib, alg) for alg in ACCEPTED_DIGEST_ALGORITHMS
-                ].index(alg),
+        for start, end, digest, hash_algorithm in image_data.page_hashes:
+            expected_hash = self.get_fingerprint(
+                hash_algorithm, start, end, aligned=True
             )
-            signed_datas = [
-                sd for sd in signed_datas if sd.digest_algorithm == best_algorithm
-            ]
 
-        expected_hashes = self._calculate_expected_hashes(signed_datas, expected_hashes)
-
-        # Now iterate over all SignedDatas
-        chains = []
-        last_error = None
-        assert signed_datas
-        for signed_data in signed_datas:
-            try:
-                chains.append(
-                    (
-                        signed_data,
-                        signed_data.verify(
-                            expected_hash=expected_hashes[
-                                signed_data.digest_algorithm().name
-                            ],
-                            **kwargs,
-                        ),
-                    )
+            if expected_hash != digest:
+                raise AuthenticodeInvalidPageHashError(
+                    f"The page hash for page {start}-{end} is invalid."
                 )
-            except Exception as e:  # noqa: PERF203
-                # best and any are interpreted as any; first doesn't matter either way,
-                # but raising where it is raised is a little bit clearer
-                if multi_verify_mode in ("all", "first"):
-                    raise
-                last_error = e
-            else:
-                if multi_verify_mode not in ("all", "first"):
-                    # only return the last one, as we are in mode any/best
-                    return chains[-1:]
-        if last_error is None:
-            return chains
-        raise last_error
 
-    def explain_verify(
-        self, *args: Any, **kwargs: Any
-    ) -> tuple[structures.AuthenticodeVerificationResult, Exception | None]:
-        """This will return a value indicating the signature status of this PE file.
-        This will not raise an error when the verification fails, but rather
-        indicate this through the resulting enum
+        return None
 
-        :rtype: (signify.authenticode.AuthenticodeVerificationResult, Exception)
-        :returns: The verification result, and the exception containing
-            more details (if available or None)
+
+class SignedPEFingerprinter(Fingerprinter):
+    """An extension of the :class:`Fingerprinter` class that enables the calculation of
+    authentihashes of PE Files.
+    """
+
+    def add_signed_pe_hashers(
+        self,
+        *hashers: HashFunction,
+        start: int = 0,
+        end: int = -1,
+        block_size: int | None = None,
+    ) -> bool:
+        """Specialized method of :meth:`add_hashers` to add hashers with ranges limited
+        to those that are needed to calculate the hash of signed PE Files.
         """
 
-        return structures.AuthenticodeVerificationResult.call(
-            self.verify, *args, **kwargs
+        pefile = SignedPEFile(self.file)
+        omit = pefile.get_authenticode_omit_sections()
+
+        if omit is None:
+            return False
+
+        ranges = []
+        range_start = 0
+        for start_length in sorted(omit.values()):
+            ranges.append(Range(range_start, start_length.start))
+            range_start = sum(start_length)
+        ranges.append(Range(range_start, self._filelength))
+
+        self.add_hashers(
+            *hashers,
+            ranges=ranges,
+            description="authentihash",
+            start=start,
+            end=end,
+            block_size=block_size,
         )
+        return True
+
+
+def main(*filenames: str) -> None:
+    import binascii
+    import pathlib
+
+    for filename in filenames:
+        print(f"{filename}:")
+        with pathlib.Path(filename).open("rb") as file_obj:
+            fingerprinter = SignedPEFingerprinter(file_obj)
+            fingerprinter.add_hashers(
+                hashlib.md5, hashlib.sha1, hashlib.sha256, hashlib.sha512
+            )
+            fingerprinter.add_signed_pe_hashers(
+                hashlib.md5, hashlib.sha1, hashlib.sha256
+            )
+            results = fingerprinter.hashes()
+
+            for description, result in sorted(results.items()):
+                print(f"  {description or 'generic'}:")
+
+                for k, v in sorted(result.items()):
+                    if k == "_":
+                        continue
+                    print(f"    {k:<10}: {binascii.hexlify(v).decode('ascii')}")
+
+
+if __name__ == "__main__":
+    import sys
+
+    main(*sys.argv[1:])

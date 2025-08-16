@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyfiglet
-Version: 1.0.3
+Version: 1.0.4
 Summary: Pure-python FIGlet implementation
 Home-page: https://github.com/pwaller/pyfiglet
 Author: Peter Waller (Thanks to Christopher Jones and Stefano Rivera)

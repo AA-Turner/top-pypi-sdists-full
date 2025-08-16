@@ -1,0 +1,6 @@
+[virtualenvs]
+in-project = true
+create = true
+
+[repositories.devpi]
+url = "https://devpi.mikahanninen.dev/rpatest/dev"

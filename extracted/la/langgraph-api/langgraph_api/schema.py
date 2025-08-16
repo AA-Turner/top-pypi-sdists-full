@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any, Literal, Optional, TypeAlias
 from uuid import UUID
 
+from langchain_core.runnables.config import RunnableConfig
 from typing_extensions import TypedDict
 
 from langgraph_api.serde import Fragment
@@ -157,6 +158,22 @@ class ThreadState(TypedDict):
     """The interrupts for this state."""
 
 
+class RunKwargs(TypedDict):
+    config: RunnableConfig
+    context: dict[str, Any]
+    input: dict[str, Any] | None
+    command: dict[str, Any] | None
+    stream_mode: StreamMode
+    interrupt_before: Sequence[str] | str | None
+    interrupt_after: Sequence[str] | str | None
+    webhook: str | None
+    feedback_keys: Sequence[str] | None
+    temporary: bool
+    subgraphs: bool
+    resumable: bool
+    checkpoint_during: bool
+
+
 class Run(TypedDict):
     run_id: UUID
     """The ID of the run."""
@@ -172,7 +189,7 @@ class Run(TypedDict):
     """The status of the run. One of 'pending', 'error', 'success'."""
     metadata: Fragment
     """The run metadata."""
-    kwargs: Fragment
+    kwargs: RunKwargs
     """The run kwargs."""
     multitask_strategy: MultitaskStrategy
     """Strategy to handle concurrent runs on the same thread."""
@@ -214,6 +231,8 @@ class Cron(TypedDict):
     """The next run date of the cron."""
     metadata: Fragment
     """The cron metadata."""
+    now: datetime
+    """The current time."""
 
 
 class ThreadUpdateResponse(TypedDict):

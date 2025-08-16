@@ -1,6 +1,6 @@
 [project]
 name = "velithon"
-version = "0.6.1"
+version = "0.6.2"
 description = "Velithon is a lightweight, high-performance, asynchronous web framework for Python, built on top of the RSGI protocol"
 authors = [
     {name = "Dang Van Nghiem",email = "vannghiem848@gmail.com"}
@@ -34,9 +34,8 @@ dependencies = [
     "orjson (>=3.10.16,<4.0.0)",
     "pydantic[email] (>=2.11.7,<3.0.0)",
     "pydash (>=8.0.5,<9.0.0)",
-    "msgpack (>=1.1.0,<2.0.0)",
     "markdown (>=3.6,<4.0.0)",
-    "weasyprint (>=62.0,<63.0.0)",
+    "weasyprint (>=66.0)",
     "jinja2 (>=3.1.0,<4.0.0)",
     "jsonschema (>=4.25.0,<5.0.0)"
 ]
@@ -82,7 +81,6 @@ bindings = 'pyo3'
 module = [
     "granian.*",
     "orjson.*",
-    "msgpack.*",
     "pydash.*",
     "zeroconf.*",
     "consul.*",

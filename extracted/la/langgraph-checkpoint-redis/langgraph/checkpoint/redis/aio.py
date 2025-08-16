@@ -229,9 +229,11 @@ class AsyncRedisSaver(
         """Async context manager exit."""
         if self._owns_its_client:
             await self._redis.aclose()
-            coro = self._redis.connection_pool.disconnect()
-            if coro:
-                await coro
+            # RedisCluster doesn't have connection_pool attribute
+            if getattr(self._redis, "connection_pool", None):
+                coro = self._redis.connection_pool.disconnect()
+                if coro:
+                    await coro
 
             # Prevent RedisVL from attempting to close the client
             # on an event loop in a separate thread.
@@ -295,6 +297,7 @@ class AsyncRedisSaver(
             main_key: The primary Redis key
             related_keys: Additional Redis keys that should expire at the same time
             ttl_minutes: Time-to-live in minutes, overrides default_ttl if provided
+                        Use -1 to remove TTL (make keys persistent)
 
         Returns:
             Result of the Redis operation
@@ -305,6 +308,32 @@ class AsyncRedisSaver(
                 ttl_minutes = self.ttl_config.get("default_ttl")
 
         if ttl_minutes is not None:
+            # Special case: -1 means remove TTL (make persistent)
+            if ttl_minutes == -1:
+                if self.cluster_mode:
+                    # For cluster mode, execute PERSIST operations individually
+                    await self._redis.persist(main_key)
+
+                    if related_keys:
+                        for key in related_keys:
+                            await self._redis.persist(key)
+
+                    return True
+                else:
+                    # For non-cluster mode, use pipeline for efficiency
+                    pipeline = self._redis.pipeline()
+
+                    # Remove TTL for main key
+                    pipeline.persist(main_key)
+
+                    # Remove TTL for related keys
+                    if related_keys:
+                        for key in related_keys:
+                            pipeline.persist(key)
+
+                    return await pipeline.execute()
+
+            # Regular TTL setting
             ttl_seconds = int(ttl_minutes * 60)
 
             if self.cluster_mode:
@@ -540,13 +569,13 @@ class AsyncRedisSaver(
         # Execute all tasks in parallel - pending_sends is optional
         if doc_parent_checkpoint_id:
             results = await asyncio.gather(*tasks)
-            channel_values: Dict[str, Any] = results[0]
-            pending_sends: List[Tuple[str, bytes]] = results[1]
+            channel_values: Dict[str, Any] = self._recursive_deserialize(results[0])
+            pending_sends: List[Tuple[str, Union[str, bytes]]] = results[1]
             pending_writes: List[PendingWrite] = results[2]
         else:
             # Only channel_values and pending_writes tasks
             results = await asyncio.gather(*tasks)
-            channel_values = results[0]
+            channel_values = self._recursive_deserialize(results[0])
             pending_sends = []
             pending_writes = results[1]
 
@@ -709,7 +738,9 @@ class AsyncRedisSaver(
                     if isinstance(checkpoint_data, dict)
                     else orjson.loads(checkpoint_data)
                 )
-                channel_values = checkpoint_dict.get("channel_values", {})
+                channel_values = self._recursive_deserialize(
+                    checkpoint_dict.get("channel_values", {})
+                )
             else:
                 # If checkpoint data is missing, the document is corrupted
                 # Set empty channel values rather than attempting a fallback
@@ -772,7 +803,7 @@ class AsyncRedisSaver(
             parent_checkpoint_id = doc_data["parent_checkpoint_id"]
 
             # Get pending_sends from batch results
-            pending_sends: List[Tuple[str, bytes]] = []
+            pending_sends: List[Tuple[str, Union[str, bytes]]] = []
             if parent_checkpoint_id:
                 batch_key = (thread_id, checkpoint_ns, parent_checkpoint_id)
                 pending_sends = pending_sends_map.get(batch_key, [])
@@ -1443,7 +1474,7 @@ class AsyncRedisSaver(
 
     async def _aload_pending_sends(
         self, thread_id: str, checkpoint_ns: str = "", parent_checkpoint_id: str = ""
-    ) -> List[Tuple[str, bytes]]:
+    ) -> List[Tuple[str, Union[str, bytes]]]:
         """Load pending sends for a parent checkpoint.
 
         Args:
@@ -1640,7 +1671,7 @@ class AsyncRedisSaver(
 
     async def _abatch_load_pending_sends(
         self, batch_keys: List[Tuple[str, str, str]]
-    ) -> Dict[Tuple[str, str, str], List[Tuple[str, bytes]]]:
+    ) -> Dict[Tuple[str, str, str], List[Tuple[str, Union[str, bytes]]]]:
         """Batch load pending sends for multiple parent checkpoints.
 
         Args:

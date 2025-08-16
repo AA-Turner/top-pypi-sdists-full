@@ -599,20 +599,46 @@ def _get_debug_json(time_str: str, msg: str) -> str:
         separators=(",", ":")  # no pretty indent → smaller, faster
     ).replace('\r', '').replace('\n', '')
 
-def print_debug(msg: str) -> None:
-    original_msg = msg
+def print_stack_paths() -> None:
+    stack = inspect.stack()[1:]  # skip current frame
+    stack.reverse()  # vom Hauptprogramm zur tiefsten Funktion
 
-    time_str: str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    last_filename = None
+    for depth, frame_info in enumerate(stack):
+        filename = frame_info.filename
+        lineno = frame_info.lineno
+        func_name = frame_info.function
+
+        if func_name in ["<module>", "print_debug"]:
+            continue
+
+        if filename != last_filename:
+            print(filename)
+            last_filename = filename
+            indent = ""
+        else:
+            indent = " " * 4 * depth
+
+        print(f"{indent}↳ {func_name}:{lineno}")
+
+def print_debug(msg: str) -> None:
+    time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    stack = traceback.extract_stack()[:-1]
+    stack_funcs = [frame.name for frame in stack]
+
+    if "args" in globals() and args and hasattr(args, "debug_stack_regex") and args.debug_stack_regex:
+        matched = any(any(re.match(regex, func) for regex in args.debug_stack_regex) for func in stack_funcs)
+        if matched:
+            print(f"DEBUG: {msg}")
+            print_stack_paths()
 
     stack_trace_element = _get_debug_json(time_str, msg)
-
-    msg = f"{stack_trace_element}"
-
-    _debug(msg)
+    _debug(stack_trace_element)
 
     try:
         with open(logfile_bare, mode='a', encoding="utf-8") as f:
-            original_print(original_msg, file=f)
+            original_print(msg, file=f)
     except FileNotFoundError:
         print_red("It seems like the run's folder was deleted during the run. Cannot continue.")
         sys.exit(99)
@@ -730,6 +756,7 @@ _DEFAULT_SPECIALS: Dict[str, Any] = {
 class ConfigLoader:
     runtime_debug: bool
     show_func_name: bool
+    debug_stack_regex: str
     number_of_generators: int
     disable_previous_job_constraint: bool
     save_to_database: bool
@@ -961,6 +988,7 @@ class ConfigLoader:
         debug.add_argument('--just_return_defaults', help='Just return defaults in dryrun', action='store_true', default=False)
         debug.add_argument('--prettyprint', help='Shows stdout and stderr in a pretty printed format', action='store_true', default=False)
         debug.add_argument('--runtime_debug', help='Logs which functions use most of the time', action='store_true', default=False)
+        debug.add_argument('--debug_stack_regex', help='Only print debug messages if call stack matches any regex', type=str, default='')
         debug.add_argument('--show_func_name', help='Show func name before each execution and when it is done', action='store_true', default=False)
 
     def load_config(self: Any, config_path: str, file_format: str) -> dict:
@@ -2171,38 +2199,25 @@ def save_results_csv() -> Optional[str]:
     if args.dryrun:
         return None
 
-    pd_csv = get_current_run_folder(RESULTS_CSV_FILENAME)
-    pd_json = get_state_file_name('pd.json')
+    pd_csv, pd_json = get_results_paths()
 
     save_experiment_state()
 
-    if ax_client is None:
+    if not ax_client:
         return None
 
     save_checkpoint()
 
     try:
-        ax_client.experiment.fetch_data()
-        pd_frame = ax_client.get_trials_data_frame()
-        pd_frame = merge_with_job_infos(pd_frame)
-        pd_frame = reindex_trials(pd_frame)
+        pd_frame = fetch_and_prepare_trials()
+        write_csv(pd_frame, pd_csv)
+        write_json_snapshot(pd_json)
+        save_experiment_to_file()
 
-        pd_frame.to_csv(pd_csv, index=False, float_format="%.30f")
-
-        json_snapshot = ax_client.to_json_snapshot()
-        with open(pd_json, "w", encoding="utf-8") as json_file:
-            json.dump(json_snapshot, json_file, indent=4)
-
-        save_experiment(
-            ax_client.experiment,
-            get_state_file_name("ax_client.experiment.json")
-        )
-
-        if args.model not in uncontinuable_models and args.save_to_database:
+        if should_save_to_database():
             try_saving_to_db()
-        else:
-            if args.save_to_database:
-                print_debug(f"Model {args.model} is an uncontinuable model, so it will not be saved to a DB")
+        elif args.save_to_database:
+            print_debug(f"Model {args.model} is an uncontinuable model, so it will not be saved to a DB")
 
     except (SignalUSR, SignalCONT, SignalINT) as e:
         raise type(e)(str(e)) from e
@@ -2210,6 +2225,32 @@ def save_results_csv() -> Optional[str]:
         print_red(f"While saving all trials as a pandas-dataframe-csv, an error occurred: {e}")
 
     return pd_csv
+
+def get_results_paths() -> tuple[str, str]:
+    return (get_current_run_folder(RESULTS_CSV_FILENAME), get_state_file_name('pd.json'))
+
+def fetch_and_prepare_trials() -> pd.DataFrame:
+    ax_client.experiment.fetch_data()
+    df = ax_client.get_trials_data_frame()
+    df = merge_with_job_infos(df)
+    return reindex_trials(df)
+
+def write_csv(df, path: str) -> None:
+    df.to_csv(path, index=False, float_format="%.30f")
+
+def write_json_snapshot(path: str) -> None:
+    json_snapshot = ax_client.to_json_snapshot()
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(json_snapshot, f, indent=4)
+
+def save_experiment_to_file() -> None:
+    save_experiment(
+        ax_client.experiment,
+        get_state_file_name("ax_client.experiment.json")
+    )
+
+def should_save_to_database() -> bool:
+    return args.model not in uncontinuable_models and args.save_to_database
 
 def add_to_phase_counter(phase: str, nr: int = 0, run_folder: str = "") -> int:
     if run_folder == "":
@@ -2585,9 +2626,6 @@ def _debug_worker_creation(msg: str, _lvl: int = 0, eee: Union[None, str, Except
 def append_to_nvidia_smi_logs(_file: str, _host: str, result: str, _lvl: int = 0, eee: Union[None, str, Exception] = None) -> None:
     log_message_to_file(_file, result, _lvl, str(eee))
 
-def _debug_get_next_trials(msg: str, _lvl: int = 0, eee: Union[None, str, Exception] = None) -> None:
-    log_message_to_file(LOGFILE_DEBUG_GET_NEXT_TRIALS, msg, _lvl, str(eee))
-
 def _debug_progressbar(msg: str, _lvl: int = 0, eee: Union[None, str, Exception] = None) -> None:
     log_message_to_file(logfile_progressbar, msg, _lvl, str(eee))
 
@@ -2783,7 +2821,7 @@ def print_debug_get_next_trials(got: int, requested: int, _line: int) -> None:
     time_str: str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     msg: str = f"{time_str}, {got}, {requested}"
 
-    _debug_get_next_trials(msg)
+    log_message_to_file(LOGFILE_DEBUG_GET_NEXT_TRIALS, msg, 0, "")
 
 def print_debug_progressbar(msg: str) -> None:
     time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -4845,7 +4883,7 @@ def process_best_result(res_name: str, print_to_file: bool) -> int:
 
     if str(best_result) in [NO_RESULT, None, "None"]:
         print_red(f"Best {res_name} could not be determined")
-        return 87
+        return 87 # exit-code: 87
 
     total_str = f"total: {_count_done_jobs(RESULT_CSV_FILE) - NR_INSERTED_JOBS}"
     if NR_INSERTED_JOBS:
@@ -6448,83 +6486,100 @@ def _get_generation_node_for_index_floats_match(
         return False
     return abs(row_val_num - val) <= tolerance
 
-def insert_jobs_from_csv(this_csv_file_path: str) -> None:
-    with spinner(f"Inserting job into CSV from {this_csv_file_path}") as __status:
-        this_csv_file_path = this_csv_file_path.replace("//", "/")
+def validate_and_convert_params_for_jobs_from_csv(arm_params: Dict) -> Dict:
+    corrected_params: Dict[Any, Any] = {}
 
-        if not os.path.exists(this_csv_file_path):
-            print_red(f"--load_data_from_existing_jobs: Cannot find {this_csv_file_path}")
+    if experiment_parameters is not None:
+        for param in experiment_parameters:
+            name = param["name"]
+            expected_type = param.get("value_type", "str")
 
-            return
+            if name not in arm_params:
+                continue
 
-        def validate_and_convert_params(arm_params: Dict) -> Dict:
-            corrected_params: Dict[Any, Any] = {}
-
-            if experiment_parameters is not None:
-                for param in experiment_parameters:
-                    name = param["name"]
-                    expected_type = param.get("value_type", "str")
-
-                    if name not in arm_params:
-                        continue
-
-                    value = arm_params[name]
-
-                    try:
-                        if param["type"] == "range":
-                            if expected_type == "int":
-                                corrected_params[name] = int(value)
-                            elif expected_type == "float":
-                                corrected_params[name] = float(value)
-                        elif param["type"] == "choice":
-                            corrected_params[name] = str(value)
-                    except (ValueError, TypeError):
-                        corrected_params[name] = None
-
-            return corrected_params
-
-        arm_params_list, results_list = parse_csv(this_csv_file_path)
-
-        cnt = 0
-
-        err_msgs = []
-
-        i = 0
-        for arm_params, result in zip(arm_params_list, results_list):
-            base_str = f"[bold green]Loading job {i}/{len(results_list)} from {this_csv_file_path} into ax_client, result: {result}"
-            __status.update(base_str)
-            if not args.worker_generator_path:
-                arm_params = validate_and_convert_params(arm_params)
+            value = arm_params[name]
 
             try:
-                gen_node_name = get_generation_node_for_index(this_csv_file_path, arm_params_list, results_list, i, __status, base_str)
+                if param["type"] == "range":
+                    if expected_type == "int":
+                        corrected_params[name] = int(value)
+                    elif expected_type == "float":
+                        corrected_params[name] = float(value)
+                elif param["type"] == "choice":
+                    corrected_params[name] = str(value)
+            except (ValueError, TypeError):
+                corrected_params[name] = None
 
-                if len(result):
-                    if insert_job_into_ax_client(arm_params, result, gen_node_name, __status, base_str):
-                        cnt += 1
+    return corrected_params
 
-                        print_debug(f"Inserted one job from {this_csv_file_path}, arm_params: {arm_params}, results: {result}")
-                    else:
-                        print_red(f"Failed to insert one job from {this_csv_file_path}, arm_params: {arm_params}, results: {result}")
-                else:
-                    print_yellow("Encountered job without a result")
-            except ValueError as e:
-                err_msg = f"Failed to insert job(s) from {this_csv_file_path} into ax_client. This can happen when the csv file has different parameters or results as the main job one's or other imported jobs. Error: {e}"
-                if err_msg not in err_msgs:
-                    print_red(err_msg)
-                    err_msgs.append(err_msg)
+def insert_jobs_from_csv(this_csv_file_path: str) -> None:
+    with spinner(f"Inserting job into CSV from {this_csv_file_path}") as __status:
+        this_csv_file_path = normalize_path(this_csv_file_path)
 
-            i = i + 1
+        if not helpers.file_exists(this_csv_file_path):
+            print_red(f"--load_data_from_existing_jobs: Cannot find {this_csv_file_path}")
+            return
 
-        if cnt:
-            if cnt == 1:
-                print_yellow(f"Inserted one job from {this_csv_file_path}")
-            else:
-                print_yellow(f"Inserted {cnt} jobs from {this_csv_file_path}")
+        arm_params_list, results_list = parse_csv(this_csv_file_path)
+        insert_jobs_from_lists(this_csv_file_path, arm_params_list, results_list, __status)
+
+def normalize_path(file_path: str) -> str:
+    return file_path.replace("//", "/")
+
+def insert_jobs_from_lists(csv_path, arm_params_list, results_list, __status):
+    cnt = 0
+    err_msgs = []
+
+    for i, (arm_params, result) in enumerate(zip(arm_params_list, results_list)):
+        base_str = f"[bold green]Loading job {i}/{len(results_list)} from {csv_path} into ax_client, result: {result}"
+        __status.update(base_str)
 
         if not args.worker_generator_path:
-            set_max_eval(max_eval + cnt)
-            set_nr_inserted_jobs(NR_INSERTED_JOBS + cnt)
+            arm_params = validate_and_convert_params_for_jobs_from_csv(arm_params)
+
+        cnt = try_insert_job(csv_path, arm_params, result, i, arm_params_list, results_list, __status, base_str, cnt, err_msgs)
+
+    summarize_insertions(csv_path, cnt)
+    update_global_job_counters(cnt)
+
+def try_insert_job(csv_path: str, arm_params: Dict, result: Any, i: int, arm_params_list: Any, results_list: Any, __status: Any, base_str: Optional[str], cnt: int, err_msgs: Optional[Union[str, list[str]]]) -> int:
+    try:
+        gen_node_name = get_generation_node_for_index(csv_path, arm_params_list, results_list, i, __status, base_str)
+
+        if not result:
+            print_yellow("Encountered job without a result")
+            return cnt
+
+        if insert_job_into_ax_client(arm_params, result, gen_node_name, __status, base_str):
+            cnt += 1
+            print_debug(f"Inserted one job from {csv_path}, arm_params: {arm_params}, results: {result}")
+        else:
+            print_red(f"Failed to insert one job from {csv_path}, arm_params: {arm_params}, results: {result}")
+
+    except ValueError as e:
+        err_msg = (
+            f"Failed to insert job(s) from {csv_path} into ax_client. "
+            f"This can happen when the csv file has different parameters or results as the main job one's "
+            f"or other imported jobs. Error: {e}"
+        )
+        if err_msg not in err_msgs:
+            print_red(err_msg)
+            err_msgs.append(err_msg)
+
+    return cnt
+
+def summarize_insertions(csv_path: str, cnt: int) -> None:
+    if cnt == 0:
+        return
+    if cnt == 1:
+        print_yellow(f"Inserted one job from {csv_path}")
+    else:
+        print_yellow(f"Inserted {cnt} jobs from {csv_path}")
+
+def update_global_job_counters(cnt: int) -> None:
+    if not args.worker_generator_path:
+        set_max_eval(max_eval + cnt)
+        set_nr_inserted_jobs(NR_INSERTED_JOBS + cnt)
 
 def __insert_job_into_ax_client__update_status(__status: Optional[Any], base_str: Optional[str], new_text: str) -> None:
     if __status and base_str:
@@ -7788,32 +7843,32 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
         remaining = nr_of_jobs_to_get - len(batched_arms)
         print_debug(f"get_batched_arms: Attempt {attempts + 1}: requesting {remaining} more arm(s).")
 
-        #print("get pending observations")
+        print_debug("get pending observations")
         pending_observations = get_pending_observation_features(experiment=ax_client.experiment)
-        #print("got pending observations")
+        print_debug("got pending observations")
 
-        #print("getting global_gs.gen()")
+        print_debug("getting global_gs.gen()")
         batched_generator_run = global_gs.gen(
             experiment=ax_client.experiment,
             n=remaining,
             pending_observations=pending_observations
         )
-        #print(f"got global_gs.gen(): {batched_generator_run}")
+        print_debug(f"got global_gs.gen(): {batched_generator_run}")
 
         # Inline rekursiv entpacken bis flach
         depth = 0
         path = "batched_generator_run"
         while isinstance(batched_generator_run, (list, tuple)) and len(batched_generator_run) > 0:
-            #print(f"Depth {depth}, path {path}, type {type(batched_generator_run).__name__}, length {len(batched_generator_run)}: {batched_generator_run}")
+            print_debug(f"Depth {depth}, path {path}, type {type(batched_generator_run).__name__}, length {len(batched_generator_run)}: {batched_generator_run}")
             batched_generator_run = batched_generator_run[0]
             path += "[0]"
             depth += 1
 
-        #print(f"Final flat object at depth {depth}, path {path}: {batched_generator_run} (type {type(batched_generator_run).__name__})")
+        print_debug(f"Final flat object at depth {depth}, path {path}: {batched_generator_run} (type {type(batched_generator_run).__name__})")
 
-        #print("got new arms")
+        print_debug("got new arms")
         new_arms = batched_generator_run.arms
-        #print(f"new_arms: {new_arms}")
+        print_debug(f"new_arms: {new_arms}")
         if not new_arms:
             print_debug("get_batched_arms: No new arms were generated in this attempt.")
         else:
@@ -7828,7 +7883,7 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
 
     return batched_arms
 
-def _fetch_next_trials(nr_of_jobs_to_get: int, recursion: bool = False) -> Tuple[Dict[int, Any], bool]:
+def fetch_next_trials(nr_of_jobs_to_get: int, recursion: bool = False) -> Tuple[Dict[int, Any], bool]:
     die_101_if_no_ax_client_or_experiment_or_gs()
 
     if not ax_client:
@@ -7837,9 +7892,9 @@ def _fetch_next_trials(nr_of_jobs_to_get: int, recursion: bool = False) -> Tuple
     if global_gs is None:
         _fatal_error("Global generation strategy is not set. This is a bug in OmniOpt2.", 107)
 
-    return _generate_trials(nr_of_jobs_to_get, recursion)
+    return generate_trials(nr_of_jobs_to_get, recursion)
 
-def _generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
+def generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
     trials_dict: Dict[int, Any] = {}
     trial_durations: List[float] = []
 
@@ -7865,7 +7920,7 @@ def _generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
                 progressbar_description(_get_trials_message(cnt + 1, n, trial_durations))
 
                 try:
-                    result = _create_and_handle_trial(arm)
+                    result = create_and_handle_trial(arm)
                     if result is not None:
                         trial_index, trial_duration, trial_successful = result
 
@@ -7890,9 +7945,9 @@ def _generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
 class TrialRejected(Exception):
     pass
 
-def _create_and_handle_trial(arm: Any) -> Optional[Tuple[int, float, bool]]:
+def create_and_handle_trial(arm: Any) -> Optional[Tuple[int, float, bool]]:
     if ax_client is None:
-        print_red("ax_client is None in _create_and_handle_trial")
+        print_red("ax_client is None in create_and_handle_trial")
         return None
 
     start = time.time()
@@ -7965,7 +8020,7 @@ def _handle_generation_failure(
         if not recursion and args.revert_to_random_when_seemingly_exhausted:
             print_debug("Switching to random search strategy.")
             set_global_gs_to_random()
-            return _fetch_next_trials(requested, True)
+            return fetch_next_trials(requested, True)
 
     print_red(f"_handle_generation_failure: General Exception: {e}")
 
@@ -8248,14 +8303,14 @@ def _handle_linalg_error(error: Union[None, str, Exception]) -> None:
     """Handles the np.linalg.LinAlgError based on the model being used."""
     print_red(f"Error: {error}")
 
-def _get_next_trials(nr_of_jobs_to_get: int) -> Tuple[Union[None, dict], bool]:
-    finish_previous_jobs(["finishing jobs (_get_next_trials)"])
+def get_next_trials(nr_of_jobs_to_get: int) -> Tuple[Union[None, dict], bool]:
+    finish_previous_jobs(["finishing jobs (get_next_trials)"])
 
-    if break_run_search("_get_next_trials", max_eval) or nr_of_jobs_to_get == 0:
+    if break_run_search("get_next_trials", max_eval) or nr_of_jobs_to_get == 0:
         return {}, True
 
     try:
-        trial_index_to_param, optimization_complete = _fetch_next_trials(nr_of_jobs_to_get)
+        trial_index_to_param, optimization_complete = fetch_next_trials(nr_of_jobs_to_get)
 
         cf = currentframe()
         if cf:
@@ -8615,7 +8670,6 @@ def create_step(model_name: str, _num_trials: int = -1, index: Optional[int] = N
         index=index
     )
 
-
 def set_global_generation_strategy() -> None:
     with spinner("Setting global generation strategy"):
         continue_not_supported_on_custom_generation_strategy()
@@ -8632,7 +8686,6 @@ def set_global_generation_strategy() -> None:
     if global_gs is None:
         print_red("global_gs is None after setup!")
         my_exit(111)
-
 
 def setup_default_generation_strategy() -> None:
     global generation_strategy_human_readable
@@ -8673,7 +8726,6 @@ def setup_default_generation_strategy() -> None:
         print_red(f"Error creating GenerationStrategy: {e}\nnames: {generation_strategy_names}\nnodes: {generation_strategy_nodes}")
         my_exit(111)
 
-
 def add_sobol_node_if_needed(nodes: list, names: list, chosen_model: str) -> None:
     if random_steps >= 1:
         next_node_name = None
@@ -8684,7 +8736,6 @@ def add_sobol_node_if_needed(nodes: list, names: list, chosen_model: str) -> Non
         names.append(step_name)
         print_debug(f"Added SOBOL node: {step_name}")
 
-
 def add_main_node_if_needed(nodes: list, names: list, chosen_model: str, remaining: int) -> None:
     if chosen_model != "SOBOL" and remaining > 0:
         node = create_node(chosen_model, remaining, None)
@@ -8692,7 +8743,6 @@ def add_main_node_if_needed(nodes: list, names: list, chosen_model: str, remaini
         step_name = get_step_name(chosen_model, remaining)
         names.append(step_name)
         print_debug(f"Added main node: {step_name}")
-
 
 def setup_custom_generation_strategy() -> None:
     generation_strategy_array, new_max_eval = parse_generation_strategy_string(args.generation_strategy)
@@ -8729,7 +8779,6 @@ def setup_custom_generation_strategy() -> None:
     except Exception as e:
         print_red(f"Failed to create custom GenerationStrategy: {e}")
         my_exit(111)
-
 
 def wait_for_jobs_or_break(_max_eval: Optional[int]) -> bool:
     while len(global_vars["jobs"]) > num_parallel_jobs:
@@ -8850,7 +8899,7 @@ def _create_and_execute_next_runs_run_loop(_max_eval: Optional[int], phase: Opti
         get_next_trials_nr = new_nr_of_jobs_to_get
 
     for _ in range(range_nr):
-        trial_index_to_param, done_optimizing = _get_next_trials(get_next_trials_nr)
+        trial_index_to_param, done_optimizing = get_next_trials(get_next_trials_nr)
         if done_optimizing:
             continue
 
@@ -10305,7 +10354,7 @@ def run_program_once(params=None) -> None:
         my_exit(57)
 
 def show_omniopt_call() -> None:
-    def remove_ui_url(arg_str):
+    def remove_ui_url(arg_str) -> str:
         return re.sub(r'(?:--ui_url(?:=\S+)?(?:\s+\S+)?)', '', arg_str).strip()
 
     original_argv = " ".join(sys.argv[1:])
@@ -11087,7 +11136,6 @@ def auto_wrap_namespace(namespace: Any) -> Any:
     return namespace
 
 if __name__ == "__main__":
-
     try:
         main_outside()
     except (SignalUSR, SignalINT, SignalCONT) as e:

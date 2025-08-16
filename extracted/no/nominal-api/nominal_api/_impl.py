@@ -9880,6 +9880,65 @@ ingest_api_IngestDetailsVisitor.__qualname__ = "IngestDetailsVisitor"
 ingest_api_IngestDetailsVisitor.__module__ = "nominal_api.ingest_api"
 
 
+class ingest_api_IngestJob(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'ingest_job_rid': ConjureFieldDefinition('ingestJobRid', ingest_api_IngestJobRid),
+            'status': ConjureFieldDefinition('status', ingest_api_IngestJobStatus),
+            'ingest_job_request': ConjureFieldDefinition('ingestJobRequest', ingest_api_IngestJobRequest),
+            'origin_files': ConjureFieldDefinition('originFiles', OptionalTypeWrapper[List[str]]),
+            'created_by': ConjureFieldDefinition('createdBy', str),
+            'org_uuid': ConjureFieldDefinition('orgUuid', str),
+            'ingest_type': ConjureFieldDefinition('ingestType', ingest_api_IngestType)
+        }
+
+    __slots__: List[str] = ['_ingest_job_rid', '_status', '_ingest_job_request', '_origin_files', '_created_by', '_org_uuid', '_ingest_type']
+
+    def __init__(self, created_by: str, ingest_job_request: "ingest_api_IngestJobRequest", ingest_job_rid: str, ingest_type: "ingest_api_IngestType", org_uuid: str, status: "ingest_api_IngestJobStatus", origin_files: Optional[List[str]] = None) -> None:
+        self._ingest_job_rid = ingest_job_rid
+        self._status = status
+        self._ingest_job_request = ingest_job_request
+        self._origin_files = origin_files
+        self._created_by = created_by
+        self._org_uuid = org_uuid
+        self._ingest_type = ingest_type
+
+    @builtins.property
+    def ingest_job_rid(self) -> str:
+        return self._ingest_job_rid
+
+    @builtins.property
+    def status(self) -> "ingest_api_IngestJobStatus":
+        return self._status
+
+    @builtins.property
+    def ingest_job_request(self) -> "ingest_api_IngestJobRequest":
+        return self._ingest_job_request
+
+    @builtins.property
+    def origin_files(self) -> Optional[List[str]]:
+        return self._origin_files
+
+    @builtins.property
+    def created_by(self) -> str:
+        return self._created_by
+
+    @builtins.property
+    def org_uuid(self) -> str:
+        return self._org_uuid
+
+    @builtins.property
+    def ingest_type(self) -> "ingest_api_IngestType":
+        return self._ingest_type
+
+
+ingest_api_IngestJob.__name__ = "IngestJob"
+ingest_api_IngestJob.__qualname__ = "IngestJob"
+ingest_api_IngestJob.__module__ = "nominal_api.ingest_api"
+
+
 class ingest_api_IngestJobRequest(ConjureUnionType):
     _ingest_mcap: Optional["ingest_api_IngestMcapRequest"] = None
     _trigger_file_ingest: Optional["ingest_api_TriggerFileIngest"] = None
@@ -9997,6 +10056,32 @@ class ingest_api_IngestJobRequestVisitor:
 ingest_api_IngestJobRequestVisitor.__name__ = "IngestJobRequestVisitor"
 ingest_api_IngestJobRequestVisitor.__qualname__ = "IngestJobRequestVisitor"
 ingest_api_IngestJobRequestVisitor.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_IngestJobStatus(ConjureEnumType):
+
+    SUBMITTED = 'SUBMITTED'
+    '''SUBMITTED'''
+    QUEUED = 'QUEUED'
+    '''QUEUED'''
+    IN_PROGRESS = 'IN_PROGRESS'
+    '''IN_PROGRESS'''
+    COMPLETED = 'COMPLETED'
+    '''COMPLETED'''
+    FAILED = 'FAILED'
+    '''FAILED'''
+    CANCELLED = 'CANCELLED'
+    '''CANCELLED'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+ingest_api_IngestJobStatus.__name__ = "IngestJobStatus"
+ingest_api_IngestJobStatus.__qualname__ = "IngestJobStatus"
+ingest_api_IngestJobStatus.__module__ = "nominal_api.ingest_api"
 
 
 class ingest_api_IngestMcapRequest(ConjureBeanType):
@@ -11058,6 +11143,34 @@ class ingest_api_IngestStatus(ConjureEnumType):
 ingest_api_IngestStatus.__name__ = "IngestStatus"
 ingest_api_IngestStatus.__qualname__ = "IngestStatus"
 ingest_api_IngestStatus.__module__ = "nominal_api.ingest_api"
+
+
+class ingest_api_IngestType(ConjureEnumType):
+
+    TABULAR = 'TABULAR'
+    '''TABULAR'''
+    MCAP = 'MCAP'
+    '''MCAP'''
+    DATAFLASH = 'DATAFLASH'
+    '''DATAFLASH'''
+    JOURNAL_JSON = 'JOURNAL_JSON'
+    '''JOURNAL_JSON'''
+    CONTAINERIZED = 'CONTAINERIZED'
+    '''CONTAINERIZED'''
+    VIDEO = 'VIDEO'
+    '''VIDEO'''
+    AVRO_STREAM = 'AVRO_STREAM'
+    '''AVRO_STREAM'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+ingest_api_IngestType.__name__ = "IngestType"
+ingest_api_IngestType.__qualname__ = "IngestType"
+ingest_api_IngestType.__module__ = "nominal_api.ingest_api"
 
 
 class ingest_api_IngestVideoFileDetails(ConjureBeanType):
@@ -14076,6 +14189,79 @@ only a single file is supported, the list type is used for future compatibility.
 ingest_workflow_api_IngestDataflashResponse.__name__ = "IngestDataflashResponse"
 ingest_workflow_api_IngestDataflashResponse.__qualname__ = "IngestDataflashResponse"
 ingest_workflow_api_IngestDataflashResponse.__module__ = "nominal_api.ingest_workflow_api"
+
+
+class ingest_workflow_api_IngestInternalService(Service):
+
+    def get_ingest_job(self, auth_header: str, ingest_job_rid: str) -> "ingest_api_IngestJob":
+        """Returns a single ingest job by RID.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'ingestJobRid': quote(str(_conjure_encoder.default(ingest_job_rid)), safe=''),
+        }
+
+        _json: Any = None
+
+        _path = '/internal/ingest/v1/ingest-job/{ingestJobRid}'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'GET',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), ingest_api_IngestJob, self._return_none_for_unknown_union_types)
+
+    def update_ingest_job_status(self, auth_header: str, ingest_job_rid: str, status: "ingest_api_IngestJobStatus") -> "ingest_api_IngestJobStatus":
+        """Updates the status of an ingest job.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'ingestJobRid': quote(str(_conjure_encoder.default(ingest_job_rid)), safe=''),
+        }
+
+        _json: Any = _conjure_encoder.default(status)
+
+        _path = '/internal/ingest/v1/ingest-job/{ingestJobRid}/status'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'PUT',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), ingest_api_IngestJobStatus, self._return_none_for_unknown_union_types)
+
+
+ingest_workflow_api_IngestInternalService.__name__ = "IngestInternalService"
+ingest_workflow_api_IngestInternalService.__qualname__ = "IngestInternalService"
+ingest_workflow_api_IngestInternalService.__module__ = "nominal_api.ingest_workflow_api"
 
 
 class ingest_workflow_api_IngestMcapProtobufRequest(ConjureBeanType):
@@ -41774,7 +41960,7 @@ scout_compute_api_ComputableNodeVisitor.__module__ = "nominal_api.scout_compute_
 
 
 class scout_compute_api_ComputeEventQuery(ConjureUnionType):
-    _search_text: Optional[str] = None
+    _search_text: Optional["scout_compute_api_StringConstant"] = None
     _after: Optional["scout_compute_api_TimestampConstant"] = None
     _before: Optional["scout_compute_api_TimestampConstant"] = None
     _advanced_time_filter: Optional["scout_compute_api_EventTimeFilter"] = None
@@ -41802,7 +41988,7 @@ class scout_compute_api_ComputeEventQuery(ConjureUnionType):
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'search_text': ConjureFieldDefinition('searchText', str),
+            'search_text': ConjureFieldDefinition('searchText', scout_compute_api_StringConstant),
             'after': ConjureFieldDefinition('after', scout_compute_api_TimestampConstant),
             'before': ConjureFieldDefinition('before', scout_compute_api_TimestampConstant),
             'advanced_time_filter': ConjureFieldDefinition('advancedTimeFilter', scout_compute_api_EventTimeFilter),
@@ -41830,7 +42016,7 @@ class scout_compute_api_ComputeEventQuery(ConjureUnionType):
 
     def __init__(
             self,
-            search_text: Optional[str] = None,
+            search_text: Optional["scout_compute_api_StringConstant"] = None,
             after: Optional["scout_compute_api_TimestampConstant"] = None,
             before: Optional["scout_compute_api_TimestampConstant"] = None,
             advanced_time_filter: Optional["scout_compute_api_EventTimeFilter"] = None,
@@ -42055,7 +42241,7 @@ class scout_compute_api_ComputeEventQuery(ConjureUnionType):
             self._type = 'stepId'
 
     @builtins.property
-    def search_text(self) -> Optional[str]:
+    def search_text(self) -> Optional["scout_compute_api_StringConstant"]:
         return self._search_text
 
     @builtins.property
@@ -42217,7 +42403,7 @@ scout_compute_api_ComputeEventQuery.__module__ = "nominal_api.scout_compute_api"
 class scout_compute_api_ComputeEventQueryVisitor:
 
     @abstractmethod
-    def _search_text(self, search_text: str) -> Any:
+    def _search_text(self, search_text: "scout_compute_api_StringConstant") -> Any:
         pass
 
     @abstractmethod
@@ -49396,6 +49582,8 @@ class scout_compute_api_OutputFormat(ConjureEnumType):
     '''ARROW_V1'''
     ARROW_V1_1 = 'ARROW_V1_1'
     '''ARROW_V1_1'''
+    ARROW_V2 = 'ARROW_V2'
+    '''ARROW_V2'''
     LEGACY = 'LEGACY'
     '''LEGACY'''
     UNKNOWN = 'UNKNOWN'
@@ -69897,15 +70085,13 @@ class scout_datasource_connection_api_InfluxChannelNameComponent(ConjureUnionTyp
     _bucket: Optional["api_Empty"] = None
     _measurement: Optional["api_Empty"] = None
     _field: Optional["api_Empty"] = None
-    _tag_value: Optional[str] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'bucket': ConjureFieldDefinition('bucket', api_Empty),
             'measurement': ConjureFieldDefinition('measurement', api_Empty),
-            'field': ConjureFieldDefinition('field', api_Empty),
-            'tag_value': ConjureFieldDefinition('tagValue', api_TagName)
+            'field': ConjureFieldDefinition('field', api_Empty)
         }
 
     def __init__(
@@ -69913,11 +70099,10 @@ class scout_datasource_connection_api_InfluxChannelNameComponent(ConjureUnionTyp
             bucket: Optional["api_Empty"] = None,
             measurement: Optional["api_Empty"] = None,
             field: Optional["api_Empty"] = None,
-            tag_value: Optional[str] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (bucket is not None) + (measurement is not None) + (field is not None) + (tag_value is not None) != 1:
+            if (bucket is not None) + (measurement is not None) + (field is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if bucket is not None:
@@ -69929,9 +70114,6 @@ class scout_datasource_connection_api_InfluxChannelNameComponent(ConjureUnionTyp
             if field is not None:
                 self._field = field
                 self._type = 'field'
-            if tag_value is not None:
-                self._tag_value = tag_value
-                self._type = 'tagValue'
 
         elif type_of_union == 'bucket':
             if bucket is None:
@@ -69948,11 +70130,6 @@ class scout_datasource_connection_api_InfluxChannelNameComponent(ConjureUnionTyp
                 raise ValueError('a union value must not be None')
             self._field = field
             self._type = 'field'
-        elif type_of_union == 'tagValue':
-            if tag_value is None:
-                raise ValueError('a union value must not be None')
-            self._tag_value = tag_value
-            self._type = 'tagValue'
 
     @builtins.property
     def bucket(self) -> Optional["api_Empty"]:
@@ -69966,12 +70143,6 @@ class scout_datasource_connection_api_InfluxChannelNameComponent(ConjureUnionTyp
     def field(self) -> Optional["api_Empty"]:
         return self._field
 
-    @builtins.property
-    def tag_value(self) -> Optional[str]:
-        """The value for the specified TagName will be used. If the tag is not present, it will be omitted.
-        """
-        return self._tag_value
-
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_datasource_connection_api_InfluxChannelNameComponentVisitor):
             raise ValueError('{} is not an instance of scout_datasource_connection_api_InfluxChannelNameComponentVisitor'.format(visitor.__class__.__name__))
@@ -69981,8 +70152,6 @@ class scout_datasource_connection_api_InfluxChannelNameComponent(ConjureUnionTyp
             return visitor._measurement(self.measurement)
         if self._type == 'field' and self.field is not None:
             return visitor._field(self.field)
-        if self._type == 'tagValue' and self.tag_value is not None:
-            return visitor._tag_value(self.tag_value)
 
 
 scout_datasource_connection_api_InfluxChannelNameComponent.__name__ = "InfluxChannelNameComponent"
@@ -70002,10 +70171,6 @@ class scout_datasource_connection_api_InfluxChannelNameComponentVisitor:
 
     @abstractmethod
     def _field(self, field: "api_Empty") -> Any:
-        pass
-
-    @abstractmethod
-    def _tag_value(self, tag_value: str) -> Any:
         pass
 
 

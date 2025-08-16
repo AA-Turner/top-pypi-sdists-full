@@ -1,9 +1,8 @@
 import asyncio
 from collections.abc import AsyncIterator
-from typing import Literal
+from typing import Literal, cast
 
 import orjson
-from langgraph.checkpoint.base.id import uuid6
 from starlette.exceptions import HTTPException
 from starlette.responses import Response, StreamingResponse
 
@@ -12,7 +11,7 @@ from langgraph_api.asyncio import ValueEvent, aclosing
 from langgraph_api.models.run import create_valid_run
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.sse import EventSourceResponse
-from langgraph_api.utils import fetchone, get_pagination_headers, validate_uuid
+from langgraph_api.utils import fetchone, get_pagination_headers, uuid7, validate_uuid
 from langgraph_api.validation import (
     CronCreate,
     CronSearch,
@@ -92,7 +91,7 @@ async def stream_run(
     thread_id = request.path_params["thread_id"]
     payload = await request.json(RunCreateStateful)
     on_disconnect = payload.get("on_disconnect", "continue")
-    run_id = uuid6()
+    run_id = uuid7()
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
 
     try:
@@ -132,7 +131,7 @@ async def stream_run_stateless(
     """Create a stateless run."""
     payload = await request.json(RunCreateStateless)
     on_disconnect = payload.get("on_disconnect", "continue")
-    run_id = uuid6()
+    run_id = uuid7()
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
 
     try:
@@ -173,7 +172,7 @@ async def wait_run(request: ApiRequest):
     thread_id = request.path_params["thread_id"]
     payload = await request.json(RunCreateStateful)
     on_disconnect = payload.get("on_disconnect", "continue")
-    run_id = uuid6()
+    run_id = uuid7()
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
 
     try:
@@ -255,7 +254,7 @@ async def wait_run_stateless(request: ApiRequest):
     """Create a stateless run, wait for the output."""
     payload = await request.json(RunCreateStateless)
     on_disconnect = payload.get("on_disconnect", "continue")
-    run_id = uuid6()
+    run_id = uuid7()
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
 
     try:
@@ -425,7 +424,10 @@ async def cancel_run(
     wait_str = request.query_params.get("wait", "false")
     wait = wait_str.lower() in {"true", "yes", "1"}
     action_str = request.query_params.get("action", "interrupt")
-    action = action_str if action_str in {"interrupt", "rollback"} else "interrupt"
+    action = cast(
+        Literal["interrupt", "rollback"],
+        action_str if action_str in {"interrupt", "rollback"} else "interrupt",
+    )
 
     async with connect() as conn:
         await Runs.cancel(
@@ -471,8 +473,9 @@ async def cancel_runs(
         for rid in run_ids:
             validate_uuid(rid, "Invalid run ID: must be a UUID")
     action_str = request.query_params.get("action", "interrupt")
-    action: Literal["interrupt", "rollback"] = (
-        action_str if action_str in ("interrupt", "rollback") else "interrupt"
+    action = cast(
+        Literal["interrupt", "rollback"],
+        action_str if action_str in ("interrupt", "rollback") else "interrupt",
     )
 
     async with connect() as conn:

@@ -13,10 +13,17 @@ dirhash('/path/to/directory', 'md5')
 import hashlib
 import os
 import re
+from typing import Callable, List, Optional
 
-import pkg_resources
+try:
+    from importlib.metadata import version
 
-__version__ = pkg_resources.require("checksumdir")[0].version
+    __version__ = version("checksumdir")
+except ImportError:
+    # Fallback for older Python versions
+    import pkg_resources
+
+    __version__ = pkg_resources.require("checksumdir")[0].version
 
 HASH_FUNCS = {
     "md5": hashlib.md5,
@@ -27,17 +34,17 @@ HASH_FUNCS = {
 
 
 def dirhash(
-    dirname,
-    hashfunc="md5",
-    excluded_files=None,
-    ignore_hidden=False,
-    followlinks=False,
-    excluded_extensions=None,
-    include_paths=False
-):
+    dirname: str,
+    hashfunc: str = "md5",
+    excluded_files: Optional[List[str]] = None,
+    ignore_hidden: bool = False,
+    followlinks: bool = False,
+    excluded_extensions: Optional[List[str]] = None,
+    include_paths: bool = False,
+) -> str:
     hash_func = HASH_FUNCS.get(hashfunc)
     if not hash_func:
-        raise NotImplementedError("{} not implemented.".format(hashfunc))
+        raise NotImplementedError(f"{hashfunc} not implemented.")
 
     if not excluded_files:
         excluded_files = []
@@ -46,7 +53,7 @@ def dirhash(
         excluded_extensions = []
 
     if not os.path.isdir(dirname):
-        raise TypeError("{} is not a directory.".format(dirname))
+        raise TypeError(f"{dirname} is not a directory.")
 
     hashvalues = []
     for root, dirs, files in os.walk(dirname, topdown=True, followlinks=followlinks):
@@ -73,13 +80,13 @@ def dirhash(
                 # get the resulting relative path into array of elements
                 path_list = os.path.relpath(os.path.join(root, fname)).split(os.sep)
                 # compute the hash on joined list, removes all os specific separators
-                hasher.update(''.join(path_list).encode('utf-8'))
+                hasher.update("".join(path_list).encode("utf-8"))
                 hashvalues.append(hasher.hexdigest())
 
     return _reduce_hash(hashvalues, hash_func)
 
 
-def _filehash(filepath, hashfunc):
+def _filehash(filepath: str, hashfunc: Callable) -> str:
     hasher = hashfunc()
     blocksize = 64 * 1024
 
@@ -95,7 +102,7 @@ def _filehash(filepath, hashfunc):
     return hasher.hexdigest()
 
 
-def _reduce_hash(hashlist, hashfunc):
+def _reduce_hash(hashlist: List[str], hashfunc: Callable) -> str:
     hasher = hashfunc()
     for hashvalue in sorted(hashlist):
         hasher.update(hashvalue.encode("utf-8"))

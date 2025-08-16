@@ -12,9 +12,11 @@ from .models.activate_account_response import ActivateAccountResponse
 from .models.activated_account import ActivatedAccount
 from .models.activity_event_type import ActivityEventType
 from .models.activity_record import ActivityRecord
+from .models.activity_record_activity_type import ActivityRecordActivityType
 from .models.activity_record_actor import ActivityRecordActor
 from .models.activity_record_entitlement import ActivityRecordEntitlement
 from .models.activity_record_target import ActivityRecordTarget
+from .models.activity_type import ActivityType
 from .models.amount import Amount
 from .models.app_category import AppCategory
 from .models.app_info import AppInfo
@@ -249,9 +251,11 @@ __all__ = [
     "ActivatedAccount",
     "ActivityEventType",
     "ActivityRecord",
+    "ActivityRecordActivityType",
     "ActivityRecordActor",
     "ActivityRecordEntitlement",
     "ActivityRecordTarget",
+    "ActivityType",
     "Amount",
     "AppCategory",
     "AppInfo",

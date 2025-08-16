@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: audio-separator
-Version: 0.35.2
+Version: 0.36.1
 Summary: Easy to use audio stem separation, using various models from UVR trained primarily by @Anjok07
 License: MIT
 Keywords: audio,sound,karaoke

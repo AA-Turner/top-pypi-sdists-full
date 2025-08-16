@@ -98,7 +98,10 @@ class HTTPMetricsCollector:
         hist_data["count"] += 1
 
     def get_metrics(
-        self, project_id: str, revision_id: str, format: str = "prometheus"
+        self,
+        project_id: str | None,
+        revision_id: str | None,
+        format: str = "prometheus",
     ) -> dict | list[str]:
         if format == "json":
             return {

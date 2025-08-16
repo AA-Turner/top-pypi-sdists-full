@@ -17,6 +17,7 @@
 
 """Parser for /etc/os-release."""
 
+import shlex
 from pathlib import Path
 
 OS_RELEASE_FILE = Path("/etc/os-release")
@@ -29,27 +30,11 @@ def parse_os_release(content: str | None = None) -> dict[str, str]:
 
     https://www.freedesktop.org/software/systemd/man/os-release.html
 
-    Example os-release contents::
-
-        NAME="Ubuntu"
-        VERSION="22.04 (Jammy Jellyfish)"
-        ID=ubuntu
-        ID_LIKE=debian
-        PRETTY_NAME="Ubuntu 22.04"
-        VERSION_ID="22.04"
-        HOME_URL="https://www.ubuntu.com/"
-        SUPPORT_URL="https://help.ubuntu.com/"
-        BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
-        PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
-        VERSION_CODENAME=jammy
-        UBUNTU_CODENAME=jammy
-
     :param content: String contents of os-release file.  If None, will read contents of
     file from host.
 
     :returns: Dictionary of key-mappings found in os-release. Values are
     stripped of encapsulating quotes.
-
     """
     if content is None:
         with OS_RELEASE_FILE.open() as f:
@@ -57,24 +42,10 @@ def parse_os_release(content: str | None = None) -> dict[str, str]:
 
     mappings: dict[str, str] = {}
 
-    for line in content.splitlines():
-        line = line.strip()
-
-        # Ignore commented lines.
-        if line.startswith("#"):
+    for line in shlex.split(content):
+        key, eq, value = line.partition("=")
+        if eq != "=":  # Not a variable getting set; ignore.
             continue
-
-        # Ignore empty lines.
-        if not line:
-            continue
-
-        if "=" in line:
-            key, value = line.split("=", maxsplit=1)
-
-            # Strip encapsulating quotes, single or double.
-            if value[0] == value[-1] and value[0] in ("'", '"'):
-                value = value[1:-1]
-
-            mappings[key] = value
+        mappings[key] = value
 
     return mappings

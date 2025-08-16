@@ -13,7 +13,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.5.5"  # We use git tags for versioning. This is just a placeholder.
+version = "0.5.6"  # We use git tags for versioning. This is just a placeholder.
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2021"
 repository = "https://github.com/tombi-toml/tombi"
@@ -80,6 +80,7 @@ tombi-extension = { path = "crates/tombi-extension" }
 tombi-extension-cargo = { path = "extensions/tombi-extension-cargo" }
 tombi-extension-tombi = { path = "extensions/tombi-extension-tombi" }
 tombi-extension-uv = { path = "extensions/tombi-extension-uv" }
+tombi-file-search = { path = "crates/tombi-file-search" }
 tombi-formatter = { path = "crates/tombi-formatter" }
 tombi-future = { path = "crates/tombi-future" }
 tombi-glob = { path = "crates/tombi-glob" }

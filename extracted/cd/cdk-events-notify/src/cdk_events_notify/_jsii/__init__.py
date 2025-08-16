@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "cdk-events-notify",
-    "2.2.561",
+    "2.2.562",
     __name__[0:-6],
-    "cdk-events-notify@2.2.561.jsii.tgz",
+    "cdk-events-notify@2.2.562.jsii.tgz",
 )
 
 __all__ = [

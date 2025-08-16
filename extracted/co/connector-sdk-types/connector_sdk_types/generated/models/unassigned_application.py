@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from typing import Any, ClassVar, Dict, List
+from connector_sdk_types.generated.models.account_status import AccountStatus
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,7 +29,8 @@ class UnassignedApplication(BaseModel):
     """ # noqa: E501
     unassigned: StrictBool = Field(description="Indicates if an account's assignment to the application via the integration has been removed. This does not indicate if the account was removed in the application.")
     deprovisioned: StrictBool = Field(description="Indicates if the account in the application was removed. This does not indicate if the assignment via the integration was removed.")
-    __properties: ClassVar[List[str]] = ["unassigned", "deprovisioned"]
+    status: AccountStatus = Field(description="Indicates the account status after the unassignemnt operation.")
+    __properties: ClassVar[List[str]] = ["unassigned", "deprovisioned", "status"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -82,7 +84,8 @@ class UnassignedApplication(BaseModel):
 
         _obj = cls.model_validate({
             "unassigned": obj.get("unassigned"),
-            "deprovisioned": obj.get("deprovisioned")
+            "deprovisioned": obj.get("deprovisioned"),
+            "status": obj.get("status")
         })
         return _obj
 

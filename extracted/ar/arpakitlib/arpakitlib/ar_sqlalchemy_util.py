@@ -220,19 +220,27 @@ class SQLAlchemyDb:
         self.remove_celery_tables_data()
         self._logger.info("all reinited")
 
-    def remove_rows_from_tables(self):
+    def remove_rows_from_tables(self, exclude_tables: list[str] | None = None):
+        if exclude_tables is None:
+            exclude_tables = []
         with self.new_session() as session:
             for table_name, table in BaseDBM.metadata.tables.items():
-                session.execute(sqlalchemy.delete(table))
+                if table_name not in exclude_tables:
+                    session.execute(sqlalchemy.delete(table))
             session.commit()
-        self._logger.info(f"rows from tables ({BaseDBM.metadata.tables.keys()}) were removed")
+        removed_tables = [t for t in BaseDBM.metadata.tables.keys() if t not in exclude_tables]
+        self._logger.info(f"rows from tables ({removed_tables}) were removed")
 
-    async def async_remove_rows_from_tables(self):
+    async def async_remove_rows_from_tables(self, exclude_tables: list[str] | None = None):
+        if exclude_tables is None:
+            exclude_tables = []
         async with self.new_async_session() as async_session:
             for table_name, table in BaseDBM.metadata.tables.items():
-                await async_session.execute(sqlalchemy.delete(table))
+                if table_name not in exclude_tables:
+                    await async_session.execute(sqlalchemy.delete(table))
             await async_session.commit()
-        self._logger.info(f"rows from tables ({BaseDBM.metadata.tables.keys()}) were removed")
+        removed_tables = [t for t in BaseDBM.metadata.tables.keys() if t not in exclude_tables]
+        self._logger.info(f"rows from tables ({removed_tables}) were removed")
 
     def check_conn(self):
         self.engine.connect()

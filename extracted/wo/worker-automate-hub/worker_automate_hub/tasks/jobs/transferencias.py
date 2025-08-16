@@ -135,6 +135,26 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         pyautogui.hotkey("tab")
         await worker_sleep(10)
 
+        try:
+            # Verificando a existência da janela Busca representante e clicando em Cancelar
+            console.print(
+                "Verificando a existência da janela Busca representante e clicando em Cancelar...\n"
+            )
+            app = Application().connect(class_name="TFrmBuscaGeralDialog")
+            app = app["TFrmBuscaGeralDialog"]
+            btn_cancelar = app.child_window(title="&Cancelar", class_name="TBitBtn")
+            if btn_cancelar.exists():
+                app.set_focus()
+                btn_cancelar.click_input()
+                console.print(f" botão Cancelar clicado com sucesso")
+            else:
+                console.print(f"Botão Cancelar Não encontrado")
+
+        except:
+            console.log(
+                f"Nenhuma tela de Busca representante foi encontrada.",
+                style="bold green",
+            )
         # Clica em cancelar na Janela "Busca Representante"
         # screenshot_path = take_screenshot()
         # window_busca_representante_position = take_target_position(screenshot_path, "Representante")
@@ -475,6 +495,13 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                     #Clica cancelar
                     pyautogui.click((1194, 745))
                     await worker_sleep(5)
+                    if len(itens) <= 1:
+                        return RpaRetornoProcessoDTO(
+                            sucesso=False,
+                            retorno=f"Apenas um item na transferencia, ele está com saldo de: {amount_avaliable}",
+                            status=RpaHistoricoStatusEnum.Falha, 
+                            tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                        )
                     continue
                 else:
                     itens_zero_qtd.append(f"DIVERGENCIA DE ESTOQUE - Item: {item["codigoProduto"]} Quantidade que deveria ser transferida: {item['qtd']} | Quantidade disponível: {amount_avaliable}")
@@ -578,7 +605,7 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             button_cancela_item = (
                 1194,
                 745,
-            )  # find_target_position(screenshot_path, "Cancela", 0, 0, 15)
+            ) 
             if button_cancela_item is not None:
                 pyautogui.click(button_cancela_item)
                 await worker_sleep(2)
@@ -629,9 +656,9 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
             )
 
-        await worker_sleep(8)
+        await worker_sleep(10)
 
-         # Verifica mensagem de "Pré-Venda incluida com número: xxxxx"
+        # Verifica mensagem de "Pré-Venda incluida com número: xxxxx"
         console.print(
             "Verificando mensagem de 'Pré-Venda incluida com número: xxxxx'...\n"
         )
@@ -640,10 +667,10 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             app = Application().connect(title="Informação")
             dialog = app.window(title="Informação")
 
-            btn_yes = dialog.child_window(title="OK", class_name="Button")
-            if btn_yes.exists():
+            btn_ok = dialog.child_window(title="OK", class_name="Button")
+            if btn_ok.exists():
                 try:
-                    btn_yes.click()
+                    btn_ok.click()
                     await worker_sleep(3)
                     console.print(
                         "O botão OK de pré-venda incluída foi clicado com sucesso.",
@@ -660,7 +687,6 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                         status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
                     )
             else:
-
                 console.print(
                     "O Botão OK de pré-venda incluída não foi encontrado.", style="red"
                 )
@@ -778,12 +804,11 @@ async def transferencias(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             )
         await worker_sleep(5)
         try:
-            app = Application().connect(class_name="TMessageForm")
-            confirmada_pre_venda = app["TMessageForm"]
-            confirmada_pre_venda_ok = confirmada_pre_venda.child_window(title="OK", class_name="TButton")
-            if confirmada_pre_venda_ok.exists():
-                if confirmada_pre_venda_ok.is_enabled():  
-                    confirmada_pre_venda_ok.click()
+            app = Application().connect(title="Informação")
+            confirmada_pre_venda = app["Informação"]
+            confirmada_pre_venda_ok = confirmada_pre_venda.child_window(title="OK")
+            if confirmada_pre_venda_ok.exists() and confirmada_pre_venda_ok.is_enabled():
+                confirmada_pre_venda_ok.click()
             else:
                 log_msg = f"Tela de pré-venda confirmada nao encontrada"
                 return RpaRetornoProcessoDTO(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiobotocore
-Version: 2.24.0
+Version: 2.24.1
 Summary: Async client for aws services using botocore and aiohttp
 Author-email: Nikolay Novik <nickolainovik@gmail.com>
 License: Apache-2.0
@@ -272,6 +272,9 @@ the other.
 
 Changes
 -------
+2.24.1 (2025-08-15)
+^^^^^^^^^^^^^^^^^^^
+* fix endpoint circular import error
 
 2.24.0 (2025-07-31)
 ^^^^^^^^^^^^^^^^^^^

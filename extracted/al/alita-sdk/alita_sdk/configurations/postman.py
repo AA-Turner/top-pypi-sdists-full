@@ -27,4 +27,6 @@ class PostmanConfiguration(BaseModel):
             }
         }
     )
+    base_url: str = Field(description="Postman API base URL")
+    workspace_id: str = Field(description="Default workspace ID")
     api_key: Optional[SecretStr] = Field(description="Postman API Key", default=None)

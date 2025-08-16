@@ -5,6 +5,7 @@
 lint:
 	uv run ruff check .
 	uv run ruff format . --diff
+	uvx ty check --exclude "**/pb/**" --exclude "**/*_test.py" --exclude "**/test_*.py" --exclude "**/tests/**" --exclude "venv/**" --exclude ".venv/**" --exclude "build/**" --exclude "dist/**" .
 
 format:
 	uv run ruff check --fix .

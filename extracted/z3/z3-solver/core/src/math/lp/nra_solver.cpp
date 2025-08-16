@@ -15,7 +15,7 @@
 #include "util/map.h"
 #include "util/uint_set.h"
 #include "math/lp/nla_core.h"
-#include "smt/params/smt_params_helper.hpp"
+#include "params/smt_params_helper.hpp"
 
 
 namespace nra {
@@ -63,6 +63,8 @@ struct solver::imp {
 
         for (auto ci : lra.constraints().indices()) {
             auto const& c = lra.constraints()[ci];
+            if (c.is_auxiliary())
+                continue;
             for (auto const& [coeff, v] : c.coeffs()) {
                 var2occurs.reserve(v + 1);
                 var2occurs[v].constraints.push_back(ci);
@@ -226,7 +228,7 @@ struct solver::imp {
                 ex.push_back(idx);
                 TRACE(nra, lra.display_constraint(tout << "ex: " << idx << ": ", idx) << "\n";);
             }
-            nla::new_lemma lemma(m_nla_core, __FUNCTION__);
+            nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
             lemma &= ex;
             m_nla_core.set_use_nra_model(true);
             break;
@@ -414,7 +416,7 @@ struct solver::imp {
                 dm.linearize(static_cast<u_dependency*>(c), lv);
             for (auto ci : lv)
                 ex.push_back(ci);
-            nla::new_lemma lemma(m_nla_core, __FUNCTION__);
+            nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
             lemma &= ex;
             break;
         }

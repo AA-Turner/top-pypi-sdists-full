@@ -1,9 +1,9 @@
 import contextvars
 import uuid
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Protocol, TypeAlias, TypeVar
+from typing import Any, Protocol, TypeAlias, TypeVar, cast
 
 import structlog
 from langgraph_sdk import Auth
@@ -12,6 +12,7 @@ from starlette.exceptions import HTTPException
 from starlette.schemas import BaseSchemaGenerator
 
 from langgraph_api.auth.custom import SimpleUser
+from langgraph_api.utils.uuids import uuid7
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -32,7 +33,9 @@ async def with_user(
     yield
     if current is None:
         return
-    set_auth_ctx(current.user, AuthCredentials(scopes=current.permissions))
+    set_auth_ctx(
+        cast(BaseUser, current.user), AuthCredentials(scopes=current.permissions)
+    )
 
 
 def set_auth_ctx(
@@ -99,7 +102,7 @@ def validate_uuid(uuid_str: str, invalid_uuid_detail: str | None) -> uuid.UUID:
 
 
 def next_cron_date(schedule: str, base_time: datetime) -> datetime:
-    import croniter
+    import croniter  # type: ignore[unresolved-import]
 
     cron_iter = croniter.croniter(schedule, base_time)
     return cron_iter.get_next(datetime)
@@ -130,7 +133,7 @@ class SchemaGenerator(BaseSchemaGenerator):
 
 
 async def get_pagination_headers(
-    resource: AsyncGenerator[T],
+    resource: AsyncIterator[T],
     next_offset: int | None,
     offset: int,
 ) -> tuple[list[T], dict[str, str]]:
@@ -143,3 +146,16 @@ async def get_pagination_headers(
             "X-Pagination-Next": str(next_offset),
         }
     return resources, response_headers
+
+
+__all__ = [
+    "AsyncCursorProto",
+    "AsyncPipelineProto",
+    "AsyncConnectionProto",
+    "fetchone",
+    "validate_uuid",
+    "next_cron_date",
+    "SchemaGenerator",
+    "get_pagination_headers",
+    "uuid7",
+]

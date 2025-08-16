@@ -8,6 +8,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 
 
 class ChatCompletionStreamOptionsParam(UncheckedBaseModel):
+    include_obfuscation: typing.Optional[bool] = None
     include_usage: typing.Optional[bool] = None
 
     if IS_PYDANTIC_V2:

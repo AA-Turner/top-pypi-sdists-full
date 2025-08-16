@@ -103,12 +103,18 @@ class Reactor(IReactor):
         from orionis.console.commands.version import VersionCommand
         from orionis.console.commands.help import HelpCommand
         from orionis.console.commands.test import TestCommand
+        from orionis.console.commands.publisher import PublisherCommand
+        from orionis.console.commands.workflow import WorkFlowGithubCommand
+        from orionis.console.commands.cache import CacheClearCommand
 
         # List of core command classes to load (extend this list as more core commands are added)
         core_commands = [
             VersionCommand,
             HelpCommand,
-            TestCommand
+            TestCommand,
+            PublisherCommand,
+            WorkFlowGithubCommand,
+            CacheClearCommand
         ]
 
         # Iterate through the core command classes and register them
@@ -116,7 +122,7 @@ class Reactor(IReactor):
 
             # Validate and extract required command attributes
             timestamp = self.__ensureTimestamps(obj)
-            signature = self.__ensureSignature(obj)
+            signature = getattr(obj, 'signature', None)
             description = self.__ensureDescription(obj)
             args = self.__ensureArguments(obj)
 
@@ -415,14 +421,26 @@ class Reactor(IReactor):
 
         # Prepare a list to hold command information
         commands_info = []
+
+        # Iterate through all registered commands in the internal registry
         for command in self.__commands.values():
+
+            # Extract command metadata
+            signature:str = command.get("signature")
+            description:str = command.get("description", "")
+
+            # Skip internal commands (those with double underscores)
+            if signature.startswith('__') and signature.endswith('__'):
+                continue
+
+            # Append command information to the list
             commands_info.append({
-                "signature": command.get("signature"),
-                "description": command.get("description"),
+                "signature": signature,
+                "description": description
             })
 
         # Return the sorted list of command information by signature
-        return sorted(commands_info, key=lambda x: x["signature"].lower())
+        return sorted(commands_info, key=lambda x: x['signature'])
 
     def call(
         self,

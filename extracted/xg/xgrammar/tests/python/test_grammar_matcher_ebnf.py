@@ -51,6 +51,28 @@ def test_repetition(input: str, accepted: bool):
     assert _is_grammar_accept_string(grammar, input) == accepted
 
 
+input_accepted_test_repetition_with_empty = (
+    ("aaa", True),
+    ("abcbc", True),
+    ("bcbcbcbcbc", True),
+    ("bcbcbcbcbcbcbcb", True),
+    ("aaaa", False),
+    ("", True),
+    ("a", True),
+    ("d", True),
+)
+
+
+@pytest.mark.parametrize("input, accepted", input_accepted_test_repetition_with_empty)
+def test_repetition_with_empty(input: str, accepted: bool):
+    grammar_str = """
+        root ::= rule {2, 3} "d"?
+        rule ::= ("a" | [bc] {4,}) | ""
+    """
+    grammar = xgr.Grammar.from_ebnf(grammar_str)
+    assert _is_grammar_accept_string(grammar, input) == accepted
+
+
 def test_utf8():
     # Test utf8-encoded string with EBNF grammar
     ebnf_grammar_str = "root ::= [，]+"
@@ -490,6 +512,21 @@ def test_not_neighbour_character_class():
     matcher.fill_next_token_bitmask(token_bitmask)
     rejected_token_ids = _get_masked_tokens_from_bitmask(token_bitmask, tokenizer_info.vocab_size)
     assert len(rejected_token_ids) == 31933
+
+
+def test_nfa():
+    grammar_str = """
+root ::= rule1 | rule2 | rule3
+rule1 ::= "abc" | ""
+rule2 ::= "abd" | ""
+rule3 ::= [a-n] [b-c] "x" | ""
+"""
+    grammar = xgr.Grammar.from_ebnf(grammar_str)
+    assert _is_grammar_accept_string(grammar, "abc")
+    assert _is_grammar_accept_string(grammar, "abx")
+    assert _is_grammar_accept_string(grammar, "ccx")
+    assert not _is_grammar_accept_string(grammar, "abb")
+    assert not _is_grammar_accept_string(grammar, "ad")
 
 
 if __name__ == "__main__":

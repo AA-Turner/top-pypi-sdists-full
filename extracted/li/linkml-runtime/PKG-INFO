@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: linkml-runtime
-Version: 1.9.4
+Version: 1.9.5
 Summary: Runtime environment for LinkML, the Linked open data modeling language
 License: CC0-1.0
 Keywords: linkml,metamodel,schema visualization,rdf,owl,yaml

@@ -31,7 +31,7 @@ Author:
 #include "sat/smt/user_solver.h"
 #include "sat/smt/euf_relevancy.h"
 #include "sat/smt/euf_proof_checker.h"
-#include "smt/params/smt_params.h"
+#include "params/smt_params.h"
 
 
 namespace euf {
@@ -553,6 +553,10 @@ namespace euf {
         void user_propagate_register_decide(user_propagator::decide_eh_t& ceh) {
             check_for_user_propagator();
             m_user_propagator->register_decide(ceh);
+        }
+        void user_propagate_register_on_binding(user_propagator::binding_eh_t& on_binding_eh) {
+            check_for_user_propagator();
+            NOT_IMPLEMENTED_YET();
         }
         void user_propagate_register_expr(expr* e) {
             check_for_user_propagator();

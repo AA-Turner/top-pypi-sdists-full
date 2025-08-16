@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+import json as jsonlib
 from typing import Any, Generic, TypeVar
 
-from apify_shared.utils import ignore_docs, parse_date_fields
-
-from apify_client._utils import pluck_data
+from apify_client._utils import parse_date_fields, pluck_data
 from apify_client.clients.base.base_client import BaseClient, BaseClientAsync
 
 T = TypeVar('T')
@@ -31,7 +30,6 @@ class ListPage(Generic[T]):
     desc: bool
     """Whether the listing is descending or not"""
 
-    @ignore_docs
     def __init__(self, data: dict) -> None:
         """Initialize a ListPage instance from the API response data."""
         self.items = data.get('items', [])
@@ -42,7 +40,6 @@ class ListPage(Generic[T]):
         self.desc = data.get('desc', False)
 
 
-@ignore_docs
 class ResourceCollectionClient(BaseClient):
     """Base class for sub-clients manipulating a resource collection."""
 
@@ -53,7 +50,7 @@ class ResourceCollectionClient(BaseClient):
             params=self._params(**kwargs),
         )
 
-        return ListPage(parse_date_fields(pluck_data(response.json())))
+        return ListPage(parse_date_fields(pluck_data(jsonlib.loads(response.text))))
 
     def _create(self, resource: dict) -> dict:
         response = self.http_client.call(
@@ -63,7 +60,7 @@ class ResourceCollectionClient(BaseClient):
             json=resource,
         )
 
-        return parse_date_fields(pluck_data(response.json()))
+        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
 
     def _get_or_create(self, name: str | None = None, resource: dict | None = None) -> dict:
         response = self.http_client.call(
@@ -73,10 +70,9 @@ class ResourceCollectionClient(BaseClient):
             json=resource,
         )
 
-        return parse_date_fields(pluck_data(response.json()))
+        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
 
 
-@ignore_docs
 class ResourceCollectionClientAsync(BaseClientAsync):
     """Base class for async sub-clients manipulating a resource collection."""
 
@@ -87,7 +83,7 @@ class ResourceCollectionClientAsync(BaseClientAsync):
             params=self._params(**kwargs),
         )
 
-        return ListPage(parse_date_fields(pluck_data(response.json())))
+        return ListPage(parse_date_fields(pluck_data(jsonlib.loads(response.text))))
 
     async def _create(self, resource: dict) -> dict:
         response = await self.http_client.call(
@@ -97,7 +93,7 @@ class ResourceCollectionClientAsync(BaseClientAsync):
             json=resource,
         )
 
-        return parse_date_fields(pluck_data(response.json()))
+        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
 
     async def _get_or_create(
         self,
@@ -111,4 +107,4 @@ class ResourceCollectionClientAsync(BaseClientAsync):
             json=resource,
         )
 
-        return parse_date_fields(pluck_data(response.json()))
+        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))

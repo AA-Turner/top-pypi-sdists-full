@@ -1,15 +1,23 @@
 from __future__ import annotations
 
-import warnings
+import json as jsonlib
 from contextlib import asynccontextmanager, contextmanager
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlencode, urlparse, urlunparse
 
-from apify_shared.utils import filter_out_none_values_recursively, ignore_docs, parse_date_fields
+from apify_shared.utils import create_storage_content_signature
 
-from apify_client._errors import ApifyApiError
-from apify_client._utils import catch_not_found_or_throw, encode_key_value_store_record_value, pluck_data
+from apify_client._utils import (
+    catch_not_found_or_throw,
+    encode_key_value_store_record_value,
+    filter_out_none_values_recursively,
+    maybe_parse_response,
+    parse_date_fields,
+    pluck_data,
+)
 from apify_client.clients.base import ResourceClient, ResourceClientAsync
+from apify_client.errors import ApifyApiError
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
@@ -23,7 +31,6 @@ _MEDIUM_TIMEOUT = 30  # For actions that may take longer.
 class KeyValueStoreClient(ResourceClient):
     """Sub-client for manipulating a single key-value store."""
 
-    @ignore_docs
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         resource_path = kwargs.pop('resource_path', 'key-value-stores')
         super().__init__(*args, resource_path=resource_path, **kwargs)
@@ -99,45 +106,20 @@ class KeyValueStoreClient(ResourceClient):
             timeout_secs=_MEDIUM_TIMEOUT,
         )
 
-        return parse_date_fields(pluck_data(response.json()))
+        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
 
-    def get_record(self, key: str, *, as_bytes: bool = False, as_file: bool = False) -> dict | None:
+    def get_record(self, key: str) -> dict | None:
         """Retrieve the given record from the key-value store.
 
         https://docs.apify.com/api/v2#/reference/key-value-stores/record/get-record
 
         Args:
             key: Key of the record to retrieve.
-            as_bytes: Deprecated, use `get_record_as_bytes()` instead. Whether to retrieve the record as raw bytes,
-                default False.
-            as_file: Deprecated, use `stream_record()` instead. Whether to retrieve the record as a file-like object,
-                default False.
 
         Returns:
             The requested record, or None, if the record does not exist.
         """
         try:
-            if as_bytes and as_file:
-                raise ValueError('You cannot have both as_bytes and as_file set.')
-
-            if as_bytes:
-                warnings.warn(
-                    '`KeyValueStoreClient.get_record(..., as_bytes=True)` is deprecated, '
-                    'use `KeyValueStoreClient.get_record_as_bytes()` instead.',
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                return self.get_record_as_bytes(key)
-
-            if as_file:
-                warnings.warn(
-                    '`KeyValueStoreClient.get_record(..., as_file=True)` is deprecated, '
-                    'use `KeyValueStoreClient.stream_record()` instead.',
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                return self.stream_record(key)  # type: ignore[return-value]
-
             response = self.http_client.call(
                 url=self._url(f'records/{key}'),
                 method='GET',
@@ -146,7 +128,7 @@ class KeyValueStoreClient(ResourceClient):
 
             return {
                 'key': key,
-                'value': response._maybe_parsed_body,  # type: ignore[attr-defined]  # noqa: SLF001
+                'value': maybe_parse_response(response),
                 'content_type': response.headers['content-type'],
             }
 
@@ -196,7 +178,6 @@ class KeyValueStoreClient(ResourceClient):
                 url=self._url(f'records/{key}'),
                 method='GET',
                 params=self._params(),
-                parse_response=False,
             )
 
             return {
@@ -228,7 +209,6 @@ class KeyValueStoreClient(ResourceClient):
                 url=self._url(f'records/{key}'),
                 method='GET',
                 params=self._params(),
-                parse_response=False,
                 stream=True,
             )
 
@@ -287,11 +267,58 @@ class KeyValueStoreClient(ResourceClient):
             timeout_secs=_SMALL_TIMEOUT,
         )
 
+    def create_keys_public_url(
+        self,
+        *,
+        limit: int | None = None,
+        exclusive_start_key: str | None = None,
+        collection: str | None = None,
+        prefix: str | None = None,
+        expires_in_secs: int | None = None,
+    ) -> str:
+        """Generate a URL that can be used to access key-value store keys.
+
+        If the client has permission to access the key-value store's URL signing key,
+        the URL will include a signature to verify its authenticity.
+
+        You can optionally control how long the signed URL should be valid using the `expires_in_secs` option.
+        This value sets the expiration duration in seconds from the time the URL is generated.
+        If not provided, the URL will not expire.
+
+        Any other options (like `limit` or `prefix`) will be included as query parameters in the URL.
+
+        Returns:
+            The public key-value store keys URL.
+        """
+        store = self.get()
+
+        request_params = self._params(
+            limit=limit,
+            exclusive_start_key=exclusive_start_key,
+            collection=collection,
+            prefix=prefix,
+        )
+
+        if store and 'urlSigningSecretKey' in store:
+            signature = create_storage_content_signature(
+                resource_id=store['id'],
+                url_signing_secret_key=store['urlSigningSecretKey'],
+                expires_in_millis=expires_in_secs * 1000 if expires_in_secs is not None else None,
+            )
+            request_params['signature'] = signature
+
+        keys_public_url = urlparse(self._url('keys'))
+
+        filtered_params = {k: v for k, v in request_params.items() if v is not None}
+        if filtered_params:
+            keys_public_url = keys_public_url._replace(query=urlencode(filtered_params))
+
+        return urlunparse(keys_public_url)
+
 
 class KeyValueStoreClientAsync(ResourceClientAsync):
     """Async sub-client for manipulating a single key-value store."""
 
-    @ignore_docs
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         resource_path = kwargs.pop('resource_path', 'key-value-stores')
         super().__init__(*args, resource_path=resource_path, **kwargs)
@@ -367,7 +394,7 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
             timeout_secs=_MEDIUM_TIMEOUT,
         )
 
-        return parse_date_fields(pluck_data(response.json()))
+        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
 
     async def get_record(self, key: str) -> dict | None:
         """Retrieve the given record from the key-value store.
@@ -376,10 +403,6 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
 
         Args:
             key: Key of the record to retrieve.
-            as_bytes: Deprecated, use `get_record_as_bytes()` instead. Whether to retrieve the record as raw bytes,
-                default False.
-            as_file: Deprecated, use `stream_record()` instead. Whether to retrieve the record as a file-like object,
-                default False.
 
         Returns:
             The requested record, or None, if the record does not exist.
@@ -393,7 +416,7 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
 
             return {
                 'key': key,
-                'value': response._maybe_parsed_body,  # type: ignore[attr-defined]  # noqa: SLF001
+                'value': maybe_parse_response(response),
                 'content_type': response.headers['content-type'],
             }
 
@@ -443,7 +466,6 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
                 url=self._url(f'records/{key}'),
                 method='GET',
                 params=self._params(),
-                parse_response=False,
             )
 
             return {
@@ -475,7 +497,6 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
                 url=self._url(f'records/{key}'),
                 method='GET',
                 params=self._params(),
-                parse_response=False,
                 stream=True,
             )
 
@@ -533,3 +554,52 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
             params=self._params(),
             timeout_secs=_SMALL_TIMEOUT,
         )
+
+    async def create_keys_public_url(
+        self,
+        *,
+        limit: int | None = None,
+        exclusive_start_key: str | None = None,
+        collection: str | None = None,
+        prefix: str | None = None,
+        expires_in_secs: int | None = None,
+    ) -> str:
+        """Generate a URL that can be used to access key-value store keys.
+
+        If the client has permission to access the key-value store's URL signing key,
+        the URL will include a signature to verify its authenticity.
+
+        You can optionally control how long the signed URL should be valid using the `expires_in_secs` option.
+        This value sets the expiration duration in seconds from the time the URL is generated.
+        If not provided, the URL will not expire.
+
+        Any other options (like `limit` or `prefix`) will be included as query parameters in the URL.
+
+        Returns:
+            The public key-value store keys URL.
+        """
+        store = await self.get()
+
+        keys_public_url = urlparse(self._url('keys'))
+
+        request_params = self._params(
+            limit=limit,
+            exclusive_start_key=exclusive_start_key,
+            collection=collection,
+            prefix=prefix,
+        )
+
+        if store and 'urlSigningSecretKey' in store:
+            signature = create_storage_content_signature(
+                resource_id=store['id'],
+                url_signing_secret_key=store['urlSigningSecretKey'],
+                expires_in_millis=expires_in_secs * 1000 if expires_in_secs is not None else None,
+            )
+            request_params['signature'] = signature
+
+        keys_public_url = urlparse(self._url('keys'))
+        filtered_params = {k: v for k, v in request_params.items() if v is not None}
+        if filtered_params:
+            keys_public_url = keys_public_url._replace(query=urlencode(filtered_params))
+
+        return urlunparse(keys_public_url)

@@ -15,6 +15,9 @@ import re
 import json
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from connector_sdk_types.generated.models.activity_record_activity_type import (
+    ActivityRecordActivityType,
+)
 from connector_sdk_types.generated.models.activity_record_actor import ActivityRecordActor
 from connector_sdk_types.generated.models.activity_record_target import ActivityRecordTarget
 from typing import Optional, Set
@@ -27,9 +30,7 @@ class ActivityRecord(BaseModel):
     """
 
     id: StrictStr = Field(description="Unique ID for the activity record")
-    activity_type: StrictStr = Field(
-        description='Type of activity performed (e.g., "AssumeRole", "AccessFeature")'
-    )
+    activity_type: ActivityRecordActivityType
     timestamp: StrictStr = Field(
         description="Timestamp when the activity occurred (ISO 8601 format)"
     )
@@ -78,6 +79,8 @@ class ActivityRecord(BaseModel):
         """
         excluded_fields: Set[str] = set([])
         _dict = self.model_dump(by_alias=True, exclude=excluded_fields, exclude_none=True)
+        if self.activity_type:
+            _dict["activity_type"] = self.activity_type.to_dict()
         if self.actor:
             _dict["actor"] = self.actor.to_dict()
         _items = []
@@ -98,7 +101,9 @@ class ActivityRecord(BaseModel):
         _obj = cls.model_validate(
             {
                 "id": obj.get("id"),
-                "activity_type": obj.get("activity_type"),
+                "activity_type": ActivityRecordActivityType.from_dict(obj["activity_type"])
+                if obj.get("activity_type") is not None
+                else None,
                 "timestamp": obj.get("timestamp"),
                 "actor": ActivityRecordActor.from_dict(obj["actor"])
                 if obj.get("actor") is not None

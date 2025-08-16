@@ -1,5 +1,8 @@
+# ruff: noqa: I001, import order prevent circular import error
 from .authroot import AUTHROOTSTL_PATH, CertificateTrustList, CertificateTrustSubject
-from .signed_pe import SignedPEFile
+from .signed_file import AuthenticodeFile
+from .signed_pe import SignedPEFile, SignedPEFingerprinter
+from .signed_msi import SignedMsiFile
 from .structures import (
     CERTIFICATE_LOCATION,
     TRUSTED_CERTIFICATE_STORE,
@@ -8,26 +11,33 @@ from .structures import (
     AuthenticodeSignedData,
     AuthenticodeSignerInfo,
     AuthenticodeVerificationResult,
+    IndirectData,
+    PeImageData,
     RFC3161SignedData,
     RFC3161SignerInfo,
-    SpcInfo,
+    SigInfo,
     TSTInfo,
 )
 
 __all__ = [
-    "CERTIFICATE_LOCATION",
-    "TRUSTED_CERTIFICATE_STORE_NO_CTL",
-    "TRUSTED_CERTIFICATE_STORE",
-    "AuthenticodeVerificationResult",
-    "AuthenticodeCounterSignerInfo",
-    "AuthenticodeSignerInfo",
-    "SpcInfo",
-    "AuthenticodeSignedData",
-    "RFC3161SignerInfo",
-    "TSTInfo",
-    "RFC3161SignedData",
-    "SignedPEFile",
     "AUTHROOTSTL_PATH",
+    "CERTIFICATE_LOCATION",
+    "TRUSTED_CERTIFICATE_STORE",
+    "TRUSTED_CERTIFICATE_STORE_NO_CTL",
+    "AuthenticodeCounterSignerInfo",
+    "AuthenticodeFile",
+    "AuthenticodeSignedData",
+    "AuthenticodeSignerInfo",
+    "AuthenticodeVerificationResult",
     "CertificateTrustList",
     "CertificateTrustSubject",
+    "IndirectData",
+    "PeImageData",
+    "RFC3161SignedData",
+    "RFC3161SignerInfo",
+    "SigInfo",
+    "SignedMsiFile",
+    "SignedPEFile",
+    "SignedPEFingerprinter",
+    "TSTInfo",
 ]

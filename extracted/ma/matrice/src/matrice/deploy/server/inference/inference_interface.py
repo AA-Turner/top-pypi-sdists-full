@@ -1,5 +1,8 @@
 from matrice.deploy.server.inference.model_manager import ModelManager
 from matrice.deploy.server.inference.batch_manager import DynamicBatchManager, BatchRequest
+from matrice.deploy.optimize.cache_manager import CacheManager
+from matrice.deploy.optimize.frame_comparators import SSIMComparator
+from matrice.deploy.optimize.frame_difference import IntelligentFrameCache
 from matrice.deploy.utils.post_processing import (
     PostProcessor,
     create_config_from_template
@@ -54,6 +57,11 @@ class InferenceInterface:
         self.latest_inference_time = datetime.now(timezone.utc)
         self.max_batch_wait_time = max_batch_wait_time
         self.app_name = app_name
+        # Centralize hash-based caching here (moved from ModelManager)
+        self.cache_manager = CacheManager()
+        # Intelligent frame cache (moved from ModelManager)
+        self.intelligent_cache = IntelligentFrameCache()
+        self.ssim_comparator = SSIMComparator(threshold=0.95)
 
         # Set up index to category mapping
         self.index_to_category = self.action_tracker.get_index_to_category()
@@ -92,13 +100,13 @@ class InferenceInterface:
 
     def _load_config_from_app_name(self, app_name: str) -> Optional[BaseConfig]:
         """Load default post-processing configuration based on app name.
-        
+
         Args:
-            app_name: The application name to map to a post-processing use case
-            
+            app_name: The application name to map to a post-processing use case.
+
         Returns:
-            BaseConfig: The automatically loaded configuration, or None if no mapping found
-        """  
+            The automatically loaded configuration, or None if no mapping found.
+        """
         usecase = get_usecase_from_app_name(app_name)
         category = get_category_from_app_name(app_name)
         if not usecase or not category:
@@ -121,6 +129,7 @@ class InferenceInterface:
                 else:
                     self.logger.warning(f"No config found for app: {app_name}")
             if isinstance(config, BaseConfig):
+                # Already a config instance
                 config = config
             elif isinstance(config, dict):
                 usecase = config.get("usecase")
@@ -155,6 +164,85 @@ class InferenceInterface:
         except Exception as e:
             self.logger.error(f"Failed to parse post-processing config: {str(e)}")
             return None
+
+    async def _maybe_return_intelligent_cache(
+        self,
+        input1: Any,
+        stream_key: Optional[str],
+        apply_post_processing: bool,
+        post_processing_config: Optional[Union[Dict[str, Any], BaseConfig, str]],
+        stream_info: Optional[Dict[str, Any]],
+        camera_info: Optional[Dict[str, Any]],
+    ) -> Optional[Tuple[Any, Optional[Dict[str, Any]]]]:
+        """Check intelligent cache and return a processed result if available.
+
+        Returns a tuple (raw_results, post_processing_result) if a cache hit occurs,
+        otherwise None.
+        """
+        try:
+            current_frame = self._extract_frame_from_input(input1)
+            if current_frame is None or not stream_key:
+                return None
+
+            action, action_data = self.intelligent_cache.should_use_cache(
+                current_frame, stream_key, self.ssim_comparator
+            )
+            if action in ("use_cache", "use_difference"):
+                cached_result = self.intelligent_cache.get_cached_result(stream_key, action_data)
+                if cached_result is not None:
+                    if not apply_post_processing:
+                        return cached_result, None
+                    processed = await self._apply_post_processing(
+                        cached_result, input1, post_processing_config, stream_key, stream_info, camera_info
+                    )
+                    return processed
+        except Exception:
+            # Swallow cache errors to avoid impacting inference
+            return None
+        return None
+
+    def _run_model_inference(
+        self,
+        input1: Any,
+        input2: Any,
+        extra_params: Optional[Dict[str, Any]],
+        stream_key: Optional[str],
+        stream_info: Optional[Dict[str, Any]],
+        input_hash: Optional[str],
+    ) -> Tuple[Any, bool]:
+        """Execute the underlying model inference and normalize errors."""
+        try:
+            return self.model_manager.inference(
+                input1=input1,
+                input2=input2,
+                extra_params=extra_params,
+                stream_key=stream_key,
+                stream_info=stream_info,
+                input_hash=input_hash,
+            )
+        except Exception as exc:
+            raise RuntimeError(f"Model inference failed: {str(exc)}") from exc
+
+    def _update_caches_post_inference(
+        self,
+        input1: Any,
+        raw_results: Any,
+        stream_key: Optional[str],
+        input_hash: Optional[str],
+    ) -> None:
+        """Update central and intelligent caches after a successful inference."""
+        try:
+            if input_hash:
+                self.cache_manager.set_cached_result(input_hash, raw_results, stream_key)
+
+            current_frame = self._extract_frame_from_input(input1)
+            if current_frame is not None and stream_key:
+                self.intelligent_cache.cache_frame_result(
+                    stream_key, current_frame, raw_results, input_hash
+                )
+        except Exception:
+            # Do not fail inference on cache update errors
+            return
 
     async def inference(
         self,
@@ -192,6 +280,9 @@ class InferenceInterface:
 
         # If dynamic batching is enabled, use batch processing
         if self.dynamic_batching and self.batch_manager:
+            self.logger.debug(
+                f"Dynamic batching path stream_key={stream_key} hash={'set' if input_hash else 'none'}"
+            )
             return await self._dynamic_batch_inference(
                 input1,
                 input2,
@@ -205,19 +296,84 @@ class InferenceInterface:
             )
 
         # Get raw inference results
-        try:
-            raw_results, success = self.model_manager.inference(
+        if input_hash:
+            # Try centralized cache first
+            cached = self.cache_manager.get_cached_result(input_hash, stream_key)
+            if cached is not None:
+                self.logger.debug(
+                    f"Central cache hit stream_key={stream_key} hash={input_hash}"
+                )
+                raw_results = cached
+            else:
+                # Try intelligent cache before invoking model
+                self.logger.debug(
+                    f"Central cache miss stream_key={stream_key} hash={input_hash} -> checking intelligent cache"
+                )
+                maybe_cached = await self._maybe_return_intelligent_cache(
+                    input1=input1,
+                    stream_key=stream_key,
+                    apply_post_processing=apply_post_processing,
+                    post_processing_config=post_processing_config,
+                    stream_info=stream_info,
+                    camera_info=camera_info,
+                )
+                if maybe_cached is not None:
+                    return maybe_cached
+
+                raw_results, success = self._run_model_inference(
+                    input1=input1,
+                    input2=input2,
+                    extra_params=extra_params,
+                    stream_key=stream_key,
+                    stream_info=stream_info,
+                    input_hash=input_hash,
+                )
+                if not success:
+                    raise RuntimeError("Model inference failed")
+                self.logger.debug(
+                    f"Model inference executed stream_key={stream_key} hash={input_hash}"
+                )
+                self._update_caches_post_inference(
+                    input1=input1,
+                    raw_results=raw_results,
+                    stream_key=stream_key,
+                    input_hash=input_hash,
+                )
+        else:
+            # No hash: run inference directly after trying intelligent cache
+            self.logger.debug(
+                f"No input_hash stream_key={stream_key} -> checking intelligent cache"
+            )
+            maybe_cached = await self._maybe_return_intelligent_cache(
+                input1=input1,
+                stream_key=stream_key,
+                apply_post_processing=apply_post_processing,
+                post_processing_config=post_processing_config,
+                stream_info=stream_info,
+                camera_info=camera_info,
+            )
+            if maybe_cached is not None:
+                return maybe_cached
+
+            raw_results, success = self._run_model_inference(
                 input1=input1,
                 input2=input2,
                 extra_params=extra_params,
                 stream_key=stream_key,
                 stream_info=stream_info,
-                input_hash=input_hash
+                input_hash=input_hash,
             )
             if not success:
                 raise RuntimeError("Model inference failed")
-        except Exception as e:
-            raise RuntimeError(f"Model inference failed: {str(e)}") from e
+            self.logger.debug(
+                f"Model inference executed stream_key={stream_key} no_hash"
+            )
+            self._update_caches_post_inference(
+                input1=input1,
+                raw_results=raw_results,
+                stream_key=stream_key,
+                input_hash=input_hash,
+            )
 
         if not apply_post_processing:
             return raw_results, None
@@ -317,6 +473,28 @@ class InferenceInterface:
                 "processed_data": raw_results,
                 "stream_key": normalized_stream_key,
             }
+
+    def _extract_frame_from_input(self, input_data: Any):
+        """Extract frame from input data for intelligent caching (bytes/base64/ndarray)."""
+        try:
+            import numpy as np
+            import cv2
+            import base64
+            if isinstance(input_data, np.ndarray):
+                if len(input_data.shape) == 3 and input_data.shape[2] == 3:
+                    return input_data
+                return None
+            if isinstance(input_data, bytes):
+                return cv2.imdecode(np.frombuffer(input_data, np.uint8), cv2.IMREAD_COLOR)
+            if isinstance(input_data, str):
+                try:
+                    image_bytes = base64.b64decode(input_data)
+                    return cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
+                except Exception:
+                    return None
+            return None
+        except Exception:
+            return None
 
     async def _dynamic_batch_inference(
         self,

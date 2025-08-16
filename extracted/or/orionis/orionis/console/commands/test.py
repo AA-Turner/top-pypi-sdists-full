@@ -26,7 +26,7 @@ class TestCommand(BaseCommand):
     # Command description
     description: str = "Executes all automated tests using the configured test kernel for the Orionis application."
 
-    def handle(self) -> None:
+    def handle(self) -> dict:
         """
         Executes the test command for the Orionis CLI.
 
@@ -36,9 +36,8 @@ class TestCommand(BaseCommand):
 
         Returns
         -------
-        None
-            This method does not return any value. It performs actions as a side effect,
-            such as running the test suite and handling exceptions.
+        dict
+            The result of the test execution, typically containing test results or status.
 
         Raises
         ------
@@ -54,7 +53,7 @@ class TestCommand(BaseCommand):
             kernel: ITestKernel = app.make(ITestKernel)
 
             # Run the test suite using the kernel's handle method
-            kernel.handle()
+            return kernel.handle()
 
         except Exception as e:
 

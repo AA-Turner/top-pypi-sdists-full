@@ -2,20 +2,22 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
 
-use crate::constants::{TRUSS_TRANSFER_USE_RANGE_DOWNLOAD, TRUSS_TRANSFER_RANGE_DOWNLOAD_WORKERS_PER_FILE};
+use crate::constants::{
+    TRUSS_TRANSFER_RANGE_DOWNLOAD_WORKERS_PER_FILE, TRUSS_TRANSFER_USE_RANGE_DOWNLOAD,
+};
 use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use futures_util::StreamExt;
-use log::{debug, info, warn};
+use log::{debug, info, warn, error};
 use object_store::ObjectStore;
 use reqwest::Client;
+use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::mpsc;
+use tokio::sync::Semaphore;
 use tokio::task::{self, JoinHandle};
 use tokio::time::Instant;
 use tokio::time::{interval, Duration};
-use tokio::sync::Semaphore;
-use std::sync::Arc;
 
 use crate::secrets::get_hf_secret_from_file;
 
@@ -138,9 +140,8 @@ pub async fn download_http_to_path_fast(
         )
         .await;
         // assure that the file got flushed, without asking each file to flush it
-        for i in 500..0 {
-            let final_size = fs::metadata(path).await?.len();
-            if final_size == size {
+        for i in (0..100).rev() {
+            if check_metadata_size(&path, size).await {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
@@ -149,6 +150,21 @@ pub async fn download_http_to_path_fast(
                     "Download completed, but flush() not complete + metadata of {} not synced to disk.",
                     path.display()
                 );
+                // force sync
+                fs::File::open(path)
+                    .await
+                    .context(format!("Failed to open file: {:?}", path))?
+                    .sync_all()
+                    .await
+                    .context(format!("Failed to sync file: {:?}", path))?;
+                if !check_metadata_size(&path, size).await {
+                    error!(
+                        "File {} size mismatch after sync. Expected {}, got {}",
+                        path.display(),
+                        size,
+                        fs::metadata(&path).await?.len()
+                    );
+                }
             }
         }
         info!("Completed range HTTP download to {:?}", path);

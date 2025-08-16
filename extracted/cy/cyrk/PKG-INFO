@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: CyRK
-Version: 0.15.0
+Version: 0.15.1
 Summary: Runge-Kutta ODE Integrator Implemented in Cython and Numba.
 Author-email: "Joe P. Renaud" <joe.p.renaud@gmail.com>
 License-Expression: CC-BY-NC-SA-4.0
@@ -59,7 +59,7 @@ Dynamic: license-file
 ---
 [Documentation](https://cyrk.readthedocs.io/en/latest/) | [GitHub](https://github.com/jrenaud90/cyrk)
 
-<a href="https://github.com/jrenaud90/CyRK/releases"><img src="https://img.shields.io/badge/CyRK-0.15.0 Alpha-orange" alt="CyRK Version 0.15.0 Alpha" /></a>
+<a href="https://github.com/jrenaud90/CyRK/releases"><img src="https://img.shields.io/badge/CyRK-0.15.1 Alpha-orange" alt="CyRK Version 0.15.1 Alpha" /></a>
 
 **Runge-Kutta ODE Integrator Implemented in Cython and Numba**
 

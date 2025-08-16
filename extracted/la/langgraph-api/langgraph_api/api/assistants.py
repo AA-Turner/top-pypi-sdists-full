@@ -61,7 +61,8 @@ def _get_configurable_jsonschema(graph: Pregel) -> dict:
     in favor of graph.get_context_jsonschema().
     """
     # Otherwise, use the config_schema method.
-    config_schema = graph.config_schema()
+    # TODO: Remove this when we no longer support langgraph < 0.6
+    config_schema = graph.config_schema()  # type: ignore[deprecated]
     model_fields = getattr(config_schema, "model_fields", None) or getattr(
         config_schema, "__fields__", None
     )
@@ -87,11 +88,11 @@ def _state_jsonschema(graph: Pregel) -> dict | None:
     for k in graph.stream_channels_list:
         v = graph.channels[k]
         try:
-            create_model(k, __root__=(v.UpdateType, None)).schema()
+            create_model(k, __root__=(v.UpdateType, None)).model_json_schema()
             fields[k] = (v.UpdateType, None)
         except Exception:
             fields[k] = (Any, None)
-    return create_model(graph.get_name("State"), **fields).schema()
+    return create_model(graph.get_name("State"), **fields).model_json_schema()
 
 
 def _graph_schemas(graph: Pregel) -> dict:
@@ -132,7 +133,7 @@ def _graph_schemas(graph: Pregel) -> dict:
             logger.warning(
                 f"Failed to get context schema for graph {graph.name} with error: `{str(e)}`"
             )
-            context_schema = graph.config_schema()
+            context_schema = graph.config_schema()  # type: ignore[deprecated]
     else:
         context_schema = None
 
@@ -366,7 +367,7 @@ async def patch_assistant(
 
 
 @retry_db
-async def delete_assistant(request: ApiRequest) -> ApiResponse:
+async def delete_assistant(request: ApiRequest) -> Response:
     """Delete an assistant by ID."""
     assistant_id = request.path_params["assistant_id"]
     validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")

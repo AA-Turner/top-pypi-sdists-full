@@ -13,7 +13,7 @@ from httpx import AsyncByteStream, Request, Response
 if typing.TYPE_CHECKING:  # pragma: no cover
     import asyncio
 
-    import trio
+    import trio  # type: ignore[unresolved-import]
 
     Event = asyncio.Event | trio.Event
 
@@ -37,7 +37,7 @@ def is_running_trio() -> bool:
 
 def create_event() -> Event:
     if is_running_trio():
-        import trio
+        import trio  # type: ignore[unresolved-import]
 
         return trio.Event()
 

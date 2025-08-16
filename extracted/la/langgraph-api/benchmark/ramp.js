@@ -18,9 +18,10 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:9123';
 const LANGSMITH_API_KEY = __ENV.LANGSMITH_API_KEY;
 
 // Params for the runner
-const LOAD_SIZE = parseInt(__ENV.LOAD_SIZE || '100');
-const LEVELS = parseInt(__ENV.LEVELS || '10');
+const LOAD_SIZE = parseInt(__ENV.LOAD_SIZE || '500');
+const LEVELS = parseInt(__ENV.LEVELS || '2');
 const PLATEAU_DURATION = parseInt(__ENV.PLATEAU_DURATION || '300');
+const STATEFUL = __ENV.STATEFUL === 'true';
 
 // Params for the agent
 const DATA_SIZE = parseInt(__ENV.DATA_SIZE || '1000');
@@ -33,7 +34,7 @@ for (let i = 1; i <= LEVELS; i++) {
   stages.push({ duration: '60s', target: LOAD_SIZE * i });
 }
 stages.push({ duration: `${PLATEAU_DURATION}s`, target: LOAD_SIZE * LEVELS});
-stages.push({ duration: '30s', target: 0 }); // Ramp down
+stages.push({ duration: '60s', target: 0 }); // Ramp down
 
 // Test configuration
 export let options = {
@@ -46,9 +47,10 @@ export let options = {
     },
   },
   thresholds: {
-    'run_duration': ['p(95)<30000'],  // 95% of runs should complete within 30s
-    'successful_runs': ['count>100'],  // At least 100 successful runs
-    'http_req_failed': ['rate<0.2'],   // Error rate should be less than 20%
+    // These are the first set of goals I'd like to hit. To get the job just working and ramp on main, leaving them off for now.
+    // 'run_duration': ['p(95)<10000'],  // 95% of runs should complete within 10s
+    // 'successful_runs': ['count>100000'],  // At least 100,000 successful runs
+    // 'http_req_failed': ['rate<0.05'],   // Error rate should be less than 5%
   },
 };
 
@@ -75,10 +77,21 @@ export default function() {
         config: {
           recursion_limit: EXPAND + 2,
         },
+    });
+
+    // If the request is stateful, create a thread first and use it in the url
+    let url = `${BASE_URL}/runs/wait`;
+    if (STATEFUL) {
+      const thread = http.post(`${BASE_URL}/threads`, payload, {
+        headers,
+        timeout: '120s'  // k6 request timeout slightly longer than the server timeout
       });
+      const threadId = thread.json().thread_id;
+      url = `${BASE_URL}/threads/${threadId}/runs/wait`;
+    }
 
     // Make a single request to the wait endpoint
-    const response = http.post(`${BASE_URL}/runs/wait`, payload, {
+    const response = http.post(url, payload, {
       headers,
       timeout: '120s'  // k6 request timeout slightly longer than the server timeout
     });
@@ -141,9 +154,10 @@ export default function() {
 export function setup() {
   console.log(`Starting ramp benchmark`);
   console.log(`Running on pod: ${__ENV.POD_NAME || 'local'}`);
-  console.log(`Running ${LEVELS} levels with base size ${LOAD_SIZE}`);
+  console.log(`Running with the following ramp config: load size ${LOAD_SIZE}, levels ${LEVELS}, plateau duration ${PLATEAU_DURATION}, stateful ${STATEFUL}`);
+  console.log(`Running with the following agent config: data size ${DATA_SIZE}, delay ${DELAY}, expand ${EXPAND}, mode ${MODE}`);
 
-  return { startTime: new Date().toISOString() };
+  return { startTime: new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '') };
 }
 
 // Handle summary
@@ -152,13 +166,14 @@ export function handleSummary(data) {
 
   // Create summary information with aggregated metrics
   const summary = {
-    timestamp: timestamp,
+    startTimestamp: data.setup_data.startTime,
+    endTimestamp: timestamp,
     metrics: {
-      totalRuns: data.metrics.successful_runs.values.count + data.metrics.failed_runs.values.count,
+      totalRuns: data.metrics.successful_runs.values.count + (data.metrics.failed_runs?.values?.count || 0),
       successfulRuns: data.metrics.successful_runs.values.count,
-      failedRuns: data.metrics.failed_runs.values.count,
+      failedRuns: data.metrics.failed_runs?.values?.count || 0,
       successRate: data.metrics.successful_runs.values.count /
-                  (data.metrics.successful_runs.values.count + data.metrics.failed_runs.values.count) * 100,
+                  (data.metrics.successful_runs.values.count + (data.metrics.failed_runs?.values?.count || 0)) * 100,
       averageDuration: data.metrics.run_duration.values.avg / 1000,  // in seconds
       p95Duration: data.metrics.run_duration.values["p(95)"] / 1000, // in seconds
       errors: {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optype
-Version: 0.13.1
+Version: 0.13.2
 Summary: Building blocks for precise & flexible type hints
 Keywords: typing,type hints,numpy
 Author: Joren Hammudoglu
@@ -16,8 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Dist: typing-extensions>=4.10 ; python_full_version < '3.13'
-Requires-Dist: numpy>=1.25 ; extra == 'numpy'
-Requires-Dist: numpy-typing-compat>=1.25.20250730 ; extra == 'numpy'
+Requires-Dist: numpy-typing-compat>=1.25.20250814 ; extra == 'numpy'
 Requires-Python: >=3.11
 Project-URL: Changelog, https://github.com/jorenham/optype/releases
 Project-URL: Documentation, https://github.com/jorenham/optype/blob/master/README.md

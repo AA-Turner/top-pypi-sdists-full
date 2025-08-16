@@ -220,5 +220,46 @@ def test_structural_tag_mask_gen():
     assert tokenizer.eos_token_id not in rejected_token_ids
 
 
+def test_empty_tag_dispatch():
+    grammar_str = """root ::= TagDispatch(
+  stop_eos=true,
+  stop_str=(),
+  loop_after_dispatch=true
+)
+"""
+    grammar = xgr.Grammar.from_ebnf(grammar_str)
+    assert _is_grammar_accept_string(grammar, "any string")
+    assert _is_grammar_accept_string(grammar, "")
+    assert _is_grammar_accept_string(grammar, "好")
+
+    grammar_with_stop_str_str = """root ::= TagDispatch(
+  stop_eos=false,
+  stop_str=("end"),
+  loop_after_dispatch=true
+)
+"""
+
+    grammar_with_stop_str = xgr.Grammar.from_ebnf(grammar_with_stop_str_str)
+
+    assert _is_grammar_accept_string(grammar_with_stop_str, "any stringend")
+    assert _is_grammar_accept_string(grammar_with_stop_str, "end")
+    assert _is_grammar_accept_string(grammar_with_stop_str, "好end")
+
+    assert not _is_grammar_accept_string(grammar_with_stop_str, "aaa")
+
+
+@pytest.mark.hf_token_required
+def test_utf8_structural_tag_begin_end():
+    model = "deepseek-ai/DeepSeek-V3-0324"
+    tokenizer = AutoTokenizer.from_pretrained(model)
+    tokenizer_info = xgr.TokenizerInfo.from_huggingface(tokenizer)
+    compiler = xgr.GrammarCompiler(tokenizer_info)
+    structures = [
+        xgr.StructuralTagItem(begin="<｜tool▁calls▁begin｜>", schema={}, end="<｜tool▁calls▁end｜>")
+    ]
+    triggers = ["<｜tool▁calls▁begin｜>"]
+    _ = compiler.compile_structural_tag(structures, triggers)
+
+
 if __name__ == "__main__":
     pytest.main(sys.argv)

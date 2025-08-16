@@ -10,10 +10,12 @@
 #include <array>
 #include <cstdint>
 #include <iostream>
+#include <variant>
 #include <vector>
 
-#include "../grammar_data_structure.h"
+#include "../grammar_impl.h"
 #include "../support/logging.h"
+#include "xgrammar/exception.h"
 
 namespace xgrammar {
 
@@ -37,27 +39,6 @@ TokenizerInfo TokenizerInfo_Init(
 
 int TokenizerInfo_GetVocabType(const TokenizerInfo& tokenizer) {
   return static_cast<int>(tokenizer.GetVocabType());
-}
-
-bool GrammarMatcher_FillNextTokenBitmask(
-    GrammarMatcher& matcher,
-    intptr_t token_bitmask_ptr,
-    std::vector<int64_t> shape,
-    int32_t index,
-    bool debug_print
-) {
-  XGRAMMAR_CHECK(shape.size() == 1 || shape.size() == 2) << "token_bitmask tensor must be 1D or 2D";
-
-  DLTensor bitmask_dltensor{
-      reinterpret_cast<void*>(token_bitmask_ptr),
-      DLDevice{kDLCPU, 0},
-      static_cast<int32_t>(shape.size()),
-      GetBitmaskDLType(),
-      shape.data(),
-      nullptr,
-      0
-  };
-  return matcher.FillNextTokenBitmask(&bitmask_dltensor, index, debug_print);
 }
 
 std::vector<int> Testing_DebugGetMaskedTokensFromBitmask(
@@ -101,13 +82,17 @@ std::pair<bool, int> Testing_IsSingleTokenBitmask(
 void Kernels_ApplyTokenBitmaskInplaceCPU(
     intptr_t logits_ptr,
     std::pair<int64_t, int64_t> logits_shape,
+    std::pair<int64_t, int64_t> logits_strides,
     intptr_t bitmask_ptr,
     std::pair<int64_t, int64_t> bitmask_shape,
+    std::pair<int64_t, int64_t> bitmask_strides,
     int vocab_size,
     std::optional<std::vector<int>> indices
 ) {
   std::array<int64_t, 2> logits_shape_arr = {logits_shape.first, logits_shape.second};
+  std::array<int64_t, 2> logits_strides_arr = {logits_strides.first, logits_strides.second};
   std::array<int64_t, 2> bitmask_shape_arr = {bitmask_shape.first, bitmask_shape.second};
+  std::array<int64_t, 2> bitmask_strides_arr = {bitmask_strides.first, bitmask_strides.second};
 
   DLTensor logits_dltensor{
       reinterpret_cast<void*>(logits_ptr),
@@ -115,7 +100,7 @@ void Kernels_ApplyTokenBitmaskInplaceCPU(
       2,
       DLDataType{kDLFloat, 32, 1},
       logits_shape_arr.data(),
-      nullptr,
+      logits_strides_arr.data(),
       0
   };
 
@@ -125,7 +110,7 @@ void Kernels_ApplyTokenBitmaskInplaceCPU(
       2,
       GetBitmaskDLType(),
       bitmask_shape_arr.data(),
-      nullptr,
+      bitmask_strides_arr.data(),
       0
   };
 
@@ -163,6 +148,38 @@ CompiledGrammar GrammarCompiler_CompileStructuralTag(
     );
   }
   return compiler.CompileStructuralTag(tags_objects, triggers);
+}
+
+[[noreturn]]
+static void ThrowSerializationError(const SerializationError& error) {
+  std::visit([](const auto& e) { throw e; }, error);
+  XGRAMMAR_UNREACHABLE();
+}
+
+Grammar Grammar_DeserializeJSON(const std::string& json_string) {
+  auto result = Grammar::DeserializeJSON(json_string);
+  if (std::holds_alternative<SerializationError>(result)) {
+    ThrowSerializationError(std::get<SerializationError>(result));
+  }
+  return std::get<Grammar>(result);
+}
+
+TokenizerInfo TokenizerInfo_DeserializeJSON(const std::string& json_string) {
+  auto result = TokenizerInfo::DeserializeJSON(json_string);
+  if (std::holds_alternative<SerializationError>(result)) {
+    ThrowSerializationError(std::get<SerializationError>(result));
+  }
+  return std::get<TokenizerInfo>(result);
+}
+
+CompiledGrammar CompiledGrammar_DeserializeJSON(
+    const std::string& json_string, const TokenizerInfo& tokenizer
+) {
+  auto result = CompiledGrammar::DeserializeJSON(json_string, tokenizer);
+  if (std::holds_alternative<SerializationError>(result)) {
+    ThrowSerializationError(std::get<SerializationError>(result));
+  }
+  return std::get<CompiledGrammar>(result);
 }
 
 }  // namespace xgrammar

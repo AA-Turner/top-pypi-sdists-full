@@ -1,29 +1,12 @@
 #!/bin/bash
 set -eo pipefail
 
-get_run_id() {
-    RUN_ID=$(
-        gh run ls \
-        --repo DataDog/dd-trace-py \
-        --commit="$CI_COMMIT_SHA" \
-        $([ -z "$TRIGGERING_EVENT" ] && echo "" || echo "--event=$TRIGGERING_EVENT") \
-        --workflow=build_deploy.yml \
-        --json databaseId \
-        --jq "first (.[]) | .databaseId"
-    )
-}
-
 if [ -z "$CI_COMMIT_SHA" ]; then
   echo "Error: CI_COMMIT_SHA was not provided"
   exit 1
 fi
 
-if [ -v "$CI_COMMIT_TAG" ]; then
-    TRIGGERING_EVENT="release"
-fi
-
-get_run_id
-
+RUN_ID=$(gh run ls --repo DataDog/dd-trace-py --commit=$CI_COMMIT_SHA --workflow=build_deploy.yml --json databaseId --jq "first (.[]) | .databaseId")
 if [ -z "$RUN_ID" ]; then
   echo "No RUN_ID found waiting for job to start"
   # The job has not started yet. Give it time to start
@@ -36,7 +19,7 @@ if [ -z "$RUN_ID" ]; then
   end_time=$((start_time + timeout))
   # Loop for 10 minutes waiting for run to appear in github
   while [ $(date +%s) -lt $end_time ]; do
-    get_run_id
+    RUN_ID=$(gh run ls --repo DataDog/dd-trace-py --commit=$CI_COMMIT_SHA --workflow=build_deploy.yml --json databaseId --jq "first (.[]) | .databaseId")
     if [ -n "$RUN_ID" ]; then
       break;
     fi

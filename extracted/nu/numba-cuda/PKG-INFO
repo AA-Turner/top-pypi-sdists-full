@@ -1,56 +1,49 @@
 Metadata-Version: 2.4
 Name: numba-cuda
-Version: 0.18.1
+Version: 0.19.0
 Summary: CUDA target for Numba
 Author: Anaconda Inc., NVIDIA Corporation
 License: BSD 2-clause
-Project-URL: Homepage, https://github.com/rapidsai/numba-cuda
-Project-URL: Documentation, https://github.com/rapidsai/numba-cuda/blob/main/README.md
-Project-URL: Repository, https://github.com/rapidsai/numba-cuda
-Project-URL: License, https://github.com/rapidsai/numba-cuda/blob/main/LICENSE
+Project-URL: Homepage, https://nvidia.github.io/numba-cuda/
+Project-URL: Documentation, https://nvidia.github.io/numba-cuda/
+Project-URL: Repository, https://github.com/NVIDIA/numba-cuda
+Project-URL: License, https://github.com/NVIDIA/numba-cuda/blob/main/LICENSE
+Project-URL: Issues, https://github.com/NVIDIA/numba-cuda/issues
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numba>=0.60.0
-Provides-Extra: cu11
-Requires-Dist: cuda-bindings==11.8.*; extra == "cu11"
-Requires-Dist: cuda-core==0.3.*; extra == "cu11"
-Requires-Dist: cuda-python==11.8.*; extra == "cu11"
-Requires-Dist: nvidia-cuda-nvcc-cu11; extra == "cu11"
-Requires-Dist: nvidia-cuda-runtime-cu11; extra == "cu11"
-Requires-Dist: nvidia-cuda-nvrtc-cu11; extra == "cu11"
 Provides-Extra: cu12
-Requires-Dist: cuda-bindings==12.9.*; extra == "cu12"
+Requires-Dist: cuda-bindings<13.0.0,>=12.9.1; extra == "cu12"
 Requires-Dist: cuda-core==0.3.*; extra == "cu12"
 Requires-Dist: cuda-python==12.9.*; extra == "cu12"
 Requires-Dist: nvidia-cuda-nvcc-cu12; extra == "cu12"
 Requires-Dist: nvidia-cuda-runtime-cu12; extra == "cu12"
 Requires-Dist: nvidia-cuda-nvrtc-cu12; extra == "cu12"
 Requires-Dist: nvidia-nvjitlink-cu12; extra == "cu12"
+Provides-Extra: cu13
+Requires-Dist: cuda-bindings==13.*; extra == "cu13"
+Requires-Dist: cuda-core<0.4.0dev0,==0.3.2; extra == "cu13"
+Requires-Dist: cuda-python==13.*; extra == "cu13"
+Requires-Dist: nvidia-nvvm==13.*; extra == "cu13"
+Requires-Dist: nvidia-cuda-runtime==13.*; extra == "cu13"
+Requires-Dist: nvidia-cuda-nvrtc==13.*; extra == "cu13"
+Requires-Dist: nvidia-nvjitlink==13.*; extra == "cu13"
 Provides-Extra: test
+Requires-Dist: pre-commit; extra == "test"
 Requires-Dist: psutil; extra == "test"
 Requires-Dist: cffi; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: filecheck; extra == "test"
-Provides-Extra: test-cu11
-Requires-Dist: numba-cuda[test]; extra == "test-cu11"
-Requires-Dist: nvidia-curand-cu11; extra == "test-cu11"
 Provides-Extra: test-cu12
+Requires-Dist: numba-cuda[cu12]; extra == "test-cu12"
 Requires-Dist: numba-cuda[test]; extra == "test-cu12"
 Requires-Dist: nvidia-curand-cu12; extra == "test-cu12"
-Requires-Dist: pynvjitlink-cu12; extra == "test-cu12"
-Provides-Extra: dev
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: numba-cuda[test]; extra == "dev"
-Provides-Extra: dev-cu11
-Requires-Dist: numba-cuda[test-cu11]; extra == "dev-cu11"
-Requires-Dist: numba-cuda[test]; extra == "dev-cu11"
-Requires-Dist: numba-cuda[dev]; extra == "dev-cu11"
-Provides-Extra: dev-cu12
-Requires-Dist: numba-cuda[test-cu12]; extra == "dev-cu12"
-Requires-Dist: numba-cuda[test]; extra == "dev-cu12"
-Requires-Dist: numba-cuda[dev]; extra == "dev-cu12"
+Provides-Extra: test-cu13
+Requires-Dist: numba-cuda[cu13]; extra == "test-cu13"
+Requires-Dist: numba-cuda[test]; extra == "test-cu13"
+Requires-Dist: nvidia-curand==10.4.*; extra == "test-cu13"
 Dynamic: license-file
 
 <div align="center"><img src="docs/source/_static/numba-green-icon-rgb.svg" width="200"/></div>

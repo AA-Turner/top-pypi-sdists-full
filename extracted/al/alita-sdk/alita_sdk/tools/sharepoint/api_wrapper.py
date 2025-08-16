@@ -162,11 +162,15 @@ class SharepointApiWrapper(BaseVectorStoreToolApiWrapper):
             yield Document(page_content="", metadata=metadata)
 
     def _process_document(self, document: Document) -> Generator[Document, None, None]:
-        doc_content = self.read_file(document.metadata['Path'],
+        doc_content = ""
+        try:
+            doc_content = self.read_file(document.metadata['Path'],
                                       is_capture_image=True,
                                       excel_by_sheets=True)
+        except Exception as e:
+            logging.error(f"Failed while parsing the file '{document.metadata['Path']}': {e}")
         if isinstance(doc_content, dict):
-            for page, content in doc_content:
+            for page, content in doc_content.items():
                 new_metadata = document.metadata
                 new_metadata['page'] = page
                 yield Document(page_content=str(content), metadata=new_metadata)

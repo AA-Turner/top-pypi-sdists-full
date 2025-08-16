@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apify_client
-Version: 1.12.2
+Version: 2.0.0
 Summary: Apify API client for Python
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Homepage, https://docs.apify.com/api/client/python/
@@ -218,16 +218,15 @@ Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.9
-Requires-Dist: apify-shared<2.0.0
+Requires-Python: >=3.10
+Requires-Dist: apify-shared<3.0.0,>=2.0.0
 Requires-Dist: colorama>=0.4.0
-Requires-Dist: httpx>=0.25
+Requires-Dist: impit>=0.5.3
 Requires-Dist: more-itertools>=10.0.0
 Description-Content-Type: text/markdown
 

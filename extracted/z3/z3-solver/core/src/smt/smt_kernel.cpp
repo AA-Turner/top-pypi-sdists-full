@@ -21,7 +21,7 @@ Revision History:
 #include "smt/smt_lookahead.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_util.h"
-#include "smt/params/smt_params_helper.hpp"
+#include "params/smt_params_helper.hpp"
 
 namespace smt {
 
@@ -306,6 +306,10 @@ namespace smt {
 
     void kernel::user_propagate_register_fixed(user_propagator::fixed_eh_t& fixed_eh) {
         m_imp->m_kernel.user_propagate_register_fixed(fixed_eh);
+    }
+
+    void kernel::user_propagate_register_on_binding(user_propagator::binding_eh_t& on_binding) {
+        m_imp->m_kernel.user_propagate_register_on_binding(on_binding);
     }
     
     void kernel::user_propagate_register_final(user_propagator::final_eh_t& final_eh) {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-material
-Version: 9.6.16
+Version: 9.6.17
 Summary: Documentation that simply works
 Project-URL: Homepage, https://squidfunk.github.io/mkdocs-material/
 Project-URL: Bug Tracker, https://github.com/squidfunk/mkdocs-material/issues
@@ -21,6 +21,7 @@ Classifier: Topic :: Text Processing :: Markup :: HTML
 Requires-Python: >=3.8
 Requires-Dist: babel~=2.10
 Requires-Dist: backrefs~=5.7.post1
+Requires-Dist: click<8.2.2
 Requires-Dist: colorama~=0.4
 Requires-Dist: jinja2~=3.1
 Requires-Dist: markdown~=3.2

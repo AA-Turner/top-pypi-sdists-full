@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: Unified-python-sdk
-Version: 0.48.14
+Version: 0.48.15
 Summary: Python Client SDK for Unified.to
 Author: Unified API Inc.
 Requires-Python: >=3.9.2
@@ -436,6 +436,11 @@ asyncio.run(main())
 * [patch_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#patch_accounting_category) - Update a category
 * [remove_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#remove_accounting_category) - Remove a category
 * [update_accounting_category](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/category/README.md#update_accounting_category) - Update a category
+
+### [change](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/change/README.md)
+
+* [get_task_change](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/change/README.md#get_task_change) - Retrieve a change
+* [list_task_changes](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/change/README.md#list_task_changes) - List all changes
 
 ### [channel](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/channel/README.md)
 
@@ -1278,9 +1283,11 @@ asyncio.run(main())
 * [create_task_comment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#create_task_comment) - Create a comment
 * [create_task_project](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#create_task_project) - Create a project
 * [create_task_task](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#create_task_task) - Create a task
+* [get_task_change](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#get_task_change) - Retrieve a change
 * [get_task_comment](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#get_task_comment) - Retrieve a comment
 * [get_task_project](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#get_task_project) - Retrieve a project
 * [get_task_task](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#get_task_task) - Retrieve a task
+* [list_task_changes](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#list_task_changes) - List all changes
 * [list_task_comments](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#list_task_comments) - List all comments
 * [list_task_projects](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#list_task_projects) - List all projects
 * [list_task_tasks](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/task/README.md#list_task_tasks) - List all tasks

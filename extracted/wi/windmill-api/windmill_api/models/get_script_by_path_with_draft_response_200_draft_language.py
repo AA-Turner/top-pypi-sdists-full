@@ -21,6 +21,7 @@ class GetScriptByPathWithDraftResponse200DraftLanguage(str, Enum):
     POSTGRESQL = "postgresql"
     POWERSHELL = "powershell"
     PYTHON3 = "python3"
+    RUBY = "ruby"
     RUST = "rust"
     SNOWFLAKE = "snowflake"
 

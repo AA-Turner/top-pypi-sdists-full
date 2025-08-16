@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.3
+Version: 2.6.6
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, o1, o3, GPT-4, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: py_gpt,py-gpt,pygpt,desktop,app,o1,o3,gpt-5,gpt,gpt4,gpt-4o,gpt-4v,gpt3.5,gpt-4,gpt-4-vision,gpt-3.5,llama3,mistral,gemini,grok,deepseek,bielik,claude,tts,whisper,vision,chatgpt,dall-e,chat,chatbot,assistant,text completion,image generation,ai,api,openai,api key,langchain,llama-index,ollama,presets,ui,qt,pyside
@@ -108,7 +108,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.3** | build: **2025-08-15* | Python: **>=3.10, <3.14**
+Release: **2.6.6** | build: **2025-08-16** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -4513,6 +4513,20 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.6 (2025-08-16)**
+
+- Output rendering optimization.
+
+**2.6.5 (2025-08-16)**
+
+- Fix: crash when creating a context in a new group.
+- Fix: high CPU usage after switching profiles.
+
+**2.6.4 (2025-08-15)**
+
+- Fix: tool execution in OpenAI Agents.
+- Optimizations.
 
 **2.6.3 (2025-08-15)**
 

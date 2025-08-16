@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-aiobotocore",
-    version="2.24.0",
+    version="2.24.1",
     packages=["aiobotocore-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for aiobotocore 2.24.0 generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for aiobotocore 2.24.1 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -51,7 +51,7 @@ setup(
     install_requires=["botocore-stubs", 'typing-extensions>=4.1.0; python_version<"3.12"'],
     extras_require={
         "full": ["types-aiobotocore-full>=2.24.0, <2.25.0"],
-        "aiobotocore": ["aiobotocore==2.24.0"],
+        "aiobotocore": ["aiobotocore==2.24.1"],
         "all": [
             "types-aiobotocore-accessanalyzer>=2.24.0, <2.25.0",
             "types-aiobotocore-account>=2.24.0, <2.25.0",

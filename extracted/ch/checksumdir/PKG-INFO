@@ -1,22 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: checksumdir
-Version: 1.2.0
+Version: 1.3.0
 Summary: Compute a single hash of the file contents of a directory.
-Home-page: http://github.com/cakepietoast/checksumdir
 License: MIT
 Keywords: hash,checksum,md5,directory
 Author: Tom McCarthy
 Author-email: tmac.se@gmail.com
-Requires-Python: >=3.6,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Utilities
+Project-URL: Homepage, http://github.com/cakepietoast/checksumdir
 Description-Content-Type: text/x-rst
 
 ***********
@@ -28,7 +29,7 @@ Checksumdir
 
 .. |badge1| image:: https://img.shields.io/pypi/dm/checksumdir   
     :alt: PyPI - Downloads
-    :target: https://pypi.org/project/checksumdir/
+    :target: https://pypistats.org/packages/checksumdir
 
 .. |badge2| image:: https://badge.fury.io/py/checksumdir.svg
     :target: https://pypi.org/project/checksumdir/

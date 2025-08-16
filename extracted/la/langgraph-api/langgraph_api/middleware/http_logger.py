@@ -84,6 +84,7 @@ class AccessLoggerMiddleware:
 
             if method and route and status:
                 HTTP_METRICS_COLLECTOR.record_request(method, route, status, latency)
+            qs = scope.get("query_string")
             self.logger.log(
                 _get_level(status),
                 f"{method} {path} {status} {latency}ms",
@@ -93,7 +94,7 @@ class AccessLoggerMiddleware:
                 latency_ms=latency,
                 route=route,
                 path_params=scope.get("path_params"),
-                query_string=scope.get("query_string").decode(),
+                query_string=qs.decode() if qs else "",
                 proto=scope.get("http_version"),
                 req_header=_headers_to_dict(scope.get("headers")),
                 res_header=_headers_to_dict(info["response"].get("headers")),

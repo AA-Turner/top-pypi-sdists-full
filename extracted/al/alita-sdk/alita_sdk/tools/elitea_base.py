@@ -9,7 +9,7 @@ from langchain_core.documents import Document
 from langchain_core.tools import ToolException
 from pydantic import BaseModel, create_model, Field, SecretStr
 
-from alita_sdk.runtime.langchain.interfaces.llm_processor import get_embeddings
+# from alita_sdk.runtime.langchain.interfaces.llm_processor import get_embeddings
 from .chunkers import markdown_chunker
 from .utils import TOOLKIT_SPLITTER
 from .vector_adapters.VectorStoreAdapter import VectorStoreAdapterFactory
@@ -222,10 +222,14 @@ class BaseVectorStoreToolApiWrapper(BaseToolApiWrapper):
     embedding_model_params: Optional[Dict[str, Any]] = {"model_name": "sentence-transformers/all-MiniLM-L6-v2"}
     vectorstore_type: Optional[str] = "PGVector"
     _vector_store: Optional[Any] = None
+    _embedding: Optional[Any] = None
+    alita: Any = None # Elitea client, if available
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._adapter = VectorStoreAdapterFactory.create_adapter(self.vectorstore_type)
+        if self.alita and self.embedding_model:
+            self._embedding = self.alita.get_embeddings(self.embedding_model)
 
     def _index_tool_params(self, **kwargs) -> dict[str, tuple[type, Field]]:
         """
@@ -238,9 +242,7 @@ class BaseVectorStoreToolApiWrapper(BaseToolApiWrapper):
         return markdown_chunker
 
     def _get_dependencies_chunker_config(self, document: Optional[Document] = None):
-        embedding = get_embeddings(self.embedding_model, self.embedding_model_params)
-        #
-        return {'embedding': embedding, 'llm': self.llm}
+        return {'embedding': self._embedding, 'llm': self.llm}
 
     def _base_loader(self, **kwargs) -> Generator[Document, None, None]:
         """ Loads documents from a source, processes them,
@@ -274,7 +276,6 @@ class BaseVectorStoreToolApiWrapper(BaseToolApiWrapper):
     def index_data(self, **kwargs):
         from alita_sdk.tools.chunkers import __confluence_chunkers__ as chunkers, __confluence_models__ as models
         docs = self._base_loader(**kwargs)
-        embedding = get_embeddings(self.embedding_model, self.embedding_model_params)
         chunking_tool = kwargs.get("chunking_tool")
         if chunking_tool:
             # Resolve chunker from the provided chunking_tool name
@@ -283,7 +284,7 @@ class BaseVectorStoreToolApiWrapper(BaseToolApiWrapper):
             base_chunking_config = kwargs.get("chunking_config", {})
             config_model = models.get(chunking_tool)
             # Set required fields that should come from the instance (and Fallback for chunkers without models)
-            base_chunking_config['embedding'] = embedding
+            base_chunking_config['embedding'] = self._embedding
             base_chunking_config['llm'] = self.llm
             #
             if config_model:
@@ -300,7 +301,7 @@ class BaseVectorStoreToolApiWrapper(BaseToolApiWrapper):
         collection_suffix = kwargs.get("collection_suffix")
         progress_step = kwargs.get("progress_step")
         clean_index = kwargs.get("clean_index")
-        vs = self._init_vector_store(embeddings=embedding)
+        vs = self._init_vector_store()
         #
         return vs.index_documents(docs, collection_suffix=collection_suffix, progress_step=progress_step, clean_index=clean_index)
 
@@ -336,7 +337,7 @@ class BaseVectorStoreToolApiWrapper(BaseToolApiWrapper):
 
 
     # TODO: init store once and re-use the instance
-    def _init_vector_store(self, embeddings: Optional[Any] = None):
+    def _init_vector_store(self):
         """Initializes the vector store wrapper with the provided parameters."""
         try:
             from alita_sdk.runtime.tools.vectorstore import VectorStoreWrapper
@@ -352,7 +353,7 @@ class BaseVectorStoreToolApiWrapper(BaseToolApiWrapper):
                 embedding_model=self.embedding_model,
                 embedding_model_params=self.embedding_model_params,
                 vectorstore_params=vectorstore_params,
-                embeddings=embeddings,
+                embeddings=self._embedding,
                 process_document_func=self._process_documents,
             )
         return self._vector_store
@@ -410,7 +411,7 @@ class BaseVectorStoreToolApiWrapper(BaseToolApiWrapper):
                      extended_search: Optional[List[str]] = None,
                      **kwargs):
         """ Searches indexed documents in the vector store."""
-        vectorstore = self._init_vector_store(collection_suffix)
+        vectorstore = self._init_vector_store()
         found_docs = vectorstore.stepback_search(
             query,
             messages,
@@ -435,7 +436,7 @@ class BaseVectorStoreToolApiWrapper(BaseToolApiWrapper):
                      extended_search: Optional[List[str]] = None,
                      **kwargs):
         """ Generates a summary of indexed documents using stepback technique."""
-        vectorstore = self._init_vector_store(collection_suffix)
+        vectorstore = self._init_vector_store()
         return vectorstore.stepback_summary(
             query, 
             messages, 

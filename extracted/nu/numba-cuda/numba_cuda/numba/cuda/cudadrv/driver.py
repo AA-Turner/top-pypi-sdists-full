@@ -54,12 +54,6 @@ from .linkable_code import LinkableCode, LTOIR, Fatbin, Object
 from numba.cuda.utils import cached_file_read
 from numba.cuda.cudadrv import enums, drvapi, nvrtc
 
-try:
-    from pynvjitlink.api import NvJitLinker, NvJitLinkError
-except ImportError:
-    NvJitLinker, NvJitLinkError = None, None
-
-
 USE_NV_BINDING = config.CUDA_USE_NVIDIA_BINDING
 
 if USE_NV_BINDING:
@@ -640,7 +634,7 @@ class Device(object):
 
         if USE_NV_BINDING:
             buf = driver.cuDeviceGetName(bufsz, self.id)
-            name = buf.decode("utf-8").rstrip("\0")
+            name = buf.split(b"\x00")[0]
         else:
             buf = (c_char * bufsz)()
             driver.cuDeviceGetName(buf, bufsz, self.id)
@@ -2808,19 +2802,10 @@ class _LinkerBase(metaclass=ABCMeta):
         lto=None,
         additional_flags=None,
     ):
-        driver_ver = driver.get_version()
-        if driver_ver < (12, 0):
-            if config.CUDA_ENABLE_MINOR_VERSION_COMPATIBILITY:
-                linker = MVCLinker
-            elif USE_NV_BINDING:
-                linker = _Linker
-            else:
-                linker = CtypesLinker
+        if USE_NV_BINDING:
+            linker = _Linker
         else:
-            if USE_NV_BINDING:
-                linker = _Linker
-            else:
-                linker = CtypesLinker
+            linker = CtypesLinker
 
         params = (max_registers, lineinfo, cc)
         if linker is _Linker:

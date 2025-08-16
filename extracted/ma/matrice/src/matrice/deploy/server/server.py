@@ -17,14 +17,12 @@ from matrice.deploy.server.proxy.proxy_interface import (
 from matrice.action_tracker import ActionTracker
 from matrice.deploy.server.inference.model_manager import ModelManager
 from matrice.deploy.server.inference.inference_interface import InferenceInterface
-from matrice.deploy.server.stream_worker import StreamWorkerManager
+from matrice.deploy.server.stream.stream_manager import StreamManager
 
 # Module constants
 DEFAULT_EXTERNAL_PORT = 80
 DEFAULT_SHUTDOWN_THRESHOLD_MINUTES = 15
 MIN_SHUTDOWN_THRESHOLD_MINUTES = 1
-MAX_NUM_WORKERS = 20
-MIN_NUM_WORKERS = 1
 HEARTBEAT_INTERVAL_SECONDS = 30
 SHUTDOWN_CHECK_INTERVAL_SECONDS = 30
 CLEANUP_DELAY_SECONDS = 5
@@ -64,8 +62,7 @@ class MatriceDeployServer:
         """
         logging.basicConfig(
             level=logging.INFO,
-            format="%(asctime)s - %(levelname)s - %(message)s",
-            force=True,
+            format="%(asctime)s - %(levelname)s - %(message)s"
         )
         try:
             # Validate inputs
@@ -95,7 +92,6 @@ class MatriceDeployServer:
             )
             self.deployment_id = self.action_details.get("_idDeployment")
             self.model_id = self.action_details.get("_idModelDeploy")
-            self.inference_pipeline_id = self.action_details.get("inference_pipeline_id")
 
             # Validate deployment information
             if not all(
@@ -132,14 +128,14 @@ class MatriceDeployServer:
             self.proxy_interface = None
             self.model_manager = None
             self.inference_interface = None
-            self.stream_worker_manager = None
+            self.stream_manager = None
 
             # Initialize utilities
             self.utils = None
 
             # Shutdown coordination
             self._shutdown_event = threading.Event()
-            self._stream_worker_thread = None
+            self._stream_manager_thread = None
 
             # Register shutdown handlers to ensure clean shutdown
             self._register_shutdown_handlers()
@@ -223,7 +219,7 @@ class MatriceDeployServer:
             self._validate_configuration()
             self._initialize_model_manager()
             self._initialize_inference_interface()
-            self._start_stream_worker_if_enabled()
+            self._start_stream_manager_if_enabled()
             self._start_proxy_interface()
             logging.info("All server components started successfully")
 
@@ -237,7 +233,7 @@ class MatriceDeployServer:
                 self.action_tracker, self.inference_interface, self.external_port
             )
             self.utils.update_deployment_address()
-            self.utils.run_background_checkers()
+            # self.utils.run_background_checkers()
             self.action_tracker.update_status(
                 "MDL_DPY_STR",
                 "SUCCESS",
@@ -287,7 +283,7 @@ class MatriceDeployServer:
             predict=self.predict,
             batch_predict=self.batch_predict,
             action_tracker=self.action_tracker,
-            num_model_instances=self.action_details.get("numModelInstances", 1),
+            num_model_instances=self.action_details.get("numModelInstances", 1)
         )
 
         logging.info("Model manager initialized successfully")
@@ -320,48 +316,35 @@ class MatriceDeployServer:
 
         logging.info("Inference interface initialized successfully")
 
-    def _start_stream_worker_if_enabled(self):
-        """Start stream worker manager if Kafka is enabled."""
+    def _start_stream_manager_if_enabled(self):
+        """Start stream manager manager if Kafka is enabled."""
         is_kafka_enabled = self.action_details.get("isKafkaEnabled", False)
 
         if not is_kafka_enabled:
             logging.info("Kafka streaming is disabled")
             return
 
-        enable_multi_worker = self.action_details.get("enableMultiWorker", False)
-        num_workers = min(
-            max(
-                int(self.action_details.get("numWorkers", MIN_NUM_WORKERS)),
-                MIN_NUM_WORKERS,
-            ),
-            MAX_NUM_WORKERS,
-        )
-
-        logging.info(
-            "Starting stream worker manager with multi-worker: %s, num_workers: %d",
-            enable_multi_worker,
-            num_workers,
-        )
-
-        self.stream_worker_manager = StreamWorkerManager(
+        logging.info("Starting stream manager manager with simple stream processing")
+        self.stream_manager = StreamManager(
             session=self.session,
             deployment_id=self.deployment_id,
             deployment_instance_id=self.deployment_instance_id,
             inference_interface=self.inference_interface,
-            num_workers=num_workers,
+            num_consumers=int(self.action_details.get("numConsumers", 1)),
+            num_inference_workers=int(self.action_details.get("numInferenceWorkers", 1)),
+            num_producers=int(self.action_details.get("numProducers", 1)),
             app_name=self.app_name,
             app_version=self.app_version,
-            inference_pipeline_id=self.inference_pipeline_id,
         )
 
-        # Start stream worker manager in background thread since it's async
-        def start_stream_worker():
-            """Start the async stream worker manager in a new event loop."""
+        # Start stream manager in background thread since it's async
+        def start_stream_manager():
+            """Start the async stream manager in a new event loop."""
 
             async def start_and_run_until_shutdown():
                 try:
-                    await self.stream_worker_manager.start()
-                    logging.info("Stream worker manager started successfully")
+                    await self.stream_manager.start()
+                    logging.info("Stream manager started successfully")
                     
                     # Wait for shutdown signal instead of waiting forever
                     while not self._shutdown_event.is_set():
@@ -370,12 +353,12 @@ class MatriceDeployServer:
                         except asyncio.CancelledError:
                             break
                     
-                    logging.info("Shutdown signal received, stopping stream worker manager")
-                    await self.stream_worker_manager.stop()
-                    logging.info("Stream worker manager stopped successfully")
+                    logging.info("Shutdown signal received, stopping stream manager")
+                    await self.stream_manager.stop()
+                    logging.info("Stream manager stopped successfully")
                     
                 except Exception as exc:
-                    logging.error("Error in stream worker manager: %s", str(exc))
+                    logging.error("Error in stream manager: %s", str(exc))
                     raise
 
             try:
@@ -387,7 +370,7 @@ class MatriceDeployServer:
                     # After main coroutine completes, ensure all tasks are properly cleaned up
                     pending = asyncio.all_tasks(loop)
                     if pending:
-                        logging.info("Cancelling %d pending tasks in stream worker loop", len(pending))
+                        logging.info("Cancelling %d pending tasks in stream manager loop", len(pending))
                         for task in pending:
                             if not task.done():
                                 task.cancel()
@@ -413,22 +396,22 @@ class MatriceDeployServer:
                     try:
                         # Close the event loop only after everything is cleaned up
                         loop.close()
-                        logging.info("Stream worker event loop closed successfully")
+                        logging.info("Stream event loop closed successfully")
                     except Exception as exc:
-                        logging.warning("Error closing stream worker event loop: %s", str(exc))
+                        logging.warning("Error closing stream event loop: %s", str(exc))
                         
             except Exception as exc:
-                logging.error("Failed to start stream worker manager: %s", str(exc))
+                logging.error("Failed to start stream manager: %s", str(exc))
                 raise
 
         try:
-            self._stream_worker_thread = threading.Thread(
-                target=start_stream_worker, daemon=False, name="StreamWorkerManager"
+            self._stream_manager_thread = threading.Thread(
+                target=start_stream_manager, daemon=False, name="StreamManager"
             )
-            self._stream_worker_thread.start()
-            logging.info("Stream worker manager thread started successfully")
+            self._stream_manager_thread.start()
+            logging.info("Stream manager thread started successfully")
         except Exception as exc:
-            logging.error("Failed to start stream worker thread: %s", str(exc))
+            logging.error("Failed to start stream thread: %s", str(exc))
             raise
 
     def _start_proxy_interface(self):
@@ -465,14 +448,14 @@ class MatriceDeployServer:
             # Signal shutdown to all components
             self._shutdown_event.set()
             
-            # Wait for stream worker thread to finish if it exists
-            if self._stream_worker_thread and self._stream_worker_thread.is_alive():
-                logging.info("Waiting for stream worker thread to finish...")
-                self._stream_worker_thread.join(timeout=30.0)  # 30 second timeout
-                if self._stream_worker_thread.is_alive():
-                    logging.warning("Stream worker thread did not finish within timeout")
+            # Wait for stream manager thread to finish if it exists
+            if self._stream_manager_thread and self._stream_manager_thread.is_alive():
+                logging.info("Waiting for stream manager thread to finish...")
+                self._stream_manager_thread.join(timeout=30.0)  # 30 second timeout
+                if self._stream_manager_thread.is_alive():
+                    logging.warning("Stream manager thread did not finish within timeout")
                 else:
-                    logging.info("Stream worker thread finished successfully")
+                    logging.info("Stream manager thread finished successfully")
             
             # Stop proxy interface
             if self.proxy_interface:

@@ -3,7 +3,8 @@ from __future__ import annotations
 import datetime
 import logging
 import pathlib
-from typing import Any, Iterable, Iterator, List
+from collections.abc import Iterable, Iterator
+from typing import Any
 
 import asn1crypto.crl
 import asn1crypto.ocsp
@@ -21,7 +22,7 @@ from signify.x509 import Certificate, CertificateName
 logger = logging.getLogger(__name__)
 
 
-class CertificateStore(List[Certificate]):
+class CertificateStore:
     """A list of :class:`Certificate` objects."""
 
     def __init__(
@@ -29,19 +30,30 @@ class CertificateStore(List[Certificate]):
         *args: Certificate | Iterable[Certificate],
         trusted: bool = False,
         ctl: Any | None = None,
-        **kwargs: Any,
     ):
         """
         :param bool trusted: If true, all certificates that are appended to this
             structure are set to trusted.
         :param CertificateTrustList ctl: The certificate trust list to use (if any)
         """
-        super().__init__(*args, **kwargs)
         self.trusted = trusted
         self.ctl = ctl
+        self.data: list[Certificate] = list(*args)
+
+    def __contains__(self, item: Certificate) -> bool:
+        return item in self.data
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+    def __iter__(self) -> Iterator[Certificate]:
+        yield from self.data
 
     def append(self, elem: Certificate) -> None:
-        return super().append(elem)
+        return self.data.append(elem)
+
+    def extend(self, elem: Iterable[Certificate]) -> None:
+        return self.data.extend(elem)
 
     def verify_trust(
         self, chain: list[Certificate], context: VerificationContext | None = None
@@ -147,11 +159,11 @@ class FileSystemCertificateStore(CertificateStore):
 
     def __iter__(self) -> Iterator[Certificate]:
         self._load()  # TODO: load whenever needed.
-        return super().__iter__()
+        yield from self.data
 
     def __len__(self) -> int:
         self._load()
-        return super().__len__()
+        return len(self.data)
 
     def _load(self) -> None:
         if self._loaded:
@@ -322,7 +334,7 @@ class VerificationContext:
 
         # we keep track of our asn1 objects to make sure we return Certificate objects
         # when we're done
-        to_check_asn1cert = certificate.data
+        to_check_asn1cert = certificate.asn1
         all_certs = {to_check_asn1cert: certificate}
 
         # we need to get lists of our intermediates and trusted certificates
@@ -330,7 +342,7 @@ class VerificationContext:
         trust_roots: list[asn1crypto.x509.Certificate] = []
         for store in self.stores:
             for cert in store:
-                asn1cert = cert.data
+                asn1cert = cert.asn1
                 # we short-circuit the check here to ensure we do not check too much
                 # possibilities
                 (trust_roots if store.trusted else intermediates).append(asn1cert)

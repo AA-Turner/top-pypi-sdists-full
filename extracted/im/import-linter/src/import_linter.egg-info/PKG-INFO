@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: import-linter
-Version: 2.3
+Version: 2.4
 Summary: Enforces rules for the imports within and between Python packages.
 Author-email: David Seddon <david@seddonym.me>
 License: BSD 2-Clause License
@@ -28,6 +28,7 @@ Requires-Dist: click>=6
 Requires-Dist: grimp>=3.7
 Requires-Dist: tomli>=1.2.1; python_version < "3.11"
 Requires-Dist: typing-extensions>=3.10.0.0
+Dynamic: license-file
 
 =============
 Import Linter
@@ -40,7 +41,7 @@ Import Linter
     :alt: Python versions
     :target: https://pypi.org/project/import-linter/
 
-.. image:: https://github.com/seddonym/import-linter/workflows/CI/badge.svg?branch=master
+.. image:: https://github.com/seddonym/import-linter/workflows/CI/badge.svg?branch=main
      :target: https://github.com/seddonym/import-linter/actions?workflow=CI
      :alt: CI Status
 

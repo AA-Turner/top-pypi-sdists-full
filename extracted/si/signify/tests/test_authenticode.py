@@ -23,6 +23,7 @@ import binascii
 import datetime
 import hashlib
 import io
+import itertools
 import pathlib
 import unittest
 
@@ -30,15 +31,15 @@ from signify.authenticode import (
     CERTIFICATE_LOCATION,
     TRUSTED_CERTIFICATE_STORE,
     TRUSTED_CERTIFICATE_STORE_NO_CTL,
+    AuthenticodeFile,
 )
-from signify.authenticode.signed_pe import SignedPEFile
+from signify.authenticode.signed_pe import SignedPEFile, SignedPEFingerprinter
 from signify.exceptions import (
     AuthenticodeNotSignedError,
     AuthenticodeVerificationError,
     SignedPEParseError,
     VerificationError,
 )
-from signify.fingerprinter import AuthenticodeFingerprinter
 from signify.x509 import Certificate
 from signify.x509.context import (
     CertificateStore,
@@ -55,8 +56,8 @@ trusted_certificate_store = FileSystemCertificateStore(
 class AuthenticodeParserTestCase(unittest.TestCase):
     def test_software_update(self):
         with open(str(root_dir / "test_data" / "SoftwareUpdate.exe"), "rb") as f:
-            fingerprinter = AuthenticodeFingerprinter(f)
-            fingerprinter.add_authenticode_hashers(hashlib.sha1)
+            fingerprinter = SignedPEFingerprinter(f)
+            fingerprinter.add_signed_pe_hashers(hashlib.sha1)
             hashes = fingerprinter.hash()
 
             # Sanity check that the authenticode hash is still correct
@@ -213,6 +214,14 @@ class AuthenticodeParserTestCase(unittest.TestCase):
             pefile = SignedPEFile(f)
             pefile.verify()
 
+            # test that the signing time is correct in this case
+            self.assertEqual(
+                list(pefile.signed_datas)[0].signer_info.countersigner.signing_time,
+                datetime.datetime(
+                    2019, 12, 11, 8, 40, 17, 750_000, tzinfo=datetime.timezone.utc
+                ),
+            )
+
     def test_jameslth_valid_when_revocation_not_checked(self):
         """this certificate is revoked"""
         with open(str(root_dir / "test_data" / "jameslth"), "rb") as f:
@@ -270,8 +279,9 @@ class AuthenticodeParserTestCase(unittest.TestCase):
         with open(str(root_dir / "test_data" / "sigcheck_sha1_patched.exe"), "rb") as f:
             pefile = SignedPEFile(f)
             for mode in ("all", "first"):
-                with self.subTest(multi_verify_mode=mode), self.assertRaises(
-                    VerificationError
+                with (
+                    self.subTest(multi_verify_mode=mode),
+                    self.assertRaises(VerificationError),
                 ):
                     pefile.verify(
                         trusted_certificate_store=TRUSTED_CERTIFICATE_STORE_NO_CTL,
@@ -291,8 +301,9 @@ class AuthenticodeParserTestCase(unittest.TestCase):
         ) as f:
             pefile = SignedPEFile(f)
             for mode in ("all", "best"):
-                with self.subTest(multi_verify_mode=mode), self.assertRaises(
-                    VerificationError
+                with (
+                    self.subTest(multi_verify_mode=mode),
+                    self.assertRaises(VerificationError),
                 ):
                     pefile.verify(
                         trusted_certificate_store=TRUSTED_CERTIFICATE_STORE_NO_CTL,
@@ -314,8 +325,9 @@ class AuthenticodeParserTestCase(unittest.TestCase):
             # we can test for the fact that all signatures are invalid here as well,
             # because the normal CTL will disallow sha1
             for mode in ("all", "best", "first", "any"):
-                with self.subTest(multi_verify_mode=mode), self.assertRaises(
-                    VerificationError
+                with (
+                    self.subTest(multi_verify_mode=mode),
+                    self.assertRaises(VerificationError),
                 ):
                     pefile.verify(multi_verify_mode=mode)
 
@@ -381,11 +393,23 @@ class AuthenticodeParserTestCase(unittest.TestCase):
                 )
 
 
+class P7XTestCase(unittest.TestCase):
+    def test_detect(self):
+        """this tests a sample that has a v0 SignerInfo structure"""
+        with open(
+            str(root_dir / "test_data" / "AppxSignature.p7x"),
+            "rb",
+        ) as f:
+            p7xfile = AuthenticodeFile.detect(f)
+            signed_data = list(p7xfile.signed_datas)[0]
+            self.assertEqual(signed_data.signed_file, p7xfile)
+
+
 class CertificateTestCase(unittest.TestCase):
     def test_all_trusted_certificates_are_trusted(self):
         context = VerificationContext(trusted_certificate_store)
         # only select 50 to speed up testing
-        for certificate in trusted_certificate_store[:50]:
+        for certificate in itertools.islice(trusted_certificate_store, 50):
             # Trust depends on the timestamp
             context.timestamp = certificate.valid_to
             chain = certificate.verify(context)

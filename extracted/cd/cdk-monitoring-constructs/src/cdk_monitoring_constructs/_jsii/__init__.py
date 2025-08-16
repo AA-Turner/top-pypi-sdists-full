@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "cdk-monitoring-constructs",
-    "9.13.0",
+    "9.15.0",
     __name__[0:-6],
-    "cdk-monitoring-constructs@9.13.0.jsii.tgz",
+    "cdk-monitoring-constructs@9.15.0.jsii.tgz",
 )
 
 __all__ = [

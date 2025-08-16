@@ -59,6 +59,7 @@ def get_model(model_type: str, model_params: dict):
     raise RuntimeError(f"Unknown model type: {model_type}")
 
 
+# TODO: review usage of this function
 def get_embeddings(embeddings_model: str, embeddings_params: dict):
     """ Get *Embeddings """
     if embeddings_model is None:

@@ -1,45 +1,38 @@
 import enum
 import typing
 import uuid
-from dataclasses import dataclass
 
 # Block Convertor class for request path parameters.
-@dataclass(frozen=True)
 class Convertor:
     regex: str
 
     def convert(self, value: str) -> typing.Any: ...
     def to_string(self, value: typing.Any) -> str: ...
 
-@dataclass(frozen=True)
 class StringConvertor(Convertor):
     regex = '.*'
 
     def convert(self, value: str) -> str: ...
     def to_string(self, value: str) -> str: ...
 
-@dataclass(frozen=True)
 class PathConvertor(Convertor):
     regex = '.*'
 
     def convert(self, value: str) -> str: ...
     def to_string(self, value: str) -> str: ...
 
-@dataclass(frozen=True)
 class IntegerConvertor(Convertor):
     regex = '[0-9]+'
 
     def convert(self, value: str) -> int: ...
     def to_string(self, value: int) -> str: ...
 
-@dataclass(frozen=True)
 class FloatConvertor(Convertor):
     regex = r'[0-9]+(\.[0-9]+)?'
 
     def convert(self, value: str) -> float: ...
     def to_string(self, value: float) -> str: ...
 
-@dataclass(frozen=True)
 class UUIDConvertor(Convertor):
     regex = (
         '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
@@ -55,16 +48,6 @@ def compile_path(
     # The implementation is not provided in the original code snippet.
     ...
 
-# Block for Optimization and caching of responses.
-@dataclass(frozen=True)
-class ResponseCache:
-    max_size: int
-    cache: dict[str, typing.Any]
-    access_order: list[str]
-
-    def get(self, key: str) -> typing.Any | None: ...
-    def put(self, key: str, value: typing.Any) -> None: ...
-
 # Block for Dependency Injection and caching of signatures.
 def di_cached_signature(func: typing.Callable) -> typing.Any:
     pass
@@ -74,7 +57,6 @@ class Provide:
 
     def __class_getitem__(cls, service: typing.Any) -> Provide: ...
 
-@dataclass(frozen=True)
 class Provider:
     ...
 
@@ -84,7 +66,6 @@ class Provider:
         resolution_stack: typing.Any | None = None,
     ) -> typing.Any: ...
 
-@dataclass(frozen=True)
 class SingletonProvider(Provider):
     cls: type
     kwargs: dict[str, typing.Any] = None
@@ -99,7 +80,6 @@ class SingletonProvider(Provider):
         resolution_stack: typing.Any | None = None,
     ) -> typing.Any: ...
 
-@dataclass(frozen=True)
 class FactoryProvider(Provider):
     cls: type
     kwargs: dict[str, typing.Any] = None
@@ -113,7 +93,6 @@ class FactoryProvider(Provider):
         resolution_stack: typing.Any | None = None,
     ) -> typing.Any: ...
 
-@dataclass(frozen=True)
 class AsyncFactoryProvider(Provider):
     cls: type
     kwargs: dict[str, typing.Any] = None
@@ -127,7 +106,6 @@ class AsyncFactoryProvider(Provider):
         resolution_stack: typing.Any | None = None,
     ) -> typing.Any: ...
 
-@dataclass(frozen=True)
 class ServiceContainer:
     ...
 
@@ -216,7 +194,6 @@ def log_critical_with_extra(
 def is_enabled_for(level: str) -> bool: ...
 
 # Block for Background tasks management.
-@dataclass(frozen=True)
 class BackgroundTask:
     """Background task that can be executed asynchronously."""
 
@@ -229,7 +206,6 @@ class BackgroundTask:
         """Execute the background task."""
         ...
 
-@dataclass(frozen=True)
 class BackgroundTasks:
     """Collection of background tasks to be executed."""
 
@@ -265,7 +241,6 @@ class Match(int, enum.Enum):
     PARTIAL = 1
     FULL = 2
 
-@dataclass(frozen=True)
 class _RouteOptimizer:
     path_regex: str
     param_convertors: dict[str, Convertor]
@@ -290,7 +265,6 @@ class _RouteOptimizer:
         """Get cache statistics."""
         ...
 
-@dataclass(frozen=True)
 class _RouterOptimizer:
     extrac_routes: dict[str, int]  # path:method -> route index
     route_lookup: dict[str, int]  # path:method -> route index or -1 for not found
@@ -309,7 +283,6 @@ class _RouterOptimizer:
         """Get cache statistics for the router optimizer."""
         ...
 
-@dataclass(frozen=True)
 class _RoutePatternMatcher:
     patterns: list[tuple[str, str, dict[str, Convertor]]]
     extrac_paths: dict[str, int]  # path:method -> route index
@@ -420,7 +393,6 @@ def create_template_engine(
 ) -> _TemplateEngine: ...
 
 
-@dataclass(frozen=True)
 class UploadFile:
     """Represents an uploaded file."""
 
@@ -438,3 +410,35 @@ class UploadFile:
     def seek(self, offset: int) -> None:
         """Seek to a specific position in the uploaded file."""
         ...
+
+class RustEventChannel:
+    """Event channel for handling events in Velithon."""
+
+    buffer_size: int = 1000
+
+    def register_listener(
+        self,
+        event_name: str,
+        callback: typing.Callable,
+        is_async: bool,
+        event_loop: typing.Any,
+    ) -> None:
+        """Register a listener for a specific event."""
+        ...
+    async def emit(self, event_name: str, data: dict) -> None:
+        """Emit an event with the provided data."""
+        ...
+    async def cleanup(self) -> None:
+        """Clean up resources and close the event channel."""
+        ...
+
+def header_init(
+    body_length: int,
+    status_code: int,
+    media_type: str | None,
+    charset: str,
+    provided_headers: dict[str, str] | None,
+) -> tuple[str, str]:
+    """Initialize headers for the response."""
+    ...
+

@@ -18,9 +18,9 @@ import os
 import pathlib
 import signal
 from contextlib import asynccontextmanager
+from typing import cast
 
 import structlog
-import uvloop
 
 from langgraph_runtime.lifespan import lifespan
 from langgraph_runtime.metrics import get_metrics
@@ -36,21 +36,22 @@ async def health_and_metrics_server():
     class HealthAndMetricsHandler(http.server.SimpleHTTPRequestHandler):
         def log_message(self, format, *args):
             # Skip logging for /ok and /metrics endpoints
-            if self.path in ["/ok", "/metrics"]:
+            if getattr(self, "path", None) in ["/ok", "/metrics"]:
                 return
             # Log other requests normally
             super().log_message(format, *args)
 
         def do_GET(self):
-            if self.path == "/ok":
+            path = getattr(self, "path", None)
+            if path == "/ok":
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", ok_len)
                 self.end_headers()
                 self.wfile.write(ok)
-            elif self.path == "/metrics":
+            elif path == "/metrics":
                 metrics = get_metrics()
-                worker_metrics = metrics["workers"]
+                worker_metrics = cast(dict[str, int], metrics["workers"])
                 workers_max = worker_metrics["max"]
                 workers_active = worker_metrics["active"]
                 workers_available = worker_metrics["available"]
@@ -93,20 +94,27 @@ async def health_and_metrics_server():
             httpd.shutdown()
 
 
-async def entrypoint():
+async def entrypoint(
+    grpc_port: int | None = None, entrypoint_name: str = "python-queue"
+):
     from langgraph_api import logging as lg_logging
     from langgraph_api.api import user_router
 
-    lg_logging.set_logging_context({"entrypoint": "python-queue"})
+    lg_logging.set_logging_context({"entrypoint": entrypoint_name})
     tasks: set[asyncio.Task] = set()
     tasks.add(asyncio.create_task(health_and_metrics_server()))
 
     original_lifespan = user_router.router.lifespan_context if user_router else None
 
     @asynccontextmanager
-    async def combined_lifespan(app, with_cron_scheduler=False, taskset=None):
+    async def combined_lifespan(
+        app, with_cron_scheduler=False, grpc_port=None, taskset=None
+    ):
         async with lifespan(
-            app, with_cron_scheduler=with_cron_scheduler, taskset=taskset
+            app,
+            with_cron_scheduler=with_cron_scheduler,
+            grpc_port=grpc_port,
+            taskset=taskset,
         ):
             if original_lifespan:
                 async with original_lifespan(app):
@@ -114,11 +122,13 @@ async def entrypoint():
             else:
                 yield
 
-    async with combined_lifespan(None, with_cron_scheduler=False, taskset=tasks):
+    async with combined_lifespan(
+        None, with_cron_scheduler=False, grpc_port=grpc_port, taskset=tasks
+    ):
         await asyncio.gather(*tasks)
 
 
-async def main():
+async def main(grpc_port: int | None = None, entrypoint_name: str = "python-queue"):
     """Run the queue entrypoint and shut down gracefully on SIGTERM/SIGINT."""
     loop = asyncio.get_running_loop()
     stop_event = asyncio.Event()
@@ -132,11 +142,9 @@ async def main():
     except (NotImplementedError, RuntimeError):
         signal.signal(signal.SIGTERM, lambda *_: _handle_signal())
 
-    from langgraph_api import config
-
-    config.IS_QUEUE_ENTRYPOINT = True
-
-    entry_task = asyncio.create_task(entrypoint())
+    entry_task = asyncio.create_task(
+        entrypoint(grpc_port=grpc_port, entrypoint_name=entrypoint_name)
+    )
     await stop_event.wait()
 
     logger.warning("Cancelling queue entrypoint task")
@@ -146,10 +154,17 @@ async def main():
 
 
 if __name__ == "__main__":
+    from langgraph_api import config
+
+    config.IS_QUEUE_ENTRYPOINT = True
     with open(pathlib.Path(__file__).parent.parent / "logging.json") as file:
         loaded_config = json.load(file)
         logging.config.dictConfig(loaded_config)
+    try:
+        import uvloop  # type: ignore[unresolved-import]
 
-    uvloop.install()
-
+        uvloop.install()
+    except ImportError:
+        pass
+    # run the entrypoint
     asyncio.run(main())

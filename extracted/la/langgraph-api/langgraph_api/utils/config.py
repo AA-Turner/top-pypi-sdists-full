@@ -7,9 +7,10 @@ from collections import ChainMap
 from concurrent.futures import Executor
 from contextvars import copy_context
 from os import getenv
-from typing import Any, ParamSpec, TypeVar, cast
+from typing import Any, ParamSpec, TypeVar
 
 from langgraph.constants import CONF
+from typing_extensions import TypedDict
 
 if typing.TYPE_CHECKING:
     from langchain_core.runnables import RunnableConfig
@@ -19,7 +20,7 @@ try:
         var_child_runnable_config,
     )
 except ImportError:
-    var_child_runnable_config = None
+    var_child_runnable_config = None  # type: ignore[invalid-assignment]
 
 CONFIG_KEYS = [
     "tags",
@@ -52,6 +53,14 @@ def _is_not_empty(value: Any) -> bool:
         return value is not None
 
 
+class _Config(TypedDict):
+    tags: list[str]
+    metadata: ChainMap
+    callbacks: None
+    recursion_limit: int
+    configurable: dict[str, Any]
+
+
 def ensure_config(*configs: RunnableConfig | None) -> RunnableConfig:
     """Return a config with all keys, merging any provided configs.
 
@@ -61,7 +70,7 @@ def ensure_config(*configs: RunnableConfig | None) -> RunnableConfig:
     Returns:
         RunnableConfig: The merged and ensured config.
     """
-    empty = dict(
+    empty = _Config(
         tags=[],
         metadata=ChainMap(),
         callbacks=None,
@@ -84,7 +93,7 @@ def ensure_config(*configs: RunnableConfig | None) -> RunnableConfig:
         for k, v in config.items():
             if _is_not_empty(v) and k in CONFIG_KEYS:
                 if k == CONF:
-                    empty[k] = cast(dict, v).copy()
+                    empty[k] = v.copy()  # type: ignore
                 else:
                     empty[k] = v  # type: ignore[literal-required]
         for k, v in config.items():

@@ -115,6 +115,20 @@ class ListStreamingConnectionsResponse(_message.Message):
     streaming_connections: _containers.RepeatedCompositeFieldContainer[StreamingConnection]
     def __init__(self, streaming_connections: _Optional[_Iterable[_Union[StreamingConnection, _Mapping]]] = ...) -> None: ...
 
+class UpdateStreamingConnectionStatusRequest(_message.Message):
+    __slots__ = ("streaming_connection_rid", "status")
+    STREAMING_CONNECTION_RID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    streaming_connection_rid: str
+    status: StreamingConnectionStatus
+    def __init__(self, streaming_connection_rid: _Optional[str] = ..., status: _Optional[_Union[StreamingConnectionStatus, str]] = ...) -> None: ...
+
+class UpdateStreamingConnectionStatusResponse(_message.Message):
+    __slots__ = ("streaming_connection",)
+    STREAMING_CONNECTION_FIELD_NUMBER: _ClassVar[int]
+    streaming_connection: StreamingConnection
+    def __init__(self, streaming_connection: _Optional[_Union[StreamingConnection, _Mapping]] = ...) -> None: ...
+
 class StartStreamRequest(_message.Message):
     __slots__ = ("streaming_connection_rid", "scraping_config", "target_dataset_rid")
     STREAMING_CONNECTION_RID_FIELD_NUMBER: _ClassVar[int]

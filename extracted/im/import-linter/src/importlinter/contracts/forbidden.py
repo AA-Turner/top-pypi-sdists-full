@@ -5,6 +5,7 @@ from typing import Iterable, List, cast
 from grimp import ImportGraph
 
 from importlinter.application import contract_utils, output
+from importlinter.application import rendering
 from importlinter.application.contract_utils import AlertLevel
 from importlinter.configuration import settings
 from importlinter.domain import fields
@@ -19,9 +20,10 @@ class ForbiddenContract(Contract):
     """
     Forbidden contracts check that one set of modules are not imported by another set of modules.
     Indirect imports will also be checked.
+
     Configuration options:
-        - source_modules:    A list of Modules that should not import the forbidden modules.
-        - forbidden_modules: A list of Modules that should not be imported by the source modules.
+        - source_modules:    A set of Modules that should not import the forbidden modules.
+        - forbidden_modules: A set of Modules that should not be imported by the source modules.
         - ignore_imports:    A set of ImportExpressions. These imports will be ignored if the import
                              would cause a contract to be broken, adding it to the set will cause
                              the contract be kept instead. (Optional.)
@@ -38,8 +40,8 @@ class ForbiddenContract(Contract):
 
     type_name = "forbidden"
 
-    source_modules = fields.ListField(subfield=fields.ModuleExpressionField())
-    forbidden_modules = fields.ListField(subfield=fields.ModuleExpressionField())
+    source_modules = fields.SetField(subfield=fields.ModuleExpressionField())
+    forbidden_modules = fields.SetField(subfield=fields.ModuleExpressionField())
     ignore_imports = fields.SetField(subfield=fields.ImportExpressionField(), required=False)
     allow_indirect_imports = fields.BooleanField(required=False, default=False)
     unmatched_ignore_imports_alerting = fields.EnumField(AlertLevel, default=AlertLevel.ERROR)
@@ -125,9 +127,9 @@ class ForbiddenContract(Contract):
                 if verbose:
                     chain_count = len(subpackage_chain_data["chains"])
                     pluralized = "s" if chain_count != 1 else ""
+                    duration = rendering.format_duration(timer.duration_in_ms)
                     output.print(
-                        f"Found {chain_count} illegal chain{pluralized} "
-                        f"in {timer.duration_in_s}s.",
+                        f"Found {chain_count} illegal chain{pluralized} in {duration}.",
                     )
 
         # Sorting by upstream and downstream module ensures that the output is deterministic

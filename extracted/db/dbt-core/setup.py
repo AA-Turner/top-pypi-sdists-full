@@ -25,7 +25,7 @@ with open(os.path.join(this_directory, "README.md")) as f:
 
 
 package_name = "dbt-core"
-package_version = "1.10.8"
+package_version = "1.10.9"
 description = """With dbt, data analysts and engineers can build analytics \
 the way engineers build applications."""
 
@@ -58,7 +58,7 @@ setup(
         "click>=8.0.2,<9.0",
         "jsonschema>=4.19.1,<5.0",
         "networkx>=2.3,<4.0",
-        "protobuf>=5.0,<6.0",
+        "protobuf>=6.0,<7.0",
         "requests<3.0.0",  # should match dbt-common
         "snowplow-tracker>=1.0.2,<2.0",
         # ----

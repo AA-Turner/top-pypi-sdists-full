@@ -11,12 +11,23 @@ from enum import Enum
 from io import BytesIO
 from pathlib import Path
 from shutil import copyfile
-from typing import Dict, List, Literal, Optional, Tuple, TypedDict, Union
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 from vespa.configuration.vt import Xml, vt
 from vespa.configuration.services import services
 from vespa.configuration.services import *
+from vespa.configuration.deployment import DeploymentItem
+from vespa.configuration.query_profiles import QueryProfileItem
 
 if sys.version_info >= (3, 11):
     from typing import Unpack
@@ -213,7 +224,7 @@ class HNSW(object):
 
 
 class StructFieldConfiguration(TypedDict, total=False):
-    indexing: List[str]
+    indexing: Union[List[str], Tuple[str, ...], str]
     attribute: List[str]
     match: List[Union[str, Tuple[str, str]]]
     query_command: List[str]
@@ -230,7 +241,10 @@ class StructField:
 
         Args:
             name (str): The name of the struct-field.
-            indexing (list, optional): Configures how to process data of a struct-field during indexing.
+            indexing (list, tuple, or str, optional): Configures how to process data of a struct-field during indexing.
+                - Tuple: renders as `indexing { value1; value2; ... }` block with each item on a new line, and semicolon at the end.
+                - List: renders as `indexing: value1 | value2 | ...`
+                - Single string: renders as `indexing: value`
             attribute (list, optional): Specifies a property of an index structure attribute.
             match (list, optional): Set properties that decide how the matching method for this field operates.
             query_command (list, optional): Add configuration for the query-command of the field.
@@ -273,6 +287,15 @@ class StructField:
             )
             StructField('first_name', ['attribute'], ['fast-search'], None, None, None, 'filter')
             ```
+
+            ```python
+            StructField(
+                name = "complex_field",
+                indexing = ('"preprocessing"', ["attribute", "summary"]),
+                attribute = ["fast-search"],
+            )
+            StructField('complex_field', ('"preprocessing"', ['attribute', 'summary']), ['fast-search'], None, None, None, None)
+            ```
         """
 
         self.name = name
@@ -286,7 +309,33 @@ class StructField:
     @property
     def indexing_to_text(self) -> Optional[str]:
         if self.indexing is not None:
-            return " | ".join(self.indexing)
+            if isinstance(self.indexing, tuple):
+                # For tuple, return None to signal multiline handling in template
+                return None
+            if isinstance(self.indexing, str):
+                # If it's a single string, return it directly
+                return self.indexing
+            # For list, join with " | "
+            if isinstance(self.indexing, list):
+                return " | ".join(self.indexing)
+            raise TypeError(
+                f"Unexpected type for indexing: {type(self.indexing).__name__}. Expected str, tuple, or list."
+            )
+
+    @property
+    def indexing_as_multiline(self) -> Optional[List[str]]:
+        """Generate multiline indexing statements for tuple-based indexing."""
+        if self.indexing is not None and isinstance(self.indexing, tuple):
+            lines = []
+            for statement in self.indexing:
+                if isinstance(statement, list):
+                    # Join list elements with " | " and add semicolon
+                    lines.append(" | ".join(statement) + ";")
+                else:
+                    # Add semicolon to string statements
+                    lines.append(str(statement) + ";")
+            return lines
+        return None
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -323,9 +372,15 @@ class StructField:
 
 
 class FieldConfiguration(TypedDict, total=False):
+    """
+    alias (list[str]): Add alias to the field.
+        Use the format "component: component_alias" to add an alias to a field's component.
+        See [Vespa documentation](https://docs.vespa.ai/en/reference/schema-reference.html#uri) for an example.
+    """
+
     indexing: List[str]
     attribute: List[str]
-    index: str
+    index: Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]]
     ann: HNSW
     match: List[Union[str, Tuple[str, str]]]
     weight: int
@@ -343,8 +398,10 @@ class Field(object):
         self,
         name: str,
         type: str,
-        indexing: Optional[List[str]] = None,
-        index: Optional[str] = None,
+        indexing: Optional[Union[List[str], Tuple[str, ...], str]] = None,
+        index: Optional[
+            Union[str, Dict[str, Any], List[Union[str, Dict[str, Any]]]]
+        ] = None,
         attribute: Optional[List[str]] = None,
         ann: Optional[HNSW] = None,
         match: Optional[List[Union[str, Tuple[str, str]]]] = None,
@@ -363,11 +420,23 @@ class Field(object):
         we usually want to add fields so that we can store our data in a structured manner.
         We can accomplish that by creating `Field` instances and adding those to the `ApplicationPackage` instance via `Schema` and `Document` methods.
 
+        Index Configuration Behavior:
+            - Single string configuration: uses `index: value` syntax
+            - Single dict or multiple configurations: uses `index { ... }` block syntax
+            - All configurations in a list are consolidated into a single index block
+
         Args:
             name (str): The name of the field.
             type (str): The data type of the field.
-            indexing (list, optional): Configures how to process data of a field during indexing.
-            index (str, optional): Sets index parameters. Fields with index are normalized and tokenized by default.
+            indexing (list, tuple, or str, optional): Configures how to process data of a field during indexing.
+                - Tuple: renders as `indexing { value1; value2; ... }` block with each item on a new line, and semicolon at the end.
+                - List: renders as `indexing: value1 | value2 | ...`
+                - Single string: renders as `indexing: value`
+            index (str, dict, or list, optional): Sets index parameters.
+                - Single string (e.g., "enable-bm25"): renders as `index: enable-bm25`
+                - Single dict (e.g., {"arity": 2}): renders as `index { arity: 2 }`
+                - List with multiple items: renders as single `index { ... }` block containing all configurations
+                Fields with index are normalized and tokenized by default.
             attribute (list, optional): Specifies a property of an index structure attribute.
             ann (HNSW, optional): Add configuration for approximate nearest neighbor.
             match (list, optional): Set properties that decide how the matching method for this field operates.
@@ -380,11 +449,21 @@ class Field(object):
             query_command (list, optional): Add configuration for query-command of the field.
             struct_fields (list, optional): Add struct-fields to the field.
             alias (list, optional): Add alias to the field.
+                Use the format "component: component_alias" to add an alias to a field's component. See [Vespa documentation](https://docs.vespa.ai/en/reference/schema-reference.html#uri) for an example.
 
         Example:
             ```python
             Field(name = "title", type = "string", indexing = ["index", "summary"], index = "enable-bm25")
             Field('title', 'string', ['index', 'summary'], 'enable-bm25', None, None, None, None, None, None, True, None, None, None, [], None)
+            ```
+
+            ```python
+            Field(
+                name = "title",
+                type = "array<string>",
+                indexing = ('"en"', ["index", "summary"]),
+            )
+            Field('title', 'array<string>', ('"en"', ['index', 'summary']), None, None, None, None, None, None, None, True, None, None, None, [], None)
             ```
 
             ```python
@@ -492,9 +571,76 @@ class Field(object):
             Field(
                 name = "artist",
                 type = "string",
-                alias = ["artist_name"],
+                alias = ["artist_name", "component: component_alias"],
             )
-            Field('artist', 'string', None, None, None, None, None, None, None, None, True, None, None, None, [], ['artist_name'])
+            Field('artist', 'string', None, None, None, None, None, None, None, None, True, None, None, None, [], ['artist_name', 'component: component_alias'])
+            ```
+
+            ```python
+            # Single string index - uses simple syntax
+            Field(name = "title", type = "string", index = "enable-bm25")
+            # Renders as: index: enable-bm25
+            ```
+
+            ```python
+            # Single dict index - uses block syntax
+            Field(name = "predicate_field", type = "predicate", index = {"arity": 2})
+            # Renders as: index { arity: 2 }
+            ```
+
+            ```python
+            # Multiple string indices - uses block syntax
+            Field(name = "multi", type = "string", index = ["enable-bm25", "another-setting"])
+            # Renders as: index { enable-bm25; another-setting }
+            ```
+
+            ```python
+            # Complex index configurations with multiple parameters
+            Field(
+                name = "predicate_field",
+                type = "predicate",
+                indexing = ["attribute"],
+                index = {
+                    "arity": 2,
+                    "lower-bound": 3,
+                    "upper-bound": 200,
+                    "dense-posting-list-threshold": 0.25
+                }
+            )
+            # Renders as: index { arity: 2; lower-bound: 3; upper-bound: 200; dense-posting-list-threshold: 0.25 }
+            ```
+
+            ```python
+            # Multiple index configurations with mixed types
+            Field(
+                name = "complex_field",
+                type = "string",
+                indexing = ["index", "summary"],
+                index = [
+                    "enable-bm25",  # Simple index setting
+                    {"arity": 2, "lower-bound": 3},  # Complex index block
+                    "another-setting"  # Another simple setting
+                ]
+            )
+            # Renders as single block:
+            # index {
+            #     enable-bm25
+            #     arity: 2
+            #     lower-bound: 3
+            #     another-setting
+            # }
+            ```
+
+            ```python
+            # Parameterless index settings using None values
+            Field(
+                name = "taxonomy",
+                type = "array<string>",
+                indexing = ["index", "summary"],
+                match = ["text"],
+                index = {"enable-bm25": None}
+            )
+            # Renders as: index { enable-bm25 } (without ": None")
             ```
         """
 
@@ -527,7 +673,56 @@ class Field(object):
     @property
     def indexing_to_text(self) -> Optional[str]:
         if self.indexing is not None:
-            return " | ".join(self.indexing)
+            if isinstance(self.indexing, tuple):
+                # For tuple, return None to signal multiline handling in template
+                return None
+            if isinstance(self.indexing, str):
+                # If it's a single string, return it directly
+                return self.indexing
+            # For list, join with " | "
+            if isinstance(self.indexing, list):
+                return " | ".join(self.indexing)
+            raise TypeError(
+                f"Unexpected type for indexing: {type(self.indexing).__name__}. Expected str, tuple, or list."
+            )
+
+    @property
+    def indexing_as_multiline(self) -> Optional[List[str]]:
+        """Generate multiline indexing statements for tuple-based indexing."""
+        if self.indexing is not None and isinstance(self.indexing, tuple):
+            lines = []
+            for statement in self.indexing:
+                if isinstance(statement, list):
+                    # Join list elements with " | " and add semicolon
+                    lines.append(" | ".join(statement) + ";")
+                else:
+                    # Add semicolon to string statements
+                    lines.append(str(statement) + ";")
+            return lines
+        return None
+
+    @property
+    def index_configurations(self) -> List[Union[str, Dict[str, Any]]]:
+        """
+        Returns index configurations as a list, normalizing single values to lists.
+        This allows the template to consistently iterate over index configurations.
+        """
+        if self.index is None:
+            return []
+        elif isinstance(self.index, list):
+            return self.index
+        else:
+            return [self.index]
+
+    @property
+    def use_simple_index_syntax(self) -> bool:
+        """
+        Returns True if we should use simple 'index: value' syntax.
+        Simple syntax is used only when there's exactly one string configuration.
+        Otherwise, we use the block syntax 'index { ... }'.
+        """
+        configs = self.index_configurations
+        return len(configs) == 1 and isinstance(configs[0], str)
 
     @property
     def struct_fields(self) -> List[StructField]:
@@ -1237,6 +1432,44 @@ class Mutate(object):
         )
 
 
+class Diversity(object):
+    def __init__(self, attribute: str, min_groups: int) -> None:
+        """
+        Create a Vespa ranking diversity configuration.
+
+        This is an optional config that is used to guarantee diversity in the different query phases.
+        Check the [Vespa documentation](https://docs.vespa.ai/en/reference/schema-reference.html#diversity)
+        for more detailed information about diversity configuration.
+
+        Args:
+            attribute (str): Which attribute to use when deciding diversity. The attribute must be a single-valued numeric, string or reference type.
+            min_groups (int): Specifies the minimum number of groups returned from the phase.
+
+        Returns:
+            Diversity: A ranking diversity configuration instance.
+
+        Example:
+            ```
+            Diversity(attribute="popularity", min_groups=5)
+            Diversity('popularity', 5)
+            ```
+        """
+        self.attribute = attribute
+        self.min_groups = min_groups
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+        return self.attribute == other.attribute and self.min_groups == other.min_groups
+
+    def __repr__(self) -> str:
+        return "{0}({1}, {2})".format(
+            self.__class__.__name__,
+            repr(self.attribute),
+            repr(self.min_groups),
+        )
+
+
 class MatchPhaseRanking(object):
     def __init__(
         self, attribute: str, order: Literal["ascending", "descending"], max_hits: int
@@ -1287,6 +1520,7 @@ class RankProfileFields(TypedDict, total=False):
     functions: List[Function]
     summary_features: List
     match_features: List
+    diversity: Diversity
     match_phase: MatchPhaseRanking
     second_phase: SecondPhaseRanking
     global_phase: GlobalPhaseRanking
@@ -1297,6 +1531,7 @@ class RankProfileFields(TypedDict, total=False):
     mutate: Mutate
     filter_threshold: float
     weakand: Dict[str, float]  # <-- NEW: weakand parameters
+    num_threads_per_search: int
 
 
 class RankProfile(object):
@@ -1314,6 +1549,7 @@ class RankProfile(object):
         global_phase: Optional[GlobalPhaseRanking] = None,
         match_phase: Optional[MatchPhaseRanking] = None,
         num_threads_per_search: Optional[int] = None,
+        diversity: Optional[Diversity] = None,
         **kwargs: Unpack[RankProfileFields],
     ) -> None:
         r"""
@@ -1340,6 +1576,7 @@ class RankProfile(object):
             global_phase (GlobalPhaseRanking, optional): Config specifying the global phase of ranking. See `GlobalPhaseRanking`.
             match_phase (MatchPhaseRanking, optional): Config specifying the match phase of ranking. See `MatchPhaseRanking`.
             num_threads_per_search (int, optional): Overrides the global `persearch` value for this rank profile to a lower value.
+            diversity: Optional config specifying the diversity of ranking.
             weight (list, optional): A list of tuples containing the field and their weight.
             rank_type (list, optional): A list of tuples containing a field and the rank-type-name.
                 [More info](https://docs.vespa.ai/en/reference/schema-reference.html#rank-type) about rank-type.
@@ -1426,6 +1663,7 @@ class RankProfile(object):
         self.constants = kwargs.get("constants", constants)
         self.functions = kwargs.get("functions", functions)
         self.summary_features = kwargs.get("summary_features", summary_features)
+        self.diversity = kwargs.get("diversity", diversity)
         self.match_features = kwargs.get("match_features", match_features)
         self.second_phase = kwargs.get("second_phase", second_phase)
         self.global_phase = kwargs.get("global_phase", global_phase)
@@ -1455,6 +1693,7 @@ class RankProfile(object):
             and self.second_phase == other.second_phase
             and self.global_phase == other.global_phase
             and self.match_phase == other.match_phase
+            and self.diversity == other.diversity
             and self.num_threads_per_search == other.num_threads_per_search
             and self.weight == other.weight
             and self.rank_type == other.rank_type
@@ -1464,7 +1703,7 @@ class RankProfile(object):
         )
 
     def __repr__(self) -> str:
-        return "{0}({1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}, {13}, {14}, {15})".format(
+        return "{0}({1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}, {13}, {14}, {15}, {16})".format(
             self.__class__.__name__,
             repr(self.name),
             repr(self.first_phase),
@@ -1481,6 +1720,7 @@ class RankProfile(object):
             repr(self.rank_type),
             repr(self.rank_properties),
             repr(self.inputs),
+            repr(self.diversity),
         )
 
 
@@ -2824,8 +3064,9 @@ class ApplicationPackage(object):
         components: Optional[List[Component]] = None,
         auth_clients: Optional[List[AuthClient]] = None,
         clusters: Optional[List[Cluster]] = None,
-        deployment_config: Optional[DeploymentConfiguration] = None,
+        deployment_config: Optional[Union[DeploymentConfiguration, VT]] = None,
         services_config: Optional[ServicesConfiguration] = None,
+        query_profile_config: Optional[Union[VT, List[VT]]] = None,
     ) -> None:
         """Create an application package.
 
@@ -2849,9 +3090,11 @@ class ApplicationPackage(object):
                 any Component must be part of a cluster. Defaults to None.
             auth_clients (list, optional): List of AuthClient objects for client authorization. If clusters is passed,
                 pass the auth clients to the ContainerCluster instead. Defaults to None.
-            deployment_config (DeploymentConfiguration, optional): Configuration for production deployments. Defaults to None.
-
-        Example:
+            deployment_config (Union[DeploymentConfiguration, VT], optional): Deployment configuration for the application.
+                Must be either a DeploymentConfiguration object (legacy) or a VT (Vespa Tag) based deployment configuration whose top-level tag must be `deployment`. Defaults to None.
+            services_config (ServicesConfiguration, optional): (Optional) Services configuration for the application. For advanced configuration.  See https://vespa-engine.github.io/pyvespa/advanced-configuration.html
+            query_profile_config (Union[VT, List[VT]], optional): Configuration for query profiles. If provided, will override the query_profile and query_profile_type arguments. Defaults to None. See See https://vespa-engine.github.io/pyvespa/advanced-configuration.html
+           Example:
             To create a default application package:
 
             ```python
@@ -2859,7 +3102,6 @@ class ApplicationPackage(object):
             ApplicationPackage('testapp', [Schema('testapp', Document(None, None, None), None, None, [], False, None, [], None)],
                             QueryProfile(None), QueryProfileType(None))
             ```
-
         This creates a default Schema, QueryProfile, and QueryProfileType, which can be populated with your application's specifics.
         """
         if not (
@@ -2878,12 +3120,31 @@ class ApplicationPackage(object):
                 else []
             )
         self._schema = OrderedDict([(x.name, x) for x in schema])
+        if query_profile_config:
+            if isinstance(query_profile_config, list):
+                self.query_profile_config = [
+                    QueryProfileItem.from_vt(qp) for qp in query_profile_config
+                ]
+            else:
+                self.query_profile_config = [
+                    QueryProfileItem.from_vt(query_profile_config)
+                ]
+        else:
+            self.query_profile_config = []
+
+        if self.query_profile_config:
+            create_query_profile_by_default = False
         if not query_profile and create_query_profile_by_default:
             query_profile = QueryProfile()
         self.query_profile = query_profile
         if not query_profile_type and create_query_profile_by_default:
             query_profile_type = QueryProfileType()
         self.query_profile_type = query_profile_type
+        if self.query_profile_config:
+            if query_profile or query_profile_type:
+                raise ValueError(
+                    "query_profile_config is mutually exclusive with query_profile and query_profile_type. Use one of them, not both."
+                )
         self.model_ids = []
         self.model_configs = {}
         self.stateless_model_evaluation = stateless_model_evaluation
@@ -2908,7 +3169,12 @@ class ApplicationPackage(object):
                             )
                             cluster.auth_clients = self.auth_clients
 
-        self.deployment_config = deployment_config
+        # Determine if the deployment configuration is VT based
+        self.deployment_is_vt: bool = isinstance(deployment_config, VT)
+        if self.deployment_is_vt:
+            self.deployment_config = DeploymentItem.from_vt(deployment_config)
+        else:
+            self.deployment_config = deployment_config
         self.services_config = services_config
 
     @property
@@ -2942,6 +3208,44 @@ class ApplicationPackage(object):
         """
         for schema in schemas:
             self._schema.update({schema.name: schema})
+
+    def add_query_profile(self, query_profile_item: Union[VT, List[VT]]) -> None:
+        """
+        Add a query profile item (query-profile or query-profile-type) to the application package.
+
+        Args:
+            query_profile_item (VT or List[VT]): Query profile item(s) to be added.
+
+        Returns:
+            None
+
+        Example:
+            ```python
+            app_package = ApplicationPackage(name="testapp")
+            qp = query_profile(
+                field(30, name="hits"),
+                field(3, name="trace.level"),
+            )
+            app_package.add_query_profile(
+                qp
+            )
+            # Query profile item is added to the application package.
+            # inspect with `app_package.query_profile_config`
+            ```
+        """
+        if isinstance(query_profile_item, VT):
+            self.query_profile_config.append(
+                QueryProfileItem.from_vt(query_profile_item)
+            )
+        elif isinstance(query_profile_item, list):
+            for item in query_profile_item:
+                self.query_profile_config.append(QueryProfileItem.from_vt(item))
+        else:
+            raise TypeError(
+                "query_profile_item must be an instance of VT or a list of VT, got {}".format(
+                    type(query_profile_item).__name__
+                )
+            )
 
     def get_model(self, model_id: str):
         try:
@@ -3045,6 +3349,8 @@ class ApplicationPackage(object):
 
     @property
     def deployment_to_text(self):
+        if self.deployment_is_vt:
+            return self.deployment_config.to_xml()
         env = Environment(
             loader=PackageLoader("vespa", "templates"),
             autoescape=select_autoescape(
@@ -3103,7 +3409,20 @@ class ApplicationPackage(object):
                     "search/query-profiles/types/root.xml",
                     self.query_profile_type_to_text,
                 )
-
+            if self.query_profile_config:
+                # Write each query profile config to a file. Should get file name from id-attribute of query-profile or query-profile-type tag.
+                # and query-profile-type to search/query-profiles/types/{id}.xml
+                for item in self.query_profile_config:
+                    if item.tag == "query_profile":
+                        zip_archive.writestr(
+                            "search/query-profiles/{}.xml".format(item.id_),
+                            item.xml,
+                        )
+                    elif item.tag == "query_profile_type":
+                        zip_archive.writestr(
+                            "search/query-profiles/types/{}.xml".format(item.id_),
+                            item.xml,
+                        )
             if self.deployment_config:
                 zip_archive.writestr("deployment.xml", self.deployment_to_text)
 
@@ -3181,7 +3500,24 @@ class ApplicationPackage(object):
         if self.validations:
             with open(os.path.join(root, "validation-overrides.xml"), "w") as f:
                 f.write(self.validations_to_text)
-
+        if self.query_profile_config:
+            for item in self.query_profile_config:
+                if item.tag == "query_profile":
+                    with open(
+                        os.path.join(
+                            root, "search/query-profiles/{}.xml".format(item.id_)
+                        ),
+                        "w",
+                    ) as f:
+                        f.write(item.xml)
+                elif item.tag == "query_profile_type":
+                    with open(
+                        os.path.join(
+                            root, "search/query-profiles/types/{}.xml".format(item.id_)
+                        ),
+                        "w",
+                    ) as f:
+                        f.write(item.xml)
         if self.deployment_config:
             with open(os.path.join(root, "deployment.xml"), "w") as f:
                 f.write(self.deployment_to_text)

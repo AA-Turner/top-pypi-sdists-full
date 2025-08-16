@@ -51,7 +51,7 @@ dependencies = [
     "pydantic >=1.10.2, <3.0.0",
     "isodate >=0.7.2, <1.0.0; python_version < '3.11'",
 ]
-version = "1.9.4"
+version = "1.9.5"
 
 [project.scripts]
 comparefiles = "linkml_runtime.utils.comparefiles:cli"

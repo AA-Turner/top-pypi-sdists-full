@@ -31,7 +31,7 @@ except ImportError:
 
 from adafruit_platformdetect.constants import boards, chips
 
-__version__ = "3.81.0"
+__version__ = "3.82.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_PlatformDetect.git"
 
 
@@ -209,6 +209,8 @@ class Board:
                 or self._ameridroid_id()
                 or self._vicharak_id()
             )
+        elif chip_id == chips.RK3588S:
+            board_id = self._orange_pi_id() or self._armbian_id()
         elif chip_id == chips.RYZEN_V1605B:
             board_id = self._udoo_id()
         elif chip_id == chips.PENTIUM_N3710:
@@ -241,6 +243,8 @@ class Board:
             board_id = self._rv1106_id()
         elif chip_id == chips.SUNRISE_X3:
             board_id = boards.RDK_X3
+        elif chip_id == chips.QCM6490:
+            board_id = boards.PARTICLE_TACHYON
         self._board_id = board_id
         return board_id
 
@@ -448,6 +452,8 @@ class Board:
             board = boards.ORANGE_PI_5_PLUS
         elif board_value == "orangepi5":
             board = boards.ORANGE_PI_5
+        elif board_value == "orangepi5-pro":
+            board = boards.ORANGE_PI_5_PRO
         elif board_value == "bananapim2zero":
             board = boards.BANANA_PI_M2_ZERO
         elif board_value == "bananapim2plus":
@@ -515,9 +521,12 @@ class Board:
         return None
 
     def _orange_pi_id(self) -> Optional[str]:
+        # pylint: disable=too-many-return-statements
         board_value = self.detector.get_device_model()
         if "OPi 5 Max" in board_value:
             return boards.ORANGE_PI_5_MAX
+        if "OPi 5 Pro" in board_value:
+            return boards.ORANGE_PI_5_PRO
         if "Orange Pi 5 Max" in board_value:
             return boards.ORANGE_PI_5_MAX
         if "Orange Pi 5 Plus" in board_value:
@@ -527,6 +536,8 @@ class Board:
         if "Orange Pi 3B" in board_value:
             return boards.ORANGE_PI_3B
         return None
+
+    # pylint: enable=too-many-return-statements
 
     def _sama5_id(self) -> Optional[str]:
         """Check what type sama5 board."""
@@ -1190,6 +1201,11 @@ class Board:
         return self.id in boards._HORIZON_IDS
 
     @property
+    def any_particle_board(self):
+        """Check whether the current board is any Particle device."""
+        return self.id in boards._PARTICLE_IDS
+
+    @property
     def os_environ_board(self) -> bool:
         """Check whether the current board is an OS environment variable special case."""
 
@@ -1263,6 +1279,7 @@ class Board:
             yield self.any_vivid_unit
             yield self.any_starfive_id
             yield self.any_horizon_board
+            yield self.any_particle_board
 
         return any(condition for condition in lazily_generate_conditions())
 

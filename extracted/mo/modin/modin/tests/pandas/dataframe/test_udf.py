@@ -23,6 +23,7 @@ from modin.core.storage_formats.pandas.query_compiler_caster import (
     _assert_casting_functions_wrap_same_implementation,
 )
 from modin.tests.pandas.utils import (
+    UNIVERSAL_UNARY_NUMPY_FUNCTIONS_FOR_FLOATS,
     agg_func_except_keys,
     agg_func_except_values,
     agg_func_keys,
@@ -43,7 +44,10 @@ from modin.tests.pandas.utils import (
     udf_func_keys,
     udf_func_values,
 )
-from modin.tests.test_utils import warns_that_defaulting_to_pandas
+from modin.tests.test_utils import (
+    current_execution_is_native,
+    warns_that_defaulting_to_pandas_if,
+)
 from modin.utils import get_current_execution
 
 NPartitions.put(4)
@@ -126,11 +130,11 @@ def test_aggregate_alias():
 def test_aggregate_error_checking():
     modin_df = pd.DataFrame(test_data["float_nan_data"])
 
-    with warns_that_defaulting_to_pandas():
+    with warns_that_defaulting_to_pandas_if(not current_execution_is_native()):
         modin_df.aggregate({modin_df.columns[0]: "sum", modin_df.columns[1]: "mean"})
 
-    with warns_that_defaulting_to_pandas():
-        modin_df.aggregate("cumproduct")
+    with warns_that_defaulting_to_pandas_if(not current_execution_is_native()):
+        modin_df.aggregate("arcsin")
 
 
 @pytest.mark.parametrize(
@@ -312,6 +316,22 @@ def test_apply_modin_func_4635():
     df_equals(
         modin_df.groupby("a", group_keys=False).apply(pd.DataFrame.sample, n=1),
         pandas_df.groupby("a", group_keys=False).apply(pandas.DataFrame.sample, n=1),
+    )
+
+
+@pytest.mark.parametrize(
+    "apply_function",
+    (
+        lambda df, function: function(df),
+        lambda df, function: df.apply(function, axis=0),
+        lambda df, function: df.apply(function, axis=1),
+    ),
+)
+@pytest.mark.parametrize("function", UNIVERSAL_UNARY_NUMPY_FUNCTIONS_FOR_FLOATS)
+def test_apply_unary_numpy_universal_function_issue_7645(function, apply_function):
+    eval_general(
+        *create_test_dfs(test_data["float_nan_data"]),
+        lambda df: apply_function(df, function),
     )
 
 

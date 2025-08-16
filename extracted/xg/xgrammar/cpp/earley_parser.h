@@ -7,14 +7,13 @@
 #ifndef XGRAMMAR_EARLEY_PARSER_H_
 #define XGRAMMAR_EARLEY_PARSER_H_
 #include <cstdint>
-#include <map>
 #include <ostream>
 #include <queue>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "grammar_data_structure.h"
+#include "grammar_impl.h"
 #include "support/compact_2d_array.h"
 #include "support/utils.h"
 #include "xgrammar/grammar.h"
@@ -28,13 +27,13 @@ namespace xgrammar {
  * In the ksequence, every element in the sequence must be a kbytestring, a
  * kcharacterclass, a kcharacterclassstar, or a rule reference.
  *
- * -rule_id: The id of the rule.
- * -sequence_id: The id of the sequence in the rule.
- * -element_id: The id of the element in the sequence, or the id of the node in
- * the tag dispatch fsm.
- * -rule_start_pos: The id of the parent node in the Earley parser. i.e. the rule
- * is predicted from the k-th character.
- * -sub_element_id: The id of the sub element in the current element, i.e.:
+ * - rule_id: The id of the rule.
+ * - sequence_id: The id of the sequence in the rule.
+ * - element_id: The id of the element in the sequence, or the id of the node in
+ *   the tag dispatch fsm.
+ * - rule_start_pos: The id of the parent node in the Earley parser. i.e. the rule
+ *   is predicted from the k-th character.
+ * - sub_element_id: The id of the sub element in the current element, i.e.:
  *   - kbytestring: the id of the byte in the string.
  *   - kcharacterclass: How many bytes are left to be read in the utf8 character.
  *   - kcharacterclassstar: How many bytes are left to be read in the utf8 character.
@@ -42,22 +41,20 @@ namespace xgrammar {
 struct ParserState {
   constexpr ParserState() = default;
 
-  constexpr ParserState(const ParserState&) = default;
-
-  ParserState& operator=(const ParserState&) = default;
-
   constexpr ParserState(
       const int32_t& rule_id,
       const int32_t& sequence_id,
       const int32_t& element_id,
       const int32_t& rule_start_pos,
-      const int32_t& sub_element_id
+      const int32_t& sub_element_id,
+      const int32_t& repeat_count = 0
   )
       : rule_id(rule_id),
         sequence_id(sequence_id),
         element_id(element_id),
         rule_start_pos(rule_start_pos),
-        sub_element_id(sub_element_id) {}
+        sub_element_id(sub_element_id),
+        repeat_count(repeat_count) {}
 
   /*!
    * \brief A sequence_id value of kUnexpandedRuleStartSequenceId means a rule hasn't been
@@ -91,6 +88,9 @@ struct ParserState {
   /*! \brief The id of the sub element in the current selement of the sequence. */
   int32_t sub_element_id = 0;
 
+  /*! \brief The number of times the element is repeated. It will be used in kRepeat.*/
+  int32_t repeat_count = 0;
+
   /*! \brief The element is invalid when sequence_id is -1. */
   bool IsInvalid() const { return sequence_id == -1; }
 
@@ -106,13 +106,15 @@ struct ParserState {
     if (sequence_id != other.sequence_id) return sequence_id < other.sequence_id;
     if (element_id != other.element_id) return element_id < other.element_id;
     if (rule_start_pos != other.rule_start_pos) return rule_start_pos < other.rule_start_pos;
-    return sub_element_id < other.sub_element_id;
+    if (sub_element_id != other.sub_element_id) return sub_element_id < other.sub_element_id;
+    return repeat_count < other.repeat_count;
   }
 
   friend std::ostream& operator<<(std::ostream& os, const ParserState& state) {
     os << "ParserState(rule_id=" << state.rule_id << ", sequence_id=" << state.sequence_id
        << ", element_id=" << state.element_id << ", rule_start_pos=" << state.rule_start_pos
-       << ", sub_element_id=" << state.sub_element_id << ")";
+       << ", sub_element_id=" << state.sub_element_id << ", repeat_count=" << state.repeat_count
+       << ")";
     return os;
   }
 
@@ -131,7 +133,8 @@ XGRAMMAR_MEMBER_ARRAY(
     &ParserState::sequence_id,
     &ParserState::element_id,
     &ParserState::rule_start_pos,
-    &ParserState::sub_element_id
+    &ParserState::sub_element_id,
+    &ParserState::repeat_count
 );
 
 /*!
@@ -169,7 +172,8 @@ class StateHashForParsing {
         state.sequence_id,
         state.element_id,
         state.rule_start_pos,
-        state.sub_element_id
+        state.sub_element_id,
+        state.repeat_count
     );
   }
 };
@@ -214,9 +218,9 @@ class EarleyParser {
    * We divide the parser states into three categories:
    * - Scanable (which will be stored in scanable_state_history_).
    * - Predictable(If it predict a new rule successfully, then it will be stored in
-   * rule_id_to_completeable_states).
-   * - Completeable(which can perform a completion operation).
-   * A state will be stored in rule_id_to_completeable_states_ if it can be completed,
+   * rule_id_to_completable_states).
+   * - completable(which can perform a completion operation).
+   * A state will be stored in rule_id_to_completable_states_ if it can be completed,
    * and it will be stored in scanable_state_history_ if it can be scanned. Otherwise,
    * it will be discarded.
    */
@@ -233,10 +237,10 @@ class EarleyParser {
   std::vector<bool> is_completed_;
 
   /*!
-   * \brief rule_id_to_completeable_states[i][j] is the i pos j rule_id states. Earley
+   * \brief rule_id_to_completable_states[i][j] is the i pos j rule_id states. Earley
    * parser needs it to complete.
    */
-  std::vector<std::multimap<int32_t, ParserState>> rule_id_to_completeable_states_;
+  Compact2DArray<std::pair<int32_t, ParserState>> rule_id_to_completable_states_;
 
   /*!
    * \brief The states history. state_stack[i] is a vector storing the states after accepting the
@@ -255,9 +259,6 @@ class EarleyParser {
 
   /*! \brief The class is used to check if a state has been added into the queue. */
   RepeatDetector tmp_states_visited_in_queue_;
-
-  /*! \brief The targets of the fsm edges, used in AdvanceFsm. */
-  std::vector<int> tmp_fsm_targets_;
 
   /*! \brief Check if the stop token is accepted. */
   bool stop_token_is_accepted_ = false;
@@ -283,7 +284,7 @@ class EarleyParser {
    * of the grammar is used to check if the grammar is completed,
    * so it should be added into the next states.
    */
-  void Complete(const ParserState& state, const GrammarExpr& grammar_expr);
+  void Complete(const ParserState& state);
 
   /*!
    * \brief The prediction operation of the Earley parser.
@@ -291,7 +292,7 @@ class EarleyParser {
    * then return true, otherwise return false.
    * \return Second: If the state is completable, then return true, otherwise return false.
    */
-  std::pair<bool, bool> Predict(const ParserState& state, const GrammarExpr& grammar_expr);
+  std::pair<bool, bool> Predict(const ParserState& state);
 
   /*!
    * \brief Handle the unexpanded rule, used for pushing initial state.
@@ -313,6 +314,12 @@ class EarleyParser {
   void ExpandNextRuleRefElement(
       const ParserState& state, const GrammarExpr& grammar_expr, const GrammarExpr* sub_grammar_expr
   );
+
+  /*!
+   * \brief Expand the rule, used for RuleRef and kTagDispatch.
+   * \param state The state to be expanded, and it's should be on the FSM.
+   */
+  void ExpandNextRuleRefElementOnFSM(const ParserState& state);
 
   /*!
    * \brief Advance the parser to the next state, with the sub sequence is kCharacterClass.
@@ -354,7 +361,7 @@ class EarleyParser {
    * \param cur_sequence The sequence of the current state.
    * \return The next state, Invalid state if the character is not accepted.
    */
-  void AdvanceFsm(const ParserState& state, const uint8_t ch, const GrammarExpr& cur_sequence);
+  void AdvanceFsm(const ParserState& state, const uint8_t ch);
 
   /*!
    * \brief Enqueue the state into the queue.
@@ -365,6 +372,17 @@ class EarleyParser {
     if (!IsStateVisitedInQueue(state)) {
       tmp_process_state_queue_.push(state);
       tmp_states_visited_in_queue_.Insert(state);
+    }
+  }
+
+  /*!
+   * \brief Enqueue the state into the queue, without prediction and completion.
+   * \param state The state to be enqueued.
+   */
+  void EnqueueWithoutProcessing(const ParserState& state) {
+    if (!IsStateVisitedInQueue(state)) {
+      tmp_states_visited_in_queue_.Insert(state);
+      tmp_states_to_be_added_.push_back(state);
     }
   }
 
@@ -430,7 +448,7 @@ class EarleyParser {
    * \param state The state to be pushed.
    */
   void PushOneStateToCheck(const ParserState& state) {
-    rule_id_to_completeable_states_.emplace_back();
+    rule_id_to_completable_states_.PushBack(std::vector<std::pair<int32_t, ParserState>>());
     is_completed_.push_back(is_completed_.back());
     scanable_state_history_.PushBack(&state, 1);
     return;

@@ -25,7 +25,7 @@ import subprocess
 import sys
 
 import requests
-import requests_unixsocket  # type: ignore
+import requests_unixsocket  # type: ignore  # noqa: PGH003
 
 from craft_providers.errors import details_from_called_process_error
 
@@ -36,7 +36,7 @@ from .lxd import LXD
 logger = logging.getLogger(__name__)
 
 
-def install(sudo: bool = True) -> str:
+def install(sudo: bool = True) -> str:  # noqa: FBT001, FBT002
     """Install LXD.
 
     Install application, using sudo if specified.
@@ -149,11 +149,17 @@ def is_user_permitted() -> bool:
 
     :returns: True if user has correct permissions.
     """
+    # try non-snap lxd socket first
+    if os.access("/var/lib/lxd/unix.socket", os.O_RDWR):
+        return True
     return os.access("/var/snap/lxd/common/lxd/unix.socket", os.O_RDWR)
 
 
 def ensure_lxd_is_ready(
-    *, remote: str = "local", lxc: LXC = LXC(), lxd: LXD = LXD()
+    *,
+    remote: str = "local",
+    lxc: LXC = LXC(),  # noqa: B008
+    lxd: LXD = LXD(),  # noqa: B008
 ) -> None:
     """Ensure LXD is ready for use.
 

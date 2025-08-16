@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: failprint
-Version: 1.0.5
+Version: 1.0.6
 Summary: Run a command, print its output only if it fails.
 Keywords: cli,failure,output,runner
 Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>

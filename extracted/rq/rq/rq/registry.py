@@ -302,7 +302,7 @@ class StartedJobRegistry(BaseRegistry):
                         )
                         logger.warning('%s cleanup: %s %s', self.__class__.__name__, job.id, exc_string)
                         job.set_status(JobStatus.FAILED, pipeline=pipeline)
-                        job._handle_failure(exc_string, pipeline)
+                        job._handle_failure(exc_string, pipeline, worker_name='')
                         # don't refresh the job status, because the job state is still in the pipeline
                         queue.enqueue_dependents(job, refresh_job_status=False)
 
@@ -453,7 +453,6 @@ class FailedJobRegistry(BaseRegistry):
         ttl=None,
         exc_string: str = '',
         pipeline: Optional['Pipeline'] = None,
-        _save_exc_to_job: bool = False,
     ):
         """
         Adds a job to a registry with expiry time of now + ttl.
@@ -469,7 +468,7 @@ class FailedJobRegistry(BaseRegistry):
             p = self.connection.pipeline()
 
         job._exc_info = exc_string
-        job.save(pipeline=p, include_meta=False, include_result=_save_exc_to_job)
+        job.save(pipeline=p, include_meta=False, include_result=False)
         job.cleanup(ttl=ttl, pipeline=p)
         p.zadd(self.key, {job.id: score})
 
@@ -503,7 +502,7 @@ class DeferredJobRegistry(BaseRegistry):
 
                     job.set_status(JobStatus.FAILED, pipeline=pipeline)
                     exc_info = f'Expired in DeferredJobRegistry, moved to FailedJobRegistry at {now}'
-                    job._handle_failure(exc_string=exc_info, pipeline=pipeline)
+                    job._handle_failure(exc_string=exc_info, pipeline=pipeline, worker_name='')
 
                 pipeline.zremrangebyscore(self.key, 0, score)
                 pipeline.execute()

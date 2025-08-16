@@ -8,7 +8,8 @@ dynamic = ["version"]
 authors = [{ name = "semuadmin", email = "semuadmin@semuconsulting.com" }]
 maintainers = [{ name = "semuadmin", email = "semuadmin@semuconsulting.com" }]
 description = "RTCM3 protocol parser"
-license = { file = "LICENSE" }
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
@@ -27,7 +28,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "License :: OSI Approved :: BSD License",
     "Topic :: Utilities",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: GIS",
@@ -41,17 +41,27 @@ documentation = "https://www.semuconsulting.com/pyrtcm/"
 repository = "https://github.com/semuconsulting/pyrtcm"
 changelog = "https://github.com/semuconsulting/pyrtcm/blob/master/RELEASE_NOTES.md"
 
-[project.optional-dependencies]
-deploy = ["build", "pip", "setuptools >= 75.0", "wheel"]
+[dependency-groups]
+build = [
+    "build",
+    "packaging>=24.2",
+    "pip",
+    "setuptools>=75.0.0",
+    "twine>=6.1.0",
+    "wheel",
+]
 test = [
     "bandit",
     "black",
+    "certifi",
+    "isort",
     "pylint",
     "pytest",
     "pytest-cov",
     "Sphinx",
     "sphinx-rtd-theme",
 ]
+deploy = [{ include-group = "build" }, { include-group = "test" }]
 
 [tool.setuptools.dynamic]
 version = { attr = "pyrtcm._version.__version__" }
@@ -93,3 +103,12 @@ pythonpath = ["src"]
 
 [tool.coverage.run]
 source = ["src"]
+
+[tool.coverage.paths]
+source = ["src"]
+
+[tool.coverage.report]
+fail_under = 15
+
+[tool.coverage.html]
+directory = "htmlcov"

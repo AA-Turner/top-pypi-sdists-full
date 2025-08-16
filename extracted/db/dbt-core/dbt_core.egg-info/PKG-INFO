@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-core
-Version: 1.10.8
+Version: 1.10.9
 Summary: With dbt, data analysts and engineers can build analytics the way engineers build applications.
 Home-page: https://github.com/dbt-labs/dbt-core
 Author: dbt Labs
@@ -23,7 +23,7 @@ Requires-Dist: mashumaro[msgpack]<3.15,>=3.9
 Requires-Dist: click<9.0,>=8.0.2
 Requires-Dist: jsonschema<5.0,>=4.19.1
 Requires-Dist: networkx<4.0,>=2.3
-Requires-Dist: protobuf<6.0,>=5.0
+Requires-Dist: protobuf<7.0,>=6.0
 Requires-Dist: requests<3.0.0
 Requires-Dist: snowplow-tracker<2.0,>=1.0.2
 Requires-Dist: pathspec<0.13,>=0.9

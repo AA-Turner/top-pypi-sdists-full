@@ -251,14 +251,15 @@ def _get_auth_instance(path: str | None = None) -> Auth | Literal["js"] | None:
         deps := _get_dependencies(auth_instance._authenticate_handler)
     ):
         auth_instance._authenticate_handler = _solve_fastapi_dependencies(
-            auth_instance._authenticate_handler, deps
+            auth_instance._authenticate_handler,  # type: ignore[invalid-argument-type]
+            deps,
         )
     logger.info(f"Loaded auth instance from path {path}: {auth_instance}")
     return auth_instance
 
 
 def _extract_arguments_from_scope(
-    scope: dict[str, Any],
+    scope: Mapping[str, Any],
     param_names: set[str],
     request: Request | None = None,
     response: Response | None = None,
@@ -283,7 +284,11 @@ def _extract_arguments_from_scope(
     if "path" in param_names:
         args["path"] = scope["path"]
     if "query_params" in param_names:
-        args["query_params"] = QueryParams(scope.get("query_string"))
+        query_params = scope.get("query_string")
+        if query_params:
+            args["query_params"] = QueryParams(query_params)
+        else:
+            args["query_params"] = QueryParams()
     if "headers" in param_names:
         args["headers"] = dict(scope.get("headers", {}))
     if "authorization" in param_names:
@@ -595,7 +600,7 @@ def _load_auth_obj(path: str) -> Auth | Literal["js"]:
                 raise ValueError(f"Could not load file: {module_name}")
             module = importlib.util.module_from_spec(modspec)
             sys.modules[modname] = module
-            modspec.loader.exec_module(module)
+            modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
         else:
             # Load from Python module
             module = importlib.import_module(module_name)

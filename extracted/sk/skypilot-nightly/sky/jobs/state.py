@@ -441,8 +441,7 @@ class ManagedJobScheduleState(enum.Enum):
 
 # === Status transition functions ===
 @_init_db
-def set_job_info(job_id: int, name: str, workspace: str, entrypoint: str,
-                 pool: Optional[str], pool_hash: Optional[str]):
+def set_job_info(job_id: int, name: str, workspace: str, entrypoint: str):
     assert _SQLALCHEMY_ENGINE is not None
     with orm.Session(_SQLALCHEMY_ENGINE) as session:
         if (_SQLALCHEMY_ENGINE.dialect.name ==
@@ -458,10 +457,7 @@ def set_job_info(job_id: int, name: str, workspace: str, entrypoint: str,
             name=name,
             schedule_state=ManagedJobScheduleState.INACTIVE.value,
             workspace=workspace,
-            entrypoint=entrypoint,
-            pool=pool,
-            pool_hash=pool_hash,
-        )
+            entrypoint=entrypoint)
         session.execute(insert_stmt)
         session.commit()
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import json as jsonlib
 import logging
 import random
 import string
@@ -8,10 +9,14 @@ import time
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
-from apify_shared.utils import filter_out_none_values_recursively, ignore_docs, parse_date_fields
-
 from apify_client._logging import create_redirect_logger
-from apify_client._utils import encode_key_value_store_record_value, pluck_data, to_safe_id
+from apify_client._utils import (
+    encode_key_value_store_record_value,
+    filter_out_none_values_recursively,
+    parse_date_fields,
+    pluck_data,
+    to_safe_id,
+)
 from apify_client.clients.base import ActorJobBaseClient, ActorJobBaseClientAsync
 from apify_client.clients.resource_clients.dataset import DatasetClient, DatasetClientAsync
 from apify_client.clients.resource_clients.key_value_store import KeyValueStoreClient, KeyValueStoreClientAsync
@@ -35,7 +40,6 @@ if TYPE_CHECKING:
 class RunClient(ActorJobBaseClient):
     """Sub-client for manipulating a single Actor run."""
 
-    @ignore_docs
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         resource_path = kwargs.pop('resource_path', 'actor-runs')
         super().__init__(*args, resource_path=resource_path, **kwargs)
@@ -148,7 +152,7 @@ class RunClient(ActorJobBaseClient):
             params=request_params,
         )
 
-        return parse_date_fields(pluck_data(response.json()))
+        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
 
     def resurrect(
         self,
@@ -195,7 +199,7 @@ class RunClient(ActorJobBaseClient):
             params=request_params,
         )
 
-        return parse_date_fields(pluck_data(response.json()))
+        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
 
     def reboot(self) -> dict:
         """Reboot an Actor run. Only runs that are running, i.e. runs with status RUNNING can be rebooted.
@@ -209,7 +213,7 @@ class RunClient(ActorJobBaseClient):
             url=self._url('reboot'),
             method='POST',
         )
-        return parse_date_fields(pluck_data(response.json()))
+        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
 
     def dataset(self) -> DatasetClient:
         """Get the client for the default dataset of the Actor run.
@@ -354,7 +358,6 @@ class RunClient(ActorJobBaseClient):
 class RunClientAsync(ActorJobBaseClientAsync):
     """Async sub-client for manipulating a single Actor run."""
 
-    @ignore_docs
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         resource_path = kwargs.pop('resource_path', 'actor-runs')
         super().__init__(*args, resource_path=resource_path, **kwargs)
@@ -470,7 +473,7 @@ class RunClientAsync(ActorJobBaseClientAsync):
             params=request_params,
         )
 
-        return parse_date_fields(pluck_data(response.json()))
+        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
 
     async def resurrect(
         self,
@@ -517,7 +520,7 @@ class RunClientAsync(ActorJobBaseClientAsync):
             params=request_params,
         )
 
-        return parse_date_fields(pluck_data(response.json()))
+        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
 
     async def reboot(self) -> dict:
         """Reboot an Actor run. Only runs that are running, i.e. runs with status RUNNING can be rebooted.
@@ -531,7 +534,7 @@ class RunClientAsync(ActorJobBaseClientAsync):
             url=self._url('reboot'),
             method='POST',
         )
-        return parse_date_fields(pluck_data(response.json()))
+        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
 
     def dataset(self) -> DatasetClientAsync:
         """Get the client for the default dataset of the Actor run.

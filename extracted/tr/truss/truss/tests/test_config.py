@@ -18,6 +18,7 @@ from truss.base.truss_config import (
     BaseImage,
     Build,
     CacheInternal,
+    CheckpointList,
     DockerAuthSettings,
     DockerAuthType,
     HTTPOptions,
@@ -977,3 +978,18 @@ def test_supported_versions_are_sorted():
     assert semvers == semvers_sorted, (
         f"{constants.SUPPORTED_PYTHON_VERSIONS} must be sorted ascendingly"
     )
+
+
+def test_clear_runtime_fields():
+    config = TrussConfig(
+        python_version="py39",
+        training_checkpoints=CheckpointList(
+            download_folder="/tmp", checkpoints=[], artifact_references=[]
+        ),
+        environment_variables={"FOO": "BAR"},
+    )
+
+    config.clear_runtime_fields()
+    assert config.python_version == "py39"
+    assert config.training_checkpoints is None
+    assert config.environment_variables == {}

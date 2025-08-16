@@ -56,6 +56,8 @@ async def handle_ui(request: ApiRequest) -> Response:
 
         # Use http:// protocol if accessing a localhost service
         def is_host(needle: str) -> bool:
+            if not isinstance(host, str):
+                return False
             return host.startswith(needle + ":") or host == needle
 
         protocol = "http:" if is_host("localhost") or is_host("127.0.0.1") else ""

@@ -1,9 +1,9 @@
 import asyncio
 import time
+import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import cast
 
 import structlog
 from langgraph.pregel.debug import CheckpointPayload, TaskResultPayload
@@ -73,7 +73,7 @@ async def worker(
     if attempt == 1:
         incr_runs()
     checkpoint: CheckpointPayload | None = None
-    exception: Exception | None = None
+    exception: Exception | asyncio.CancelledError | None = None
     status: str | None = None
     webhook = run["kwargs"].get("webhook", None)
     request_created_at: int | None = run["kwargs"]["config"]["configurable"].get(
@@ -131,7 +131,10 @@ async def worker(
 
     # Wrap the graph execution to separate user errors from server errors
     async def wrap_user_errors(
-        stream: AnyStream, run_id: str, resumable: bool, stream_modes: set[StreamMode]
+        stream: AnyStream,
+        run_id: str | uuid.UUID,
+        resumable: bool,
+        stream_modes: set[StreamMode],
     ):
         try:
             await consume(stream, run_id, resumable, stream_modes)
@@ -177,10 +180,10 @@ async def worker(
                 raise RuntimeError(error_message)
             async with set_auth_ctx_for_run(run["kwargs"]):
                 if temporary:
-                    stream = astream_state(cast(Run, run), attempt, done)
+                    stream = astream_state(run, attempt, done)
                 else:
                     stream = astream_state(
-                        cast(Run, run),
+                        run,
                         attempt,
                         done,
                         on_checkpoint=on_checkpoint,

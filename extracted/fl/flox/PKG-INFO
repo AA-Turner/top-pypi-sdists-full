@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flox
-Version: 0.10.4
+Version: 0.10.5
 Summary: GroupBy operations for dask.array
 License: Apache License
                                    Version 2.0, January 2004
@@ -214,19 +214,18 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pandas>=1.5
+Requires-Dist: pandas>=2.1
 Requires-Dist: packaging>=21.3
-Requires-Dist: numpy>=1.22
+Requires-Dist: numpy>=1.26
 Requires-Dist: numpy_groupies>=0.9.19
 Requires-Dist: toolz
-Requires-Dist: scipy>=1.9
+Requires-Dist: scipy>=1.12
 Provides-Extra: all
 Requires-Dist: cachey; extra == "all"
 Requires-Dist: dask; extra == "all"

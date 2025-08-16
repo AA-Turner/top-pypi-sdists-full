@@ -1,22 +1,29 @@
 from __future__ import annotations
 
+import json as jsonlib
 import warnings
 from contextlib import asynccontextmanager, contextmanager
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlencode, urlparse, urlunparse
 
-from apify_shared.models import ListPage
-from apify_shared.utils import filter_out_none_values_recursively, ignore_docs
+from apify_shared.utils import create_storage_content_signature
 
-from apify_client._errors import ApifyApiError
-from apify_client._utils import catch_not_found_or_throw, pluck_data
+from apify_client._types import ListPage
+from apify_client._utils import (
+    catch_not_found_or_throw,
+    filter_out_none_values_recursively,
+    pluck_data,
+)
 from apify_client.clients.base import ResourceClient, ResourceClientAsync
+from apify_client.errors import ApifyApiError
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
 
-    import httpx
+    import impit
     from apify_shared.consts import StorageGeneralAccess
-    from apify_shared.types import JSONSerializable
+
+    from apify_client._types import JSONSerializable
 
 _SMALL_TIMEOUT = 5  # For fast and common actions. Suitable for idempotent actions.
 _MEDIUM_TIMEOUT = 30  # For actions that may take longer.
@@ -25,7 +32,6 @@ _MEDIUM_TIMEOUT = 30  # For actions that may take longer.
 class DatasetClient(ResourceClient):
     """Sub-client for manipulating a single dataset."""
 
-    @ignore_docs
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         resource_path = kwargs.pop('resource_path', 'datasets')
         super().__init__(*args, resource_path=resource_path, **kwargs)
@@ -75,9 +81,7 @@ class DatasetClient(ResourceClient):
         desc: bool | None = None,
         fields: list[str] | None = None,
         omit: list[str] | None = None,
-        # TODO: change to list[str] only when doing a breaking release
-        # https://github.com/apify/apify-client-python/issues/255
-        unwind: str | list[str] | None = None,
+        unwind: list[str] | None = None,
         skip_empty: bool | None = None,
         skip_hidden: bool | None = None,
         flatten: list[str] | None = None,
@@ -137,7 +141,7 @@ class DatasetClient(ResourceClient):
             params=request_params,
         )
 
-        data = response.json()
+        data = jsonlib.loads(response.text)
 
         return ListPage(
             {
@@ -163,9 +167,7 @@ class DatasetClient(ResourceClient):
         desc: bool | None = None,
         fields: list[str] | None = None,
         omit: list[str] | None = None,
-        # TODO: change to list[str] only when doing a breaking release
-        # https://github.com/apify/apify-client-python/issues/255
-        unwind: str | list[str] | None = None,
+        unwind: list[str] | None = None,
         skip_empty: bool | None = None,
         skip_hidden: bool | None = None,
     ) -> Iterator[dict]:
@@ -248,9 +250,7 @@ class DatasetClient(ResourceClient):
         delimiter: str | None = None,
         fields: list[str] | None = None,
         omit: list[str] | None = None,
-        # TODO: change to list[str] only when doing a breaking release
-        # https://github.com/apify/apify-client-python/issues/255
-        unwind: str | list[str] | None = None,
+        unwind: list[str] | None = None,
         skip_empty: bool | None = None,
         skip_header_row: bool | None = None,
         skip_hidden: bool | None = None,
@@ -342,9 +342,7 @@ class DatasetClient(ResourceClient):
         delimiter: str | None = None,
         fields: list[str] | None = None,
         omit: list[str] | None = None,
-        # TODO: change to list[str] only when doing a breaking release
-        # https://github.com/apify/apify-client-python/issues/255
-        unwind: str | list[str] | None = None,
+        unwind: list[str] | None = None,
         skip_empty: bool | None = None,
         skip_header_row: bool | None = None,
         skip_hidden: bool | None = None,
@@ -420,7 +418,6 @@ class DatasetClient(ResourceClient):
             url=self._url('items'),
             method='GET',
             params=request_params,
-            parse_response=False,
         )
 
         return response.content
@@ -438,15 +435,13 @@ class DatasetClient(ResourceClient):
         delimiter: str | None = None,
         fields: list[str] | None = None,
         omit: list[str] | None = None,
-        # TODO: change to list[str] only when doing a breaking release
-        # https://github.com/apify/apify-client-python/issues/255
-        unwind: str | list[str] | None = None,
+        unwind: list[str] | None = None,
         skip_empty: bool | None = None,
         skip_header_row: bool | None = None,
         skip_hidden: bool | None = None,
         xml_root: str | None = None,
         xml_row: str | None = None,
-    ) -> Iterator[httpx.Response]:
+    ) -> Iterator[impit.Response]:
         """Retrieve the items in the dataset as a stream.
 
         https://docs.apify.com/api/v2#/reference/datasets/item-collection/get-items
@@ -516,7 +511,6 @@ class DatasetClient(ResourceClient):
                 method='GET',
                 params=request_params,
                 stream=True,
-                parse_response=False,
             )
             yield response
         finally:
@@ -565,17 +559,77 @@ class DatasetClient(ResourceClient):
                 params=self._params(),
                 timeout_secs=_SMALL_TIMEOUT,
             )
-            return pluck_data(response.json())
+            return pluck_data(jsonlib.loads(response.text))
         except ApifyApiError as exc:
             catch_not_found_or_throw(exc)
 
         return None
 
+    def create_items_public_url(
+        self,
+        *,
+        offset: int | None = None,
+        limit: int | None = None,
+        clean: bool | None = None,
+        desc: bool | None = None,
+        fields: list[str] | None = None,
+        omit: list[str] | None = None,
+        unwind: list[str] | None = None,
+        skip_empty: bool | None = None,
+        skip_hidden: bool | None = None,
+        flatten: list[str] | None = None,
+        view: str | None = None,
+        expires_in_secs: int | None = None,
+    ) -> str:
+        """Generate a URL that can be used to access dataset items.
+
+        If the client has permission to access the dataset's URL signing key,
+        the URL will include a signature to verify its authenticity.
+
+        You can optionally control how long the signed URL should be valid using the `expires_in_secs` option.
+        This value sets the expiration duration in seconds from the time the URL is generated.
+        If not provided, the URL will not expire.
+
+        Any other options (like `limit` or `offset`) will be included as query parameters in the URL.
+
+        Returns:
+            The public dataset items URL.
+        """
+        dataset = self.get()
+
+        request_params = self._params(
+            offset=offset,
+            limit=limit,
+            desc=desc,
+            clean=clean,
+            fields=fields,
+            omit=omit,
+            unwind=unwind,
+            skipEmpty=skip_empty,
+            skipHidden=skip_hidden,
+            flatten=flatten,
+            view=view,
+        )
+
+        if dataset and 'urlSigningSecretKey' in dataset:
+            signature = create_storage_content_signature(
+                resource_id=dataset['id'],
+                url_signing_secret_key=dataset['urlSigningSecretKey'],
+                expires_in_millis=expires_in_secs * 1000 if expires_in_secs is not None else None,
+            )
+            request_params['signature'] = signature
+
+        items_public_url = urlparse(self._url('items'))
+        filtered_params = {k: v for k, v in request_params.items() if v is not None}
+        if filtered_params:
+            items_public_url = items_public_url._replace(query=urlencode(filtered_params))
+
+        return urlunparse(items_public_url)
+
 
 class DatasetClientAsync(ResourceClientAsync):
     """Async sub-client for manipulating a single dataset."""
 
-    @ignore_docs
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         resource_path = kwargs.pop('resource_path', 'datasets')
         super().__init__(*args, resource_path=resource_path, **kwargs)
@@ -625,9 +679,7 @@ class DatasetClientAsync(ResourceClientAsync):
         desc: bool | None = None,
         fields: list[str] | None = None,
         omit: list[str] | None = None,
-        # TODO: change to list[str] only when doing a breaking release
-        # https://github.com/apify/apify-client-python/issues/255
-        unwind: str | list[str] | None = None,
+        unwind: list[str] | None = None,
         skip_empty: bool | None = None,
         skip_hidden: bool | None = None,
         flatten: list[str] | None = None,
@@ -687,7 +739,7 @@ class DatasetClientAsync(ResourceClientAsync):
             params=request_params,
         )
 
-        data = response.json()
+        data = jsonlib.loads(response.text)
 
         return ListPage(
             {
@@ -713,9 +765,7 @@ class DatasetClientAsync(ResourceClientAsync):
         desc: bool | None = None,
         fields: list[str] | None = None,
         omit: list[str] | None = None,
-        # TODO: change to list[str] only when doing a breaking release
-        # https://github.com/apify/apify-client-python/issues/255
-        unwind: str | list[str] | None = None,
+        unwind: list[str] | None = None,
         skip_empty: bool | None = None,
         skip_hidden: bool | None = None,
     ) -> AsyncIterator[dict]:
@@ -799,9 +849,7 @@ class DatasetClientAsync(ResourceClientAsync):
         delimiter: str | None = None,
         fields: list[str] | None = None,
         omit: list[str] | None = None,
-        # TODO: change to list[str] only when doing a breaking release
-        # https://github.com/apify/apify-client-python/issues/255
-        unwind: str | list[str] | None = None,
+        unwind: list[str] | None = None,
         skip_empty: bool | None = None,
         skip_header_row: bool | None = None,
         skip_hidden: bool | None = None,
@@ -877,7 +925,6 @@ class DatasetClientAsync(ResourceClientAsync):
             url=self._url('items'),
             method='GET',
             params=request_params,
-            parse_response=False,
         )
 
         return response.content
@@ -895,15 +942,13 @@ class DatasetClientAsync(ResourceClientAsync):
         delimiter: str | None = None,
         fields: list[str] | None = None,
         omit: list[str] | None = None,
-        # TODO: change to list[str] only when doing a breaking release
-        # https://github.com/apify/apify-client-python/issues/255
-        unwind: str | list[str] | None = None,
+        unwind: list[str] | None = None,
         skip_empty: bool | None = None,
         skip_header_row: bool | None = None,
         skip_hidden: bool | None = None,
         xml_root: str | None = None,
         xml_row: str | None = None,
-    ) -> AsyncIterator[httpx.Response]:
+    ) -> AsyncIterator[impit.Response]:
         """Retrieve the items in the dataset as a stream.
 
         https://docs.apify.com/api/v2#/reference/datasets/item-collection/get-items
@@ -973,7 +1018,6 @@ class DatasetClientAsync(ResourceClientAsync):
                 method='GET',
                 params=request_params,
                 stream=True,
-                parse_response=False,
             )
             yield response
         finally:
@@ -1022,8 +1066,69 @@ class DatasetClientAsync(ResourceClientAsync):
                 params=self._params(),
                 timeout_secs=_SMALL_TIMEOUT,
             )
-            return pluck_data(response.json())
+            return pluck_data(jsonlib.loads(response.text))
         except ApifyApiError as exc:
             catch_not_found_or_throw(exc)
 
         return None
+
+    async def create_items_public_url(
+        self,
+        *,
+        offset: int | None = None,
+        limit: int | None = None,
+        clean: bool | None = None,
+        desc: bool | None = None,
+        fields: list[str] | None = None,
+        omit: list[str] | None = None,
+        unwind: list[str] | None = None,
+        skip_empty: bool | None = None,
+        skip_hidden: bool | None = None,
+        flatten: list[str] | None = None,
+        view: str | None = None,
+        expires_in_secs: int | None = None,
+    ) -> str:
+        """Generate a URL that can be used to access dataset items.
+
+        If the client has permission to access the dataset's URL signing key,
+        the URL will include a signature to verify its authenticity.
+
+        You can optionally control how long the signed URL should be valid using the `expires_in_secs` option.
+        This value sets the expiration duration in seconds from the time the URL is generated.
+        If not provided, the URL will not expire.
+
+        Any other options (like `limit` or `offset`) will be included as query parameters in the URL.
+
+        Returns:
+            The public dataset items URL.
+        """
+        dataset = await self.get()
+
+        request_params = self._params(
+            offset=offset,
+            limit=limit,
+            desc=desc,
+            clean=clean,
+            fields=fields,
+            omit=omit,
+            unwind=unwind,
+            skipEmpty=skip_empty,
+            skipHidden=skip_hidden,
+            flatten=flatten,
+            view=view,
+        )
+
+        if dataset and 'urlSigningSecretKey' in dataset:
+            signature = create_storage_content_signature(
+                resource_id=dataset['id'],
+                url_signing_secret_key=dataset['urlSigningSecretKey'],
+                expires_in_millis=expires_in_secs * 1000 if expires_in_secs is not None else None,
+            )
+            request_params['signature'] = signature
+
+        items_public_url = urlparse(self._url('items'))
+        filtered_params = {k: v for k, v in request_params.items() if v is not None}
+        if filtered_params:
+            items_public_url = items_public_url._replace(query=urlencode(filtered_params))
+
+        return urlunparse(items_public_url)

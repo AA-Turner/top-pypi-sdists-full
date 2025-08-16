@@ -9753,7 +9753,7 @@ class TransformInput(sgqlc.types.Input):
         "field",
         "id",
     )
-    alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alias")
+    alias = sgqlc.types.Field(String, graphql_name="alias")
 
     prompt = sgqlc.types.Field(String, graphql_name="prompt")
 
@@ -63253,7 +63253,7 @@ class Transform(sgqlc.types.Type):
         "field",
         "id",
     )
-    alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alias")
+    alias = sgqlc.types.Field(String, graphql_name="alias")
 
     prompt = sgqlc.types.Field(String, graphql_name="prompt")
 

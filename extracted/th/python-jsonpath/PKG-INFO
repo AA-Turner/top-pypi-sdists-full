@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-jsonpath
-Version: 1.3.1
+Version: 1.3.2
 Summary: JSONPath, JSON Pointer and JSON Patch for Python.
 Project-URL: Documentation, https://jg-rp.github.io/python-jsonpath/
 Project-URL: Issues, https://github.com/jg-rp/python-jsonpath/issues

@@ -27,23 +27,23 @@ async def call_webhook(result: "WorkerResult") -> None:
     }
     if exception := result["exception"]:
         payload["error"] = str(exception)
-
-    try:
-        webhook = result["webhook"]
-        if webhook.startswith("/"):
-            # Call into this own app
-            webhook_client = get_loopback_client()
-        else:
-            webhook_client = get_http_client()
-        await http_request("POST", webhook, json=payload, client=webhook_client)
-        await logger.ainfo(
-            "Background worker called webhook",
-            webhook=result["webhook"],
-            run_id=result["run"]["run_id"],
-        )
-    except Exception as exc:
-        logger.exception(
-            f"Background worker failed to call webhook {result['webhook']}",
-            exc_info=exc,
-            webhook=result["webhook"],
-        )
+    webhook = result.get("webhook")
+    if webhook:
+        try:
+            if webhook.startswith("/"):
+                # Call into this own app
+                webhook_client = get_loopback_client()
+            else:
+                webhook_client = get_http_client()
+            await http_request("POST", webhook, json=payload, client=webhook_client)
+            await logger.ainfo(
+                "Background worker called webhook",
+                webhook=result["webhook"],
+                run_id=result["run"]["run_id"],
+            )
+        except Exception as exc:
+            logger.exception(
+                f"Background worker failed to call webhook {result['webhook']}",
+                exc_info=exc,
+                webhook=result["webhook"],
+            )

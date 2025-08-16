@@ -425,7 +425,7 @@ def get_kwargs_from_header(f: dict, click_params: list):
         "For example, you can specify '30 minutes' or '1 hour'. Default is no timeout."
     ),
 )
-@click.argument("command", nargs=-1)
+@click.argument("command", nargs=-1, required=True)
 def batch_run_cli(ctx, **kwargs):
     """
     Submit a batch job to run on Coiled.

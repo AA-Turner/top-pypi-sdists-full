@@ -1,11 +1,10 @@
 import logging
 import gc
 from typing import Tuple
-from matrice.deploy.server.inference.cache_manager import CacheManager
 
 
 class ModelManager:
-    """Enhanced ModelManager with multimodal support"""
+    """Minimal ModelManager that focuses on model lifecycle and prediction calls."""
 
     def __init__(
         self,
@@ -19,7 +18,7 @@ class ModelManager:
         action_tracker=None,
         num_model_instances: int = 1,
     ):
-        """Initialize the ModelManager with optional multimodal support
+        """Initialize the ModelManager
 
         Args:
             model_id: ID of the model
@@ -31,7 +30,7 @@ class ModelManager:
             batch_predict: Function to run batch predictions
             action_tracker: Tracker for monitoring actions
             num_model_instances: Number of model instances to create
-            multimodal_config: Configuration for multimodal manager
+            
         """
         try:
             self.model_id = model_id
@@ -43,7 +42,8 @@ class ModelManager:
             self.predict = self._create_prediction_wrapper(predict)
             self.batch_predict = self._create_prediction_wrapper(batch_predict)
             self.action_tracker = action_tracker
-            self.cache_manager = CacheManager()
+            
+            # Model instances
             self.model_instances = []
 
             for i in range(num_model_instances):
@@ -146,7 +146,7 @@ class ModelManager:
         """Run inference on the provided input data.
 
         Args:
-            input1: Primary input data
+            input1: Primary input data (can be image bytes or numpy array)
             input2: Secondary input data (optional)
             extra_params: Additional parameters for inference (optional)
             stream_key: Stream key for the inference
@@ -160,27 +160,13 @@ class ModelManager:
         """
         if input1 is None:
             raise ValueError("Input data cannot be None")
+        
         try:
-            if input_hash:
-                cached_result = self.cache_manager.get_cached_result(input_hash, stream_key)
-                if cached_result:
-                    return cached_result, True
-            
-            # Get the model
             model = self.get_model()
-
-            # Run prediction
             results = self.predict(model, input1, input2, extra_params, stream_key, stream_info)
-
-            # Update results through action tracker if available
             if self.action_tracker:
                 results = self.action_tracker.update_prediction_results(results)
-
-            if input_hash:
-                self.cache_manager.set_cached_result(input_hash, results, stream_key)
-
             return results, True
-
         except Exception as e:
             logging.error(f"Inference failed on model {self.model_id}: {str(e)}")
             return None, False
@@ -206,30 +192,15 @@ class ModelManager:
         if input1 is None:
             raise ValueError("Input data cannot be None")
         try:
-            if input_hash:
-                cached_result = self.cache_manager.get_cached_result(input_hash, stream_key)
-                if cached_result:
-                    return cached_result, True
-            
-            # Get the model
             model = self.get_model()
-
-            # Run batch prediction
             if not self.batch_predict:
                 logging.error(f"Batch prediction function not found for model {self.model_id}")
                 return None, False
             results = self.batch_predict(model, input1, input2, extra_params, stream_key, stream_info)
-
-            # Update results through action tracker if available
             if self.action_tracker:
                 for result in results:
                     self.action_tracker.update_prediction_results(result)
-
-            if input_hash:
-                self.cache_manager.set_cached_result(input_hash, results, stream_key)
-
             return results, True
-
         except Exception as e:
             logging.error(f"Batch inference failed on model {self.model_id}: {str(e)}")
             return None, False

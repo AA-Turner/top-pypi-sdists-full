@@ -19,6 +19,7 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '573118':{'en': 'Claro'},
  '573122':{'en': 'Claro'},
  '573123':{'en': 'Claro'},
  '573124':{'en': 'Claro'},
@@ -224,6 +225,7 @@ data = {
  '5917498':{'en': 'Nuevatel'},
  '5917499':{'en': 'Nuevatel'},
  '592510':{'en': 'Digicel Guyana'},
+ '592511':{'en': 'Digicel Guyana'},
  '592600':{'en': 'Digicel Guyana'},
  '592601':{'en': 'Digicel Guyana'},
  '592602':{'en': 'Digicel Guyana'},

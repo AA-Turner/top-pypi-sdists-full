@@ -4,7 +4,7 @@ import threading
 from typing import Dict, Optional, List, Tuple
 from queue import Empty, PriorityQueue, Full
 from matrice.session import Session
-from matrice.deploy.utils.kafka_utils import MatriceKafkaDeployment
+from matrice.deploy.stream.kafka_stream import MatriceKafkaDeployment
 import itertools
 
 

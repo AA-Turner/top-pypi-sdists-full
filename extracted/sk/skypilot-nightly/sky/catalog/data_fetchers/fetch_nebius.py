@@ -22,8 +22,6 @@ TIMEOUT = 10
 PARENT_ID_TEMPLATE = 'project-{}public-images'
 ACCELERATOR_MANUFACTURER = 'NVIDIA'
 
-VRAM = {'L40S': 49152, 'H100': 81920, 'H200': 144384, 'B200': 184320}
-
 
 @dataclass
 class PresetInfo:
@@ -198,18 +196,17 @@ def _write_preset_prices(presets: List[PresetInfo], output_file: str) -> None:
                              key=lambda x:
                              (bool(x.gpu), x.region, x.platform_name, x.vcpu)):
             gpu_info = ''
-            if preset.gpu > 0 and preset.accelerator_name:
+            if preset.gpu > 0:
                 gpu_info_dict = {
                     'Gpus': [{
                         'Name': preset.accelerator_name,
                         'Manufacturer': preset.accelerator_manufacturer,
                         'Count': preset.gpu,
                         'MemoryInfo': {
-                            'SizeInMiB': VRAM.get(preset.accelerator_name, 0)
+                            'SizeInMiB': preset.memory_gib * 1024 // preset.gpu
                         },
                     }],
-                    'TotalGpuMemoryInMiB': VRAM.get(preset.accelerator_name, 0)
-                                           * preset.gpu,
+                    'TotalGpuMemoryInMiB': preset.memory_gib * 1024,
                 }
                 gpu_info = json.dumps(gpu_info_dict).replace('"', '\'')
 

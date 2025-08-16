@@ -9,7 +9,7 @@ import warnings
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from itertools import filterfalse
-from typing import TYPE_CHECKING, Any, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, TypeGuard, cast
 from uuid import UUID, uuid5
 
 import orjson
@@ -35,10 +35,10 @@ logger = structlog.stdlib.get_logger(__name__)
 
 GraphFactoryFromConfig = Callable[[Config], Pregel | StateGraph]
 GraphFactory = Callable[[], Pregel | StateGraph]
-GraphValue = Pregel | GraphFactory
+GraphValue = Pregel | GraphFactory | GraphFactoryFromConfig
 
 
-GRAPHS: dict[str, Pregel | GraphFactoryFromConfig | GraphFactory] = {}
+GRAPHS: dict[str, GraphValue] = {}
 NAMESPACE_GRAPH = UUID("6ba7b821-9dad-11d1-80b4-00c04fd430c8")
 FACTORY_ACCEPTS_CONFIG: dict[str, bool] = {}
 
@@ -110,9 +110,21 @@ async def _generate_graph(value: Any) -> AsyncIterator[Any]:
         yield value
 
 
-def is_js_graph(graph_id: str) -> bool:
+def is_js_graph(graph_id: str) -> TypeGuard[BaseRemotePregel]:
     """Return whether a graph is a JS graph."""
     return graph_id in GRAPHS and isinstance(GRAPHS[graph_id], BaseRemotePregel)
+
+
+def is_factory(
+    value: GraphValue, graph_id: str
+) -> TypeGuard[GraphFactoryFromConfig | GraphFactory]:
+    return graph_id in FACTORY_ACCEPTS_CONFIG
+
+
+def factory_accepts_config(
+    value: GraphValue, graph_id: str
+) -> TypeGuard[GraphFactoryFromConfig]:
+    return FACTORY_ACCEPTS_CONFIG.get(graph_id, False)
 
 
 @asynccontextmanager
@@ -128,7 +140,7 @@ async def get_graph(
 
     assert_graph_exists(graph_id)
     value = GRAPHS[graph_id]
-    if graph_id in FACTORY_ACCEPTS_CONFIG:
+    if is_factory(value, graph_id):
         config = lg_config.ensure_config(config)
 
         if store is not None:
@@ -139,6 +151,8 @@ async def get_graph(
                 runtime = config["configurable"].get(CONFIG_KEY_RUNTIME)
                 if runtime is None:
                     patched_runtime = Runtime(store=store)
+                elif isinstance(runtime, dict):
+                    patched_runtime = Runtime(**(runtime | {"store": store}))
                 elif runtime.store is None:
                     patched_runtime = cast(Runtime, runtime).override(store=store)
                 else:
@@ -156,7 +170,7 @@ async def get_graph(
         ):
             config["configurable"][CONFIG_KEY_CHECKPOINTER] = checkpointer
         var_child_runnable_config.set(config)
-        value = value(config) if FACTORY_ACCEPTS_CONFIG[graph_id] else value()
+        value = value(config) if factory_accepts_config(value, graph_id) else value()
     try:
         async with _generate_graph(value) as graph_obj:
             if isinstance(graph_obj, StateGraph):
@@ -451,7 +465,7 @@ def _graph_from_spec(spec: GraphSpec) -> GraphValue:
                 raise ValueError(f"Could not find python file for graph: {spec}")
             module = importlib.util.module_from_spec(modspec)
             sys.modules[modname] = module
-            modspec.loader.exec_module(module)
+            modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
         except ImportError as e:
             e.add_note(f"Could not import python module for graph:\n{spec}")
             if config.API_VARIANT == "local_dev":
@@ -565,7 +579,9 @@ def _graph_from_spec(spec: GraphSpec) -> GraphValue:
 @functools.lru_cache(maxsize=1)
 def _get_init_embeddings() -> Callable[[str, ...], "Embeddings"] | None:
     try:
-        from langchain.embeddings import init_embeddings
+        from langchain.embeddings import (  # type: ignore[unresolved-import]
+            init_embeddings,
+        )
 
         return init_embeddings
     except ImportError:
@@ -606,7 +622,7 @@ def resolve_embeddings(index_config: dict) -> "Embeddings":
                     raise ValueError(f"Could not find embeddings file: {module_name}")
                 module = importlib.util.module_from_spec(modspec)
                 sys.modules[modname] = module
-                modspec.loader.exec_module(module)
+                modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
             else:
                 # Load from Python module
                 module = importlib.import_module(module_name)

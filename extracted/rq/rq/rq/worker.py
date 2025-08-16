@@ -178,12 +178,12 @@ class BaseWorker:
         self.connection = connection
         self.redis_server_version = None
 
-        self.job_class = (
-            import_job_class(job_class) if isinstance(job_class, str) else (job_class if job_class else Job)
-        )
-        self.queue_class = (
-            import_queue_class(queue_class) if isinstance(queue_class, str) else (queue_class if queue_class else Queue)
-        )
+        if job_class:
+            self.job_class = import_job_class(job_class) if isinstance(job_class, str) else job_class
+
+        if queue_class:
+            self.queue_class = import_queue_class(queue_class) if isinstance(queue_class, str) else queue_class
+
         self.version: str = VERSION
         self.python_version: str = sys.version
         self.serializer = resolve_serializer(serializer)
@@ -515,11 +515,6 @@ class BaseWorker:
         """Returns the worker's Redis hash key."""
         return PUBSUB_CHANNEL_TEMPLATE % self.name
 
-    @property
-    def supports_redis_streams(self) -> bool:
-        """Only supported by Redis server >= 5.0 is required."""
-        return self.get_redis_server_version() >= (5, 0, 0)
-
     def request_stop(self, signum, frame):
         """Stops the current worker loop but waits for child processes to
         end gracefully (warm shutdown).
@@ -729,7 +724,7 @@ class BaseWorker:
             self.cleanup_execution(job, pipeline=pipeline)
 
             if not self.disable_default_exception_handler and not retry:
-                job._handle_failure(exc_string, pipeline=pipeline)
+                job._handle_failure(exc_string, pipeline=pipeline, worker_name=self.name)
                 with suppress(redis.exceptions.ConnectionError):
                     pipeline.execute()
 
@@ -1573,7 +1568,7 @@ class Worker(BaseWorker):
                     job.id,
                     retry.max - (job.number_of_retries or 0),
                 )
-                job._handle_retry_result(queue=queue, pipeline=pipeline)
+                job._handle_retry_result(queue=queue, pipeline=pipeline, worker_name=self.name)
 
             self.cleanup_execution(job, pipeline=pipeline)
 
@@ -1623,7 +1618,7 @@ class Worker(BaseWorker):
                     result_ttl = job.get_result_ttl(self.default_result_ttl)
                     if result_ttl != 0:
                         self.log.debug("Worker %s: saving job %s's successful execution result", self.name, job.id)
-                        job._handle_success(result_ttl, pipeline=pipeline)
+                        job._handle_success(result_ttl, pipeline=pipeline, worker_name=self.name)
 
                     if job.repeats_left is not None and job.repeats_left > 0:
                         from .repeat import Repeat
@@ -1774,6 +1769,7 @@ class SpawnWorker(Worker):
         """Spawns a work horse to perform the actual work using os.spawn()."""
         os.environ['RQ_WORKER_ID'] = self.name
         os.environ['RQ_JOB_ID'] = job.id
+        os.environ['RQ_EXECUTION_ID'] = self.execution.id  # type: ignore
 
         redis_kwargs = self.connection.connection_pool.connection_kwargs
         if redis_kwargs.get('retry'):
@@ -1792,6 +1788,7 @@ import sys
 from redis import Redis
 from rq import Worker, Queue
 from rq.job import Job
+from rq.executions import Execution
 
 # Recreate worker instance
 redis = Redis(**{redis_kwargs})
@@ -1799,9 +1796,11 @@ worker = Worker.find_by_key("{self.key}", connection=redis)
 if not worker:
     sys.exit(1)
 
-# Reconstruct job and queue
+# Reconstruct job, queue and execution objects
 job = Job.fetch("{job.id}", connection=worker.connection)
 queue = Queue("{queue.name}", connection=worker.connection)
+execution_id = os.environ.get('RQ_EXECUTION_ID')
+worker.execution = Execution.fetch(execution_id, job.id, connection=worker.connection)
 
 # Set up work horse
 os.setpgrp()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vonage
-Version: 4.5.2
+Version: 4.6.0
 Summary: Python Server SDK for using Vonage APIs
 Author-email: Vonage <devrel@vonage.com>
 Project-URL: homepage, https://github.com/Vonage/vonage-python-sdk

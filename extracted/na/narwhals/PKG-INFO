@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: narwhals
-Version: 2.1.1
+Version: 2.1.2
 Summary: Extremely lightweight compatibility layer between dataframe libraries
 Project-URL: Homepage, https://github.com/narwhals-dev/narwhals
 Project-URL: Documentation, https://narwhals-dev.github.io/narwhals/
@@ -224,6 +224,7 @@ Join the party!
 - [plotly](https://plotly.com)
 - [pointblank](https://github.com/posit-dev/pointblank)
 - [pymarginaleffects](https://github.com/vincentarelbundock/pymarginaleffects)
+- [pyreadstat](https://github.com/Roche/pyreadstat)
 - [py-shiny](https://github.com/posit-dev/py-shiny)
 - [rio](https://github.com/rio-labs/rio)
 - [scikit-lego](https://github.com/koaning/scikit-lego)

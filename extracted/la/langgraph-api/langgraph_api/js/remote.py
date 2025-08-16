@@ -106,6 +106,10 @@ async def _client_stream(method: str, data: dict[str, Any]):
                 yield sse.data
 
 
+class NoopModel(BaseModel):
+    pass
+
+
 async def _client_invoke(method: str, data: dict[str, Any]):
     graph_id = data.get("graph_id")
     res = await _client.post(
@@ -177,13 +181,10 @@ class RemotePregel(BaseRemotePregel):
         nodes: list[Any] = response.pop("nodes")
         edges: list[Any] = response.pop("edges")
 
-        class NoopModel(BaseModel):
-            pass
-
         return DrawableGraph(
             {
                 data["id"]: Node(
-                    data["id"], data["id"], NoopModel(), data.get("metadata")
+                    data["id"], data["id"], NoopModel, data.get("metadata")
                 )
                 for data in nodes
             },
@@ -244,9 +245,9 @@ class RemotePregel(BaseRemotePregel):
                 )
             return tuple(result)
 
-        return StateSnapshot(
+        return StateSnapshot(  # type: ignore[missing-argument]
             item.get("values"),
-            item.get("next"),
+            cast(tuple, item.get("next", ())),
             item.get("config"),
             item.get("metadata"),
             item.get("createdAt"),
@@ -352,7 +353,7 @@ class RemotePregel(BaseRemotePregel):
         return result["nodesExecuted"]
 
 
-async def run_js_process(paths_str: str, watch: bool = False):
+async def run_js_process(paths_str: str | None, watch: bool = False):
     # check if tsx is available
     tsx_path = shutil.which("tsx")
     if tsx_path is None:
@@ -360,7 +361,7 @@ async def run_js_process(paths_str: str, watch: bool = False):
             "tsx not found in PATH. Please upgrade to latest LangGraph CLI to support running JS graphs."
         )
     attempt = 0
-    while not asyncio.current_task().cancelled():
+    while (current_task := asyncio.current_task()) and not current_task.cancelled():
         client_file = os.path.join(os.path.dirname(__file__), "client.mts")
         client_preload_file = os.path.join(
             os.path.dirname(__file__), "src", "preload.mjs"
@@ -408,7 +409,9 @@ async def run_js_process(paths_str: str, watch: bool = False):
                 attempt += 1
 
 
-async def run_js_http_process(paths_str: str, http_config: dict, watch: bool = False):
+async def run_js_http_process(
+    paths_str: str | None, http_config: dict, watch: bool = False
+):
     # check if tsx is available
     tsx_path = shutil.which("tsx")
     if tsx_path is None:
@@ -417,7 +420,7 @@ async def run_js_http_process(paths_str: str, http_config: dict, watch: bool = F
         )
 
     attempt = 0
-    while not asyncio.current_task().cancelled():
+    while (current_task := asyncio.current_task()) and not current_task.cancelled():
         client_file = os.path.join(os.path.dirname(__file__), "client.http.mts")
         args = ("tsx", "watch", client_file) if watch else ("tsx", client_file)
         pid = None
@@ -795,7 +798,9 @@ async def wait_until_js_ready():
             ) as checkpointer_client,
         ):
             attempt = 0
-            while not asyncio.current_task().cancelled():
+            while (
+                current_task := asyncio.current_task()
+            ) and not current_task.cancelled():
                 try:
                     res = await graph_client.get("/ok")
                     res.raise_for_status()
@@ -909,7 +914,7 @@ class CustomJsAuthBackend(AuthenticationBackend):
 
 
 async def handle_js_auth_event(
-    ctx: Auth.types.AuthContext | None,
+    ctx: Auth.types.AuthContext,
     value: dict,
 ) -> Auth.types.FilterType | None:
     if hasattr(ctx.user, "dict") and callable(ctx.user.dict):

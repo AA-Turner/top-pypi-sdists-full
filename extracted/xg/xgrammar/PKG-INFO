@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: xgrammar
-Version: 0.1.22
+Version: 0.1.23
 Summary: Efficient, Flexible and Portable Structured Generation
 Keywords: machine learning,inference
 Author: MLC Team
@@ -19,6 +19,7 @@ Requires-Dist: transformers>=4.38.0
 Requires-Dist: triton; platform_system == "Linux" and platform_machine == "x86_64"
 Requires-Dist: mlx-lm; platform_system == "Darwin" and platform_machine == "arm64"
 Requires-Dist: ninja
+Requires-Dist: numpy
 Requires-Dist: typing-extensions>=4.9.0
 Provides-Extra: test
 Requires-Dist: huggingface-hub[cli]; extra == "test"

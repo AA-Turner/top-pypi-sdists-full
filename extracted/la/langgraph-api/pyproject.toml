@@ -7,10 +7,10 @@ name = "langgraph-api"
 dynamic = ["version"]
 description = ""
 authors = [
-    {name = "Nuno Campos", email = "nuno@langchain.dev"},
-    {name = "Will Fu-Hinthorn", email = "will@langchain.dev"},
+    { name = "Nuno Campos", email = "nuno@langchain.dev" },
+    { name = "Will Fu-Hinthorn", email = "will@langchain.dev" },
 ]
-license = {text = "Elastic-2.0"}
+license = { text = "Elastic-2.0" }
 requires-python = ">=3.11"
 readme = "README.md"
 dependencies = [
@@ -39,12 +39,12 @@ dependencies = [
 langgraph-verify-graphs = "langgraph_api.graph:verify_graphs"
 
 [project.packages]
-find = {where = ["."]} 
+find = { where = ["."] }
 
 [dependency-groups]
 dev = [
     "ruff>=0.11.10",
-    "codespell>=2.2.0", 
+    "codespell>=2.2.0",
     "pytest>=7.4.4",
     "anyio>=4.4.0",
     "pytest-watcher>=0.4.2",
@@ -59,16 +59,14 @@ dev = [
     "langgraph-checkpoint-sqlite>=2.0.10",
 ]
 
+
 [tool.uv]
 default-groups = ["dev"]
 
 [tool.uv.sources]
-langgraph-runtime-inmem = {path = "../runtime_inmem", editable = true}
-
+langgraph-runtime-inmem = { path = "../runtime_inmem", editable = true }
 [tool.hatch.build]
-exclude = [
-    "tests/",
-]
+exclude = ["tests/"]
 
 [tool.hatch.build.targets.sdist]
 exclude = [

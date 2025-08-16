@@ -1,6 +1,6 @@
 [project]
 name = "xgrammar"
-version = "0.1.22"
+version = "0.1.23"
 description = "Efficient, Flexible and Portable Structured Generation"
 authors = [{ name = "MLC Team" }]
 readme = "README.md"
@@ -21,6 +21,7 @@ dependencies = [
   "triton; platform_system == 'Linux' and platform_machine == 'x86_64'",
   "mlx-lm; platform_system == 'Darwin' and platform_machine == 'arm64'",
   "ninja",
+  "numpy",
   "typing-extensions>=4.9.0",
 ]
 

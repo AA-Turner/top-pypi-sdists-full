@@ -36,7 +36,7 @@ class VocabType(Enum):
     """
 
     BYTE_FALLBACK = 1
-    """The vocabulary used in the byte fallback BPE tokenizer.
+    r"""The vocabulary used in the byte fallback BPE tokenizer.
 
     The tokens are encoded through the byte-fallback conversion. E.g. "\u001b" -> "<0x1B>",
     " apple" -> "▁apple". This kind of tokenizer includes meta-llama/Llama-2-7b-chat,
@@ -390,14 +390,36 @@ class TokenizerInfo(XGRObject):
         }
 
     def serialize_json(self) -> str:
-        """Serialize the tokenizer_info to a JSON string."""
+        """Serialize the tokenizer info to a JSON string.
+
+        Returns
+        -------
+        json_string : str
+            The JSON string.
+        """
         return self._handle.serialize_json()
 
     @staticmethod
-    def deserialize_json(
-        json_string: str, encoded_vocab: List[Union[bytes, str]]
-    ) -> "TokenizerInfo":
-        """Deserialize a grammar from a JSON string."""
-        return TokenizerInfo._create_from_handle(
-            _core.TokenizerInfo.deserialize_json(json_string, encoded_vocab)
-        )
+    def deserialize_json(json_string: str) -> "TokenizerInfo":
+        """Deserialize a tokenizer info from a JSON string.
+
+        Parameters
+        ----------
+        json_string : str
+            The JSON string.
+
+        Returns
+        -------
+        tokenizer_info : TokenizerInfo
+            The tokenizer info.
+
+        Raises
+        ------
+        InvalidJSONError
+            When the JSON string is invalid.
+        DeserializeFormatError
+            When the JSON string does not follow the serialization format of the tokenizer info.
+        DeserializeVersionError
+            When the __VERSION__ field in the JSON string is not the same as the current version.
+        """
+        return TokenizerInfo._create_from_handle(_core.TokenizerInfo.deserialize_json(json_string))

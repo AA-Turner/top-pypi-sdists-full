@@ -41,8 +41,8 @@ async def StreamingResponse_stream_response(self, send: Send) -> None:
 
 # patch StreamingResponse.stream_response
 
-StreamingResponse.stream_response = StreamingResponse_stream_response
+StreamingResponse.stream_response = StreamingResponse_stream_response  # type: ignore[invalid-assignment]
 
 # patch Response.render
 
-Response.render = Response_render
+Response.render = Response_render  # type: ignore[invalid-assignment]

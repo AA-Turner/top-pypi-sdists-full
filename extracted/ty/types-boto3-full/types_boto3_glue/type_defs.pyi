@@ -2206,6 +2206,7 @@ class TargetProcessingPropertiesTypeDef(TypedDict):
 class IntegrationConfigOutputTypeDef(TypedDict):
     RefreshInterval: NotRequired[str]
     SourceProperties: NotRequired[Dict[str, str]]
+    ContinuousSync: NotRequired[bool]
 
 class IntegrationErrorTypeDef(TypedDict):
     ErrorCode: NotRequired[str]
@@ -3045,6 +3046,7 @@ class ImportLabelsTaskRunPropertiesTypeDef(TypedDict):
 class IntegrationConfigTypeDef(TypedDict):
     RefreshInterval: NotRequired[str]
     SourceProperties: NotRequired[Mapping[str, str]]
+    ContinuousSync: NotRequired[bool]
 
 class IntegrationPartitionTypeDef(TypedDict):
     FieldName: NotRequired[str]
@@ -3236,12 +3238,6 @@ class MicrosoftSQLServerCatalogTargetTypeDef(TypedDict):
     Inputs: Sequence[str]
     Database: str
     Table: str
-
-class ModifyIntegrationRequestTypeDef(TypedDict):
-    IntegrationIdentifier: str
-    Description: NotRequired[str]
-    DataFilter: NotRequired[str]
-    IntegrationName: NotRequired[str]
 
 class MySQLCatalogTargetTypeDef(TypedDict):
     Name: str
@@ -4824,6 +4820,7 @@ class ModifyIntegrationResponseTypeDef(TypedDict):
     CreateTime: datetime
     Errors: List[IntegrationErrorTypeDef]
     DataFilter: str
+    IntegrationConfig: IntegrationConfigOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreatePartitionIndexRequestTypeDef(TypedDict):
@@ -6730,6 +6727,13 @@ class CreateIntegrationRequestTypeDef(TypedDict):
     AdditionalEncryptionContext: NotRequired[Mapping[str, str]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     IntegrationConfig: NotRequired[IntegrationConfigUnionTypeDef]
+
+class ModifyIntegrationRequestTypeDef(TypedDict):
+    IntegrationIdentifier: str
+    Description: NotRequired[str]
+    DataFilter: NotRequired[str]
+    IntegrationConfig: NotRequired[IntegrationConfigUnionTypeDef]
+    IntegrationName: NotRequired[str]
 
 class GetIntegrationTablePropertiesResponseTypeDef(TypedDict):
     ResourceArn: str

@@ -24,6 +24,8 @@ Software Publishing Certificate (SPC).
 
 from __future__ import annotations
 
+import uuid
+
 from asn1crypto.algos import DigestInfo
 from asn1crypto.cms import (
     CMSAttribute,
@@ -31,6 +33,7 @@ from asn1crypto.cms import (
     ContentInfo,
     ContentType,
     EncapsulatedContentInfo,
+    SetOfOctetString,
 )
 from asn1crypto.core import (
     Any,
@@ -40,11 +43,14 @@ from asn1crypto.core import (
     Boolean,
     Choice,
     IA5String,
+    Integer,
     ObjectIdentifier,
     OctetString,
+    ParsableOctetString,
     Sequence,
     SequenceOf,
     SetOf,
+    UTF8String,
 )
 from asn1crypto.x509 import Extension, ExtensionId
 
@@ -59,6 +65,20 @@ class SpcUuid(OctetString):  # type: ignore[misc]
 
         SpcUuid ::= OCTETSTRING
     """
+
+    def set(self, value: uuid.UUID | str) -> None:
+        if not isinstance(value, uuid.UUID):
+            value = uuid.UUID(value)
+        super().set(value.bytes)
+        self._native = str(value)
+
+    @property
+    def native(self) -> str | None:
+        if self.contents is None:
+            return None
+        if self._native is None:
+            self._native = str(uuid.UUID(bytes=self._merge_chunks()))
+        return self._native
 
 
 class SpcSerializedObject(Sequence):  # type: ignore[misc]
@@ -75,8 +95,10 @@ class SpcSerializedObject(Sequence):  # type: ignore[misc]
 
     _fields = [
         ("class_id", SpcUuid),
-        ("serialized_data", OctetString),
+        ("serialized_data", ParsableOctetString),
     ]
+    _oid_pair = ("class_id", "serialized_data")
+    _oid_specs: dict[str, type[Asn1Value]] = {}
 
 
 class SpcString(Choice):  # type: ignore[misc]
@@ -178,11 +200,50 @@ class SpcPeImageData(Sequence):  # type: ignore[misc]
     ]
 
 
+class SpcSigInfo(Sequence):  # type: ignore[misc]
+    """SpcSigInfo, mostly used in MSI files. It defines information about the SIP, which
+    is the Subject Interface Package: A Microsoft proprietary specification for a
+    software layer that enables applications to create, store, retrieve, and verify a
+    subject signature.
+
+    See https://learn.microsoft.com/en-gb/archive/blogs/eduardonavarro/sips-subject-interface-package-and-authenticode
+    and https://learn.microsoft.com/en-us/windows/win32/api/mssip/
+    for more information.
+
+    The ASN.1 spec, based on
+    https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/Security/WinTrust/struct.SPC_SIGINFO.html
+    is as follows::
+
+        SpcSigInfo ::= SEQUENCE {
+            dwSIPversion INTEGER,
+            gSIPguid SpcUuid,
+            dwReserved1 INTEGER,
+            dwReserved2 INTEGER,
+            dwReserved3 INTEGER,
+            dwReserved4 INTEGER,
+            dwReserved5 INTEGER
+        }
+    """
+
+    _fields = [
+        ("dwSIPversion", Integer),
+        ("gSIPguid", SpcUuid),
+        ("dwReserved1", Integer),
+        ("dwReserved2", Integer),
+        ("dwReserved3", Integer),
+        ("dwReserved4", Integer),
+        ("dwReserved5", Integer),
+    ]
+
+
 class SpcAttributeType(ObjectIdentifier):  # type: ignore[misc]
     """Specific attribute type of a SPC attribute."""
 
     _map: dict[str, str] = {
         "1.3.6.1.4.1.311.2.1.15": "microsoft_spc_pe_image_data",
+        "1.3.6.1.4.1.311.2.1.30": "microsoft_spc_siginfo",
+        "1.3.6.1.4.1.311.2.3.1": "microsoft_spc_pe_image_page_hashes_v1",
+        "1.3.6.1.4.1.311.2.3.2": "microsoft_spc_pe_image_page_hashes_v2",
     }
 
 
@@ -211,7 +272,15 @@ class SpcAttributeTypeAndOptionalValue(Sequence):  # type: ignore[misc]
     _oid_pair = ("type", "value")
     _oid_specs: dict[str, type[Asn1Value]] = {
         "microsoft_spc_pe_image_data": SpcPeImageData,
+        "microsoft_spc_siginfo": SpcSigInfo,
+        # used as content in SpcLink.moniker's SpcSerializedObject.serializedData
+        "microsoft_spc_pe_image_page_hashes_v1": SetOfOctetString,
+        "microsoft_spc_pe_image_page_hashes_v2": SetOfOctetString,
     }
+
+
+class SetOfSpcAttributeTypeAndOptionalValue(SetOf):  # type: ignore[misc]
+    _child_spec = SpcAttributeTypeAndOptionalValue
 
 
 class SpcIndirectDataContent(Sequence):  # type: ignore[misc]
@@ -285,15 +354,55 @@ class SetOfSpcStatementType(SetOf):  # type: ignore[misc]
     _child_spec = SpcStatementType
 
 
+class PlatformManifestBinaryID(UTF8String):  # type: ignore[misc]
+    """PlatformManifestBinaryID.
+
+    Present as OID 1.3.6.1.4.1.311.10.3.28, reversed as being a UTF8 string. The
+    purpose of this attribute is currently unknown.
+    """
+
+
+class SetOfPlatformManifestBinaryID(SetOf):  # type: ignore[misc]
+    _child_spec = PlatformManifestBinaryID
+
+
+class SpcRelaxedPeMarkerCheck(Integer):  # type: ignore[misc]
+    """SpcRelaxedPeMarkerCheck.
+
+    Present as OID 1.3.6.1.4.1.311.2.6.1, reversed as being an integer. The
+    purpose of this attribute is currently unknown.
+    """
+
+
+class SetOfSpcRelaxedPeMarkerCheck(SetOf):  # type: ignore[misc]
+    _child_spec = SpcRelaxedPeMarkerCheck
+
+
+SpcSerializedObject._oid_specs["a6b586d5-b4a1-2466-ae05-a217da8e60d6"] = (
+    SetOfSpcAttributeTypeAndOptionalValue
+)
+
 ContentType._map["1.3.6.1.4.1.311.2.1.4"] = "microsoft_spc_indirect_data_content"
 EncapsulatedContentInfo._oid_specs["microsoft_spc_indirect_data_content"] = (
     ContentInfo._oid_specs["microsoft_spc_indirect_data_content"]
 ) = SpcIndirectDataContent
 
-CMSAttributeType._map["1.3.6.1.4.1.311.2.1.11"] = "microsoft_spc_statement_type"
-CMSAttributeType._map["1.3.6.1.4.1.311.2.1.12"] = "microsoft_spc_sp_opus_info"
-CMSAttribute._oid_specs["microsoft_spc_sp_opus_info"] = SetOfSpcSpOpusInfo
-CMSAttribute._oid_specs["microsoft_spc_statement_type"] = SetOfSpcStatementType
+CMSAttributeType._map.update(
+    {
+        "1.3.6.1.4.1.311.2.1.11": "microsoft_spc_statement_type",
+        "1.3.6.1.4.1.311.2.1.12": "microsoft_spc_sp_opus_info",
+        "1.3.6.1.4.1.311.2.6.1": "microsoft_spc_relaxed_pe_marker_check",
+        "1.3.6.1.4.1.311.10.3.28": "microsoft_platform_manifest_binary_id",
+    }
+)
+CMSAttribute._oid_specs.update(
+    {
+        "microsoft_spc_sp_opus_info": SetOfSpcSpOpusInfo,
+        "microsoft_spc_statement_type": SetOfSpcStatementType,
+        "microsoft_spc_relaxed_pe_marker_check": SetOfSpcRelaxedPeMarkerCheck,
+        "microsoft_platform_manifest_binary_id": SetOfPlatformManifestBinaryID,
+    }
+)
 
 
 # reverse-engineered certificate extensions
@@ -309,7 +418,7 @@ class SpcSpAgencyInformation(Sequence):  # type: ignore[misc]
     """
 
     _fields = [
-        ("policy_information", SpcLink, {"explicit": 0}),
+        ("policy_information", SpcLink, {"optional": True, "explicit": 0}),
         ("policy_display_text", SpcString, {"optional": True, "explicit": 1}),
         ("logo_image", SpcImage, {"optional": True, "implicit": 2}),
         ("logo_link", SpcLink, {"optional": True, "explicit": 3}),
@@ -320,8 +429,8 @@ class SpcFinancialCriteria(Sequence):  # type: ignore[misc]
     """Reverse-engineered extension for certificates"""
 
     _fields = [
-        ("financial_info_available", Boolean, {"default": False}),
-        ("meets_criteria", Boolean, {"default": False}),
+        ("financial_info_available", Boolean),
+        ("meets_criteria", Boolean),
     ]
 
 

@@ -206,7 +206,8 @@ class BaseQueryCompiler(
     _shape_hint: Optional[str]
     _should_warn_on_default_to_pandas: bool = True
 
-    def _maybe_warn_on_default(self, *, message: str = "", reason: str = "") -> None:
+    @classmethod
+    def _maybe_warn_on_default(cls, *, message: str = "", reason: str = "") -> None:
         """
         If this class is configured to warn on default to pandas, warn.
 
@@ -217,7 +218,7 @@ class BaseQueryCompiler(
         reason : str, default: ""
             Reason for default.
         """
-        if self._should_warn_on_default_to_pandas:
+        if cls._should_warn_on_default_to_pandas:
             ErrorMessage.default_to_pandas(message=message, reason=reason)
 
     @disable_logging
@@ -720,6 +721,44 @@ class BaseQueryCompiler(
         return self._modin_frame.support_materialization_in_worker_process()
 
     # END Data Management Methods
+
+    # Data Movement Methods
+    def move_to(self, target_backend: str) -> Union[BaseQueryCompiler, Any]:
+        """
+        Move this query compiler to the specified backend.
+
+        Parameters
+        ----------
+        target_backend : str
+            The backend to move to.
+
+        Returns
+        -------
+        BaseQueryCompiler or Any
+            The new query compiler with the source data, or a sentinel `NotImplemented`
+            value if transfer is not implemented.
+        """
+        return NotImplemented
+
+    @classmethod
+    def move_from(cls, source_qc: BaseQueryCompiler) -> Union[BaseQueryCompiler, Any]:
+        """
+        Move the source query compiler to the current backend.
+
+        Parameters
+        ----------
+        source_qc : BaseQueryCompiler
+            The source query compiler to move data from.
+
+        Returns
+        -------
+        BaseQueryCompiler or Any
+            A new query compiler with the source data, or a sentinel `NotImplemented`
+            value if transfer is not implemented.
+        """
+        return NotImplemented
+
+    # END Data Movement Methods
 
     # To/From Pandas
     @abc.abstractmethod
@@ -6576,10 +6615,13 @@ class BaseQueryCompiler(
         refer_to="decode",
         params="""
                 encoding : str,
-                errors : str, default = 'strict'""",
+                errors : str, default = 'strict'
+                dtype : str or dtype, optional""",
     )
-    def str_decode(self, encoding, errors):
-        return StrDefault.register(pandas.Series.str.decode)(self, encoding, errors)
+    def str_decode(self, encoding, errors, dtype):
+        return StrDefault.register(pandas.Series.str.decode)(
+            self, encoding, errors, dtype
+        )
 
     @doc_utils.doc_str_method(
         refer_to="cat",

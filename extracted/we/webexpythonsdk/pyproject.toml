@@ -4,7 +4,7 @@
 
 [tool.poetry]
 name = "webexpythonsdk"
-version = "2.0.4"  # This will be overwritten by the build process
+version = "2.0.5"  # This will be overwritten by the build process
 description = "Work with the Webex APIs in native Python!"
 authors = ["Chris Lunsford <cm@lunsford.io>"]
 license = "MIT"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kreuzberg
-Version: 3.11.1
+Version: 3.11.2
 Summary: Document intelligence framework for Python - Extract text, metadata, and structured data from diverse file formats
 Project-URL: documentation, https://kreuzberg.dev
 Project-URL: homepage, https://github.com/Goldziher/kreuzberg
@@ -32,7 +32,7 @@ Requires-Dist: anyio>=4.10.0
 Requires-Dist: chardetng-py>=0.3.5
 Requires-Dist: exceptiongroup>=1.2.2; python_version < '3.11'
 Requires-Dist: html-to-markdown[lxml]>=1.9.0
-Requires-Dist: mcp>=1.12.4
+Requires-Dist: mcp>=1.13.0
 Requires-Dist: msgspec>=0.18.0
 Requires-Dist: playa-pdf>=0.7.0
 Requires-Dist: psutil>=7.0.0
@@ -52,7 +52,7 @@ Requires-Dist: gmft>=0.4.2; extra == 'all'
 Requires-Dist: keybert>=0.9.0; extra == 'all'
 Requires-Dist: litestar[opentelemetry,standard,structlog]>=2.17.0; extra == 'all'
 Requires-Dist: mailparse>=1.0.15; extra == 'all'
-Requires-Dist: paddleocr>=3.1.0; extra == 'all'
+Requires-Dist: paddleocr>=3.1.1; extra == 'all'
 Requires-Dist: paddlepaddle>=3.1.0; extra == 'all'
 Requires-Dist: pandas>=2.3.1; extra == 'all'
 Requires-Dist: playa-pdf[crypto]>=0.7.0; extra == 'all'
@@ -84,7 +84,7 @@ Requires-Dist: gmft>=0.4.2; extra == 'gmft'
 Provides-Extra: langdetect
 Requires-Dist: fast-langdetect>=0.3.2; extra == 'langdetect'
 Provides-Extra: paddleocr
-Requires-Dist: paddleocr>=3.1.0; extra == 'paddleocr'
+Requires-Dist: paddleocr>=3.1.1; extra == 'paddleocr'
 Requires-Dist: paddlepaddle>=3.1.0; extra == 'paddleocr'
 Requires-Dist: setuptools>=80.9.0; extra == 'paddleocr'
 Description-Content-Type: text/markdown

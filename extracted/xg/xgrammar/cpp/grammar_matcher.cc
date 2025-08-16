@@ -12,9 +12,9 @@
 #include <utility>
 #include <vector>
 
-#include "compiled_grammar_data_structure.h"
+#include "compiled_grammar_impl.h"
 #include "earley_parser.h"
-#include "grammar_data_structure.h"
+#include "grammar_impl.h"
 #include "support/dynamic_bitset.h"
 #include "support/encoding.h"
 #include "support/int_set.h"
@@ -113,10 +113,12 @@ void ApplyTokenBitmaskInplaceCPU(
       logits->ndim == 2
           ? std::make_pair(static_cast<int>(logits->shape[0]), static_cast<int>(logits->shape[1]))
           : std::make_pair(1, static_cast<int>(logits->shape[0]));
+  int logits_stride0 = logits->strides[0];
   std::pair<int, int> bitmask_shape =
       bitmask.ndim == 2
           ? std::make_pair(static_cast<int>(bitmask.shape[0]), static_cast<int>(bitmask.shape[1]))
           : std::make_pair(1, static_cast<int>(bitmask.shape[0]));
+  int bitmask_stride0 = bitmask.strides[0];
 
   XGRAMMAR_CHECK(
       vocab_size <= bitmask_shape.second * DynamicBitset::BITS_PER_BLOCK &&
@@ -133,18 +135,18 @@ void ApplyTokenBitmaskInplaceCPU(
   // Apply mask
   if (indices.has_value()) {
     for (auto idx : indices.value()) {
-      uint32_t* data_ptr = reinterpret_cast<uint32_t*>(bitmask.data) + idx * bitmask_shape.second;
+      uint32_t* data_ptr = reinterpret_cast<uint32_t*>(bitmask.data) + idx * bitmask_stride0;
       DynamicBitset bitset(vocab_size, data_ptr);
-      auto logits_ptr = reinterpret_cast<float*>(logits->data) + idx * logits_shape.second;
+      auto logits_ptr = reinterpret_cast<float*>(logits->data) + idx * logits_stride0;
       for (int i = bitset.FindFirstZero(); i != -1; i = bitset.FindNextZero(i)) {
         logits_ptr[i] = -std::numeric_limits<float>::infinity();
       }
     }
   } else {
     for (int idx = 0; idx < logits_shape.first; ++idx) {
-      uint32_t* data_ptr = reinterpret_cast<uint32_t*>(bitmask.data) + idx * bitmask_shape.second;
+      uint32_t* data_ptr = reinterpret_cast<uint32_t*>(bitmask.data) + idx * bitmask_stride0;
       DynamicBitset bitset(vocab_size, data_ptr);
-      auto logits_ptr = reinterpret_cast<float*>(logits->data) + idx * logits_shape.second;
+      auto logits_ptr = reinterpret_cast<float*>(logits->data) + idx * logits_stride0;
       for (int i = bitset.FindFirstZero(); i != -1; i = bitset.FindNextZero(i)) {
         logits_ptr[i] = -std::numeric_limits<float>::infinity();
       }
@@ -257,14 +259,14 @@ class GrammarMatcher::Impl : public EarleyParser {
       const CompiledGrammar& compiled_grammar,
       std::optional<std::vector<int>> override_stop_tokens = std::nullopt,
       bool terminate_without_stop_token = false,
-      int max_rollback_tokens = 0
+      // max_rollback_tokens_ is deprecated and not used.
+      int max_rollback_tokens = -1
   )
       : EarleyParser(compiled_grammar->grammar, ParserState::GetInvalidState()),
         compiled_grammar_(compiled_grammar),
         tokenizer_info_(compiled_grammar->tokenizer_info),
         stop_token_ids_(override_stop_tokens.value_or(tokenizer_info_.GetStopTokenIds())),
         terminate_without_stop_token_(terminate_without_stop_token),
-        max_rollback_tokens_(max_rollback_tokens),
         tmp_accepted_bitset_(tokenizer_info_.GetVocabSize()) {
     XGRAMMAR_CHECK(!override_stop_tokens.has_value() || !override_stop_tokens->empty())
         << "The override_stop_tokens should not be empty";
@@ -284,7 +286,7 @@ class GrammarMatcher::Impl : public EarleyParser {
 
   void Reset() { EarleyParser::Reset(); }
 
-  int GetMaxRollbackTokens() const { return max_rollback_tokens_; }
+  int GetMaxRollbackTokens() const { return -1; }
 
   const std::vector<int>& GetStopTokenIds() const { return stop_token_ids_; }
 
@@ -332,7 +334,6 @@ class GrammarMatcher::Impl : public EarleyParser {
   TokenizerInfo tokenizer_info_;
   std::vector<int> stop_token_ids_;
   bool terminate_without_stop_token_;
-  int max_rollback_tokens_;
   std::deque<int> token_length_history;
 
   // Temporary data for FillNextTokenBitmask. They are stored here to avoid repeated allocation.
@@ -366,18 +367,14 @@ bool GrammarMatcher::Impl::IsStopTokenAccepted() const { return stop_token_is_ac
 // TODO(yixin): Polish verbose logging
 bool GrammarMatcher::Impl::AcceptToken(int32_t token_id, bool debug_print) {
   if (IsStopTokenAccepted()) {
-    if (debug_print) {
-      XGRAMMAR_LOG(WARNING) << "The matcher has terminated after accepting the stop token, but is "
-                            << "trying to accept new token with id " << token_id << ".";
-    }
+    XGRAMMAR_LOG(WARNING) << "The matcher has terminated after accepting the stop token, but is "
+                          << "trying to accept new token with id " << token_id << ".";
     return false;
   }
 
   if (token_id < 0 || token_id >= tokenizer_info_.GetVocabSize()) {
-    if (debug_print) {
-      XGRAMMAR_LOG(WARNING) << "The token id " << token_id << " is out of range [0, "
-                            << tokenizer_info_.GetVocabSize() << "). Rejecting the token.";
-    }
+    XGRAMMAR_LOG(WARNING) << "The token id " << token_id << " is out of range [0, "
+                          << tokenizer_info_.GetVocabSize() << "). Rejecting the token.";
     return false;
   }
 
@@ -387,7 +384,7 @@ bool GrammarMatcher::Impl::AcceptToken(int32_t token_id, bool debug_print) {
       states_str += "  " + state.ToString() + "\n";
     }
     XGRAMMAR_LOG(INFO) << "Accepting token id " << token_id << ", string: \""
-                       << PrintAsEscapedUTF8(tokenizer_info_.GetDecodedVocab()[token_id])
+                       << EscapeString(tokenizer_info_.GetDecodedVocab()[token_id])
                        << "\", current scannable states:\n"
                        << states_str;
   }
@@ -404,11 +401,9 @@ bool GrammarMatcher::Impl::AcceptToken(int32_t token_id, bool debug_print) {
   const auto& special_token_ids = tokenizer_info_.GetSpecialTokenIds();
   if (std::find(special_token_ids.begin(), special_token_ids.end(), token_id) !=
       special_token_ids.end()) {
-    if (debug_print) {
-      XGRAMMAR_LOG(WARNING) << "GrammarMatcher cannot accept special token id " << token_id << ": "
-                            << tokenizer_info_.GetDecodedVocab()[token_id]
-                            << ". Rejecting the token.";
-    }
+    XGRAMMAR_LOG(WARNING) << "GrammarMatcher cannot accept special token id " << token_id << ": "
+                          << tokenizer_info_.GetDecodedVocab()[token_id]
+                          << ". Rejecting the token.";
     return false;
   }
 
@@ -417,9 +412,9 @@ bool GrammarMatcher::Impl::AcceptToken(int32_t token_id, bool debug_print) {
   for (auto char_value : token) {
     if (!Advance(char_value)) {
       if (debug_print) {
-        XGRAMMAR_LOG(INFO) << "Token #" << token_id << "<" << PrintAsEscapedUTF8(token)
+        XGRAMMAR_LOG(INFO) << "Token #" << token_id << "<" << EscapeString(token)
                            << "> rejected at position " << pos << ", char "
-                           << PrintAsEscapedUTF8(char_value);
+                           << EscapeString(char_value);
       }
       PopLastStates(pos);
       return false;
@@ -427,13 +422,10 @@ bool GrammarMatcher::Impl::AcceptToken(int32_t token_id, bool debug_print) {
     ++pos;
   }
   token_length_history.push_back(token.size());
-  if (static_cast<int>(token_length_history.size()) > max_rollback_tokens_) {
-    token_length_history.pop_front();
-  }
 
   if (debug_print) {
     XGRAMMAR_LOG(INFO) << "Token #" << token_id << "<"
-                       << PrintAsEscapedUTF8(tokenizer_info_.GetDecodedVocab()[token_id])
+                       << EscapeString(tokenizer_info_.GetDecodedVocab()[token_id])
                        << "> accepted.";
   }
   return true;
@@ -443,8 +435,7 @@ bool GrammarMatcher::Impl::AcceptString(const std::string& input_str, bool debug
   if (IsStopTokenAccepted()) {
     if (debug_print) {
       XGRAMMAR_LOG(WARNING) << "The matcher has terminated after accepting the stop token, but is "
-                            << "trying to accept new string \"" << PrintAsEscapedUTF8(input_str)
-                            << "\".";
+                            << "trying to accept new string \"" << EscapeString(input_str) << "\".";
     }
     return false;
   }
@@ -453,9 +444,8 @@ bool GrammarMatcher::Impl::AcceptString(const std::string& input_str, bool debug
   for (auto char_value : input_str) {
     if (!Advance(char_value)) {
       if (debug_print) {
-        XGRAMMAR_LOG(INFO) << "String \"" << PrintAsEscapedUTF8(input_str)
-                           << "\" rejected at position " << accepted_cnt << ", char "
-                           << PrintAsEscapedUTF8(char_value);
+        XGRAMMAR_LOG(INFO) << "String \"" << EscapeString(input_str) << "\" rejected at position "
+                           << accepted_cnt << ", char " << EscapeString(char_value);
       }
       PopLastStates(accepted_cnt);
       return false;
@@ -463,15 +453,13 @@ bool GrammarMatcher::Impl::AcceptString(const std::string& input_str, bool debug
     ++accepted_cnt;
   }
   token_length_history.push_back(input_str.size());
-  if (static_cast<int>(token_length_history.size()) > max_rollback_tokens_) {
-    token_length_history.pop_front();
-  }
+
   if (debug_print) {
     std::string states_str;
     for (const auto& state : GetLatestScanableStates()) {
       states_str += "  " + state.ToString() + "\n";
     }
-    XGRAMMAR_LOG(INFO) << "String \"" << PrintAsEscapedUTF8(input_str)
+    XGRAMMAR_LOG(INFO) << "String \"" << EscapeString(input_str)
                        << "\" is accepted. Current scannable states:\n"
                        << states_str;
   }
@@ -542,16 +530,6 @@ bool GrammarMatcher::Impl::FillNextTokenBitmask(
       latest_states_with_masks;
 
   for (const auto& state : latest_states) {
-    auto cur_sequence = grammar_->GetGrammarExpr(state.sequence_id);
-    XGRAMMAR_DCHECK(
-        !(cur_sequence.type == GrammarExprType::kRuleRef ||
-          cur_sequence.type == GrammarExprType::kChoices ||
-          cur_sequence.type == GrammarExprType::kEmptyStr)
-    );
-    XGRAMMAR_DCHECK(
-        cur_sequence.type == GrammarExprType::kSequence ||
-        grammar_->per_rule_fsms[state.rule_id].has_value()
-    );
     auto adaptive_token_mask_it = adaptive_token_mask_cache.find(state);
     XGRAMMAR_CHECK(adaptive_token_mask_it != adaptive_token_mask_cache.end()) << state;
     const auto& adaptive_token_mask = adaptive_token_mask_it->second;
@@ -685,23 +663,39 @@ std::string GrammarMatcher::Impl::FindJumpForwardString() {
   while (can_find_next_char) {
     const auto& states = scanable_state_history_[scanable_state_history_.size() - 1];
 
+    // The state comes to the end of the grammar
+    if (IsCompleted()) {
+      can_find_next_char = false;
+      break;
+    }
+
     // 1. Check that for every leaf ParserState, the next possible char is unique and the same
     // -1 means not found yet; 0~255 means the next char
     int next_char = -1;
     for (const auto& state : states) {
-      // We cannot deduce the next char for tag dispatch
       if (state.rule_id != -1 && grammar_->per_rule_fsms[state.rule_id].has_value()) {
-        can_find_next_char = false;
+        const auto& fsm = grammar_->per_rule_fsms[state.rule_id].value();
+        const auto& current_edges = fsm.GetFsm().GetEdges(state.element_id);
+        for (const auto& edge : current_edges) {
+          if (!edge.IsCharRange()) {
+            continue;
+          }
+          if (edge.min != edge.max) {
+            can_find_next_char = false;
+            break;
+          }
+          if (next_char == -1) {
+            next_char = edge.min;
+          } else if (next_char != edge.min) {
+            can_find_next_char = false;
+            break;
+          }
+        }
         continue;
       }
 
       auto cur_sequence = grammar_->GetGrammarExpr(state.sequence_id);
 
-      // The state comes to the end of the grammar
-      if (IsCompleted()) {
-        can_find_next_char = false;
-        break;
-      }
       // We cannot deduce the next char for tag dispatch
       if (cur_sequence.type == GrammarExprType::kTagDispatch) {
         can_find_next_char = false;

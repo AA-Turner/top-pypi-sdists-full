@@ -1,8 +1,8 @@
 import argparse
+import datetime
 import os
 import pathlib
 import subprocess
-from datetime import datetime, timedelta
 
 import jwt
 
@@ -49,8 +49,9 @@ if private_key_str is None:
 # Define payload data for your JWT
 payload = {
     "sub": args.customer_name,
-    "iat": datetime.utcnow(),
-    "exp": datetime.utcnow() + timedelta(weeks=args.expiration_weeks),
+    "iat": datetime.datetime.now(datetime.UTC),
+    "exp": datetime.datetime.now(datetime.UTC)
+    + datetime.timedelta(weeks=args.expiration_weeks),
     "aud": "langgraph-cloud",
 }
 

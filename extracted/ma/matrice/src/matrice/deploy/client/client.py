@@ -491,6 +491,10 @@ class MatriceDeployClient:
         quality: int = 95,
         width: Optional[int] = None,
         height: Optional[int] = None,
+        simulate_video_file_stream: bool = False,
+        is_video_chunk: bool = False,
+        chunk_duration_seconds: Optional[float] = None,
+        chunk_frames: Optional[int] = None,
     ) -> bool:
         """Start a streaming session (blocking).
 
@@ -517,6 +521,10 @@ class MatriceDeployClient:
             quality=quality,
             width=width,
             height=height,
+            simulate_video_file_stream=simulate_video_file_stream,
+            is_video_chunk=is_video_chunk,
+            chunk_duration_seconds=chunk_duration_seconds,
+            chunk_frames=chunk_frames,
         )
 
     def start_background_stream(
@@ -528,6 +536,10 @@ class MatriceDeployClient:
         quality: int = 95,
         width: Optional[int] = None,
         height: Optional[int] = None,
+        simulate_video_file_stream: bool = False,
+        is_video_chunk: bool = False,
+        chunk_duration_seconds: Optional[float] = None,
+        chunk_frames: Optional[int] = None,
     ) -> bool:
         """Start a background streaming session.
 
@@ -554,6 +566,10 @@ class MatriceDeployClient:
             quality=quality,
             width=width,
             height=height,
+            simulate_video_file_stream=simulate_video_file_stream,
+            is_video_chunk=is_video_chunk,
+            chunk_duration_seconds=chunk_duration_seconds,
+            chunk_frames=chunk_frames,
         )
 
     def stop_streaming(self) -> None:
@@ -698,6 +714,7 @@ class MatriceDeployClient:
         input: Union[str, int],
         fps: int = 10,
         stream_key: Optional[str] = None,
+        stream_group_key: Optional[str] = None,
         quality: int = 95,
         width: Optional[int] = None,
         height: Optional[int] = None,
@@ -729,16 +746,19 @@ class MatriceDeployClient:
             logging.error("Streaming not supported for this deployment")
             return False
 
-        return self.client_stream_utils.start_video_stream(
+        # Use unified stream with video-chunk flags
+        return self.client_stream_utils.start_stream(
             input=input,
             fps=fps,
             stream_key=stream_key,
+            stream_group_key=stream_group_key,
             quality=quality,
             width=width,
             height=height,
-            video_duration=video_duration,
-            max_frames=max_frames,
-            video_format=video_format,
+            simulate_video_file_stream=False,
+            is_video_chunk=True,
+            chunk_duration_seconds=video_duration,
+            chunk_frames=max_frames,
         )
 
     def start_background_video_stream(
@@ -746,6 +766,7 @@ class MatriceDeployClient:
         input: Union[str, int],
         fps: int = 10,
         stream_key: Optional[str] = None,
+        stream_group_key: Optional[str] = None,
         quality: int = 95,
         width: Optional[int] = None,
         height: Optional[int] = None,
@@ -777,14 +798,17 @@ class MatriceDeployClient:
             logging.error("Streaming not supported for this deployment")
             return False
 
-        return self.client_stream_utils.start_background_video_stream(
+        # Use unified background stream with video-chunk flags
+        return self.client_stream_utils.start_background_stream(
             input=input,
             fps=fps,
             stream_key=stream_key,
+            stream_group_key=stream_group_key,
             quality=quality,
             width=width,
             height=height,
-            video_duration=video_duration,
-            max_frames=max_frames,
-            video_format=video_format,
+            simulate_video_file_stream=False,
+            is_video_chunk=True,
+            chunk_duration_seconds=video_duration,
+            chunk_frames=max_frames,
         )

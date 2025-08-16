@@ -38,3 +38,4 @@ pub const TEXT_PRIMITIVE: &[u8] = include_bytes!("data/TextPrimitive.bin");
 pub const TRIANGLE_LIST_PRIMITIVE: &[u8] = include_bytes!("data/TriangleListPrimitive.bin");
 pub const VECTOR2: &[u8] = include_bytes!("data/Vector2.bin");
 pub const VECTOR3: &[u8] = include_bytes!("data/Vector3.bin");
+pub const VOXEL_GRID: &[u8] = include_bytes!("data/VoxelGrid.bin");

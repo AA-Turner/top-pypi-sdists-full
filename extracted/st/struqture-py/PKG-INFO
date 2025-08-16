@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: struqture-py
-Version: 2.2.3
+Version: 2.2.4
 Requires-Dist: numpy
 Requires-Dist: qoqo-calculator-pyo3>=1.7
 Requires-Dist: sphinx>=2.1 ; extra == 'docs'

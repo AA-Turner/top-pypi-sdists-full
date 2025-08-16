@@ -82,6 +82,10 @@ class AnalyticsSummarizer:
         #
         self._buffers: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
+        # Track previous total_counts per (camera_group, camera_name, application_key_name)
+        # Used to compute per-window deltas for current_counts at flush time
+        self._prev_total_counts: Dict[Tuple[str, str, str], Dict[str, int]] = {}
+
         # Stats
         self.stats = {
             "start_time": None,
@@ -331,14 +335,34 @@ class AnalyticsSummarizer:
 
                 agg_apps_output: List[Dict[str, Any]] = []
                 for app_key, app_buf in buf.get("apps", {}).items():
-                    # Convert counts dicts to lists
+                    # Compute per-window delta for current_counts using previous total_counts
+                    curr_total_dict = app_buf.get("total_counts", {}) or {}
+                    prev_key = (camera_group, camera_name, app_key)
+                    prev_total_dict = self._prev_total_counts.get(prev_key, {}) or {}
+
+                    # Delta = max(curr_total - prev_total, 0) per category
+                    window_delta_dict: Dict[str, int] = {}
+                    for cat, curr_cnt in curr_total_dict.items():
+                        try:
+                            prev_cnt = int(prev_total_dict.get(cat, 0))
+                            curr_cnt_int = int(curr_cnt)
+                            delta = curr_cnt_int - prev_cnt
+                            if delta < 0:
+                                # Counter reset detected; treat current as delta for this window
+                                delta = curr_cnt_int
+                            window_delta_dict[cat] = delta
+                        except Exception:
+                            # Fallback: if parsing fails, emit current as-is
+                            window_delta_dict[cat] = curr_cnt
+
+                    # Convert dicts to lists for output
                     current_list = [
                         {"category": cat, "count": cnt}
-                        for cat, cnt in app_buf.get("current_counts", {}).items()
+                        for cat, cnt in window_delta_dict.items()
                     ]
                     total_list = [
                         {"category": cat, "count": cnt}
-                        for cat, cnt in app_buf.get("total_counts", {}).items()
+                        for cat, cnt in curr_total_dict.items()
                     ]
 
                     agg_apps_output.append(
@@ -352,6 +376,9 @@ class AnalyticsSummarizer:
                             },
                         }
                     )
+
+                    # Update previous totals baseline for next window
+                    self._prev_total_counts[prev_key] = dict(curr_total_dict)
 
                 summary_payload = {
                     "camera_name": camera_info.get("camera_name", camera_name),

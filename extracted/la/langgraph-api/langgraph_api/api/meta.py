@@ -1,3 +1,5 @@
+from typing import cast
+
 import langgraph.version
 from starlette.responses import JSONResponse, PlainTextResponse
 
@@ -43,7 +45,7 @@ async def meta_metrics(request: ApiRequest):
 
     # collect stats
     metrics = get_metrics()
-    worker_metrics = metrics["workers"]
+    worker_metrics = cast(dict[str, int], metrics["workers"])
     workers_max = worker_metrics["max"]
     workers_active = worker_metrics["active"]
     workers_available = worker_metrics["available"]

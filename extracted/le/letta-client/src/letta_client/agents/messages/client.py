@@ -347,7 +347,7 @@ class MessagesClient:
         self,
         agent_id: str,
         *,
-        request: typing.Optional[typing.Sequence[str]] = None,
+        run_ids: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Dict[str, typing.Optional[typing.Any]]:
         """
@@ -359,7 +359,8 @@ class MessagesClient:
         ----------
         agent_id : str
 
-        request : typing.Optional[typing.Sequence[str]]
+        run_ids : typing.Optional[typing.Sequence[str]]
+            Optional list of run IDs to cancel
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -381,7 +382,7 @@ class MessagesClient:
             agent_id="agent_id",
         )
         """
-        _response = self._raw_client.cancel(agent_id, request=request, request_options=request_options)
+        _response = self._raw_client.cancel(agent_id, run_ids=run_ids, request_options=request_options)
         return _response.data
 
     def create_async(
@@ -937,7 +938,7 @@ class AsyncMessagesClient:
         self,
         agent_id: str,
         *,
-        request: typing.Optional[typing.Sequence[str]] = None,
+        run_ids: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Dict[str, typing.Optional[typing.Any]]:
         """
@@ -949,7 +950,8 @@ class AsyncMessagesClient:
         ----------
         agent_id : str
 
-        request : typing.Optional[typing.Sequence[str]]
+        run_ids : typing.Optional[typing.Sequence[str]]
+            Optional list of run IDs to cancel
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -979,7 +981,7 @@ class AsyncMessagesClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.cancel(agent_id, request=request, request_options=request_options)
+        _response = await self._raw_client.cancel(agent_id, run_ids=run_ids, request_options=request_options)
         return _response.data
 
     async def create_async(

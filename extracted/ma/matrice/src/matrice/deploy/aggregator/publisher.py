@@ -4,7 +4,7 @@ import time
 from queue import Queue, Empty
 from typing import Dict, Optional, Any
 from matrice.session import Session
-from matrice.deploy.utils.kafka_utils import MatriceKafkaDeployment
+from matrice.deploy.stream.kafka_stream import MatriceKafkaDeployment
 
 
 class ResultsPublisher:

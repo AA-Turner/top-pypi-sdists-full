@@ -42,6 +42,7 @@ __all__ = (
     "WorkspaceActiveWaiterName",
     "WorkspaceConfigurationStatusCodeType",
     "WorkspaceDeletedWaiterName",
+    "WorkspacePolicyStatusCodeType",
     "WorkspaceStatusCodeType",
 )
 
@@ -75,6 +76,7 @@ ScraperStatusCodeType = Literal[
 WorkspaceActiveWaiterName = Literal["workspace_active"]
 WorkspaceConfigurationStatusCodeType = Literal["ACTIVE", "UPDATE_FAILED", "UPDATING"]
 WorkspaceDeletedWaiterName = Literal["workspace_deleted"]
+WorkspacePolicyStatusCodeType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 WorkspaceStatusCodeType = Literal["ACTIVE", "CREATING", "CREATION_FAILED", "DELETING", "UPDATING"]
 PrometheusServiceServiceName = Literal["amp"]
 ServiceName = Literal[
@@ -104,6 +106,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -117,6 +120,7 @@ ServiceName = Literal[
     "batch",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

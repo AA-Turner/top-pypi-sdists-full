@@ -651,8 +651,3 @@ class RequestInterruptedError(Exception):
     this error is raised.
     """
     pass
-
-
-class SkyletInternalError(Exception):
-    """Raised when a Skylet internal error occurs."""
-    pass

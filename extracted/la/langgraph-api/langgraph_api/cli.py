@@ -204,7 +204,7 @@ def run_server(
         mount_prefix = os.environ.get("LANGGRAPH_MOUNT_PREFIX")
     if isinstance(env, str | pathlib.Path):
         try:
-            from dotenv.main import DotEnv
+            from dotenv.main import DotEnv  # type: ignore[unresolved-import]
 
             env_vars = DotEnv(dotenv_path=env).dict() or {}
             logger.debug(f"Loaded environment variables from {env}: {sorted(env_vars)}")
@@ -216,7 +216,7 @@ def run_server(
 
     if debug_port is not None:
         try:
-            import debugpy
+            import debugpy  # type: ignore[unresolved-import]
         except ImportError:
             logger.warning("debugpy is not installed. Debugging will not be available.")
             logger.info("To enable debugging, install debugpy: pip install debugpy")
@@ -301,6 +301,7 @@ def run_server(
         def _open_browser():
             nonlocal studio_origin, full_studio_url
             import time
+            import urllib.error
             import urllib.request
             import webbrowser
             from concurrent.futures import ThreadPoolExecutor
@@ -377,8 +378,8 @@ For production use, please use LangGraph Platform.
             reload=reload,
             env_file=env_file,
             access_log=False,
-            reload_includes=reload_includes,
-            reload_excludes=reload_excludes,
+            reload_includes=list(reload_includes) if reload_includes else None,
+            reload_excludes=list(reload_excludes) if reload_excludes else None,
             log_config={
                 "version": 1,
                 "incremental": False,

@@ -139,7 +139,8 @@ export default function() {
 export function setup() {
   console.log(`Starting burst benchmark`);
   console.log(`Running on pod: ${__ENV.POD_NAME || 'local'}`);
-  console.log(`Burst size: ${BURST_SIZE}`);
+  console.log(`Running with the following burst config: burst size ${BURST_SIZE}`);
+  console.log(`Running with the following agent config: data size ${DATA_SIZE}, delay ${DELAY}, expand ${EXPAND}, mode ${MODE}`);
 
   return { startTime: new Date().toISOString() };
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-ray
-Version: 0.0.20
+Version: 0.0.22
 Summary: Dagster integration library for Ray
 Project-URL: repository, https://github.com/danielgafni/dagster-ray
 Author-email: Daniel Gafni <danielgafni16@gmail.com>
@@ -289,7 +289,7 @@ def my_asset(context: AssetExecutionContext, pipes_ray_job_client: PipesRayJobCl
         submit_job_params={
             "entrypoint": "python /app/my_script.py",
         },
-        extra={"param": "value"},
+        extras={"param": "value"},
     )
 
 
@@ -432,7 +432,7 @@ def my_asset(
                 },
             },
         },
-        extra={"param": "value"},
+        extras={"param": "value"},
     )
 
 

@@ -262,8 +262,8 @@ class StreamingGateway:
 
                 # Choose streaming method based on model input type
                 if input_config.model_input_type == ModelInputType.VIDEO:
-                    # Start video streaming
-                    success = self.client_stream_utils.start_background_video_stream(
+                    # Start video streaming using unified background stream with chunk flags
+                    success = self.client_stream_utils.start_background_stream(
                         input=input_source,
                         fps=input_config.fps,
                         stream_key=stream_key,
@@ -271,10 +271,10 @@ class StreamingGateway:
                         quality=input_config.quality,
                         width=input_config.width,
                         height=input_config.height,
-                        video_duration=input_config.video_duration,
-                        max_frames=input_config.max_frames,
-                        video_format=input_config.video_format,
                         simulate_video_file_stream=input_config.simulate_video_file_stream,
+                        is_video_chunk=True,
+                        chunk_duration_seconds=input_config.video_duration,
+                        chunk_frames=input_config.max_frames,
                     )
                     logging.info(
                         f"Started video streaming for input {input_config.source} "

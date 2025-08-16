@@ -151,7 +151,7 @@ from _pydevd_bundle.pydevd_comm_constants import (
 MAX_IO_MSG_SIZE = 1000  #if the io is too big, we'll not send all (could make the debugger too non-responsive)
 #this number can be changed if there's need to do so
 
-VERSION_STRING = "252.23892.515"
+VERSION_STRING = "252.25557.35"
 
 from _pydev_bundle._pydev_filesystem_encoding import getfilesystemencoding
 file_system_encoding = getfilesystemencoding()

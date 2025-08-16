@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spatialdata
-Version: 0.4.0
+Version: 0.5.0
 Summary: Spatial data format.
 Project-URL: Documentation, https://spatialdata.scverse.org/en/latest
 Project-URL: Source, https://github.com/scverse/spatialdata.git
@@ -37,14 +37,15 @@ License: BSD 3-Clause License
         OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
         OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 License-File: LICENSE
-Requires-Python: <3.13,>=3.10
+Requires-Python: >=3.10
 Requires-Dist: anndata>=0.9.1
 Requires-Dist: click
 Requires-Dist: dask-image
 Requires-Dist: dask<=2024.11.2,>=2024.4.1
+Requires-Dist: datashader
 Requires-Dist: fsspec
 Requires-Dist: geopandas>=0.14
-Requires-Dist: multiscale-spatial-image>=2.0.2
+Requires-Dist: multiscale-spatial-image>=2.0.3
 Requires-Dist: networkx
 Requires-Dist: numba>=0.55.0
 Requires-Dist: numpy
@@ -57,9 +58,8 @@ Requires-Dist: scikit-image
 Requires-Dist: scipy
 Requires-Dist: setuptools
 Requires-Dist: shapely>=2.0.1
-Requires-Dist: spatial-image>=1.1.0
+Requires-Dist: spatial-image>=1.2.3
 Requires-Dist: typing-extensions>=4.8.0
-Requires-Dist: xarray-dataclasses>=1.8.0
 Requires-Dist: xarray-schema
 Requires-Dist: xarray-spatial>=0.3.5
 Requires-Dist: xarray>=2024.10.0
@@ -103,6 +103,11 @@ Description-Content-Type: text/markdown
 [![DOI](https://zenodo.org/badge/487366481.svg)](https://zenodo.org/badge/latestdoi/487366481)
 [![Downloads](https://static.pepy.tech/badge/spatialdata)](https://pepy.tech/project/spatialdata)
 [![Release](https://github.com/scverse/spatialdata/actions/workflows/release.yaml/badge.svg?event=release)](https://github.com/scverse/spatialdata/actions/workflows/release.yaml)
+[![Documentation][badge-pypi]][link-pypi]
+[![Anaconda-Server Badge](https://anaconda.org/conda-forge/spatialdata/badges/version.svg)](https://anaconda.org/conda-forge/spatialdata)
+
+[badge-pypi]: https://badge.fury.io/py/spatialdata.svg
+[link-pypi]: https://pypi.org/project/spatialdata/
 
 SpatialData is a data framework that comprises a FAIR storage format and a collection of python libraries for performant access, alignment, and processing of uni- and multi-modal spatial omics datasets. This repository contains the core spatialdata library. See the links below to learn more about other packages in the SpatialData ecosystem.
 

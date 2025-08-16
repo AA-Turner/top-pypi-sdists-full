@@ -8777,7 +8777,7 @@ data = {
  '61260374':{'en': 'Ournie'},
  '61260375':{'en': 'Ournie'},
  '61260380':{'en': 'Albury'},
- '61260381':{'en': 'Balldale'},
+ '61260381':{'en': 'Albury'},
  '61260382':{'en': 'Barnawartha'},
  '61260383':{'en': 'Coppabella'},
  '61260384':{'en': 'Corowa'},

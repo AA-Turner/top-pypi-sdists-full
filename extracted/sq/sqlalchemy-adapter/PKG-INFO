@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: sqlalchemy_adapter
-Version: 1.4.0
+Version: 1.5.0
 Summary: SQLAlchemy Adapter for PyCasbin
 Home-page: https://github.com/officialpycasbin/sqlalchemy-adapter
 Author: Casbin
 Author-email: admin@casbin.org
 License: Apache 2.0
-Keywords: casbin,SQLAlchemy,casbin-adapter,rbac,access control,abac,acl,permission
+Keywords: pycasbin,casbin,SQLAlchemy,casbin-adapter,rbac,access control,abac,acl,permission
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -16,7 +16,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.3
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: casbin>=0.8.1
+Requires-Dist: pycasbin>=2.0.0
 Requires-Dist: SQLAlchemy>=1.2.18
 Dynamic: author
 Dynamic: author-email

@@ -116,21 +116,14 @@ async fn lazy_data_resolve_async(download_dir: PathBuf, num_workers: usize) -> R
     debug!("All pointers validated successfully.");
 
     // 5. Check if b10cache is enabled
-    let allowed_b10_cache = match env::var(BASETEN_FS_ENABLED_ENV_VAR)
-        .unwrap_or_else(|_| "false".into())
-        .to_lowercase()
-        .as_str()
-    {
-        "1" | "true" => true,
-        _ => false,
-    };
+    let allowed_b10_cache = *BASETEN_FS_ENABLED;
     let mut read_from_b10cache = allowed_b10_cache;
     let mut write_to_b10cache = allowed_b10_cache;
 
     if allowed_b10_cache {
         info!("b10cache is enabled.");
         // create cache directory if it doesn't exist
-        fs::create_dir_all(CACHE_DIR)
+        fs::create_dir_all(&*CACHE_DIR)
             .await
             .context("Failed to create b10cache directory")?;
         // shuffle the resolution map to randomize the order of downloads
@@ -249,7 +242,7 @@ async fn lazy_data_resolve_async(download_dir: PathBuf, num_workers: usize) -> R
                     let file_path = download_dir.join(&file_name);
 
                     page_tasks.spawn(async move {
-                        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                         page_file_into_memory(&file_path, lock_clone).await;
                         Ok(())
                     });
@@ -349,9 +342,9 @@ async fn page_file_into_memory(path: &Path, lock: Arc<TokioMutex<()>>) {
         let mut file = File::open(&path_owned)
             .with_context(|| format!("Failed to open file for paging: {}", path_owned.display()))?;
 
-        // Use a large buffer for more efficient disk reads, capped to avoid excessive memory use.
-        // 256 MB is a good starting point.
-        const BUFFER_SIZE: u64 = 256 * 1024 * 1024;
+        // Use a large buffer for more efficient disk reads
+        // 128 MB is a good starting point.
+        const BUFFER_SIZE: u64 = 128 * 1024 * 1024;
         // check buffer size or file_size metadata
         let file_len = file.metadata().map(|m| m.len()).unwrap_or(0);
         let buffer_size = file_len.min(BUFFER_SIZE) as usize;
@@ -364,6 +357,8 @@ async fn page_file_into_memory(path: &Path, lock: Arc<TokioMutex<()>>) {
                 info!("Paging for file {} cancelled.", path_owned.display());
                 return Err(anyhow!("Paging operation was cancelled."));
             }
+            // throttle: Lower contention on disk and give priority to more important tasks.
+            std::thread::sleep(std::time::Duration::from_millis(25));
         }
         if file_len < BUFFER_SIZE {
             debug!("Finished paging file {} into memory", path_owned.display());

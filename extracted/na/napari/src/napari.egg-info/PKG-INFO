@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: napari
-Version: 0.6.3
+Version: 0.6.4
 Summary: n-dimensional array viewer in Python
 Author-email: napari team <napari-steering-council@googlegroups.com>
 License: BSD 3-Clause
@@ -112,7 +112,8 @@ Requires-Dist: coverage>7; extra == "testing"
 Requires-Dist: docstring_parser>=0.15; extra == "testing"
 Requires-Dist: pretend>=1.0.9; extra == "testing"
 Requires-Dist: pyautogui>=0.9.54; extra == "testing"
-Requires-Dist: pytest-qt>=4.3.1; extra == "testing"
+Requires-Dist: pytest-qt>=4.4.0; python_version > "3.10" and extra == "testing"
+Requires-Dist: pytest-qt==4.4.0; python_version <= "3.10" and extra == "testing"
 Requires-Dist: pytest-pretty>=1.1.0; extra == "testing"
 Requires-Dist: pytest>=8.3.5; extra == "testing"
 Requires-Dist: pytest-rerunfailures>=15.1; extra == "testing"

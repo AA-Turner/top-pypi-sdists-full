@@ -29,7 +29,7 @@ except ImportError:
 
 from adafruit_platformdetect.constants import chips
 
-__version__ = "3.81.0"
+__version__ = "3.82.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_PlatformDetect.git"
 
 
@@ -274,6 +274,9 @@ class Chip:
         if self.detector.check_dt_compatible_value("rockchip,rk3568"):
             return chips.RK3568
 
+        if self.detector.check_dt_compatible_value("rockchip,rk3588s"):
+            return chips.RK3588S
+
         if self.detector.check_dt_compatible_value("rockchip,rk3588"):
             return chips.RK3588
 
@@ -345,6 +348,9 @@ class Chip:
 
         if self.detector.check_dt_compatible_value("hobot,x3"):
             return chips.SUNRISE_X3
+
+        if self.detector.check_dt_compatible_value("particle,tachyon"):
+            return chips.QCM6490
 
         linux_id = None
         hardware = self.detector.get_cpuinfo_field("Hardware")

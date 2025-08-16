@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools","wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rlPyCairo"
+description="Plugin backend renderer for reportlab.graphics.renderPM"
+readme = "README.txt"
+authors=[
+		{name='Robin Becker',email='robin@reportlab.com'},
+		]
+requires-python = ">=3.7"
+license = {text = "BSD license, Copyright (c) 2000-2022, ReportLab Inc."}
+classifiers = [
+	"Development Status :: 2 - Pre-Alpha",
+	"Environment :: Web Environment",
+	"Intended Audience :: Developers",
+	"License :: OSI Approved :: BSD License",
+	"Operating System :: OS Independent",
+	"Programming Language :: Python",
+	"Programming Language :: Python :: 2",
+	"Programming Language :: Python :: 2.7",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.6",
+	"Programming Language :: Python :: 3.7",
+	"Programming Language :: Python :: 3.8",
+	"Programming Language :: Python :: 3.9",
+	"Topic :: Utilities",
+	]
+dependencies = [
+	'pycairo>=1.20.0',
+	'freetype-py>=2.3',
+]
+dynamic = ["version"]
+
+[tool.setuptools]
+license-files=['LICENSE*']
+
+[tool.setuptools.packages.find]
+where = ["."]  # list of folders that contain the packages (["."] by default)
+include = ["rlPyCairo*"]  # package names should match these glob patterns (["*"] by default)
+exclude = ["tests*"]  # exclude packages matching these glob patterns (empty by default)
+namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
+
+[tool.setuptools.dynamic]
+version={attr = "rlPyCairo.__version__"}

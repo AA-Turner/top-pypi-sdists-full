@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import AsyncExitStack, aclosing, asynccontextmanager
 from functools import lru_cache
@@ -93,21 +94,23 @@ def _preproces_debug_checkpoint_task(task: dict[str, Any]) -> dict[str, Any]:
     return task
 
 
-def _preprocess_debug_checkpoint(payload: CheckpointPayload | None) -> dict[str, Any]:
+def _preprocess_debug_checkpoint(
+    payload: CheckpointPayload | None,
+) -> dict[str, Any] | None:
     from langgraph_api.state import runnable_config_to_checkpoint
 
     if not payload:
         return None
 
-    payload["checkpoint"] = runnable_config_to_checkpoint(payload["config"])
-    payload["parent_checkpoint"] = runnable_config_to_checkpoint(
-        payload["parent_config"] if "parent_config" in payload else None
-    )
-
-    payload["tasks"] = [_preproces_debug_checkpoint_task(t) for t in payload["tasks"]]
-
     # TODO: deprecate the `config`` and `parent_config`` fields
-    return payload
+    return {
+        **payload,
+        "checkpoint": runnable_config_to_checkpoint(payload["config"]),
+        "parent_checkpoint": runnable_config_to_checkpoint(
+            payload["parent_config"] if "parent_config" in payload else None
+        ),
+        "tasks": [_preproces_debug_checkpoint_task(t) for t in payload["tasks"]],
+    }
 
 
 @asynccontextmanager
@@ -216,7 +219,7 @@ async def astream_state(
     if use_astream_events:
         async with (
             stack,
-            aclosing(
+            aclosing(  # type: ignore[invalid-argument-type]
                 graph.astream_events(
                     input,
                     config,
@@ -231,6 +234,7 @@ async def astream_state(
                 event = await wait_if_not_done(anext(stream, sentinel), done)
                 if event is sentinel:
                     break
+                event = cast(dict, event)
                 if event.get("tags") and "langsmith:hidden" in event["tags"]:
                     continue
                 if "messages" in stream_mode and isinstance(graph, BaseRemotePregel):
@@ -251,6 +255,7 @@ async def astream_state(
                     if mode == "debug":
                         if chunk["type"] == "checkpoint":
                             checkpoint = _preprocess_debug_checkpoint(chunk["payload"])
+                            chunk["payload"] = checkpoint
                             on_checkpoint(checkpoint)
                         elif chunk["type"] == "task_result":
                             on_task_result(chunk["payload"])
@@ -261,11 +266,14 @@ async def astream_state(
                             else:
                                 yield "messages", chunk
                         else:
-                            msg, meta = cast(
+                            msg_, meta = cast(
                                 tuple[BaseMessage | dict, dict[str, Any]], chunk
                             )
-                            if isinstance(msg, dict):
-                                msg = convert_to_messages([msg])[0]
+                            msg = (
+                                convert_to_messages([msg_])[0]
+                                if isinstance(msg_, dict)
+                                else cast(BaseMessage, msg_)
+                            )
                             if msg.id in messages:
                                 messages[msg.id] += msg
                             else:
@@ -323,14 +331,15 @@ async def astream_state(
                 if event is sentinel:
                     break
                 if subgraphs:
-                    ns, mode, chunk = event
+                    ns, mode, chunk = cast(tuple[str, str, dict[str, Any]], event)
                 else:
-                    mode, chunk = event
+                    mode, chunk = cast(tuple[str, dict[str, Any]], event)
                     ns = None
                 # --- begin shared logic with astream_events ---
                 if mode == "debug":
                     if chunk["type"] == "checkpoint":
                         checkpoint = _preprocess_debug_checkpoint(chunk["payload"])
+                        chunk["payload"] = checkpoint
                         on_checkpoint(checkpoint)
                     elif chunk["type"] == "task_result":
                         on_task_result(chunk["payload"])
@@ -341,11 +350,15 @@ async def astream_state(
                         else:
                             yield "messages", chunk
                     else:
-                        msg, meta = cast(
+                        msg_, meta = cast(
                             tuple[BaseMessage | dict, dict[str, Any]], chunk
                         )
-                        if isinstance(msg, dict):
-                            msg = convert_to_messages([msg])[0]
+                        msg = (
+                            convert_to_messages([msg_])[0]
+                            if isinstance(msg_, dict)
+                            else cast(BaseMessage, msg_)
+                        )
+
                         if msg.id in messages:
                             messages[msg.id] += msg
                         else:
@@ -399,7 +412,7 @@ async def astream_state(
 
 async def consume(
     stream: AnyStream,
-    run_id: str,
+    run_id: str | uuid.UUID,
     resumable: bool = False,
     stream_modes: set[StreamMode] | None = None,
 ) -> None:
@@ -408,7 +421,7 @@ async def consume(
         stream_modes.add("messages")
     stream_modes.add("metadata")
 
-    async with aclosing(stream):
+    async with aclosing(stream):  # type: ignore[invalid-argument-type]
         try:
             async for mode, payload in stream:
                 await Runs.Stream.publish(

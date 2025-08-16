@@ -860,3 +860,25 @@ impl Encode for Vector3 {
 
     fn encoded_len(&self) -> Option<usize> { Some(::prost::Message::encoded_len(self)) }
 }
+
+impl Encode for VoxelGrid {
+    type Error = ::prost::EncodeError;
+
+    fn get_schema() -> Option<Schema> {
+        Some(Schema::new(
+            "foxglove.VoxelGrid",
+            "protobuf",
+            descriptors::VOXEL_GRID,
+        ))
+    }
+
+    fn get_message_encoding() -> String {
+        "protobuf".to_string()
+    }
+
+    fn encode(&self, buf: &mut impl BufMut) -> Result<(), prost::EncodeError> {
+        ::prost::Message::encode(self, buf)
+    }
+
+    fn encoded_len(&self) -> Option<usize> { Some(::prost::Message::encoded_len(self)) }
+}

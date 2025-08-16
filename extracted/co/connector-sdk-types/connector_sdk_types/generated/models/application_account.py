@@ -13,8 +13,9 @@ from __future__ import annotations
 import pprint
 import re
 import json
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List
+from connector_sdk_types.generated.models.account_status import AccountStatus
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -26,7 +27,10 @@ class ApplicationAccount(BaseModel):
 
     account_id: StrictStr
     application_id: StrictStr
-    __properties: ClassVar[List[str]] = ["account_id", "application_id"]
+    status: AccountStatus = Field(
+        description="Indicates the status of the account in the application"
+    )
+    __properties: ClassVar[List[str]] = ["account_id", "application_id", "status"]
     model_config = ConfigDict(
         populate_by_name=True,
         validate_assignment=True,
@@ -69,7 +73,11 @@ class ApplicationAccount(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
         _obj = cls.model_validate(
-            {"account_id": obj.get("account_id"), "application_id": obj.get("application_id")}
+            {
+                "account_id": obj.get("account_id"),
+                "application_id": obj.get("application_id"),
+                "status": obj.get("status"),
+            }
         )
         return _obj
 

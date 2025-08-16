@@ -128,6 +128,10 @@ class DynamicBatchManager:
                     f"Using first request's stream key: {stream_key} for model inference, "
                     f"but individual stream keys for post-processing."
                 )
+            else:
+                self.logger.debug(
+                    f"Processing batch size={len(current_batch)} stream_key={stream_key}"
+                )
             
             # Check if all requests have the same extra_params structure
             if batch_extra_params and all(
@@ -153,6 +157,9 @@ class DynamicBatchManager:
 
                 if not success:
                     raise RuntimeError("Batch inference failed")
+                self.logger.debug(
+                    f"Batch inference executed items={len(current_batch)} stream_key={stream_key}"
+                )
 
                 # Process results for each request
                 for i, (request, result) in enumerate(

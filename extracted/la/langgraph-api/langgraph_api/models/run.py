@@ -3,11 +3,11 @@ import time
 import urllib.parse
 import uuid
 from collections.abc import Mapping, Sequence
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, cast
 from uuid import UUID
 
 import orjson
-from langgraph.checkpoint.base.id import uuid6
+import structlog
 from starlette.authentication import BaseUser
 from starlette.exceptions import HTTPException
 from typing_extensions import TypedDict
@@ -27,7 +27,10 @@ from langgraph_api.schema import (
 )
 from langgraph_api.utils import AsyncConnectionProto, get_auth_ctx
 from langgraph_api.utils.headers import should_include_header
-from langgraph_runtime.ops import Runs, logger
+from langgraph_api.utils.uuids import uuid7
+from langgraph_runtime.ops import Runs
+
+logger = structlog.stdlib.get_logger(__name__)
 
 
 class LangSmithTracer(TypedDict, total=False):
@@ -183,7 +186,7 @@ LANGSMITH_PROJECT = "langsmith-project"
 DEFAULT_RUN_HEADERS_EXCLUDE = {"x-api-key", "x-tenant-id", "x-service-key"}
 
 
-def get_configurable_headers(headers: dict[str, str]) -> dict[str, str]:
+def get_configurable_headers(headers: Mapping[str, str]) -> dict[str, str]:
     """Extract headers that should be added to run configuration.
 
     This function handles special cases like langsmith-trace and baggage headers,
@@ -249,7 +252,7 @@ async def create_valid_run(
     request_id = headers.get("x-request-id")  # Will be null in the crons scheduler.
     (
         assistant_id,
-        thread_id,
+        thread_id_,
         checkpoint_id,
         run_id,
     ) = _get_ids(
@@ -258,7 +261,7 @@ async def create_valid_run(
         run_id=run_id,
     )
     if (
-        thread_id is None
+        thread_id_ is None
         and (command := payload.get("command"))
         and command.get("resume")
     ):
@@ -266,7 +269,9 @@ async def create_valid_run(
             status_code=400,
             detail="You must provide a thread_id when resuming.",
         )
-    temporary = thread_id is None and payload.get("on_completion", "delete") == "delete"
+    temporary = (
+        thread_id_ is None and payload.get("on_completion", "delete") == "delete"
+    )
     stream_resumable = payload.get("stream_resumable", False)
     stream_mode, multitask_strategy, prevent_insert_if_inflight = assign_defaults(
         payload
@@ -296,7 +301,7 @@ async def create_valid_run(
     configurable.update(get_configurable_headers(headers))
     ctx = get_auth_ctx()
     if ctx:
-        user = ctx.user
+        user = cast(BaseUser | None, ctx.user)
         user_id = get_user_id(user)
         configurable["langgraph_auth_user"] = user
         configurable["langgraph_auth_user_id"] = user_id
@@ -336,7 +341,7 @@ async def create_valid_run(
         metadata=payload.get("metadata"),
         status="pending",
         user_id=user_id,
-        thread_id=thread_id,
+        thread_id=thread_id_,
         run_id=run_id,
         multitask_strategy=multitask_strategy,
         prevent_insert_if_inflight=prevent_insert_if_inflight,
@@ -362,7 +367,7 @@ async def create_valid_run(
         logger.info(
             "Created run",
             run_id=str(run_id),
-            thread_id=str(thread_id),
+            thread_id=str(thread_id_),
             assistant_id=str(assistant_id),
             multitask_strategy=multitask_strategy,
             stream_mode=stream_mode,
@@ -383,7 +388,7 @@ async def create_valid_run(
                 await Runs.cancel(
                     conn,
                     [run["run_id"] for run in inflight_runs],
-                    thread_id=thread_id,
+                    thread_id=thread_id_,
                     action=multitask_strategy,
                 )
             except HTTPException:
@@ -415,15 +420,15 @@ def _get_ids(
     assistant_id = get_assistant_id(payload["assistant_id"])
 
     # ensure UUID validity defaults
-    assistant_id, thread_id, checkpoint_id = ensure_ids(
+    assistant_id, thread_id_, checkpoint_id = ensure_ids(
         assistant_id, thread_id, payload
     )
 
-    run_id = run_id or uuid6()
+    run_id = run_id or uuid7()
 
     return _Ids(
         assistant_id,
-        thread_id,
+        thread_id_,
         checkpoint_id,
         run_id,
     )

@@ -74,6 +74,10 @@ class Arrow(google.protobuf.message.Message):
         """Only one column can be selected at a time."""
         MULTI_COLUMN: Arrow._SelectionMode.ValueType  # 3
         """Multiple columns can be selected at a time."""
+        SINGLE_CELL: Arrow._SelectionMode.ValueType  # 4
+        """Only one cell can be selected at a time."""
+        MULTI_CELL: Arrow._SelectionMode.ValueType  # 5
+        """Multiple cells (continuous range) can be selected."""
 
     class SelectionMode(_SelectionMode, metaclass=_SelectionModeEnumTypeWrapper):
         """Available editing modes:"""
@@ -86,6 +90,10 @@ class Arrow(google.protobuf.message.Message):
     """Only one column can be selected at a time."""
     MULTI_COLUMN: Arrow.SelectionMode.ValueType  # 3
     """Multiple columns can be selected at a time."""
+    SINGLE_CELL: Arrow.SelectionMode.ValueType  # 4
+    """Only one cell can be selected at a time."""
+    MULTI_CELL: Arrow.SelectionMode.ValueType  # 5
+    """Multiple cells (continuous range) can be selected."""
 
     DATA_FIELD_NUMBER: builtins.int
     STYLER_FIELD_NUMBER: builtins.int

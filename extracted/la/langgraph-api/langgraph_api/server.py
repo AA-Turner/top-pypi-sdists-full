@@ -122,17 +122,19 @@ if user_router:
     # Merge routes
     app = user_router
 
-    meta_route_paths = [route.path for route in meta_routes]
+    meta_route_paths = [
+        getattr(route, "path", None) for route in meta_routes if hasattr(route, "path")
+    ]
     custom_route_paths = [
         route.path
         for route in user_router.router.routes
-        if route.path not in meta_route_paths
+        if hasattr(route, "path") and route.path not in meta_route_paths
     ]
     logger.info(f"Custom route paths: {custom_route_paths}")
 
     update_openapi_spec(app)
     for route in routes:
-        if route.path in ("/docs", "/openapi.json"):
+        if getattr(route, "path", None) in ("/docs", "/openapi.json"):
             # Our handlers for these are inclusive of the custom routes and default API ones
             # Don't let these be shadowed
             app.router.routes.insert(0, route)

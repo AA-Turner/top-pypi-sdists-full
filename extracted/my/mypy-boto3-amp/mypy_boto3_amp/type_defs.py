@@ -29,6 +29,7 @@ from .literals import (
     RuleGroupsNamespaceStatusCodeType,
     ScraperStatusCodeType,
     WorkspaceConfigurationStatusCodeType,
+    WorkspacePolicyStatusCodeType,
     WorkspaceStatusCodeType,
 )
 
@@ -65,6 +66,7 @@ __all__ = (
     "DeleteAlertManagerDefinitionRequestTypeDef",
     "DeleteLoggingConfigurationRequestTypeDef",
     "DeleteQueryLoggingConfigurationRequestTypeDef",
+    "DeleteResourcePolicyRequestTypeDef",
     "DeleteRuleGroupsNamespaceRequestTypeDef",
     "DeleteScraperRequestTypeDef",
     "DeleteScraperResponseTypeDef",
@@ -75,6 +77,8 @@ __all__ = (
     "DescribeLoggingConfigurationResponseTypeDef",
     "DescribeQueryLoggingConfigurationRequestTypeDef",
     "DescribeQueryLoggingConfigurationResponseTypeDef",
+    "DescribeResourcePolicyRequestTypeDef",
+    "DescribeResourcePolicyResponseTypeDef",
     "DescribeRuleGroupsNamespaceRequestTypeDef",
     "DescribeRuleGroupsNamespaceResponseTypeDef",
     "DescribeScraperRequestTypeDef",
@@ -114,6 +118,8 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "PutAlertManagerDefinitionRequestTypeDef",
     "PutAlertManagerDefinitionResponseTypeDef",
+    "PutResourcePolicyRequestTypeDef",
+    "PutResourcePolicyResponseTypeDef",
     "PutRuleGroupsNamespaceRequestTypeDef",
     "PutRuleGroupsNamespaceResponseTypeDef",
     "QueryLoggingConfigurationMetadataTypeDef",
@@ -177,8 +183,8 @@ class ResponseMetadataTypeDef(TypedDict):
 
 
 class CreateLoggingConfigurationRequestTypeDef(TypedDict):
-    logGroupArn: str
     workspaceId: str
+    logGroupArn: str
     clientToken: NotRequired[str]
 
 
@@ -209,8 +215,8 @@ class ScraperStatusTypeDef(TypedDict):
 class CreateWorkspaceRequestTypeDef(TypedDict):
     alias: NotRequired[str]
     clientToken: NotRequired[str]
-    kmsKeyArn: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    kmsKeyArn: NotRequired[str]
 
 
 class WorkspaceStatusTypeDef(TypedDict):
@@ -232,9 +238,15 @@ class DeleteQueryLoggingConfigurationRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
-class DeleteRuleGroupsNamespaceRequestTypeDef(TypedDict):
-    name: str
+class DeleteResourcePolicyRequestTypeDef(TypedDict):
     workspaceId: str
+    clientToken: NotRequired[str]
+    revisionId: NotRequired[str]
+
+
+class DeleteRuleGroupsNamespaceRequestTypeDef(TypedDict):
+    workspaceId: str
+    name: str
     clientToken: NotRequired[str]
 
 
@@ -260,9 +272,13 @@ class DescribeQueryLoggingConfigurationRequestTypeDef(TypedDict):
     workspaceId: str
 
 
-class DescribeRuleGroupsNamespaceRequestTypeDef(TypedDict):
-    name: str
+class DescribeResourcePolicyRequestTypeDef(TypedDict):
     workspaceId: str
+
+
+class DescribeRuleGroupsNamespaceRequestTypeDef(TypedDict):
+    workspaceId: str
+    name: str
 
 
 class DescribeScraperRequestTypeDef(TypedDict):
@@ -306,15 +322,15 @@ class PaginatorConfigTypeDef(TypedDict):
 
 class ListRuleGroupsNamespacesRequestTypeDef(TypedDict):
     workspaceId: str
-    maxResults: NotRequired[int]
     name: NotRequired[str]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 
 class ListScrapersRequestTypeDef(TypedDict):
     filters: NotRequired[Mapping[str, Sequence[str]]]
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -322,13 +338,20 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 
 
 class ListWorkspacesRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
     alias: NotRequired[str]
     maxResults: NotRequired[int]
-    nextToken: NotRequired[str]
 
 
 class LoggingFilterTypeDef(TypedDict):
     qspThreshold: int
+
+
+class PutResourcePolicyRequestTypeDef(TypedDict):
+    workspaceId: str
+    policyDocument: str
+    clientToken: NotRequired[str]
+    revisionId: NotRequired[str]
 
 
 class ScrapeConfigurationOutputTypeDef(TypedDict):
@@ -346,8 +369,8 @@ class UntagResourceRequestTypeDef(TypedDict):
 
 
 class UpdateLoggingConfigurationRequestTypeDef(TypedDict):
-    logGroupArn: str
     workspaceId: str
+    logGroupArn: str
     clientToken: NotRequired[str]
 
 
@@ -363,10 +386,10 @@ class WorkspaceConfigurationStatusTypeDef(TypedDict):
 
 
 class AlertManagerDefinitionDescriptionTypeDef(TypedDict):
-    createdAt: datetime
-    data: bytes
-    modifiedAt: datetime
     status: AlertManagerDefinitionStatusTypeDef
+    data: bytes
+    createdAt: datetime
+    modifiedAt: datetime
 
 
 class DestinationTypeDef(TypedDict):
@@ -374,29 +397,29 @@ class DestinationTypeDef(TypedDict):
 
 
 class CreateAlertManagerDefinitionRequestTypeDef(TypedDict):
-    data: BlobTypeDef
     workspaceId: str
+    data: BlobTypeDef
     clientToken: NotRequired[str]
 
 
 class CreateRuleGroupsNamespaceRequestTypeDef(TypedDict):
-    data: BlobTypeDef
-    name: str
     workspaceId: str
+    name: str
+    data: BlobTypeDef
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
 
 class PutAlertManagerDefinitionRequestTypeDef(TypedDict):
-    data: BlobTypeDef
     workspaceId: str
+    data: BlobTypeDef
     clientToken: NotRequired[str]
 
 
 class PutRuleGroupsNamespaceRequestTypeDef(TypedDict):
-    data: BlobTypeDef
-    name: str
     workspaceId: str
+    name: str
+    data: BlobTypeDef
     clientToken: NotRequired[str]
 
 
@@ -406,6 +429,13 @@ class ScrapeConfigurationTypeDef(TypedDict):
 
 class CreateAlertManagerDefinitionResponseTypeDef(TypedDict):
     status: AlertManagerDefinitionStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeResourcePolicyResponseTypeDef(TypedDict):
+    policyDocument: str
+    policyStatus: WorkspacePolicyStatusCodeType
+    revisionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -428,17 +458,23 @@ class PutAlertManagerDefinitionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class PutResourcePolicyResponseTypeDef(TypedDict):
+    policyStatus: WorkspacePolicyStatusCodeType
+    revisionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateLoggingConfigurationResponseTypeDef(TypedDict):
     status: LoggingConfigurationStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class LoggingConfigurationMetadataTypeDef(TypedDict):
-    createdAt: datetime
-    logGroupArn: str
-    modifiedAt: datetime
     status: LoggingConfigurationStatusTypeDef
     workspace: str
+    logGroupArn: str
+    createdAt: datetime
+    modifiedAt: datetime
 
 
 class UpdateLoggingConfigurationResponseTypeDef(TypedDict):
@@ -457,16 +493,16 @@ class UpdateQueryLoggingConfigurationResponseTypeDef(TypedDict):
 
 
 class CreateRuleGroupsNamespaceResponseTypeDef(TypedDict):
-    arn: str
     name: str
+    arn: str
     status: RuleGroupsNamespaceStatusTypeDef
     tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class PutRuleGroupsNamespaceResponseTypeDef(TypedDict):
-    arn: str
     name: str
+    arn: str
     status: RuleGroupsNamespaceStatusTypeDef
     tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -474,26 +510,26 @@ class PutRuleGroupsNamespaceResponseTypeDef(TypedDict):
 
 class RuleGroupsNamespaceDescriptionTypeDef(TypedDict):
     arn: str
-    createdAt: datetime
-    data: bytes
-    modifiedAt: datetime
     name: str
     status: RuleGroupsNamespaceStatusTypeDef
+    data: bytes
+    createdAt: datetime
+    modifiedAt: datetime
     tags: NotRequired[Dict[str, str]]
 
 
 class RuleGroupsNamespaceSummaryTypeDef(TypedDict):
     arn: str
-    createdAt: datetime
-    modifiedAt: datetime
     name: str
     status: RuleGroupsNamespaceStatusTypeDef
+    createdAt: datetime
+    modifiedAt: datetime
     tags: NotRequired[Dict[str, str]]
 
 
 class CreateScraperResponseTypeDef(TypedDict):
-    arn: str
     scraperId: str
+    arn: str
     status: ScraperStatusTypeDef
     tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -506,41 +542,41 @@ class DeleteScraperResponseTypeDef(TypedDict):
 
 
 class UpdateScraperResponseTypeDef(TypedDict):
-    arn: str
     scraperId: str
+    arn: str
     status: ScraperStatusTypeDef
     tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateWorkspaceResponseTypeDef(TypedDict):
+    workspaceId: str
     arn: str
-    kmsKeyArn: str
     status: WorkspaceStatusTypeDef
     tags: Dict[str, str]
-    workspaceId: str
+    kmsKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class WorkspaceDescriptionTypeDef(TypedDict):
-    arn: str
-    createdAt: datetime
-    status: WorkspaceStatusTypeDef
     workspaceId: str
+    arn: str
+    status: WorkspaceStatusTypeDef
+    createdAt: datetime
     alias: NotRequired[str]
-    kmsKeyArn: NotRequired[str]
     prometheusEndpoint: NotRequired[str]
     tags: NotRequired[Dict[str, str]]
+    kmsKeyArn: NotRequired[str]
 
 
 class WorkspaceSummaryTypeDef(TypedDict):
-    arn: str
-    createdAt: datetime
-    status: WorkspaceStatusTypeDef
     workspaceId: str
+    arn: str
+    status: WorkspaceStatusTypeDef
+    createdAt: datetime
     alias: NotRequired[str]
-    kmsKeyArn: NotRequired[str]
     tags: NotRequired[Dict[str, str]]
+    kmsKeyArn: NotRequired[str]
 
 
 class DescribeScraperRequestWaitExtraTypeDef(TypedDict):
@@ -572,13 +608,13 @@ class SourceTypeDef(TypedDict):
 
 
 class LimitsPerLabelSetOutputTypeDef(TypedDict):
-    labelSet: Dict[str, str]
     limits: LimitsPerLabelSetEntryTypeDef
+    labelSet: Dict[str, str]
 
 
 class LimitsPerLabelSetTypeDef(TypedDict):
-    labelSet: Mapping[str, str]
     limits: LimitsPerLabelSetEntryTypeDef
+    labelSet: Mapping[str, str]
 
 
 class ListRuleGroupsNamespacesRequestPaginateTypeDef(TypedDict):
@@ -645,34 +681,34 @@ class ListWorkspacesResponseTypeDef(TypedDict):
 
 
 class ScraperDescriptionTypeDef(TypedDict):
-    arn: str
-    createdAt: datetime
-    destination: DestinationTypeDef
-    lastModifiedAt: datetime
-    roleArn: str
-    scrapeConfiguration: ScrapeConfigurationOutputTypeDef
     scraperId: str
-    source: SourceOutputTypeDef
+    arn: str
+    roleArn: str
     status: ScraperStatusTypeDef
+    createdAt: datetime
+    lastModifiedAt: datetime
+    scrapeConfiguration: ScrapeConfigurationOutputTypeDef
+    source: SourceOutputTypeDef
+    destination: DestinationTypeDef
     alias: NotRequired[str]
-    roleConfiguration: NotRequired[RoleConfigurationTypeDef]
-    statusReason: NotRequired[str]
     tags: NotRequired[Dict[str, str]]
+    statusReason: NotRequired[str]
+    roleConfiguration: NotRequired[RoleConfigurationTypeDef]
 
 
 class ScraperSummaryTypeDef(TypedDict):
-    arn: str
-    createdAt: datetime
-    destination: DestinationTypeDef
-    lastModifiedAt: datetime
-    roleArn: str
     scraperId: str
-    source: SourceOutputTypeDef
+    arn: str
+    roleArn: str
     status: ScraperStatusTypeDef
+    createdAt: datetime
+    lastModifiedAt: datetime
+    source: SourceOutputTypeDef
+    destination: DestinationTypeDef
     alias: NotRequired[str]
-    roleConfiguration: NotRequired[RoleConfigurationTypeDef]
-    statusReason: NotRequired[str]
     tags: NotRequired[Dict[str, str]]
+    statusReason: NotRequired[str]
+    roleConfiguration: NotRequired[RoleConfigurationTypeDef]
 
 
 SourceUnionTypeDef = Union[SourceTypeDef, SourceOutputTypeDef]
@@ -688,32 +724,32 @@ LimitsPerLabelSetUnionTypeDef = Union[LimitsPerLabelSetTypeDef, LimitsPerLabelSe
 
 
 class CreateQueryLoggingConfigurationRequestTypeDef(TypedDict):
-    destinations: Sequence[LoggingDestinationTypeDef]
     workspaceId: str
+    destinations: Sequence[LoggingDestinationTypeDef]
     clientToken: NotRequired[str]
 
 
 class QueryLoggingConfigurationMetadataTypeDef(TypedDict):
-    createdAt: datetime
-    destinations: List[LoggingDestinationTypeDef]
-    modifiedAt: datetime
     status: QueryLoggingConfigurationStatusTypeDef
     workspace: str
+    destinations: List[LoggingDestinationTypeDef]
+    createdAt: datetime
+    modifiedAt: datetime
 
 
 class UpdateQueryLoggingConfigurationRequestTypeDef(TypedDict):
-    destinations: Sequence[LoggingDestinationTypeDef]
     workspaceId: str
+    destinations: Sequence[LoggingDestinationTypeDef]
     clientToken: NotRequired[str]
 
 
 class UpdateScraperRequestTypeDef(TypedDict):
     scraperId: str
     alias: NotRequired[str]
-    clientToken: NotRequired[str]
+    scrapeConfiguration: NotRequired[ScrapeConfigurationUnionTypeDef]
     destination: NotRequired[DestinationTypeDef]
     roleConfiguration: NotRequired[RoleConfigurationTypeDef]
-    scrapeConfiguration: NotRequired[ScrapeConfigurationUnionTypeDef]
+    clientToken: NotRequired[str]
 
 
 class DescribeScraperResponseTypeDef(TypedDict):
@@ -728,12 +764,12 @@ class ListScrapersResponseTypeDef(TypedDict):
 
 
 class CreateScraperRequestTypeDef(TypedDict):
-    destination: DestinationTypeDef
     scrapeConfiguration: ScrapeConfigurationUnionTypeDef
     source: SourceUnionTypeDef
+    destination: DestinationTypeDef
     alias: NotRequired[str]
-    clientToken: NotRequired[str]
     roleConfiguration: NotRequired[RoleConfigurationTypeDef]
+    clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
 

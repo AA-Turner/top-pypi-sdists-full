@@ -287,7 +287,7 @@ if THREAD_TTL is None and CHECKPOINTER_CONFIG is not None:
 N_JOBS_PER_WORKER = env("N_JOBS_PER_WORKER", cast=int, default=10)
 BG_JOB_TIMEOUT_SECS = env("BG_JOB_TIMEOUT_SECS", cast=float, default=3600)
 FF_CRONS_ENABLED = env("FF_CRONS_ENABLED", cast=bool, default=True)
-FF_RICH_THREADS = env("FF_RICH_THREADS", cast=bool, default=False)
+FF_RICH_THREADS = env("FF_RICH_THREADS", cast=bool, default=True)
 
 # auth
 

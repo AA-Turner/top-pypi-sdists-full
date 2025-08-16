@@ -3,6 +3,7 @@ name = "foxglove-sdk-python"
 version.workspace = true
 edition.workspace = true
 publish = false
+readme = "README.md"
 
 [lib]
 name = "foxglove_py"

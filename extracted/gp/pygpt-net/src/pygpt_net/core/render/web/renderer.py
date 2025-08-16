@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.15 03:00:00                  #
+# Updated Date: 2025.08.16 00:00:00                  #
 # ================================================== #
 
 import json
@@ -14,8 +14,6 @@ import os
 import re
 from datetime import datetime
 from typing import Optional, List
-
-from PySide6 import QtCore
 
 from pygpt_net.core.render.base import BaseRenderer
 from pygpt_net.core.text.utils import has_unclosed_code_tag
@@ -35,6 +33,16 @@ from pygpt_net.core.events import RenderEvent
 class Renderer(BaseRenderer):
     NODE_INPUT = 0
     NODE_OUTPUT = 1
+    ENDINGS_CODE = (
+        "</code></pre></div>",
+        "</code></pre></div><br/>",
+        "</code></pre></div><br>"
+    )
+    ENDINGS_LIST = (
+        "</ul>",
+        "</ol>",
+        "</li>"
+    )
 
     def __init__(self, window=None):
         super(Renderer, self).__init__(window)
@@ -50,6 +58,11 @@ class Renderer(BaseRenderer):
         self.pids = {}  # per node data
         self.prev_chunk_replace = False
         self.prev_chunk_newline = False
+
+        app_path = self.window.core.config.get_app_path() if self.window else ""
+        self._icon_expand = os.path.join(app_path, "data", "icons", "expand.svg")
+        self._icon_sync = os.path.join(app_path, "data", "icons", "sync.svg")
+        self._file_prefix = 'file:///' if self.window and self.window.core.platforms.is_windows() else 'file://'
 
     def prepare(self):
         """
@@ -68,7 +81,7 @@ class Renderer(BaseRenderer):
         self.reset(meta)
         self.parser.reset()
         try:
-            node.page().runJavaScript(f"if (typeof window.prepare !== 'undefined') prepare();")
+            node.page().runJavaScript("if (typeof window.prepare !== 'undefined') prepare();")
         except Exception as e:
             pass
 
@@ -83,7 +96,7 @@ class Renderer(BaseRenderer):
         :param meta: context meta
         :param tab: Tab
         """
-        if meta is None:
+        if meta is None or tab is None:
             return
         pid = tab.pid
         if pid is None or pid not in self.pids:
@@ -157,7 +170,6 @@ class Renderer(BaseRenderer):
         :param state: state name
         :param meta: context meta
         """
-        # BUSY: current pid only
         if state == RenderEvent.STATE_BUSY:
             if meta:
                 pid = self.get_pid(meta)
@@ -165,29 +177,27 @@ class Renderer(BaseRenderer):
                     node = self.get_output_node_by_pid(pid)
                     try:
                         node.page().runJavaScript(
-                            f"if (typeof window.showLoading !== 'undefined') showLoading();")
+                            "if (typeof window.showLoading !== 'undefined') showLoading();")
                     except Exception as e:
                         pass
 
-        # IDLE: all pids
         elif state == RenderEvent.STATE_IDLE:
             for pid in self.pids:
                 node = self.get_output_node_by_pid(pid)
                 if node is not None:
                     try:
                         node.page().runJavaScript(
-                            f"if (typeof window.hideLoading !== 'undefined') hideLoading();")
+                            "if (typeof window.hideLoading !== 'undefined') hideLoading();")
                     except Exception as e:
                         pass
 
-        # ERROR: all pids
         elif state == RenderEvent.STATE_ERROR:
             for pid in self.pids:
                 node = self.get_output_node_by_pid(pid)
                 if node is not None:
                     try:
                         node.page().runJavaScript(
-                            f"if (typeof window.hideLoading !== 'undefined') hideLoading();")
+                            "if (typeof window.hideLoading !== 'undefined') hideLoading();")
                     except Exception as e:
                         pass
 
@@ -207,7 +217,7 @@ class Renderer(BaseRenderer):
         pid = self.get_or_create_pid(meta)
         self.init(pid)
         self.reset_names(meta)
-        self.tool_output_end()  # reset tools
+        self.tool_output_end()
         self.prev_chunk_replace = False
 
     def end(
@@ -229,6 +239,7 @@ class Renderer(BaseRenderer):
         if self.pids[pid].item is not None and stream:
             self.append_context_item(meta, self.pids[pid].item)
             self.pids[pid].item = None
+        self.pids[pid].clear()
 
     def end_extra(
             self,
@@ -309,34 +320,32 @@ class Renderer(BaseRenderer):
 
         if clear:
             self.reset(meta)
-        i = 0
 
         self.pids[pid].use_buffer = True
         self.pids[pid].html = ""
         prev_ctx = None
-        for item in items:
+        total = len(items)
+        for i, item in enumerate(items):
             self.update_names(meta, item)
             item.idx = i
             if i == 0:
                 item.first = True
-            next_item = items[i + 1] if i + 1 < len(items) else None  # append next item if exists
+            next_item = items[i + 1] if i + 1 < total else None
             self.append_context_item(
                 meta,
                 item,
                 prev_ctx=prev_ctx,
                 next_ctx=next_item
-            )  # to html buffer
+            )
             prev_ctx = item
-            i += 1
         self.pids[pid].use_buffer = False
 
-        # flush
         if self.pids[pid].html != "":
             self.append(
                 pid,
                 self.pids[pid].html,
                 flush=True
-            )  # flush buffer if page loaded, otherwise it will be flushed on page load
+            )
 
     def append_input(
             self, meta: CtxMeta,
@@ -352,7 +361,7 @@ class Renderer(BaseRenderer):
         :param flush: flush HTML
         :param append: True if force append node
         """
-        self.tool_output_end()  # reset tools
+        self.tool_output_end()
         pid = self.get_or_create_pid(meta)
         if not flush:
             self.clear_chunks_input(pid)
@@ -363,7 +372,6 @@ class Renderer(BaseRenderer):
 
         text = ctx.input
 
-        # if sub-reply
         if isinstance(ctx.extra, dict) and "sub_reply" in ctx.extra and ctx.extra["sub_reply"]:
             try:
                 json_encoded = json.loads(text)
@@ -374,18 +382,16 @@ class Renderer(BaseRenderer):
             except json.JSONDecodeError:
                 pass
 
-        # hidden internal call
         if ctx.internal \
                 and not ctx.first \
                 and not ctx.input.strip().startswith("user: ") \
-                and not ctx.input.strip().startswith("@"):  # expert says:
+                and not ctx.input.strip().startswith("@"):
             return
         else:
-            # don't show user prefix if provided in internal call goal update
             if ctx.internal and ctx.input.startswith("user: "):
                 text = re.sub(r'^user: ', '> ', ctx.input)
 
-        if flush:  # to chunk buffer
+        if flush:
             if self.is_stream() and not append:
                 content = self.prepare_node(meta, ctx, text.strip(), self.NODE_INPUT)
                 self.append_chunk_input(meta, ctx, content, False)
@@ -410,17 +416,15 @@ class Renderer(BaseRenderer):
         :param prev_ctx: previous context
         :param next_ctx: next context
         """
-        self.tool_output_end()  # reset tools
+        self.tool_output_end()
         output = ctx.output
-        if (isinstance(ctx.extra, dict)
-                and "output" in ctx.extra
-                and ctx.extra["output"]):
+        if isinstance(ctx.extra, dict) and ctx.extra.get("output"):
             if self.window.core.config.get("llama.idx.chat.agent.render.all", False):
-                output = "__agent_begin__" + ctx.output + "__agent_end__" + ctx.extra["output"]
+                output = f"__agent_begin__{ctx.output}__agent_end__{ctx.extra['output']}"
             else:
                 output = ctx.extra["output"]
         else:
-            if ctx.output is None or ctx.output == "":
+            if not output:
                 return
         self.append_node(
             meta=meta,
@@ -456,21 +460,20 @@ class Renderer(BaseRenderer):
 
         name_header_str = self.get_name_header(ctx)
         self.update_names(meta, ctx)
-        raw_chunk = text_chunk if isinstance(text_chunk, str) else str(text_chunk)
-        raw_chunk = raw_chunk.translate({ord('<'): '&lt;', ord('>'): '&gt;'})
+        text_chunk = text_chunk if isinstance(text_chunk, str) else str(text_chunk)
+        text_chunk = text_chunk.translate({ord('<'): '&lt;', ord('>'): '&gt;'})
 
         if begin:
-            debug = ""
             if self.is_debug():
                 debug = self.append_debug(ctx, pid, "stream")
-            if debug:
-                raw_chunk = debug + raw_chunk
+                if debug:
+                    text_chunk = debug + text_chunk
             pctx.clear()  # reset buffer
             pctx.is_cmd = False  # reset command flag
             self.clear_chunks_output(pid)
             self.prev_chunk_replace = False
 
-        pctx.append_buffer(raw_chunk)
+        pctx.append_buffer(text_chunk)
 
         buffer = pctx.buffer
         if has_unclosed_code_tag(buffer):
@@ -479,17 +482,13 @@ class Renderer(BaseRenderer):
             buffer_to_parse = buffer
 
         html = self.parser.parse(buffer_to_parse)
-        is_code_block = html.endswith((
-            "</code></pre></div>",
-            "</code></pre></div><br/>",
-            "</code></pre></div><br>"
-        ))
-        is_list = html.endswith(("</ul>", "</ol>", "</li>"))
-        is_newline = ("\n" in raw_chunk) or buffer.endswith("\n") or is_code_block
+        is_code_block = html.endswith(self.ENDINGS_CODE)
+        is_list = html.endswith(self.ENDINGS_LIST)
+        is_newline = ("\n" in text_chunk) or buffer.endswith("\n") or is_code_block
         force_replace = False
         if self.prev_chunk_newline:
             force_replace = True
-        if "\n" in raw_chunk:
+        if "\n" in text_chunk:
             self.prev_chunk_newline = True
         else:
             self.prev_chunk_newline = False
@@ -499,36 +498,25 @@ class Renderer(BaseRenderer):
             replace_bool = True
             if is_code_block:
                 # don't replace if it is a code block
-                if "\n" not in raw_chunk:
+                if "\n" not in text_chunk:
                     # if there is no newline in raw_chunk, then don't replace
                     replace_bool = False
 
-        code_block_arg = "true" if is_code_block else "false"
         if not is_code_block:
-            out_chunk = raw_chunk.replace("\n", "<br/>")
+            text_chunk = text_chunk.replace("\n", "<br/>")
         else:
-            out_chunk = raw_chunk
-            if self.prev_chunk_replace and not has_unclosed_code_tag(raw_chunk):
+            if self.prev_chunk_replace and not has_unclosed_code_tag(text_chunk):
                 # if previous chunk was replaced and current is code block, then add \n to chunk
-                out_chunk = "".join(("\n", out_chunk))  # add newline to chunk
-
-        escaped_chunk = json.dumps(out_chunk)
-        if name_header_str:
-            name_header = json.dumps(name_header_str)
-        else:
-            name_header = '""'
-        replace = "true" if replace_bool else "false"
-
-        if replace_bool:
-            escaped_buffer = json.dumps(html)
-        else:
-            escaped_buffer = '""'
+                text_chunk = "".join(("\n", text_chunk))  # add newline to chunk
 
         self.prev_chunk_replace = replace_bool
-
         try:
-            self.get_output_node(meta).page().runJavaScript(
-                f"appendStream({name_header}, {escaped_buffer}, {escaped_chunk}, {replace}, {code_block_arg});"
+            self.get_output_node(meta).page().bridge.chunk.emit(
+                name_header_str or "",
+                html if replace_bool else "",
+                text_chunk if not replace_bool else "",
+                bool(replace_bool),
+                bool(is_code_block),
             )
         except Exception as e:
             pass
@@ -552,7 +540,7 @@ class Renderer(BaseRenderer):
         self.prev_chunk_newline = False
         try:
             self.get_output_node(meta).page().runJavaScript(
-                f"nextStream();")
+                "nextStream();")
         except Exception as e:
             pass
 
@@ -604,38 +592,24 @@ class Renderer(BaseRenderer):
         self.pids[pid].item = ctx
         if text_chunk is None or text_chunk == "":
             if begin:
-                self.pids[pid].live_buffer = ""  # always reset buffer
+                self.pids[pid].live_buffer = ""
             return
         self.update_names(meta, ctx)
-        raw_chunk = str(text_chunk)
-        raw_chunk = raw_chunk.replace("<", "&lt;")
-        raw_chunk = raw_chunk.replace(">", "&gt;")
+        raw_chunk = str(text_chunk).translate({ord('<'): '&lt;', ord('>'): '&gt;'})
         if begin:
-            # debug
             debug = ""
             if self.is_debug():
                 debug = self.append_debug(ctx, pid, "stream")
             if debug:
                 raw_chunk = debug + raw_chunk
-            self.pids[pid].live_buffer = ""  # reset buffer
-            self.pids[pid].is_cmd = False  # reset command flag
-            self.clear_live(meta, ctx)  # clear live output
-        self.pids[pid].live_buffer += raw_chunk
+            self.pids[pid].live_buffer = ""
+            self.pids[pid].is_cmd = False
+            self.clear_live(meta, ctx)
+        self.pids[pid].append_live_buffer(raw_chunk)
 
-        """
-        # cooldown (throttling) to prevent high CPU usage on huge text chunks
-        if len(self.buffer) > self.throttling_min_chars:
-            current_time = time.time()
-            if current_time - self.last_time_called <= self.cooldown:
-                return  # wait a moment
-            else:
-                self.last_time_called = current_time
-        """
-
-        # parse chunks
         to_append = self.pids[pid].live_buffer
         if has_unclosed_code_tag(self.pids[pid].live_buffer):
-            to_append += "\n```"  # fix for code block without closing ```
+            to_append += "\n```"
         html = self.parser.parse(to_append)
         escaped_chunk = json.dumps(html)
         try:
@@ -655,8 +629,7 @@ class Renderer(BaseRenderer):
             return
         pid = self.get_or_create_pid(meta)
         if not self.pids[pid].loaded:
-            js = "var element = document.getElementById('_append_live_');"
-            js += "if (element) { element.innerHTML = ''; }"
+            js = "var element = document.getElementById('_append_live_');if (element) { element.innerHTML = ''; }"
         else:
             js = "clearLive();"
         try:
@@ -714,11 +687,11 @@ class Renderer(BaseRenderer):
         """
         if self.pids[pid].loaded and not self.pids[pid].use_buffer:
             self.clear_chunks(pid)
-            self.flush_output(pid, html)  # render
+            self.flush_output(pid, html)
             self.pids[pid].html = ""
         else:
             if not flush:
-                self.pids[pid].html += html  # to buffer
+                self.pids[pid].append_html(html)
 
     def append_context_item(
             self,
@@ -746,7 +719,7 @@ class Renderer(BaseRenderer):
             flush=False,
             prev_ctx=prev_ctx,
             next_ctx=next_ctx
-        )  # + extra
+        )
 
     def append_extra(
             self,
@@ -764,32 +737,28 @@ class Renderer(BaseRenderer):
         :param render: True if render, False if only return HTML
         :return: HTML code
         """
-        self.tool_output_end()  # reset tools
+        self.tool_output_end()
 
         pid = self.get_pid(meta)
-        appended = []
-        html = ""
-        # images
+        appended = set()
+        html_parts = []
+
         c = len(ctx.images)
         if c > 0:
             n = 1
             for image in ctx.images:
                 if image is None:
                     continue
-                # don't append if it is an external url
-                # if image.startswith("http"):
-                # continue
                 if image in appended or image in self.pids[pid].images_appended:
                     continue
                 try:
-                    appended.append(image)
-                    html += self.body.get_image_html(image, n, c)
+                    appended.add(image)
+                    html_parts.append(self.body.get_image_html(image, n, c))
                     self.pids[pid].images_appended.append(image)
                     n += 1
                 except Exception as e:
                     pass
 
-        # files and attachments, TODO check attachments
         c = len(ctx.files)
         if c > 0:
             files_html = []
@@ -798,16 +767,15 @@ class Renderer(BaseRenderer):
                 if file in appended or file in self.pids[pid].files_appended:
                     continue
                 try:
-                    appended.append(file)
+                    appended.add(file)
                     files_html.append(self.body.get_file_html(file, n, c))
                     self.pids[pid].files_appended.append(file)
                     n += 1
                 except Exception as e:
                     pass
             if files_html:
-                html += "<br/>" + "<br/>".join(files_html)
+                html_parts.append("<br/><br/>".join(files_html))
 
-        # urls
         c = len(ctx.urls)
         if c > 0:
             urls_html = []
@@ -816,32 +784,33 @@ class Renderer(BaseRenderer):
                 if url in appended or url in self.pids[pid].urls_appended:
                     continue
                 try:
-                    appended.append(url)
+                    appended.add(url)
                     urls_html.append(self.body.get_url_html(url, n, c))
                     self.pids[pid].urls_appended.append(url)
                     n += 1
                 except Exception as e:
                     pass
             if urls_html:
-                html += "<br/>" + "<br/>".join(urls_html)
+                html_parts.append("<br/><br/>".join(urls_html))
 
-        # docs json
         if self.window.core.config.get('ctx.sources'):
             if ctx.doc_ids is not None and len(ctx.doc_ids) > 0:
                 try:
                     docs = self.body.get_docs_html(ctx.doc_ids)
-                    html += docs
+                    html_parts.append(docs)
                 except Exception as e:
                     pass
-        # flush
+
+        html = "".join(html_parts)
         if render and html != "":
             if footer:
-                # append to output
                 self.append(pid, html)
             else:
-                # append to existing message box using JS
                 escaped_html = json.dumps(html)
-                self.get_output_node(meta).page().runJavaScript("appendExtra('{}',{});".format(ctx.id, escaped_html))
+                try:
+                    self.get_output_node(meta).page().runJavaScript(f"appendExtra('{ctx.id}',{escaped_html});")
+                except Exception as e:
+                    pass
 
         return html
 
@@ -868,7 +837,7 @@ class Renderer(BaseRenderer):
             if timestamp is not None:
                 ts = datetime.fromtimestamp(timestamp)
                 hour = ts.strftime("%H:%M:%S")
-                text = '<span class="ts">{}: </span>{}'.format(hour, text)
+                text = f'<span class="ts">{hour}: </span>{text}'
         return text
 
     def reset(
@@ -881,16 +850,13 @@ class Renderer(BaseRenderer):
         :param meta: Context meta
         """
         pid = self.get_pid(meta)
-        if pid is not None and pid in self.pids:  # in PIDs only if at least one ctx item is appended
+        if pid is not None and pid in self.pids:
             self.reset_by_pid(pid)
         else:
-            # there is no pid here if empty context so check for meta, and clear current
             if meta is not None:
-                # create new PID using only meta
                 pid = self.get_or_create_pid(meta)
                 self.reset_by_pid(pid)
 
-        # clear live output
         self.clear_live(meta, CtxItem())
 
     def reset_by_pid(self, pid: Optional[int]):
@@ -907,7 +873,9 @@ class Renderer(BaseRenderer):
         self.pids[pid].images_appended = []
         self.pids[pid].urls_appended = []
         self.pids[pid].files_appended = []
-        self.get_output_node_by_pid(pid).reset_current_content()
+        node = self.get_output_node_by_pid(pid)
+        if node is not None:
+            node.reset_current_content()
         self.reset_names_by_pid(pid)
         self.prev_chunk_replace = False
 
@@ -950,8 +918,7 @@ class Renderer(BaseRenderer):
         if pid is None:
             return
         if not self.pids[pid].loaded:
-            js = "var element = document.getElementById('_append_input_');"
-            js += "if (element) { element.innerHTML = ''; }"
+            js = "var element = document.getElementById('_append_input_');if (element) { element.innerHTML = ''; }"
         else:
             js = "clearInput();"
         try:
@@ -970,8 +937,7 @@ class Renderer(BaseRenderer):
         """
         self.prev_chunk_replace = False
         if not self.pids[pid].loaded:
-            js = "var element = document.getElementById('_append_output_');"
-            js += "if (element) { element.innerHTML = ''; }"
+            js = "var element = document.getElementById('_append_output_');if (element) { element.innerHTML = ''; }"
         else:
             js = "clearOutput();"
         try:
@@ -989,8 +955,7 @@ class Renderer(BaseRenderer):
         :pid: context PID
         """
         if not self.pids[pid].loaded:
-            js = "var element = document.getElementById('_nodes_');"
-            js += "if (element) { element.innerHTML = ''; }"
+            js = "var element = document.getElementById('_nodes_');if (element) { element.innerHTML = ''; }"
         else:
             js = "clearNodes();"
         try:
@@ -1060,7 +1025,7 @@ class Renderer(BaseRenderer):
             self.helpers.format_user_text(html),
             type=self.NODE_INPUT
         )
-        html = "<p>" + content + "</p>"
+        html = f"<p>{content}</p>"
         html = self.helpers.post_format_text(html)
         name = self.pids[pid].name_user
 
@@ -1069,7 +1034,6 @@ class Renderer(BaseRenderer):
         if type(ctx.extra) is dict and "agent_evaluate" in ctx.extra:
             name = trans("msg.name.evaluation")
 
-        # debug
         debug = ""
         if self.is_debug():
             debug = self.append_debug(ctx, pid, "input")
@@ -1080,21 +1044,14 @@ class Renderer(BaseRenderer):
             extra = ctx.extra["footer"]
             extra_style = "display:block;"
         html = (
-            '<div class="msg-box msg-user" id="{msg_id}">'
-            '<div class="name-header name-user">{name}</div>'
-            '<div class="msg">'
-            '{html}'
-            '<div class="msg-extra" style="{extra_style}">{extra}</div>'
-            '{debug}'
-            '</div>'
-            '</div>'
-        ).format(
-            msg_id=msg_id,
-            name=name,
-            html=html,
-            extra=extra,
-            extra_style=extra_style,
-            debug=debug,
+            f'<div class="msg-box msg-user" id="{msg_id}">'
+            f'<div class="name-header name-user">{name}</div>'
+            f'<div class="msg">'
+            f'{html}'
+            f'<div class="msg-extra" style="{extra_style}">{extra}</div>'
+            f'{debug}'
+            f'</div>'
+            f'</div>'
         )
 
         return html
@@ -1117,17 +1074,13 @@ class Renderer(BaseRenderer):
         :param next_ctx: next context item
         :return: prepared HTML
         """
-        is_cmd = False
-        if (
-                next_ctx is not None and
-                next_ctx.internal and
-                (len(ctx.cmds) > 0 or (ctx.extra_ctx is not None and len(ctx.extra_ctx) > 0))
-        ):
-            is_cmd = True
+        is_cmd = (
+            next_ctx is not None and
+            next_ctx.internal and
+            (len(ctx.cmds) > 0 or (ctx.extra_ctx is not None and len(ctx.extra_ctx) > 0))
+        )
         pid = self.get_or_create_pid(meta)
-        msg_id = "msg-bot-" + str(ctx.id) if ctx is not None else ""
-        # if is_cmd:
-        # html = self.helpers.format_cmd_text(html)
+        msg_id = f"msg-bot-{ctx.id}" if ctx is not None else ""
         html = self.helpers.pre_format_text(html)
         html = self.parser.parse(html)
         html = self.append_timestamp(ctx, html, type=self.NODE_OUTPUT)
@@ -1135,68 +1088,44 @@ class Renderer(BaseRenderer):
         extra = self.append_extra(meta, ctx, footer=True, render=False)
         footer = self.body.prepare_action_icons(ctx)
 
-        # append tool output
         tool_output = ""
         spinner = ""
-        icon = os.path.join(
-            self.window.core.config.get_app_path(),
-            "data", "icons", "expand.svg"
-        )
         output_class = "display:none"
-        cmd_icon = (
-            '<img src="file://{}" width="25" height="25" valign="middle">'
-            .format(icon)
-        )
+        cmd_icon = f'<img src="{self._file_prefix}{self._icon_expand}" width="25" height="25" valign="middle">'
         expand_btn = (
-            "<span class='toggle-cmd-output' onclick='toggleToolOutput({});' title='{}' "
-            "role='button'>{}</span>"
-            .format(str(ctx.id), trans('action.cmd.expand'), cmd_icon)
+            f"<span class='toggle-cmd-output' onclick='toggleToolOutput({ctx.id});' title='{trans('action.cmd.expand')}' "
+            f"role='button'>{cmd_icon}</span>"
         )
 
-        # check if next ctx is internal and current ctx has commands
         if is_cmd:
-            # first, check current input if agent step and results
             if ctx.results is not None and len(ctx.results) > 0 \
                     and isinstance(ctx.extra, dict) and "agent_step" in ctx.extra:
                 tool_output = self.helpers.format_cmd_text(str(ctx.input))
-                output_class = ""  # show tool output
+                output_class = ""
             else:
-                # get output from next input (JSON response)
                 tool_output = self.helpers.format_cmd_text(str(next_ctx.input))
-                output_class = ""  # show tool output
+                output_class = ""
 
-        # check if agent step and results in current ctx
         elif ctx.results is not None and len(ctx.results) > 0 \
                 and isinstance(ctx.extra, dict) and "agent_step" in ctx.extra:
             tool_output = self.helpers.format_cmd_text(str(ctx.input))
         else:
-            # loading spinner
-            if (
-                    next_ctx is None and
-                    (
-                            ctx.output.startswith("<tool>{\"cmd\"") or
-                            ctx.output.strip().endswith("}</tool>") or
-                            ctx.output.startswith("&lt;tool&gt;{\"cmd\"") or
-                            ctx.output.strip().endswith("}&lt;/tool&gt;") or
-                            len(ctx.cmds) > 0
-                    )
+            out = (getattr(ctx, "output", "") or "")
+            cmds = getattr(ctx, "cmds", ())
+            if next_ctx is None and (
+                    cmds
+                    or out.startswith(('<tool>{"cmd"', '&lt;tool&gt;{"cmd"'))
+                    or out.rstrip().endswith(('}</tool>', '}&lt;/tool&gt;'))
             ):
-                spinner_class = "display:none"  # hide by default
-                if ctx.live:
-                    spinner_class = ""  # show spinner only if commands and active run
-                icon = os.path.join(
-                    self.window.core.config.get_app_path(),
-                    "data", "icons", "sync.svg"
-                )
+                spinner_class = "" if ctx.live else "display:none"
                 spinner = (
-                    '<span class="spinner" style="{}">'
-                    '<img src="file://{}" width="30" height="30" '
-                    'class="loading"></span>'
-                    .format(spinner_class, icon)
+                    f'<span class="spinner" style="{spinner_class}">'
+                    f'<img src="{self._file_prefix}{self._icon_sync}" width="30" height="30" '
+                    f'class="loading"></span>'
                 )
 
         html_tools = (
-                '<div class="tool-output" style="{}">'.format(output_class) +
+                f'<div class="tool-output" style="{output_class}">' +
                 expand_btn +
                 '<div class="content" style="display:none">' +
                 tool_output +
@@ -1204,33 +1133,24 @@ class Renderer(BaseRenderer):
         )
         tool_extra = self.body.prepare_tool_extra(ctx)
 
-        # debug
         debug = ""
         if self.is_debug():
             debug = self.append_debug(ctx, pid, "output")
 
         name_header = self.get_name_header(ctx)
         html = (
-                '<div class="msg-box msg-bot" id="{msg_id}">'
-                + name_header +
-                '<div class="msg">'
-                '{html}'
-                '<div class="msg-tool-extra">{tool_extra}</div>'
-                '{html_tools}'
-                '<div class="msg-extra">{extra}</div>'
-                '{footer}'
-                '{debug}'
+                f'<div class="msg-box msg-bot" id="{msg_id}">' +
+                name_header +
+                '<div class="msg">' +
+                f'{html}' +
+                f'{spinner}' +
+                f'<div class="msg-tool-extra">{tool_extra}</div>' +
+                f'{html_tools}' +
+                f'<div class="msg-extra">{extra}</div>' +
+                f'{footer}' +
+                f'{debug}' +
+                '</div>' +
                 '</div>'
-                '</div>'
-        ).format(
-            msg_id=msg_id,
-            name_bot=self.pids[pid].name_bot,
-            html=html,
-            html_tools=html_tools,
-            extra=extra,
-            footer=footer,
-            tool_extra=tool_extra,
-            debug=debug,
         )
 
         return html
@@ -1263,15 +1183,11 @@ class Renderer(BaseRenderer):
             avatars_dir = os.path.join(presets_dir, "avatars")
             avatar_path = os.path.join(avatars_dir, preset.ai_avatar)
             if os.path.exists(avatar_path):
-                if self.window.core.platforms.is_windows():
-                    prefix = 'file:///'
-                else:
-                    prefix = 'file://'
-                avatar_html = "<img src=\"" + prefix + avatar_path + "\" class=\"avatar\"> "
+                avatar_html = f"<img src=\"{self._file_prefix}{avatar_path}\" class=\"avatar\"> "
 
         if not output_name and not avatar_html:
             return ""
-        return "<div class=\"name-header name-bot\">" + avatar_html + output_name + "</div>"
+        return f"<div class=\"name-header name-bot\">{avatar_html}{output_name}</div>"
 
     def flush_output(
             self,
@@ -1288,13 +1204,12 @@ class Renderer(BaseRenderer):
         try:
             node = self.get_output_node_by_pid(pid)
             node.page().runJavaScript(f"if (typeof window.appendNode !== 'undefined') appendNode({escaped_html});")
-            node.update_current_content()
         except Exception as e:
             pass
 
     def reload(self):
         """Reload output, called externally only on theme change to redraw content"""
-        self.window.controller.ctx.refresh_output()  # if clear all and appends all items again
+        self.window.controller.ctx.refresh_output()
 
     def flush(
             self,
@@ -1307,11 +1222,12 @@ class Renderer(BaseRenderer):
         :param pid: context PID
         """
         if self.pids[pid].loaded:
-            return  # wait for page load
+            return
 
         html = self.body.get_html(pid)
-        self.pids[pid].document = html
-        self.get_output_node_by_pid(pid).setHtml(html, baseUrl="file://")
+        node = self.get_output_node_by_pid(pid)
+        if node is not None:
+            node.setHtml(html, baseUrl="file://")
 
     def fresh(
             self,
@@ -1327,10 +1243,14 @@ class Renderer(BaseRenderer):
             return
         html = self.body.get_html(pid)
         self.pids[pid].loaded = False
-        self.pids[pid].document = html
         node = self.get_output_node_by_pid(pid)
-        node.resetPage()
-        node.setHtml(html, baseUrl="file://")
+        if node is not None:
+            # hard reset
+            # old_view = node
+            # new_view = old_view.hard_reset()
+            # self.window.ui.nodes['output'][pid] = new_view
+            node.resetPage()
+            node.setHtml(html, baseUrl="file://")
 
     def get_output_node(
             self,
@@ -1364,23 +1284,6 @@ class Renderer(BaseRenderer):
         """
         return self.window.ui.nodes['input']
 
-    def get_document(
-            self,
-            plain: bool = False
-    ):
-        """
-        Get document content (plain or HTML)
-
-        :param plain: True to convert to plain text
-        :return: document content
-        """
-        pid = self.window.core.ctx.container.get_active_pid()
-        if pid is None:
-            return ""
-        if plain:
-            return self.parser.to_plain_text(self.pids[pid].document.replace("<br>", "\n"))
-        return self.pids[pid].document
-
     def remove_item(self, ctx: CtxItem):
         """
         Remove item from output
@@ -1388,8 +1291,9 @@ class Renderer(BaseRenderer):
         :param ctx: context item
         """
         try:
+            _id = json.dumps(ctx.id)
             self.get_output_node(ctx.meta).page().runJavaScript(
-                "if (typeof window.removeNode !== 'undefined') removeNode({});".format(ctx.id))
+                f"if (typeof window.removeNode !== 'undefined') removeNode({_id});")
         except Exception as e:
             pass
 
@@ -1400,8 +1304,9 @@ class Renderer(BaseRenderer):
         :param ctx: context item
         """
         try:
+            _id = json.dumps(ctx.id)
             self.get_output_node(ctx.meta).page().runJavaScript(
-                "if (typeof window.removeNodesFromId !== 'undefined') removeNodesFromId({});".format(ctx.id))
+                f"if (typeof window.removeNodesFromId !== 'undefined') removeNodesFromId({_id});")
         except Exception as e:
             pass
 
@@ -1431,7 +1336,6 @@ class Renderer(BaseRenderer):
 
         :param ctx: context item
         """
-        # remove all items from ID
         self.remove_items_from(ctx)
 
     def on_edit_submit(self, ctx: CtxItem):
@@ -1440,7 +1344,6 @@ class Renderer(BaseRenderer):
 
         :param ctx: context item
         """
-        # remove all items from ID
         self.remove_items_from(ctx)
 
     def on_enable_edit(self, live: bool = True):
@@ -1564,12 +1467,12 @@ class Renderer(BaseRenderer):
                 for node in nodes:
                     try:
                         node.page().runJavaScript(
-                            "if (typeof window.updateCSS !== 'undefined') updateCSS({});".format(to_json))
+                            f"if (typeof window.updateCSS !== 'undefined') updateCSS({to_json});")
                         if self.window.core.config.get('render.blocks'):
                             node.page().runJavaScript("if (typeof window.enableBlocks !== 'undefined') enableBlocks();")
                         else:
                             node.page().runJavaScript(
-                                "if (typeof window.disableBlocks !== 'undefined') disableBlocks();")  # TODO: ctx!!!!!
+                                "if (typeof window.disableBlocks !== 'undefined') disableBlocks();")
                     except Exception as e:
                         pass
                 return

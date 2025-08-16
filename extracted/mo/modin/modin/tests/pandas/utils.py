@@ -42,9 +42,11 @@ from pandas.core.dtypes.common import (
 import modin.pandas as pd
 from modin import set_execution
 from modin.config import (
+    Backend,
     Engine,
     MinColumnPartitionSize,
     MinRowPartitionSize,
+    NativePandasDeepCopy,
     NPartitions,
     RangePartitioning,
     StorageFormat,
@@ -304,6 +306,57 @@ join_type = {"left": "left", "right": "right", "inner": "inner", "outer": "outer
 join_type_keys = list(join_type.keys())
 join_type_values = list(join_type.values())
 
+
+UNIVERSAL_UNARY_NUMPY_FUNCTIONS_FOR_FLOATS = (
+    np.negative,
+    np.abs,
+    np.sin,
+    np.positive,
+    np.absolute,
+    np.fabs,
+    np.rint,
+    np.sign,
+    np.conj,
+    np.conjugate,
+    np.exp,
+    np.exp2,
+    np.log,
+    np.log2,
+    np.log10,
+    np.expm1,
+    np.log1p,
+    np.sqrt,
+    np.square,
+    np.cbrt,
+    np.reciprocal,
+    np.sin,
+    np.cos,
+    np.tan,
+    np.arcsin,
+    np.arccos,
+    np.arctan,
+    np.sinh,
+    np.cosh,
+    np.tanh,
+    np.arcsinh,
+    np.arccosh,
+    np.arctanh,
+    np.degrees,
+    np.radians,
+    np.deg2rad,
+    np.rad2deg,
+    np.logical_not,
+    np.isfinite,
+    np.isinf,
+    np.isnan,
+    np.fabs,
+    np.signbit,
+    np.spacing,
+    np.floor,
+    np.ceil,
+    np.trunc,
+)
+
 # Test functions for applymap
 test_func = {
     "plus one": lambda x: x + 1,
@@ -311,6 +364,7 @@ test_func = {
     "square": lambda x: x * x,
     "identity": lambda x: x,
     "return false": lambda x: False,
+    **{func.__name__: func for func in UNIVERSAL_UNARY_NUMPY_FUNCTIONS_FOR_FLOATS},
 }
 test_func_keys = list(test_func.keys())
 test_func_values = list(test_func.values())
@@ -1694,3 +1748,12 @@ def switch_execution(engine: str, storage_format: str):
         yield
     finally:
         set_execution(old_engine, old_storage)
+
+
+def is_native_shallow_copy() -> bool:
+    """Return if the current configuration uses native pandas execution and performs shallow copies."""
+    return (
+        Backend.get() == "Pandas"
+        and not NativePandasDeepCopy.get()
+        and not pandas.get_option("mode.copy_on_write")
+    )

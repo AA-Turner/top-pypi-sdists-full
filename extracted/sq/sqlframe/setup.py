@@ -20,7 +20,7 @@ setup(
     python_requires=">=3.9",
     install_requires=[
         "prettytable<4",
-        "sqlglot>=24.0.0,<27.7",
+        "sqlglot>=24.0.0,<27.8",
         "typing_extensions",
     ],
     extras_require={
@@ -71,7 +71,7 @@ setup(
             "redshift_connector>=2.1.1,<2.2.0",
         ],
         "snowflake": [
-            "snowflake-connector-python[secure-local-storage]>=3.10.0,<3.17",
+            "snowflake-connector-python[secure-local-storage]>=3.10.0,<3.18",
         ],
         "spark": [
             "pyspark>=2,<3.6",

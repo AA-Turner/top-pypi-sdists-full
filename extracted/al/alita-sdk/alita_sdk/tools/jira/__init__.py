@@ -20,15 +20,15 @@ def get_tools(tool):
         jira_configuration=tool['settings']['jira_configuration'],
         limit=tool['settings'].get('limit', 5),
         labels=parse_list(tool['settings'].get('labels', [])),
+        custom_headers=tool['settings'].get('custom_headers', {}),
         additional_fields=tool['settings'].get('additional_fields', []),
         verify_ssl=tool['settings'].get('verify_ssl', True),
         # indexer settings
         llm=tool['settings'].get('llm', None),
         alita=tool['settings'].get('alita', None),
         pgvector_configuration=tool['settings'].get('pgvector_configuration', {}),
+        embedding_configuration=tool['settings'].get('embedding_configuration', {}),
         collection_name=str(tool['toolkit_name']),
-        embedding_model="HuggingFaceEmbeddings",
-        embedding_model_params={"model_name": "sentence-transformers/all-MiniLM-L6-v2"},
         vectorstore_type="PGVector",
         toolkit_name=tool.get('toolkit_name')
     ).get_tools()
@@ -45,10 +45,11 @@ class JiraToolkit(BaseToolkit):
 
         @check_connection_response
         def check_connection(self):
-            url = self.base_url.rstrip('/') + '/rest/api/2/myself'
+            jira_config = self.jira_configuration or {}
+            base_url = jira_config.get('base_url', '')
+            url = base_url.rstrip('/') + '/rest/api/2/myself'
             headers = {'Accept': 'application/json'}
             auth = None
-            jira_config = self.jira_configuration or {}
             token = jira_config.get('token')
             username = jira_config.get('username')
             api_key = jira_config.get('api_key')
@@ -64,30 +65,21 @@ class JiraToolkit(BaseToolkit):
 
         model = create_model(
             name,
-            base_url=(
-                str,
-                Field(
-                    description="Jira URL",
-                    json_schema_extra={
-                        'max_toolkit_length': JiraToolkit.toolkit_max_length,
-                        'configuration': True,
-                        'configuration_title': True
-                    }
-                )
-            ),
             cloud=(bool, Field(description="Hosting Option", json_schema_extra={'configuration': True})),
-            limit=(int, Field(description="Limit issues")),
+            limit=(int, Field(description="Limit issues. Default is 5", gt=0, default=5)),
             labels=(Optional[str], Field(
                 description="List of comma separated labels used for labeling of agent's created or updated entities",
                 default=None,
                 examples="alita,elitea;another-label"
             )),
+            # optional field for custom headers as dictionary
+            custom_headers=(Optional[dict], Field(description="Custom headers for API requests", default=None)),
             verify_ssl=(bool, Field(description="Verify SSL", default=True)),
             additional_fields=(Optional[str], Field(description="Additional fields", default="")),
             jira_configuration=(Optional[JiraConfiguration], Field(description="Jira Configuration", json_schema_extra={'configuration_types': ['jira']})),
             pgvector_configuration=(Optional[PgVectorConfiguration], Field(description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
             # embedder settings
-            embedding_configuration=(Optional[EmbeddingConfiguration], Field(description="Embedding configuration.",
+            embedding_configuration=(Optional[EmbeddingConfiguration], Field(default=None, description="Embedding configuration.",
                                                                              json_schema_extra={'configuration_types': [
                                                                                  'embedding']})),
 
@@ -96,21 +88,6 @@ class JiraToolkit(BaseToolkit):
                 'metadata': {
                     "label": "Jira",
                     "icon_url": "jira-icon.svg",
-                    "sections": {
-                        "auth": {
-                            "required": True,
-                            "subsections": [
-                                {
-                                    "name": "Bearer",
-                                    "fields": ["token"]
-                                },
-                                {
-                                    "name": "Basic",
-                                    "fields": ["username", "api_key"]
-                                }
-                            ]
-                        }
-                    },
                     "categories": ["project management"],
                     "extra_categories": ["jira", "atlassian", "issue tracking", "project management", "task management"],
                 }
@@ -128,6 +105,7 @@ class JiraToolkit(BaseToolkit):
             # TODO use jira_configuration fields
             **kwargs['jira_configuration'],
             **(kwargs.get('pgvector_configuration') or {}),
+            **(kwargs.get('embedding_configuration') or {}),
         }
         jira_api_wrapper = JiraApiWrapper(**wrapper_payload)
         prefix = clean_string(toolkit_name, cls.toolkit_max_length) + TOOLKIT_SPLITTER if toolkit_name else ''

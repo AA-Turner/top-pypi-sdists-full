@@ -1,9 +1,10 @@
 import pytest
-from datadoc_model.model import (
+from pydantic import ValidationError
+
+from datadoc_model.all_optional.model import (
     DatadocMetadata,
     MetadataContainer,
 )
-from pydantic import ValidationError
 
 
 def test_instantiate_no_values_container():

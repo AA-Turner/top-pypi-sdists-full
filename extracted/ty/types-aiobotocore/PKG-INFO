@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore
-Version: 2.24.0
-Summary: Type annotations for aiobotocore 2.24.0 generated with mypy-boto3-builder 8.11.0
+Version: 2.24.1
+Summary: Type annotations for aiobotocore 2.24.1 generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -35,7 +35,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-aiobotocore-full<2.25.0,>=2.24.0; extra == "full"
 Provides-Extra: aiobotocore
-Requires-Dist: aiobotocore==2.24.0; extra == "aiobotocore"
+Requires-Dist: aiobotocore==2.24.1; extra == "aiobotocore"
 Provides-Extra: all
 Requires-Dist: types-aiobotocore-accessanalyzer<2.25.0,>=2.24.0; extra == "all"
 Requires-Dist: types-aiobotocore-account<2.25.0,>=2.24.0; extra == "all"
@@ -1308,7 +1308,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore 2.24.0](https://pypi.org/project/aiobotocore/) compatible with
+[aiobotocore 2.24.1](https://pypi.org/project/aiobotocore/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1364,7 +1364,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==2.24.0' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==2.24.1' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.

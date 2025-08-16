@@ -28,8 +28,7 @@ def get_tools(tool):
         pgvector_configuration=tool['settings'].get('pgvector_configuration', {}),
         collection_name=str(tool['toolkit_name']),
         doctype='code',
-        embedding_model="HuggingFaceEmbeddings",
-        embedding_model_params={"model_name": "sentence-transformers/all-MiniLM-L6-v2"},
+        embedding_configuration=tool['settings'].get('embedding_configuration', {}),
         vectorstore_type="PGVector",
         toolkit_name=tool.get('toolkit_name')
     ).get_tools()
@@ -45,14 +44,13 @@ class AlitaGitlabToolkit(BaseToolkit):
         AlitaGitlabToolkit.toolkit_max_length = get_max_toolkit_length(selected_tools)
         return create_model(
             name,
-            url=(str, Field(description="GitLab URL", json_schema_extra={'configuration': True, 'configuration_title': True})),
             repository=(str, Field(description="GitLab repository", json_schema_extra={'toolkit_name': True, 'max_toolkit_length': AlitaGitlabToolkit.toolkit_max_length})),
             gitlab_configuration=(Optional[GitlabConfiguration], Field(description="GitLab configuration", json_schema_extra={'configuration_types': ['gitlab']})),
             branch=(str, Field(description="Main branch", default="main")),
             # indexer settings
             pgvector_configuration=(Optional[PgVectorConfiguration], Field(description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
             # embedder settings
-            embedding_configuration=(Optional[EmbeddingConfiguration], Field(description="Embedding configuration.",
+            embedding_configuration=(Optional[EmbeddingConfiguration], Field(default=None, description="Embedding configuration.",
                                                                              json_schema_extra={'configuration_types': [
                                                                                  'embedding']})),
             selected_tools=(List[Literal[tuple(selected_tools)]], Field(default=[], json_schema_extra={'args_schemas': selected_tools})),
@@ -86,6 +84,7 @@ class AlitaGitlabToolkit(BaseToolkit):
             # TODO use gitlab_configuration fields
             **kwargs['gitlab_configuration'],
             **(kwargs.get('pgvector_configuration') or {}),
+            **(kwargs.get('embedding_configuration') or {}),
         }
         gitlab_api_wrapper = GitLabAPIWrapper(**wrapper_payload)
         prefix = clean_string(toolkit_name, cls.toolkit_max_length) + TOOLKIT_SPLITTER if toolkit_name else ''

@@ -5,6 +5,11 @@ from enum import Enum
 
 from arelle.ModelValue import qname
 
+class AccountingStandard(Enum):
+    IFRS = 'IFRS'
+    JAPAN_GAAP = 'Japan GAAP'
+    US_GAAP = 'US GAAP'
+
 class FormType(Enum):
     FORM_2_4 = '第二号の四様式'
     FORM_2_7 = '第二号の七様式'
@@ -22,3 +27,4 @@ qnEdinetManifestIxbrl = qname("{http://disclosure.edinet-fsa.go.jp/2013/manifest
 qnEdinetManifestList = qname("{http://disclosure.edinet-fsa.go.jp/2013/manifest}list")
 qnEdinetManifestTitle = qname("{http://disclosure.edinet-fsa.go.jp/2013/manifest}title")
 qnEdinetManifestTocComposition = qname("{http://disclosure.edinet-fsa.go.jp/2013/manifest}tocComposition")
+xhtmlDtdExtension = "xhtml1-strict-ix.dtd"

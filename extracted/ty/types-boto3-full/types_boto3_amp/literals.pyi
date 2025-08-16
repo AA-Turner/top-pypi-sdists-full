@@ -41,6 +41,7 @@ __all__ = (
     "WorkspaceActiveWaiterName",
     "WorkspaceConfigurationStatusCodeType",
     "WorkspaceDeletedWaiterName",
+    "WorkspacePolicyStatusCodeType",
     "WorkspaceStatusCodeType",
 )
 
@@ -73,6 +74,7 @@ ScraperStatusCodeType = Literal[
 WorkspaceActiveWaiterName = Literal["workspace_active"]
 WorkspaceConfigurationStatusCodeType = Literal["ACTIVE", "UPDATE_FAILED", "UPDATING"]
 WorkspaceDeletedWaiterName = Literal["workspace_deleted"]
+WorkspacePolicyStatusCodeType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 WorkspaceStatusCodeType = Literal["ACTIVE", "CREATING", "CREATION_FAILED", "DELETING", "UPDATING"]
 PrometheusServiceServiceName = Literal["amp"]
 ServiceName = Literal[

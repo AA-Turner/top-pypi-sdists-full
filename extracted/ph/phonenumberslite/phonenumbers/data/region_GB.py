@@ -13,7 +13,7 @@ PHONE_METADATA_GB = PhoneMetadata(id='GB', country_code=44, international_prefix
     uan=PhoneNumberDesc(national_number_pattern='(?:3[0347]|55)\\d{8}', example_number='5512345678', possible_length=(10,)),
     national_prefix='0',
     preferred_extn_prefix=' x',
-    national_prefix_for_parsing='0',
+    national_prefix_for_parsing='0|180020',
     number_format=[NumberFormat(pattern='(\\d{3})(\\d{4})', format='\\1 \\2', leading_digits_pattern=['800', '8001', '80011', '800111', '8001111'], national_prefix_formatting_rule='0\\1'),
         NumberFormat(pattern='(\\d{3})(\\d{2})(\\d{2})', format='\\1 \\2 \\3', leading_digits_pattern=['845', '8454', '84546', '845464'], national_prefix_formatting_rule='0\\1'),
         NumberFormat(pattern='(\\d{3})(\\d{6})', format='\\1 \\2', leading_digits_pattern=['800'], national_prefix_formatting_rule='0\\1'),

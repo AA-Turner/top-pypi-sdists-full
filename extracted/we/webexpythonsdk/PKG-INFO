@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: webexpythonsdk
-Version: 2.0.4
+Version: 2.0.5
 Summary: Work with the Webex APIs in native Python!
 License: MIT
 Keywords: cisco,webex,api,sdk,python

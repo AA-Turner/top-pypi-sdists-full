@@ -17,7 +17,8 @@ dependencies_check(
         "scikit-image",
         "python-snappy",
         "pyyaml",
-        "easyocr",
+        "imagehash",
+        "easyocr"
     ]
 )
 
@@ -28,7 +29,6 @@ from matrice.deploy.server.server import MatriceDeployServer  # noqa: E402
 from matrice.deploy.server.server import MatriceDeployServer as MatriceDeploy  # noqa: E402 # Keep this for backwards compatibility
 from matrice.deploy.server.inference.inference_interface import InferenceInterface  # noqa: E402
 from matrice.deploy.server.proxy.proxy_interface import MatriceProxyInterface  # noqa: E402
-from matrice.deploy.server.stream_worker import StreamWorker, StreamWorkerManager  # noqa: E402
 from matrice.deploy.client import MatriceDeployClient  # noqa: E402
 
 __all__ = [
@@ -36,7 +36,5 @@ __all__ = [
     "MatriceDeployServer",
     "InferenceInterface",
     "MatriceProxyInterface",
-    "MatriceDeployClient",
-    "StreamWorker",
-    "StreamWorkerManager",
+    "MatriceDeployClient"
 ]

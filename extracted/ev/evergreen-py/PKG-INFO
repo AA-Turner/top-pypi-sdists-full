@@ -1,11 +1,11 @@
 Metadata-Version: 2.3
 Name: evergreen.py
-Version: 3.13.0
+Version: 3.13.1
 Summary: Python client for the Evergreen API
 License: Apache-2.0
 Author: DevProd Services & Integrations Team
 Author-email: devprod-si-team@mongodb.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.9,<3.14
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -82,7 +82,7 @@ Please include the following:
 
 ## Dependencies
 
-- Python 3.9 or later
+- Python 3.9-3.13
 
 ## Installation
 

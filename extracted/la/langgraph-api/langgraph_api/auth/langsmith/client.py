@@ -14,7 +14,7 @@ from langgraph_api.config import LANGSMITH_AUTH_ENDPOINT
 _client: "JsonHttpClient"
 
 
-def is_retriable_error(exception: Exception) -> bool:
+def is_retriable_error(exception: BaseException) -> bool:
     if isinstance(exception, httpx.TransportError):
         return True
     if isinstance(exception, httpx.HTTPStatusError):

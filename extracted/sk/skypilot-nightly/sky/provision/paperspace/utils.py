@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from sky import sky_logging
 from sky.adaptors import common as adaptors_common
-from sky.provision.paperspace import constants
+import sky.provision.paperspace.constants as constants
 from sky.utils import common_utils
 
 if typing.TYPE_CHECKING:

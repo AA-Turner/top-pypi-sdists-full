@@ -1,34 +1,34 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: signify
-Version: 0.7.1
+Version: 0.8.0
 Summary: Module to generate and verify PE signatures
-Home-page: https://github.com/ralphje/signify
-Download-URL: https://github.com/ralphje/signify/tarball/v0.7.1
-Author: Ralph Broenink
-Author-email: ralph@ralphbroenink.net
-License: MIT
+Author-email: Ralph Broenink <ralph@ralphbroenink.net>
+License-Expression: MIT
+Project-URL: Documentation, http://signify.readthedocs.io/en/latest/
+Project-URL: Repository, https://github.com/ralphje/signify
+Project-URL: Changelog, https://signify.readthedocs.io/en/latest/changelog.html
 Keywords: authenticode,authentihash,fingerprinter,pe
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Legal Industry
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: System :: Software Distribution
 Classifier: Topic :: Utilities
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: certvalidator>=0.11
 Requires-Dist: asn1crypto<2,>=1.3
 Requires-Dist: oscrypto<2,>=1.1
 Requires-Dist: mscerts
 Requires-Dist: typing_extensions>=4.6.0
+Provides-Extra: msi
+Requires-Dist: olefile; extra == "msi"
+Dynamic: license-file
 
 Signify
 =======
@@ -46,13 +46,17 @@ This module is a forked from Google's ``verify_sigs`` module, updated to fit
 modern Python standards and be compatible with Python 3. It is **not** a drop-in
 replacement, as significant changes have occurred.
 
-This module is compatible with Python 3.8+ and does not support Python 2.
+This module is compatible with Python 3.9+.
 
 Installation
 ------------
 Installation is very simple::
 
     pip install signify
+
+MSI file support requires::
+
+    pip install signify[msi]
 
 Documentation
 -------------

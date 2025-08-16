@@ -46,6 +46,7 @@ from .type_defs import (
     DeleteAlertManagerDefinitionRequestTypeDef,
     DeleteLoggingConfigurationRequestTypeDef,
     DeleteQueryLoggingConfigurationRequestTypeDef,
+    DeleteResourcePolicyRequestTypeDef,
     DeleteRuleGroupsNamespaceRequestTypeDef,
     DeleteScraperRequestTypeDef,
     DeleteScraperResponseTypeDef,
@@ -56,6 +57,8 @@ from .type_defs import (
     DescribeLoggingConfigurationResponseTypeDef,
     DescribeQueryLoggingConfigurationRequestTypeDef,
     DescribeQueryLoggingConfigurationResponseTypeDef,
+    DescribeResourcePolicyRequestTypeDef,
+    DescribeResourcePolicyResponseTypeDef,
     DescribeRuleGroupsNamespaceRequestTypeDef,
     DescribeRuleGroupsNamespaceResponseTypeDef,
     DescribeScraperRequestTypeDef,
@@ -76,6 +79,8 @@ from .type_defs import (
     ListWorkspacesResponseTypeDef,
     PutAlertManagerDefinitionRequestTypeDef,
     PutAlertManagerDefinitionResponseTypeDef,
+    PutResourcePolicyRequestTypeDef,
+    PutResourcePolicyResponseTypeDef,
     PutRuleGroupsNamespaceRequestTypeDef,
     PutRuleGroupsNamespaceResponseTypeDef,
     TagResourceRequestTypeDef,
@@ -251,6 +256,17 @@ class PrometheusServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amp/client/#delete_query_logging_configuration)
         """
 
+    def delete_resource_policy(
+        self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the resource-based policy attached to an Amazon Managed Service for
+        Prometheus workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/delete_resource_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amp/client/#delete_resource_policy)
+        """
+
     def delete_rule_groups_namespace(
         self, **kwargs: Unpack[DeleteRuleGroupsNamespaceRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -313,6 +329,17 @@ class PrometheusServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/describe_query_logging_configuration.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amp/client/#describe_query_logging_configuration)
+        """
+
+    def describe_resource_policy(
+        self, **kwargs: Unpack[DescribeResourcePolicyRequestTypeDef]
+    ) -> DescribeResourcePolicyResponseTypeDef:
+        """
+        Returns information about the resource-based policy attached to an Amazon
+        Managed Service for Prometheus workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/describe_resource_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amp/client/#describe_resource_policy)
         """
 
     def describe_rule_groups_namespace(
@@ -416,6 +443,17 @@ class PrometheusServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/put_alert_manager_definition.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amp/client/#put_alert_manager_definition)
+        """
+
+    def put_resource_policy(
+        self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
+    ) -> PutResourcePolicyResponseTypeDef:
+        """
+        Creates or updates a resource-based policy for an Amazon Managed Service for
+        Prometheus workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/client/put_resource_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_amp/client/#put_resource_policy)
         """
 
     def put_rule_groups_namespace(

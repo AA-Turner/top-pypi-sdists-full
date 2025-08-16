@@ -76,7 +76,9 @@ Returns
 
 Notes
 -----
-This method will
+This method will attempt to use the starting and new backend's move_from or move_to
+methods if the backends implement them. Otherwise, it will
+
     1) convert the data in this ``{class_name}`` to a pandas DataFrame in this
        Python process
     2) load the data from pandas to the new backend.
@@ -99,10 +101,10 @@ def cast_function_modin2pandas(func):
     -------
     object
     """
-    if callable(func):
-        if func.__module__ == "modin.pandas.series":
+    if callable(func) and (module := getattr(func, "__module__", None)) is not None:
+        if module == "modin.pandas.series":
             func = getattr(pandas.Series, func.__name__)
-        elif func.__module__ in ("modin.pandas.dataframe", "modin.pandas.base"):
+        elif module in ("modin.pandas.dataframe", "modin.pandas.base"):
             # FIXME: when the method is defined in `modin.pandas.base` file, then the
             # type cannot be determined, in general there may be an error, but at the
             # moment it is better.

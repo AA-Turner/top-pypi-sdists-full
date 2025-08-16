@@ -18,12 +18,12 @@ mod background;
 mod convertors;
 mod di;
 mod logging;
-mod performance;
 mod proxy;
 mod routing;
 mod templates;
-mod error;
 mod formparsers;
+mod event;
+mod responses;
 
 /// Velithon Rust Extensions
 /// High-performance Rust implementations for critical Velithon components
@@ -35,9 +35,6 @@ fn _velithon(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register convertor classes and functions
     convertors::register_convertors(m.py(), m)?;
     
-    // Register performance-related functions and classes
-    performance::register_performance(m.py(), m)?;
-
     // Register dependency injection related functions and classes
     di::register_di(m.py(), m)?;
 
@@ -55,6 +52,12 @@ fn _velithon(m: &Bound<'_, PyModule>) -> PyResult<()> {
     
     // Register form parsers for high-performance form parsing
     formparsers::register_formparsers(m.py(), m)?;
+
+    // Register event handling system
+    event::register_events(m.py(), m)?;
+
+    // Register response handling system
+    responses::register_responses(m.py(), m)?;
     
     Ok(())
 }

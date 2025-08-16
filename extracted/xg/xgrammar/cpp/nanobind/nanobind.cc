@@ -4,6 +4,7 @@
  */
 
 #include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/string.h>
@@ -15,12 +16,13 @@
 #include "../grammar_functor.h"
 #include "../json_schema_converter.h"
 #include "../regex_converter.h"
-#include "../support/recursion_guard.h"
 #include "../testing.h"
 #include "python_methods.h"
+#include "xgrammar/exception.h"
 
 namespace nb = nanobind;
-using namespace xgrammar;
+
+namespace xgrammar {
 
 std::vector<std::string> CommonEncodedVocabType(
     const nb::typed<nb::list, std::variant<std::string, nb::bytes>> encoded_vocab
@@ -39,6 +41,39 @@ std::vector<std::string> CommonEncodedVocabType(
   return encoded_vocab_strs;
 }
 
+bool GrammarMatcher_FillNextTokenBitmask(
+    GrammarMatcher& matcher, nb::ndarray<> arr, int32_t index, bool debug_print
+) {
+  if (arr.ndim() != 1 && arr.ndim() != 2) {
+    throw std::runtime_error("token_bitmask tensor must be 1D or 2D");
+  }
+
+  // 2. Device: ensure the tensor is on CPU
+  if (arr.device_type() != nb::device::cpu::value) {
+    throw std::runtime_error("token_bitmask array must be on CPU");
+  }
+
+  // 3. Data type: ensure 32-bit integers
+  if (arr.dtype() != nb::dtype<int32_t>()) {
+    throw std::runtime_error("token_bitmask array must be int32");
+  }
+
+  // Under the hood these are stored with the same standard (DLPack), but nanobind
+  // defines its own types, and doesn't expose a way to just get the object directly.
+  // We'll just do some pointer hackery to get there, rather than build the type back up manually:
+
+  // The data in an ndarray is defined as:
+  // detail::ndarray_handle* m_handle = nullptr;
+  // dlpack::dltensor m_dltensor;
+  // Assert this, then skip over m_handle and reinterpret m_dltensor.
+  static_assert(sizeof(arr) == sizeof(void*) + sizeof(nb::dlpack::dltensor));
+
+  DLTensor* bitmask_dltensor_ptr =
+      reinterpret_cast<::DLTensor*>(reinterpret_cast<char*>(&arr) + sizeof(void*));
+
+  return matcher.FillNextTokenBitmask(bitmask_dltensor_ptr, index, debug_print);
+}
+
 std::vector<nanobind::bytes> TokenizerInfo_GetDecodedVocab(const TokenizerInfo& tokenizer) {
   const auto& decoded_vocab = tokenizer.GetDecodedVocab();
   std::vector<nanobind::bytes> py_result;
@@ -49,7 +84,21 @@ std::vector<nanobind::bytes> TokenizerInfo_GetDecodedVocab(const TokenizerInfo& 
   return py_result;
 }
 
+template <typename T>
+static void RegisterRuntimeError(nb::module_& m, const char* name) {
+  // to avoid warning, cast to void
+  static_cast<void>(nb::exception<T>{m, name, PyExc_RuntimeError});
+}
+
+}  // namespace xgrammar
+
+using namespace xgrammar;
+
 NB_MODULE(xgrammar_bindings, m) {
+  RegisterRuntimeError<DeserializeFormatError>(m, "DeserializeFormatError");
+  RegisterRuntimeError<DeserializeVersionError>(m, "DeserializeVersionError");
+  RegisterRuntimeError<InvalidJSONError>(m, "InvalidJSONError");
+
   auto pyTokenizerInfo = nb::class_<TokenizerInfo>(m, "TokenizerInfo");
   pyTokenizerInfo
       .def(
@@ -92,13 +141,7 @@ NB_MODULE(xgrammar_bindings, m) {
       )
       .def_static("_detect_metadata_from_hf", &TokenizerInfo::DetectMetadataFromHF)
       .def("serialize_json", &TokenizerInfo::SerializeJSON)
-      .def_static(
-          "deserialize_json",
-          [](const std::string& str,
-             const nb::typed<nb::list, std::variant<std::string, nb::bytes>>& encoded_vocab) {
-            return TokenizerInfo::DeserializeJSON(str, CommonEncodedVocabType(encoded_vocab));
-          }
-      );
+      .def_static("deserialize_json", &TokenizerInfo_DeserializeJSON);
 
   auto pyGrammar = nb::class_<Grammar>(m, "Grammar");
   pyGrammar.def("to_string", &Grammar::ToString)
@@ -124,14 +167,14 @@ NB_MODULE(xgrammar_bindings, m) {
       .def_static("union", &Grammar::Union, nb::call_guard<nb::gil_scoped_release>())
       .def_static("concat", &Grammar::Concat, nb::call_guard<nb::gil_scoped_release>())
       .def("serialize_json", &Grammar::SerializeJSON)
-      .def_static("deserialize_json", &Grammar::DeserializeJSON);
+      .def_static("deserialize_json", &Grammar_DeserializeJSON);
 
   auto pyCompiledGrammar = nb::class_<CompiledGrammar>(m, "CompiledGrammar");
   pyCompiledGrammar.def_prop_ro("grammar", &CompiledGrammar::GetGrammar)
       .def_prop_ro("tokenizer_info", &CompiledGrammar::GetTokenizerInfo)
       .def_prop_ro("memory_size_bytes", &CompiledGrammar::MemorySizeBytes)
       .def("serialize_json", &CompiledGrammar::SerializeJSON)
-      .def_static("deserialize_json", &CompiledGrammar::DeserializeJSON);
+      .def_static("deserialize_json", &CompiledGrammar_DeserializeJSON);
 
   auto pyGrammarCompiler = nb::class_<GrammarCompiler>(m, "GrammarCompiler");
   pyGrammarCompiler.def(nb::init<const TokenizerInfo&, int, bool, long long>())
@@ -258,8 +301,10 @@ NB_MODULE(xgrammar_bindings, m) {
       &Kernels_ApplyTokenBitmaskInplaceCPU,
       nb::arg("logits_ptr"),
       nb::arg("logits_shape"),
+      nb::arg("logits_strides"),
       nb::arg("bitmask_ptr"),
       nb::arg("bitmask_shape"),
+      nb::arg("bitmask_strides"),
       nb::arg("vocab_size"),
       nb::arg("indices").none(),
       nb::call_guard<nb::gil_scoped_release>()
@@ -268,13 +313,14 @@ NB_MODULE(xgrammar_bindings, m) {
   auto pyConfigModule = m.def_submodule("config");
   pyConfigModule
       .def(
-          "set_max_recursion_depth",
-          &RecursionGuard::SetMaxRecursionDepth,
-          nb::call_guard<nb::gil_scoped_release>()
+          "set_max_recursion_depth", &SetMaxRecursionDepth, nb::call_guard<nb::gil_scoped_release>()
       )
       .def(
-          "get_max_recursion_depth",
-          &RecursionGuard::GetMaxRecursionDepth,
+          "get_max_recursion_depth", &GetMaxRecursionDepth, nb::call_guard<nb::gil_scoped_release>()
+      )
+      .def(
+          "get_serialization_version",
+          &GetSerializationVersion,
           nb::call_guard<nb::gil_scoped_release>()
       );
 }

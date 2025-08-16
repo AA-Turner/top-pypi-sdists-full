@@ -14,6 +14,8 @@
 #include <tuple>
 #include <vector>
 
+#include "xgrammar/tokenizer_info.h"
+
 namespace xgrammar {
 
 TokenizerInfo TokenizerInfo_Init(
@@ -26,14 +28,6 @@ TokenizerInfo TokenizerInfo_Init(
 
 int TokenizerInfo_GetVocabType(const TokenizerInfo& tokenizer);
 
-bool GrammarMatcher_FillNextTokenBitmask(
-    GrammarMatcher& matcher,
-    intptr_t token_bitmask_ptr,
-    std::vector<int64_t> shape,
-    int32_t index,
-    bool debug_print
-);
-
 std::vector<int> Testing_DebugGetMaskedTokensFromBitmask(
     intptr_t token_bitmask_ptr, std::vector<int64_t> shape, int32_t vocab_size, int32_t index
 );
@@ -45,8 +39,10 @@ std::pair<bool, int> Testing_IsSingleTokenBitmask(
 void Kernels_ApplyTokenBitmaskInplaceCPU(
     intptr_t logits_ptr,
     std::pair<int64_t, int64_t> logits_shape,
+    std::pair<int64_t, int64_t> logits_strides,
     intptr_t bitmask_ptr,
     std::pair<int64_t, int64_t> bitmask_shape,
+    std::pair<int64_t, int64_t> bitmask_strides,
     int vocab_size,
     std::optional<std::vector<int>> indices
 );
@@ -62,6 +58,14 @@ CompiledGrammar GrammarCompiler_CompileStructuralTag(
     GrammarCompiler& compiler,
     const std::vector<std::tuple<std::string, std::string, std::string>>& tags,
     const std::vector<std::string>& triggers
+);
+
+Grammar Grammar_DeserializeJSON(const std::string& json_string);
+
+TokenizerInfo TokenizerInfo_DeserializeJSON(const std::string& json_string);
+
+CompiledGrammar CompiledGrammar_DeserializeJSON(
+    const std::string& json_string, const TokenizerInfo& tokenizer
 );
 
 }  // namespace xgrammar

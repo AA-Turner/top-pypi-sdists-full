@@ -18,7 +18,7 @@ class HelpCommand(BaseCommand):
     # Command description
     description: str = "Displays usage information, examples, and a list of available commands in the Orionis CLI."
 
-    def handle(self, reactor: IReactor) -> None:
+    def handle(self, reactor: IReactor) -> dict:
         """
         Displays usage information and a list of available commands for the Orionis CLI.
 
@@ -29,8 +29,8 @@ class HelpCommand(BaseCommand):
 
         Returns
         -------
-        None
-            This method does not return any value. It prints help information to the console.
+        dict
+            A dictionary containing the list of available commands, each with its signature and description.
 
         Raises
         ------
@@ -76,6 +76,9 @@ class HelpCommand(BaseCommand):
             console.print()
             console.print(panel)
             console.print()
+
+            # Return the list of commands for potential further use
+            return commands
 
         except Exception as e:
 

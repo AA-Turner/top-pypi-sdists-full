@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "superlinked"
-version = "33.7.6"  # The version will be dynamically updated
+version = "33.7.7"  # The version will be dynamically updated
 description = "The Superlinked vector computing library"
 authors = ["Superlinked Release <release@superlinked.com>"]
 readme = "PYPI_README.md"

@@ -3,7 +3,7 @@
   Author: Nikolaj Bjorner, Lev Nachmanson
 */
 #include "math/lp/lar_solver.h"
-#include "smt/params/smt_params_helper.hpp"
+#include "params/smt_params_helper.hpp"
 #include "lar_solver.h"
 
 
@@ -231,6 +231,7 @@ namespace lp {
     lar_solver::~lar_solver() {
         for (auto t : m_imp->m_terms)
             delete t;
+        dealloc(m_imp);
     }
     
     void lar_solver::clear_columns_with_changed_bounds() { m_imp->m_columns_with_changed_bounds.reset(); }
@@ -526,6 +527,10 @@ namespace lp {
         m_imp->m_constraints.push();
         m_imp->m_usage_in_terms.push();
         m_imp->m_dependencies.push_scope();
+    }
+
+    unsigned lar_solver::get_scope_level() const {
+        return m_imp->m_trail.get_num_scopes();
     }
     
     void lar_solver::clean_popped_elements(unsigned n, indexed_uint_set& set) {
@@ -1742,6 +1747,14 @@ namespace lp {
         // the last column has to be empty
         SASSERT(A_r().m_columns.back().size() == 0);
         A_r().m_columns.pop_back();
+    }
+
+    lar_solver::scoped_auxiliary::scoped_auxiliary(lar_solver& s) : s(s) {
+        s.m_imp->m_constraints.set_auxiliary(true);
+    }
+
+    lar_solver::scoped_auxiliary::~scoped_auxiliary() {
+        s.m_imp->m_constraints.set_auxiliary(false);
     }
 
     void lar_solver::remove_last_column_from_basis_tableau(unsigned j) {

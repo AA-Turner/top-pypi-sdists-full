@@ -1,21 +1,21 @@
 from __future__ import annotations
 
+import json as jsonlib
 from typing import TYPE_CHECKING, Any
 
-from apify_shared.utils import (
+from apify_client._utils import (
+    catch_not_found_or_throw,
     filter_out_none_values_recursively,
-    ignore_docs,
     maybe_extract_enum_member_value,
     parse_date_fields,
+    pluck_data,
 )
-
-from apify_client._errors import ApifyApiError
-from apify_client._utils import catch_not_found_or_throw, pluck_data
 from apify_client.clients.base import ResourceClient, ResourceClientAsync
 from apify_client.clients.resource_clients.webhook_dispatch_collection import (
     WebhookDispatchCollectionClient,
     WebhookDispatchCollectionClientAsync,
 )
+from apify_client.errors import ApifyApiError
 
 if TYPE_CHECKING:
     from apify_shared.consts import WebhookEventType
@@ -63,7 +63,6 @@ def get_webhook_representation(
 class WebhookClient(ResourceClient):
     """Sub-client for manipulating a single webhook."""
 
-    @ignore_docs
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         resource_path = kwargs.pop('resource_path', 'webhooks')
         super().__init__(*args, resource_path=resource_path, **kwargs)
@@ -151,7 +150,7 @@ class WebhookClient(ResourceClient):
                 params=self._params(),
             )
 
-            return parse_date_fields(pluck_data(response.json()))
+            return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
 
         except ApifyApiError as exc:
             catch_not_found_or_throw(exc)
@@ -174,7 +173,6 @@ class WebhookClient(ResourceClient):
 class WebhookClientAsync(ResourceClientAsync):
     """Async sub-client for manipulating a single webhook."""
 
-    @ignore_docs
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         resource_path = kwargs.pop('resource_path', 'webhooks')
         super().__init__(*args, resource_path=resource_path, **kwargs)
@@ -262,7 +260,7 @@ class WebhookClientAsync(ResourceClientAsync):
                 params=self._params(),
             )
 
-            return parse_date_fields(pluck_data(response.json()))
+            return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
 
         except ApifyApiError as exc:
             catch_not_found_or_throw(exc)

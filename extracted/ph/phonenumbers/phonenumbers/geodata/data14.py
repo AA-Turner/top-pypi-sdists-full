@@ -5381,7 +5381,7 @@ data = {
  '81849':{'en': 'Fukuyama, Hiroshima', 'ja': u('\u798f\u5c71')},
  '818490':{'en': 'Onomichi, Hiroshima', 'ja': u('\u5c3e\u9053')},
  '818493':{'en': 'Onomichi, Hiroshima', 'ja': u('\u5c3e\u9053')},
- '818512':{'en': 'Nishigo, Fukushima', 'ja': u('\u897f\u90f7')},
+ '818512':{'en': 'Okinoshima, Shimane', 'ja': u('\u96a0\u5c90\u306e\u5cf6')},
  '818514':{'en': 'Ama, Shimane', 'ja': u('\u6d77\u58eb')},
  '81852':{'en': 'Matsue, Shimane', 'ja': u('\u677e\u6c5f')},
  '81853':{'en': 'Izumo, Shimane', 'ja': u('\u51fa\u96f2')},

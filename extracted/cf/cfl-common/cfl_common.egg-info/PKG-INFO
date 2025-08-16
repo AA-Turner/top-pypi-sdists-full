@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cfl-common
-Version: 8.8.2
+Version: 8.9.0
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
 Requires-Dist: asgiref==3.9.1; python_version >= "3.9"

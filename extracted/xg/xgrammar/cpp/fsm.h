@@ -21,8 +21,9 @@
 #include <vector>
 
 #include "support/compact_2d_array.h"
-#include "support/reflection/reflection.h"
+#include "support/reflection.h"
 #include "support/utils.h"
+#include "xgrammar/exception.h"
 
 namespace xgrammar {
 
@@ -57,13 +58,13 @@ struct alignas(8) FSMEdge {
    */
   int32_t target;
 
+  // for serialization only
+  FSMEdge() = default;
+
   FSMEdge(int16_t min, int16_t max, int32_t target) : min(min), max(max), target(target) {
     XGRAMMAR_DCHECK(!IsCharRange() || min <= max)
         << "Invalid FSMEdge: min > max. min=" << min << ", max=" << max;
   }
-
-  // for serialization only
-  FSMEdge() = default;
 
   /*!
    * \brief Compare the edges. Used to sort the edges in the FSM.
@@ -107,6 +108,8 @@ struct alignas(8) FSMEdge {
    * \return The rule id of the edge. -1 if the edge is not a rule reference.
    */
   int32_t GetRefRuleId() const { return IsRuleRef() ? max : -1; }
+
+  friend struct member_trait<FSMEdge>;
 };
 
 /*!
@@ -343,14 +346,15 @@ class FSM {
  *
  * It share the same set of visitor methods with FSM.
  */
+
 class CompactFSM {
  public:
   // for serialization only
   CompactFSM() = default;
 
-  CompactFSM(const Compact2DArray<FSMEdge>& edges);
+  explicit CompactFSM(const Compact2DArray<FSMEdge>& edges);
 
-  CompactFSM(Compact2DArray<FSMEdge>&& edges);
+  explicit CompactFSM(Compact2DArray<FSMEdge>&& edges);
 
   /****************** CompactFSM Visitors ******************/
 
@@ -450,11 +454,17 @@ class CompactFSM {
    */
   FSM ToFSM() const;
 
-  picojson::value SerializeJSONValue() const;
-  friend void DeserializeJSONValue(CompactFSM& fsm, const picojson::value& v);
+  friend picojson::value SerializeJSONValue(const CompactFSM& value);
+  friend std::optional<SerializationError> DeserializeJSONValue(
+      CompactFSM* result, const picojson::value& value, const std::string& type_name
+  );
 
   XGRAMMAR_DEFINE_PIMPL_METHODS(CompactFSM);
 };
+
+std::optional<SerializationError> DeserializeJSONValue(
+    CompactFSM* result, const picojson::value& value, const std::string& type_name = ""
+);
 
 class CompactFSMWithStartEnd;
 
@@ -470,35 +480,71 @@ class FSMWithStartEndBase {
   );
 
  public:
-  // for serialization only
+  // For serialization only
   FSMWithStartEndBase() = default;
 
   /*! \brief Constructs an FSMWithStartEnd with a given FSM, start state, and end states. */
   FSMWithStartEndBase(
       const FSMType& fsm, int start, const std::unordered_set<int>& ends, bool is_dfa = false
   )
+      : fsm_(fsm), start_(start), is_dfa_(is_dfa) {
+    ends_.resize(fsm.NumStates(), false);
+    for (const auto& end : ends) {
+      XGRAMMAR_DCHECK(end < fsm.NumStates())
+          << "End state " << end << " is out of bounds for FSM with " << fsm.NumStates()
+          << " states.";
+      ends_[end] = true;
+    }
+  }
+
+  FSMWithStartEndBase(
+      const FSMType& fsm, int start, const std::vector<bool>& ends, bool is_dfa = false
+  )
       : fsm_(fsm), start_(start), ends_(ends), is_dfa_(is_dfa) {}
 
   /****************** Member Accessors and Mutators ******************/
 
   /*! \brief Returns the underlying FSM. */
-  const FSMType& GetFSM() const { return fsm_; }
+  const FSMType& GetFsm() const { return fsm_; }
 
   /*! \brief Returns the start state of the FSM. */
   int GetStart() const { return start_; }
 
   /*! \brief Returns the end states of the FSM. */
-  const std::unordered_set<int>& GetEnds() const { return ends_; }
+  const std::vector<bool>& GetEnds() const { return ends_; }
 
   /*!
    * \brief Checks if a given state is an end/accepting state.
    * \param state The state to check.
    * \return True if the state is an end state, false otherwise.
    */
-  bool IsEndState(int state) const {
-    return std::any_of(ends_.begin(), ends_.end(), [state](int end_state) {
-      return end_state == state;
-    });
+  bool IsEndState(int state) const { return ends_[state]; }
+
+  /*! \brief Check if a state is scanable.
+   *  \param state The state to check.
+   *  \return True if the state is scanable, false otherwise.
+   */
+  bool IsScanableState(int state) const {
+    for (const auto& edge : fsm_.GetEdges(state)) {
+      if (edge.IsCharRange()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /*!
+   * \brief Check if a state is not terminal.
+   * \param state The state to check.
+   * \return True if the state is scanable, false otherwise.
+   */
+  bool IsNonTerminalState(int state) const {
+    for (const auto& edge : fsm_.GetEdges(state)) {
+      if (edge.IsRuleRef() || edge.IsEpsilon()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /*!
@@ -510,34 +556,29 @@ class FSMWithStartEndBase {
     start_ = state;
   }
 
-  /*! \brief Checks if a given state is a scanable state.
-   * \param state The state to check.
-   * \return True if the state is scanable, false otherwise.
-   */
-  bool IsScanableState(int state) const {
-    XGRAMMAR_DCHECK(state < NumStates());
-    for (const auto& edge : fsm_.GetEdges(state)) {
-      if (edge.IsCharRange()) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   /*!
    * \brief Adds an end/accepting state to the FSM.
    * \param state The state to add as an end state.
    */
   void AddEndState(int state) {
     XGRAMMAR_DCHECK(state < NumStates());
-    ends_.insert(state);
+    ends_[state] = true;
+  }
+
+  /*!
+   * \brief Adds a new state to the FSM and marks it as non-end.
+   * \return The index of the newly added state.
+   */
+  int AddState() {
+    ends_.push_back(false);
+    return fsm_.AddState();
   }
 
   /*!
    * \brief Sets the end states of the FSM.
    * \param ends The new end states.
    */
-  void SetEndStates(const std::unordered_set<int>& ends) { ends_ = ends; }
+  void SetEndStates(const std::vector<bool>& ends) { ends_ = ends; }
 
   /*! \brief Returns the total number of states in the FSM. */
   int NumStates() const { return fsm_.NumStates(); }
@@ -545,12 +586,7 @@ class FSMWithStartEndBase {
   /*!
    * \brief Access the methods of the underlying FSM.
    */
-  FSMType* operator->() { return &fsm_; }
-
-  /*!
-   * \brief Access the methods of the underlying FSM.
-   */
-  const FSMType* operator->() const { return &fsm_; }
+  FSMType& GetFsm() { return fsm_; }
 
   /****************** FSM Traversal Algorithms ******************/
 
@@ -578,12 +614,13 @@ class FSMWithStartEndBase {
   FSMType fsm_;
   /*! \brief The start state of the FSM. */
   int start_;
+
   /*! \brief The set of accepting/end states. */
-  std::unordered_set<int> ends_;
+  std::vector<bool> ends_;
+
+ protected:
   /*! \brief Whether this FSM is a deterministic finite automaton. */
   bool is_dfa_ = false;
-
-  friend struct member_trait<CompactFSMWithStartEnd>;
 };
 
 /*!
@@ -661,7 +698,7 @@ class FSMWithStartEnd : public FSMWithStartEndBase<FSM> {
    * \brief Return a new FSM representing the complement of the language.
    * \return The complement FSM.
    */
-  FSMWithStartEnd Not() const;
+  Result<FSMWithStartEnd> Not(int max_result_num_states = 1e6) const;
 
   /*!
    * \brief Intersect the FSMs.
@@ -670,7 +707,7 @@ class FSMWithStartEnd : public FSMWithStartEndBase<FSM> {
    * \return The intersection of the FSMs.
    */
   static Result<FSMWithStartEnd> Intersect(
-      const FSMWithStartEnd& lhs, const FSMWithStartEnd& rhs, int num_of_states_limited = 1e6
+      const FSMWithStartEnd& lhs, const FSMWithStartEnd& rhs, int max_result_num_states = 1e6
   );
 
   /*!
@@ -710,15 +747,17 @@ class FSMWithStartEnd : public FSMWithStartEndBase<FSM> {
 
   /*!
    * \brief Transform the FSM to a DFA.
+   * \param max_result_num_states The maximum number of states in the DFA.
    * \return The DFA.
    */
-  FSMWithStartEnd ToDFA() const;
+  Result<FSMWithStartEnd> ToDFA(int max_result_num_states = 1e6) const;
 
   /*!
    * \brief Minimize the DFA.
+   * \param max_result_num_states The maximum number of states in the DFA.
    * \return The minimized DFA.
    */
-  FSMWithStartEnd MinimizeDFA() const;
+  Result<FSMWithStartEnd> MinimizeDFA(int max_result_num_states = 1e6) const;
 };
 
 /*!
@@ -729,10 +768,10 @@ class FSMWithStartEnd : public FSMWithStartEndBase<FSM> {
  */
 class CompactFSMWithStartEnd : public FSMWithStartEndBase<CompactFSM> {
  public:
-  using FSMWithStartEndBase<CompactFSM>::FSMWithStartEndBase;
-
-  // for serialization only
+  // For serialization only
   CompactFSMWithStartEnd() = default;
+
+  using FSMWithStartEndBase<CompactFSM>::FSMWithStartEndBase;
 
   /*!
    * \brief Convert the FSMWithStartEnd to a string. Only considers the nodes approachable from the
@@ -741,6 +780,18 @@ class CompactFSMWithStartEnd : public FSMWithStartEndBase<CompactFSM> {
    */
   std::string ToString() const;
 
+  /*!
+   * \brief Transform the CompactFSMWithStartEnd to a FSMWithStartEnd.
+   * \return The FSMWithStartEnd.
+   */
+  FSMWithStartEnd ToFSM() const;
+
+  /*!
+   * \brief Print the CompactFSMWithStartEnd.
+   * \param os The output stream.
+   * \param fsm The CompactFSMWithStartEnd.
+   * \return The output stream.
+   */
   friend std::ostream& operator<<(std::ostream& os, const CompactFSMWithStartEnd& fsm);
 
   /*!
@@ -750,11 +801,14 @@ class CompactFSMWithStartEnd : public FSMWithStartEndBase<CompactFSM> {
    */
   friend std::size_t MemorySize(const CompactFSMWithStartEnd& self);
 
-  /*!
-   * \brief Transform the CompactFSMWithStartEnd to a FSMWithStartEnd.
-   * \return The FSMWithStartEnd.
-   */
-  FSMWithStartEnd ToFSM() const;
+  friend struct member_trait<CompactFSMWithStartEnd>;
+
+  friend struct CompactFSMWithStartEndSerializeHelper;
+
+  friend picojson::value SerializeJSONValue(const CompactFSMWithStartEnd& value);
+  friend std::optional<SerializationError> DeserializeJSONValue(
+      CompactFSMWithStartEnd* result, const picojson::value& value, const std::string& type_name
+  );
 };
 
 XGRAMMAR_MEMBER_ARRAY(
@@ -787,7 +841,7 @@ inline bool FSMWithStartEndBase<FSMType>::AcceptString(const std::string& str) c
     start_states = result_states;
   }
   return std::any_of(start_states.begin(), start_states.end(), [&](int state) {
-    return ends_.find(state) != ends_.end();
+    return ends_[state];
   });
 }
 

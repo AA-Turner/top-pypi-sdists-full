@@ -25,7 +25,7 @@ def set_custom_spec(spec: dict):
 
 
 @lru_cache(maxsize=1)
-def get_openapi_spec() -> str:
+def get_openapi_spec() -> bytes:
     # patch the graph_id enums
     graph_ids = list(GRAPHS.keys())
     for schema in (

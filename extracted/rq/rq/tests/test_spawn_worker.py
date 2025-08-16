@@ -31,6 +31,9 @@ class TestWorker(RQTestCase):
         registry = FinishedJobRegistry(queue=queue)
         self.assertEqual(registry.get_job_ids(), [job.id])
 
+        registry = queue.started_job_registry
+        self.assertEqual(registry.get_job_ids(), [])
+
     def test_work_fails(self):
         """Failing jobs are put on the failed queue."""
         q = Queue(connection=self.connection)
@@ -59,10 +62,9 @@ class TestWorker(RQTestCase):
         # Should be the original enqueued_at date, not the date of enqueueing
         # to the failed queue
         self.assertEqual(job.enqueued_at.replace(tzinfo=timezone.utc).timestamp(), enqueued_at_date.timestamp())
-        if job.supports_redis_streams:
-            result = Result.fetch_latest(job)
-            self.assertTrue(result.exc_string)
-            self.assertEqual(result.type, Result.Type.FAILED)
+        result = Result.fetch_latest(job)
+        self.assertTrue(result.exc_string)
+        self.assertEqual(result.type, Result.Type.FAILED)
 
 
 def wait_and_kill_work_horse(pid, time_to_wait=0.0):

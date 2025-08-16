@@ -22,8 +22,9 @@ import pathlib
 from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum
+from typing import TYPE_CHECKING
 
-from craft_providers import Base, Executor, Provider, base
+from craft_providers import Base, Provider, base
 from craft_providers.bases import ubuntu
 from craft_providers.errors import BaseConfigurationError
 
@@ -33,6 +34,11 @@ from .errors import MultipassError
 from .installer import install, is_installed
 from .multipass import Multipass
 from .multipass_instance import MultipassInstance
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from craft_providers import Executor
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +151,7 @@ class MultipassProvider(Provider):
     :param multipass: Optional Multipass client to use.
     """
 
-    def __init__(self, instance: Multipass = Multipass()) -> None:
+    def __init__(self, instance: Multipass = Multipass()) -> None:  # noqa: B008
         self.multipass = instance
 
     @property
@@ -170,7 +176,7 @@ class MultipassProvider(Provider):
             install()
         ensure_multipass_is_ready()
 
-    def create_environment(self, *, instance_name: str) -> Executor:
+    def create_environment(self, *, instance_name: str) -> "Executor":
         """Create a bare environment for specified base.
 
         No initializing, launching, or cleaning up of the environment occurs.
@@ -191,13 +197,15 @@ class MultipassProvider(Provider):
     def launched_environment(
         self,
         *,
-        project_name: str,
-        project_path: pathlib.Path,
+        project_name: str,  # noqa: ARG002
+        project_path: pathlib.Path,  # noqa: ARG002
         base_configuration: base.Base,
         instance_name: str,
         allow_unstable: bool = False,
         shutdown_delay_mins: int | None = None,
-    ) -> Iterator[Executor]:
+        use_base_instance: bool = False,  # noqa: ARG002
+        prepare_instance: "Callable[[Executor], None] | None" = None,
+    ) -> Iterator["Executor"]:
         """Configure and launch environment for specified base.
 
         When this method loses context, all directories are unmounted and the
@@ -211,6 +219,10 @@ class MultipassProvider(Provider):
         :param allow_unstable: If true, allow unstable images to be launched.
         :param shutdown_delay_mins: Minutes by which to delay shutdown when exiting
             the instance.
+        :param use_base_instance: Enable base instances for faster setup (not supported
+            by this provider).
+        :param prepare_instance: A callback to perform early instance configuration
+            before the base image setup.
 
         :raises MultipassError: If the instance cannot be launched or configured.
         """
@@ -238,6 +250,7 @@ class MultipassProvider(Provider):
                 disk_gb=64,
                 mem_gb=2,
                 auto_clean=True,
+                prepare_instance=prepare_instance,
             )
         except BaseConfigurationError as error:
             raise MultipassError(str(error)) from error

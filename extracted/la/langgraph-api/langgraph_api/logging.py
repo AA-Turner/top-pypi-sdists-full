@@ -19,8 +19,8 @@ LOG_LEVEL = log_env("LOG_LEVEL", cast=str, default="INFO")
 logging.getLogger().setLevel(LOG_LEVEL.upper())
 logging.getLogger("psycopg").setLevel(logging.WARNING)
 
-worker_config: contextvars.ContextVar[dict[str, typing.Any] | None] = (
-    contextvars.ContextVar("worker_config", default=None)
+worker_config = contextvars.ContextVar[dict[str, typing.Any] | None](
+    "worker_config", default=None
 )
 
 # custom processors
@@ -165,6 +165,6 @@ if not structlog.is_configured():
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
+        wrapper_class=structlog.stdlib.BoundLogger,  # type: ignore[invalid-argument-type]
         cache_logger_on_first_use=True,
     )

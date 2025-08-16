@@ -4,8 +4,9 @@ import collections
 import datetime
 import logging
 import re
+from collections.abc import Iterable, Iterator
 from functools import cached_property
-from typing import Any, ClassVar, Iterable, Iterator, cast, overload
+from typing import Any, ClassVar, cast, overload
 
 import asn1crypto.pem
 import asn1crypto.x509
@@ -25,94 +26,73 @@ AlgorithmIdentifier = collections.namedtuple(
 
 
 class Certificate:
-    """Representation of a Certificate. It is built from an ASN.1 structure.
+    """Representation of a Certificate. It is built from an ASN.1 structure."""
 
-    .. attribute:: data
+    asn1: asn1crypto.x509.Certificate
 
-       The underlying ASN.1 data object
-
-    .. attribute:: signature_algorithm
-                   signature_value
-                   subject_public_algorithm
-                   subject_public_key
-
-       These values are considered part of the certificate, but not
-       fully parsed.
-
-    .. attribute:: version
-
-       This is the version of the certificate
-
-    .. attribute:: serial_number
-
-       The full integer serial number of the certificate
-
-    .. attribute:: issuer
-                   subject
-
-       The :class:`CertificateName` for the issuer and subject.
-
-    .. attribute:: valid_from
-                   valid_to
-
-       The datetime objects between which the certificate is valid.
-
-    .. attribute:: extensions
-
-       This is a list of extension objects.
-    """
-
-    signature_algorithm: Any
-    signature_value: Any
-    version: str
-    serial_number: int
-    issuer: CertificateName
-    valid_from: datetime.datetime
-    valid_to: datetime.datetime
-    subject: CertificateName
-    subject_public_algorithm: AlgorithmIdentifier
-    subject_public_key: bytes
-    extensions: dict[str, Any]
-
-    def __init__(
-        self,
-        data: asn1crypto.x509.Certificate | cms.CertificateChoices,
-    ):
+    def __init__(self, asn1: asn1crypto.x509.Certificate | cms.CertificateChoices):
+        """
+        :param asn1: The ASN.1 structure
         """
 
-        :type data: asn1.pkcs7.ExtendedCertificateOrCertificate or
-            asn1.x509.Certificate or asn1.x509.TBSCertificate
-        :param data: The ASN.1 structure
-        """
+        self.asn1 = asn1
 
-        self.data = data
-        self._parse()
-
-    def _parse(self) -> None:
-        if isinstance(self.data, cms.ExtendedCertificate):
+        if isinstance(self.asn1, cms.ExtendedCertificate):
             raise NotImplementedError(
                 "Support for extendedCertificate is not implemented"
             )
-
-        if isinstance(self.data, cms.CertificateChoices):
-            if self.data.name != "certificate":
+        elif isinstance(self.asn1, cms.CertificateChoices):
+            if self.asn1.name != "certificate":
                 raise NotImplementedError(
-                    f"This is not a certificate, but a {self.data.name}"
+                    f"This is not a certificate, but a {self.asn1.name}"
                 )
-            self.data = self.data.chosen
+            self.asn1 = self.asn1.chosen
 
-        self.signature_algorithm = self.data["signature_algorithm"].native
-        self.signature_value = self.data["signature_value"].native
-        tbs_certificate = self.data["tbs_certificate"]
+    @property
+    def signature_algorithm(self) -> str:
+        """These values are considered part of the certificate, but not fully parsed."""
+        return cast(str, self.asn1.signature_algo)
 
-        self.version = tbs_certificate["version"].native
-        self.serial_number = tbs_certificate["serial_number"].native
-        self.issuer = CertificateName(tbs_certificate["issuer"])
-        self.valid_from = tbs_certificate["validity"]["not_before"].native
-        self.valid_to = tbs_certificate["validity"]["not_after"].native
-        self.subject = CertificateName(tbs_certificate["subject"])
+    @property
+    def signature_value(self) -> bytes:
+        """These values are considered part of the certificate, but not fully parsed."""
+        return cast(bytes, self.asn1.signature)
 
-        self.subject_public_algorithm = AlgorithmIdentifier(
+    @property
+    def version(self) -> str:
+        """This is the version of the certificate"""
+        return cast(str, self.asn1["tbs_certificate"]["version"].native)
+
+    @property
+    def serial_number(self) -> int:
+        """The full integer serial number of the certificate"""
+        return cast(int, self.asn1.serial_number)
+
+    @property
+    def issuer(self) -> CertificateName:
+        """The :class:`CertificateName` for the issuer."""
+        return CertificateName(self.asn1.issuer)
+
+    @property
+    def subject(self) -> CertificateName:
+        """The :class:`CertificateName` for the subject."""
+        return CertificateName(self.asn1.subject)
+
+    @property
+    def valid_from(self) -> datetime.datetime:
+        """The datetime objects between which the certificate is valid."""
+        return cast(datetime.datetime, self.asn1.not_valid_before)
+
+    @property
+    def valid_to(self) -> datetime.datetime:
+        """The datetime objects between which the certificate is valid."""
+        return cast(datetime.datetime, self.asn1.not_valid_after)
+
+    @property
+    def subject_public_algorithm(self) -> AlgorithmIdentifier:
+        """These values are considered part of the certificate, but not fully parsed."""
+        tbs_certificate = self.asn1["tbs_certificate"]
+        return AlgorithmIdentifier(
             algorithm=tbs_certificate["subject_public_key_info"]["algorithm"][
                 "algorithm"
             ].native,
@@ -120,16 +100,26 @@ class Certificate:
                 "parameters"
             ].native,
         )
-        self.subject_public_key = tbs_certificate["subject_public_key_info"][
-            "public_key"
-        ].dump()
 
-        self.extensions = {}
+    @property
+    def subject_public_key(self) -> bytes:
+        """These values are considered part of the certificate, but not fully parsed."""
+        return cast(
+            bytes,
+            self.asn1["tbs_certificate"]["subject_public_key_info"][
+                "public_key"
+            ].dump(),
+        )
+
+    @property
+    def extensions(self) -> dict[str, Any]:
+        """This is a list of extension objects."""
+        result = {}
+        tbs_certificate = self.asn1["tbs_certificate"]
         if tbs_certificate["extensions"].native is not None:
             for extension in tbs_certificate["extensions"]:
-                self.extensions[extension["extn_id"].native] = extension[
-                    "extn_value"
-                ].native
+                result[extension["extn_id"].native] = extension["extn_value"].native
+        return result
 
     def __str__(self) -> str:
         return (
@@ -179,15 +169,15 @@ class Certificate:
     @cached_property
     def to_der(self) -> bytes:
         """Returns the DER-encoded data from this certificate."""
-        return cast(bytes, self.data.dump())
+        return cast(bytes, self.asn1.dump())
 
     @cached_property
     def sha256_fingerprint(self) -> str:
-        return cast(str, self.data.sha256_fingerprint).replace(" ", "").lower()
+        return cast(str, self.asn1.sha256_fingerprint).replace(" ", "").lower()
 
     @cached_property
     def sha1_fingerprint(self) -> str:
-        return cast(str, self.data.sha1_fingerprint).replace(" ", "").lower()
+        return cast(str, self.asn1.sha1_fingerprint).replace(" ", "").lower()
 
     def verify_signature(
         self,
@@ -213,7 +203,7 @@ class Certificate:
             https://mta.openssl.org/pipermail/openssl-users/2015-September/002053.html
         """
 
-        public_key = asymmetric.load_public_key(self.data.public_key)
+        public_key = asymmetric.load_public_key(self.asn1.public_key)
         if public_key.algorithm == "rsa":
             verify_func = asymmetric.rsa_pkcs1v15_verify
         elif public_key.algorithm == "dsa":
@@ -259,25 +249,137 @@ class Certificate:
 
 class CertificateName:
     OID_TO_RDN: ClassVar[dict[str, str]] = {
-        "2.5.4.3": "CN",  # common name
-        "2.5.4.6": "C",  # country
-        "2.5.4.7": "L",  # locality
-        "2.5.4.8": "ST",  # stateOrProvince
-        "2.5.4.9": "STREET",  # street
-        "2.5.4.10": "O",  # organization
-        "2.5.4.11": "OU",  # organizationalUnit
+        # The following list is based on RFC4514
+        "2.5.4.3": "CN",  # commonName
+        "2.5.4.6": "C",  # countryName
+        "2.5.4.7": "L",  # localityName
+        "2.5.4.8": "ST",  # stateOrProvinceName
+        "2.5.4.9": "STREET",  # street (uppercase in RFC4514, but lowercase in OpenSSL)
+        "2.5.4.10": "O",  # organizationName
+        "2.5.4.11": "OU",  # organizationalUnitName
         "0.9.2342.19200300.100.1.25": "DC",  # domainComponent
-        "1.2.840.113549.1.9.1": "EMAIL",  # emailaddress
+        "1.2.840.113549.1.9.1": "EMAIL",  # emailAddress (shortcut not in OpenSSL)
+        # Related to Microsoft EV certificates
+        "1.3.6.1.4.1.311.60.2.1.1": "jurisdictionOfIncorporationLocalityName",
+        "1.3.6.1.4.1.311.60.2.1.2": "jurisdictionOfIncorporationStateOrProvinceName",
+        "1.3.6.1.4.1.311.60.2.1.3": "jurisdictionOfIncorporationCountryName",
+        # The remainder of this list is based on the OIDs present in OpenSSL
+        # See https://github.com/openssl/openssl/blob/master/crypto/objects/objects.txt
+        # Note that the official list is with IANA at
+        # https://www.iana.org/assignments/ldap-parameters/ldap-parameters.xhtml#ldap-parameters-3
+        "0.9.2342.19200300.100.1.1": "UID",
+        "0.9.2342.19200300.100.1.2": "textEncodedORAddress",
+        "0.9.2342.19200300.100.1.3": "mail",
+        "0.9.2342.19200300.100.1.4": "info",
+        "0.9.2342.19200300.100.1.5": "favouriteDrink",
+        "0.9.2342.19200300.100.1.6": "roomNumber",
+        "0.9.2342.19200300.100.1.7": "photo",
+        "0.9.2342.19200300.100.1.8": "userClass",
+        "0.9.2342.19200300.100.1.9": "host",
+        "0.9.2342.19200300.100.1.10": "manager",
+        "0.9.2342.19200300.100.1.11": "documentIdentifier",
+        "0.9.2342.19200300.100.1.12": "documentTitle",
+        "0.9.2342.19200300.100.1.13": "documentVersion",
+        "0.9.2342.19200300.100.1.14": "documentAuthor",
+        "0.9.2342.19200300.100.1.15": "documentLocation",
+        "0.9.2342.19200300.100.1.20": "homeTelephoneNumber",
+        "0.9.2342.19200300.100.1.21": "secretary",
+        "0.9.2342.19200300.100.1.22": "otherMailbox",
+        "0.9.2342.19200300.100.1.23": "lastModifiedTime",
+        "0.9.2342.19200300.100.1.24": "lastModifiedBy",
+        "0.9.2342.19200300.100.1.26": "aRecord",
+        "0.9.2342.19200300.100.1.28": "mXRecord",
+        "0.9.2342.19200300.100.1.29": "nSRecord",
+        "0.9.2342.19200300.100.1.30": "sOARecord",
+        "0.9.2342.19200300.100.1.31": "cNAMERecord",
+        "0.9.2342.19200300.100.1.37": "associatedDomain",
+        "0.9.2342.19200300.100.1.38": "associatedName",
+        "0.9.2342.19200300.100.1.39": "homePostalAddress",
+        "0.9.2342.19200300.100.1.40": "personalTitle",
+        "0.9.2342.19200300.100.1.41": "mobileTelephoneNumber",
+        "0.9.2342.19200300.100.1.42": "pagerTelephoneNumber",
+        "0.9.2342.19200300.100.1.43": "friendlyCountryName",
+        "0.9.2342.19200300.100.1.44": "uid",
+        "0.9.2342.19200300.100.1.45": "organizationalStatus",
+        "0.9.2342.19200300.100.1.46": "janetMailbox",
+        "0.9.2342.19200300.100.1.47": "mailPreferenceOption",
+        "0.9.2342.19200300.100.1.48": "buildingName",
+        "0.9.2342.19200300.100.1.49": "dSAQuality",
+        "0.9.2342.19200300.100.1.50": "singleLevelQuality",
+        "0.9.2342.19200300.100.1.51": "subtreeMinimumQuality",
+        "0.9.2342.19200300.100.1.52": "subtreeMaximumQuality",
+        "0.9.2342.19200300.100.1.53": "personalSignature",
+        "0.9.2342.19200300.100.1.54": "dITRedirect",
+        "0.9.2342.19200300.100.1.55": "audio",
+        "0.9.2342.19200300.100.1.56": "documentPublisher",
+        "1.2.840.113549.1.9.2": "unstructuredName",
+        "1.2.840.113549.1.9.3": "contentType",
+        "1.2.840.113549.1.9.4": "messageDigest",
+        "1.2.840.113549.1.9.5": "signingTime",
+        "1.2.840.113549.1.9.6": "countersignature",
+        "1.2.840.113549.1.9.7": "challengePassword",
+        "1.2.840.113549.1.9.8": "unstructuredAddress",
+        "2.5.4.4": "SN",
+        "2.5.4.5": "serialNumber",
+        "2.5.4.12": "title",
+        "2.5.4.13": "description",
+        "2.5.4.14": "searchGuide",
+        "2.5.4.15": "businessCategory",
+        "2.5.4.16": "postalAddress",
+        "2.5.4.17": "postalCode",
+        "2.5.4.18": "postOfficeBox",
+        "2.5.4.19": "physicalDeliveryOfficeName",
+        "2.5.4.20": "telephoneNumber",
+        "2.5.4.21": "telexNumber",
+        "2.5.4.22": "teletexTerminalIdentifier",
+        "2.5.4.23": "facsimileTelephoneNumber",
+        "2.5.4.24": "x121Address",
+        "2.5.4.25": "internationaliSDNNumber",
+        "2.5.4.26": "registeredAddress",
+        "2.5.4.27": "destinationIndicator",
+        "2.5.4.28": "preferredDeliveryMethod",
+        "2.5.4.29": "presentationAddress",
+        "2.5.4.30": "supportedApplicationContext",
+        "2.5.4.31": "member",
+        "2.5.4.32": "owner",
+        "2.5.4.33": "roleOccupant",
+        "2.5.4.34": "seeAlso",
+        "2.5.4.35": "userPassword",
+        "2.5.4.36": "userCertificate",
+        "2.5.4.37": "cACertificate",
+        "2.5.4.38": "authorityRevocationList",
+        "2.5.4.39": "certificateRevocationList",
+        "2.5.4.40": "crossCertificatePair",
+        "2.5.4.41": "name",
+        "2.5.4.42": "GN",
+        "2.5.4.43": "initials",
+        "2.5.4.44": "generationQualifier",
+        "2.5.4.45": "x500UniqueIdentifier",
+        "2.5.4.46": "dnQualifier",
+        "2.5.4.47": "enhancedSearchGuide",
+        "2.5.4.48": "protocolInformation",
+        "2.5.4.49": "distinguishedName",
+        "2.5.4.50": "uniqueMember",
+        "2.5.4.51": "houseIdentifier",
+        "2.5.4.52": "supportedAlgorithms",
+        "2.5.4.53": "deltaRevocationList",
+        "2.5.4.54": "dmdName",
+        "2.5.4.65": "pseudonym",
+        "2.5.4.72": "role",
+        "2.5.4.97": "organizationIdentifier",
+        "2.5.4.98": "c3",
+        "2.5.4.99": "n3",
+        "2.5.4.100": "dnsName",
     }
 
-    def __init__(self, data: asn1crypto.x509.Name | asn1crypto.x509.GeneralName):
-        if isinstance(data, asn1crypto.x509.GeneralName):
-            if data.name != "directory_name":
+    def __init__(self, asn1: asn1crypto.x509.Name | asn1crypto.x509.GeneralName):
+        if isinstance(asn1, asn1crypto.x509.GeneralName):
+            if asn1.name != "directory_name":
                 raise NotImplementedError(
-                    f"CertificateNames of type {data.name} not supported"
+                    f"CertificateNames of type {asn1.name} not supported"
                 )
-            data = data.chosen
-        self.data = data
+            asn1 = asn1.chosen
+        self.asn1 = asn1
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, CertificateName) and self.rdns == other.rdns
@@ -330,7 +432,7 @@ class CertificateName:
             if not provided, yields tuples of (type, value)
         """
 
-        for n in list(self.data.chosen)[::-1]:
+        for n in list(self.asn1.chosen)[::-1]:
             type_value = n[0]  # get the AttributeTypeAndValue object
 
             type = self.OID_TO_RDN.get(

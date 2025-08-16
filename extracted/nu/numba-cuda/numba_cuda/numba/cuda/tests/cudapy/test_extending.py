@@ -43,7 +43,7 @@ if not config.ENABLE_CUDASIM:
         type_callable,
         typeof_impl,
     )
-    from numba.core.typing.templates import AttributeTemplate
+    from numba.cuda.typing.templates import AttributeTemplate
     from numba.cuda.cudadecl import registry as cuda_registry
     from numba.cuda.cudaimpl import lower_attr as cuda_lower_attr
     from numba.cuda.extending import (
@@ -196,11 +196,6 @@ if TEST_BIN_DIR:
 class TestExtendingLinkage(CUDATestCase):
     @unittest.skipUnless(TEST_BIN_DIR, "Necessary binaries are not available")
     def test_extension_adds_linkable_code(self):
-        cuda_major_version = cuda.runtime.get_version()[0]
-
-        if cuda_major_version < 12:
-            self.skipTest("CUDA 12 required for linking in-memory data")
-
         files = (
             (test_device_functions_a, cuda.Archive),
             (test_device_functions_cubin, cuda.Cubin),

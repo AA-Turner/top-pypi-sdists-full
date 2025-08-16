@@ -11,17 +11,15 @@ from datetime import datetime, timedelta, timezone
 from threading import Thread
 from typing import TYPE_CHECKING, Any, cast
 
-from apify_shared.utils import ignore_docs
-
-from apify_client._errors import ApifyApiError
 from apify_client._utils import catch_not_found_or_throw
 from apify_client.clients.base import ResourceClient, ResourceClientAsync
+from apify_client.errors import ApifyApiError
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
     from types import TracebackType
 
-    import httpx
+    import impit
     from typing_extensions import Self
 
     from apify_client.clients import RunClient, RunClientAsync
@@ -30,7 +28,6 @@ if TYPE_CHECKING:
 class LogClient(ResourceClient):
     """Sub-client for manipulating logs."""
 
-    @ignore_docs
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         resource_path = kwargs.pop('resource_path', 'logs')
         super().__init__(*args, resource_path=resource_path, **kwargs)
@@ -76,7 +73,6 @@ class LogClient(ResourceClient):
                 url=self.url,
                 method='GET',
                 params=self._params(raw=raw),
-                parse_response=False,
             )
 
             return response.content  # noqa: TRY300
@@ -87,7 +83,7 @@ class LogClient(ResourceClient):
         return None
 
     @contextmanager
-    def stream(self, *, raw: bool = False) -> Iterator[httpx.Response | None]:
+    def stream(self, *, raw: bool = False) -> Iterator[impit.Response | None]:
         """Retrieve the log as a stream.
 
         https://docs.apify.com/api/v2#/reference/logs/log/get-log
@@ -105,7 +101,6 @@ class LogClient(ResourceClient):
                 method='GET',
                 params=self._params(stream=True, raw=raw),
                 stream=True,
-                parse_response=False,
             )
 
             yield response
@@ -120,7 +115,6 @@ class LogClient(ResourceClient):
 class LogClientAsync(ResourceClientAsync):
     """Async sub-client for manipulating logs."""
 
-    @ignore_docs
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         resource_path = kwargs.pop('resource_path', 'logs')
         super().__init__(*args, resource_path=resource_path, **kwargs)
@@ -166,7 +160,6 @@ class LogClientAsync(ResourceClientAsync):
                 url=self.url,
                 method='GET',
                 params=self._params(raw=raw),
-                parse_response=False,
             )
 
             return response.content  # noqa: TRY300
@@ -177,7 +170,7 @@ class LogClientAsync(ResourceClientAsync):
         return None
 
     @asynccontextmanager
-    async def stream(self, *, raw: bool = False) -> AsyncIterator[httpx.Response | None]:
+    async def stream(self, *, raw: bool = False) -> AsyncIterator[impit.Response | None]:
         """Retrieve the log as a stream.
 
         https://docs.apify.com/api/v2#/reference/logs/log/get-log
@@ -195,7 +188,6 @@ class LogClientAsync(ResourceClientAsync):
                 method='GET',
                 params=self._params(stream=True, raw=raw),
                 stream=True,
-                parse_response=False,
             )
 
             yield response
@@ -262,7 +254,7 @@ class StreamedLog:
             # The last two parts (marker and message) are possibly not complete and will be left in the buffer
             self._stream_buffer = all_parts[-2:]
 
-        for marker, content in zip(message_markers, message_contents):
+        for marker, content in zip(message_markers, message_contents, strict=False):
             decoded_marker = marker.decode('utf-8')
             decoded_content = content.decode('utf-8')
             if self._relevancy_time_limit:

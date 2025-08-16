@@ -27,7 +27,7 @@ class VersionCommand(BaseCommand):
     # Command description
     description: str = "Displays the current Orionis framework version and metadata, including author, Python requirements, documentation, and repository links."
 
-    def handle(self) -> None:
+    def handle(self) -> str:
         """
         Executes the version command to display the current Orionis framework version and metadata.
 
@@ -41,9 +41,8 @@ class VersionCommand(BaseCommand):
 
         Returns
         -------
-        None
-            This method does not return any value. It outputs the version and metadata information
-            to the console using rich formatting.
+        str
+            The current version of the Orionis framework.
 
         Raises
         ------
@@ -82,6 +81,10 @@ class VersionCommand(BaseCommand):
             console.print(panel)
             console.line()
 
+            # Return the framework version for potential further use
+            return framework.VERSION
+
         except Exception as e:
+
             # Raise a custom runtime error if any exception occurs
             raise CLIOrionisRuntimeError(f"An unexpected error occurred: {e}") from e

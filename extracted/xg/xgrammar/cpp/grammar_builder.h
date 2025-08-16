@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <unordered_map>
 
-#include "grammar_data_structure.h"
+#include "grammar_impl.h"
 
 namespace xgrammar {
 
@@ -95,7 +95,10 @@ class GrammarBuilder {
    * \param str The string to be added.
    */
   int32_t AddByteString(const std::string& str) {
-    std::vector<int32_t> bytes(str.begin(), str.end());
+    std::vector<int32_t> bytes;
+    for (char c : str) {
+      bytes.push_back(static_cast<int32_t>(static_cast<uint8_t>(c)));
+    }
     return AddGrammarExpr(
         {GrammarExprType::kByteString, bytes.data(), static_cast<int32_t>(bytes.size())}
     );
@@ -196,6 +199,12 @@ class GrammarBuilder {
     data.push_back(static_cast<int32_t>(tag_dispatch.loop_after_dispatch));
     return AddGrammarExpr(
         {GrammarExprType::kTagDispatch, data.data(), static_cast<int32_t>(data.size())}
+    );
+  }
+
+  int32_t AddRepeat(const int32_t ref_rule_id, int32_t min_repeat_count, int32_t max_repeat_count) {
+    std::vector<int32_t> data({ref_rule_id, min_repeat_count, max_repeat_count});
+    return AddGrammarExpr({GrammarExprType::kRepeat, data.data(), static_cast<int32_t>(data.size())}
     );
   }
 

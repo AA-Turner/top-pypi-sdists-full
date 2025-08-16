@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: homeassistant
-Version: 2025.8.1
+Version: 2025.8.2
 Summary: Open-source home automation platform running on Python 3.
 Author-email: The Home Assistant Authors <hello@home-assistant.io>
 License-Expression: Apache-2.0
@@ -64,7 +64,7 @@ Requires-Dist: standard-telnetlib==3.13.0
 Requires-Dist: typing-extensions<5.0,>=4.14.0
 Requires-Dist: ulid-transform==1.4.0
 Requires-Dist: urllib3>=2.0
-Requires-Dist: uv==0.7.1
+Requires-Dist: uv==0.8.9
 Requires-Dist: voluptuous==0.15.2
 Requires-Dist: voluptuous-serialize==2.6.0
 Requires-Dist: voluptuous-openapi==0.1.0

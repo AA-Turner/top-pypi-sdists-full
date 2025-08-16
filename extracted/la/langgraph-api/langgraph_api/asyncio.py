@@ -119,7 +119,7 @@ def create_task(
 
 def run_coroutine_threadsafe(
     coro: Coroutine[Any, Any, T], ignore_exceptions: tuple[type[Exception], ...] = ()
-) -> concurrent.futures.Future[T | None]:
+) -> concurrent.futures.Future[T] | concurrent.futures.Future[None]:
     if _MAIN_LOOP is None:
         raise RuntimeError("No event loop set")
     future = asyncio.run_coroutine_threadsafe(coro, _MAIN_LOOP)
@@ -226,7 +226,7 @@ def to_aiter(*args: T) -> AsyncIterator[T]:
 V = TypeVar("V")
 
 
-class aclosing(Generic[V], AbstractAsyncContextManager):
+class aclosing(Generic[V], AbstractAsyncContextManager[V]):
     """Async context manager for safely finalizing an asynchronously cleaned-up
     resource such as an async generator, calling its ``aclose()`` method.
 
@@ -255,14 +255,16 @@ class aclosing(Generic[V], AbstractAsyncContextManager):
         await self.thing.aclose()
 
 
-async def aclosing_aiter(aiter: AsyncIterator[T]) -> AsyncIterator[T]:
-    if hasattr(aiter, "__aenter__"):
-        async with aiter:
-            async for item in aiter:
+async def aclosing_aiter(
+    aiterator: AsyncIterator[T],
+) -> AsyncIterator[T]:
+    if hasattr(aiterator, "__aenter__"):
+        async with aiterator:  # type: ignore[invalid-context-manager]
+            async for item in aiterator:
                 yield item
     else:
-        async with aclosing(aiter):
-            async for item in aiter:
+        async with aclosing(aiterator):
+            async for item in aiterator:
                 yield item
 
 

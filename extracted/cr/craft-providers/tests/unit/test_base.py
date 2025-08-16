@@ -20,7 +20,6 @@ import enum
 import logging
 import pathlib
 import subprocess
-import sys
 from unittest import mock
 
 import pytest
@@ -109,7 +108,7 @@ def test_wait_for_system_ready_timeout(
     fake_process.register(
         [*DEFAULT_FAKE_CMD, *WAIT_FOR_SYSTEM_READY_CMD], callback=callback
     )
-    fake_process.keep_last_process(True)
+    fake_process.keep_last_process(True)  # noqa: FBT003
 
     with pytest.raises(BaseConfigurationError):
         fake_base._setup_wait_for_system_ready(fake_executor)
@@ -136,7 +135,7 @@ def test_wait_for_network_success(
 )
 def test_wait_for_network_timeout(fake_base, fake_executor, fake_process, callback):
     fake_process.register([*DEFAULT_FAKE_CMD, *WAIT_FOR_NETWORK_CMD], callback=callback)
-    fake_process.keep_last_process(True)
+    fake_process.keep_last_process(True)  # noqa: FBT003
 
     with pytest.raises(BaseConfigurationError):
         fake_base._setup_wait_for_system_ready(fake_executor)
@@ -159,23 +158,10 @@ def test_mount_shared_cache_dirs(fake_process, fake_base, fake_executor, cache_d
 
     fake_base._mount_shared_cache_dirs(fake_executor)
 
-    if sys.platform == "win32":
-        expected = {
-            "host_source": pathlib.WindowsPath("d:")
-            / cache_dir
-            / "base-v7"
-            / "FakeBaseAlias.TREBLE"
-            / "pip",
-            "target": user_cache_dir / "pip",
-        }
-    else:
-        expected = {
-            "host_source": cache_dir.resolve()
-            / "base-v7"
-            / "FakeBaseAlias.TREBLE"
-            / "pip",
-            "target": user_cache_dir / "pip",
-        }
+    expected = {
+        "host_source": cache_dir.resolve() / "base-v7" / "FakeBaseAlias.TREBLE" / "pip",
+        "target": user_cache_dir / "pip",
+    }
     assert fake_executor.records_of_mount == [expected]
 
 
@@ -322,7 +308,7 @@ def test_get_os_release_error_output(
         stdout=stdout,
         returncode=returncode,
     )
-    fake_process.keep_last_process(True)
+    fake_process.keep_last_process(True)  # noqa: FBT003
 
     with pytest.raises(BaseConfigurationError):
         fake_base._get_os_release(executor=fake_executor)

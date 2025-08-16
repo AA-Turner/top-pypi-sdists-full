@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: foxglove-sdk
-Version: 0.10.1
+Version: 0.11.0
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Rust
 Summary: Foxglove Python SDK
 Author-email: Foxglove <support@foxglove.dev>
-License: MIT
+License-Expression: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: repository, https://github.com/foxglove/foxglove-sdk

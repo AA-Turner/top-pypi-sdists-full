@@ -2829,8 +2829,12 @@ components:
           type: string
           description: Unique ID for the activity record
         activity_type:
-          type: string
-          description: Type of activity performed (e.g., "AssumeRole", "AccessFeature")
+          anyOf:
+            - $ref: '#/components/schemas/ActivityType'
+            - type: string
+          description: |-
+            Type of activity performed (e.g., "AssumeRole", "AccessFeature").
+            For a given activity, prefer a standard ActivityType if one applies.
         timestamp:
           type: string
           description: Timestamp when the activity occurred (ISO 8601 format)
@@ -2904,6 +2908,11 @@ components:
 
         Currently only supports entitlement targets,
         but structured for easy future extension.
+    ActivityType:
+      type: string
+      enum:
+        - ACCOUNT_LOGIN
+      description: Enum representing standard activity types
     Amount:
       type: object
       required:
@@ -3023,6 +3032,7 @@ components:
       required:
         - account_id
         - application_id
+        - status
       properties:
         account_id:
           type: string
@@ -3030,6 +3040,10 @@ components:
         application_id:
           type: string
           x-semantic: application-id
+        status:
+          allOf:
+            - $ref: '#/components/schemas/AccountStatus'
+          description: Indicates the status of the account in the application
       description: Model containing information about an application an account has access to
       x-unique-hash:
         - account_id
@@ -5791,6 +5805,7 @@ components:
       required:
         - unassigned
         - deprovisioned
+        - status
       properties:
         unassigned:
           type: boolean
@@ -5802,6 +5817,10 @@ components:
           description: |-
             Indicates if the account in the application was removed. This does not indicate
             if the assignment via the integration was removed.
+        status:
+          allOf:
+            - $ref: '#/components/schemas/AccountStatus'
+          description: Indicates the account status after the unassignemnt operation.
       description: Details about the deactivated account
     UnassignedEntitlement:
       type: object

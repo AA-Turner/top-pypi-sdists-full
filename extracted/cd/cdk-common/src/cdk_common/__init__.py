@@ -780,10 +780,6 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
-    AWSOPS_WORKS_INSTANCE_REGISTRATION = "AWSOPS_WORKS_INSTANCE_REGISTRATION"
-    '''
-    :stability: experimental
-    '''
     AWSCODE_PIPELINE_APPROVER_ACCESS = "AWSCODE_PIPELINE_APPROVER_ACCESS"
     '''
     :stability: experimental
@@ -845,14 +841,6 @@ class AWSManagedPolicies(enum.Enum):
     :stability: experimental
     '''
     AMAZON_APP_STREAM_SERVICE_ACCESS = "AMAZON_APP_STREAM_SERVICE_ACCESS"
-    '''
-    :stability: experimental
-    '''
-    AWSOPS_WORKS_CM_INSTANCE_PROFILE_ROLE = "AWSOPS_WORKS_CM_INSTANCE_PROFILE_ROLE"
-    '''
-    :stability: experimental
-    '''
-    AWSOPS_WORKS_CM_SERVICE_ROLE = "AWSOPS_WORKS_CM_SERVICE_ROLE"
     '''
     :stability: experimental
     '''
@@ -989,10 +977,6 @@ class AWSManagedPolicies(enum.Enum):
     :stability: experimental
     '''
     AWSMARKETPLACE_GET_ENTITLEMENTS = "AWSMARKETPLACE_GET_ENTITLEMENTS"
-    '''
-    :stability: experimental
-    '''
-    AWSOPS_WORKS_CLOUD_WATCH_LOGS = "AWSOPS_WORKS_CLOUD_WATCH_LOGS"
     '''
     :stability: experimental
     '''
@@ -2025,14 +2009,6 @@ class AWSManagedPolicies(enum.Enum):
     :stability: experimental
     '''
     AWSCONFIG_MULTI_ACCOUNT_SETUP_POLICY = "AWSCONFIG_MULTI_ACCOUNT_SETUP_POLICY"
-    '''
-    :stability: experimental
-    '''
-    AWSOPSWORKSREGISTERCLI_ONPREMISES = "AWSOPSWORKSREGISTERCLI_ONPREMISES"
-    '''
-    :stability: experimental
-    '''
-    AWSOPSWORKSREGISTERCLI_EC2 = "AWSOPSWORKSREGISTERCLI_EC2"
     '''
     :stability: experimental
     '''
@@ -3137,10 +3113,6 @@ class AWSManagedPolicies(enum.Enum):
     :stability: experimental
     '''
     AWSDIRECT_CONNECT_SERVICE_ROLE_POLICY = "AWSDIRECT_CONNECT_SERVICE_ROLE_POLICY"
-    '''
-    :stability: experimental
-    '''
-    AWSOPSWORKS_FULLACCESS = "AWSOPSWORKS_FULLACCESS"
     '''
     :stability: experimental
     '''
@@ -5629,6 +5601,14 @@ class AWSManagedPolicies(enum.Enum):
     :stability: experimental
     '''
     ROSASHARED_VPC_ENDPOINT_POLICY = "ROSASHARED_VPC_ENDPOINT_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSMANAGEMENT_CONSOLE_BASIC_USER_ACCESS = "AWSMANAGEMENT_CONSOLE_BASIC_USER_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSMANAGEMENT_CONSOLE_ADMINISTRATOR_ACCESS = "AWSMANAGEMENT_CONSOLE_ADMINISTRATOR_ACCESS"
     '''
     :stability: experimental
     '''

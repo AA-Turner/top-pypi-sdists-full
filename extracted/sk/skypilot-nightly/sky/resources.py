@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import colorama
 
+import sky
 from sky import catalog
 from sky import check as sky_check
 from sky import clouds
@@ -287,7 +288,7 @@ class Resources:
         if infra is not None:
             infra_info = infra_utils.InfraInfo.from_str(infra)
             # Infra takes precedence over individually specified parameters
-            cloud = registry.CLOUD_REGISTRY.from_str(infra_info.cloud)
+            cloud = sky.CLOUD_REGISTRY.from_str(infra_info.cloud)
             region = infra_info.region
             zone = infra_info.zone
 

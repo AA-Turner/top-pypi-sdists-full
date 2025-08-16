@@ -72,7 +72,7 @@ class JsonHttpClient:
 
 
 _http_client: JsonHttpClient
-_loopback_client: JsonHttpClient = None
+_loopback_client: JsonHttpClient | None = None
 
 
 async def start_http_client() -> None:
@@ -113,16 +113,16 @@ def get_loopback_client() -> JsonHttpClient:
     return _loopback_client
 
 
-def is_retriable_error(exception: Exception) -> bool:
+def is_retriable_error(exception: BaseException) -> bool:
     # httpx error hierarchy: https://www.python-httpx.org/exceptions/
     # Retry all timeout related errors
     if isinstance(exception, httpx.TimeoutException | httpx.NetworkError):
         return True
     # Seems to just apply to HttpStatusError but doesn't hurt to check all
     if isinstance(exception, httpx.HTTPError):
-        return getattr(exception, "response", None) is not None and (
-            exception.response.status_code >= 500
-            or exception.response.status_code == 429
+        response = getattr(exception, "response", None)
+        return response is not None and (
+            response.status_code >= 500 or response.status_code == 429
         )
     return False
 
@@ -149,7 +149,7 @@ async def http_request(
     request_timeout: float | None = 30,
     raise_error: bool = True,
     client: JsonHttpClient | None = None,
-) -> httpx.Response:
+) -> None:
     """Make an HTTP request with retries.
 
     Args:
@@ -173,7 +173,10 @@ async def http_request(
 
     content = None
     if body is not None:
-        content = body
+        if isinstance(body, str):
+            content = body.encode("utf-8")
+        else:
+            content = body
     elif json is not None:
         content = json_dumpb(json)
 

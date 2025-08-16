@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: funasr
-Version: 1.2.6
+Version: 1.2.7
 Summary: FunASR: A Fundamental End-to-End Speech Recognition Toolkit
 Home-page: https://github.com/alibaba-damo-academy/FunASR.git
 Author: Speech Lab of Alibaba Group
@@ -18,6 +18,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.7.0
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: scipy>=1.4.1
 Requires-Dist: librosa
 Requires-Dist: jamo
@@ -405,11 +406,16 @@ res = model.export(quantize=False)
 ### Test ONNX
 ```python
 # pip3 install -U funasr-onnx
-from funasr_onnx import Paraformer
+from pathlib import Path
+from runtime.python.onnxruntime.funasr_onnx.paraformer_bin import Paraformer
+
+
+home_dir = Path.home()
+
 model_dir = "damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
 model = Paraformer(model_dir, batch_size=1, quantize=True)
 
-wav_path = ['~/.cache/modelscope/hub/damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/example/asr_example.wav']
+wav_path = [f"{home_dir}/.cache/modelscope/hub/models/damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch/example/asr_example.wav"]
 
 result = model(wav_path)
 print(result)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: connector-sdk-types
-Version: 0.10.0
+Version: 0.12.0
 Summary: Generated types for the Lumos Connector SDK
 Author-email: teamlumos <security@lumos.com>
 License: 

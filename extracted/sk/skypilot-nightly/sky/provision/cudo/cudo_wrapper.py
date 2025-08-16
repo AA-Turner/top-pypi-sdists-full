@@ -4,7 +4,7 @@ from typing import Dict
 
 from sky import sky_logging
 from sky.adaptors import cudo
-from sky.provision.cudo import cudo_utils as utils
+import sky.provision.cudo.cudo_utils as utils
 
 logger = sky_logging.init_logger(__name__)
 

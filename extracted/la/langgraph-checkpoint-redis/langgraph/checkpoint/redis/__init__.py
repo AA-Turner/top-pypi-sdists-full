@@ -35,6 +35,11 @@ from langgraph.checkpoint.redis.base import (
     BaseRedisSaver,
 )
 from langgraph.checkpoint.redis.key_registry import SyncCheckpointKeyRegistry
+from langgraph.checkpoint.redis.message_exporter import (
+    LangChainRecipe,
+    MessageExporter,
+    MessageRecipe,
+)
 from langgraph.checkpoint.redis.shallow import ShallowRedisSaver
 from langgraph.checkpoint.redis.util import (
     EMPTY_ID_SENTINEL,
@@ -1111,7 +1116,9 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
         finally:
             if saver and saver._owns_its_client:  # Ensure saver is not None
                 saver._redis.close()
-                saver._redis.connection_pool.disconnect()
+                # RedisCluster doesn't have connection_pool attribute
+                if getattr(saver._redis, "connection_pool", None):
+                    saver._redis.connection_pool.disconnect()
 
     def get_channel_values(
         self,
@@ -1155,7 +1162,7 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
         thread_id: str,
         checkpoint_ns: str,
         parent_checkpoint_id: str,
-    ) -> List[Tuple[str, bytes]]:
+    ) -> List[Tuple[str, Union[str, bytes]]]:
         """Load pending sends for a parent checkpoint.
 
         Args:
@@ -1437,7 +1444,7 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
         thread_id: str,
         checkpoint_ns: str,
         parent_checkpoint_id: str,
-    ) -> List[Tuple[str, bytes]]:
+    ) -> List[Tuple[str, Union[str, bytes]]]:
         """Load pending sends for a parent checkpoint with pre-computed registry check."""
         if not parent_checkpoint_id:
             return []
@@ -1652,4 +1659,7 @@ __all__ = [
     "BaseRedisSaver",
     "ShallowRedisSaver",
     "AsyncShallowRedisSaver",
+    "MessageExporter",
+    "LangChainRecipe",
+    "MessageRecipe",
 ]
