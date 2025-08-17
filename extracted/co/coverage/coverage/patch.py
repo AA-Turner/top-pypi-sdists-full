@@ -38,6 +38,9 @@ def apply_patches(
         elif patch == "execv":
             _patch_execv(cov, config, debug)
 
+        elif patch == "fork":
+            _patch_fork(debug)
+
         elif patch == "subprocess":
             _patch_subprocess(config, debug, make_pth_file)
 
@@ -53,7 +56,7 @@ def _patch__exit(cov: Coverage, debug: TDebugCtl) -> None:
 
     def coverage_os_exit_patch(status: int) -> NoReturn:
         with contextlib.suppress(Exception):
-            debug.write("Using _exit patch")
+            debug.write(f"Using _exit patch with {cov = }")
         with contextlib.suppress(Exception):
             cov.save()
         old_exit(status)
@@ -71,15 +74,15 @@ def _patch_execv(cov: Coverage, config: CoverageConfig, debug: TDebugCtl) -> Non
     def make_execv_patch(fname: str, old_execv: Any) -> Any:
         def coverage_execv_patch(*args: Any, **kwargs: Any) -> Any:
             with contextlib.suppress(Exception):
-                debug.write(f"Using execv patch for {fname}")
+                debug.write(f"Using execv patch for {fname} with {cov = }")
             with contextlib.suppress(Exception):
                 cov.save()
 
             if fname.endswith("e"):
                 # Assume the `env` argument is passed positionally.
                 new_env = args[-1]
-                # Pass our environment variable in the new environment.
-                new_env["COVERAGE_PROCESS_START"] = config.config_file
+                # Pass our configuration in the new environment.
+                new_env["COVERAGE_PROCESS_CONFIG"] = config.serialize()
                 if env.TESTING:
                     # The subprocesses need to use the same core as the main process.
                     new_env["COVERAGE_CORE"] = os.getenv("COVERAGE_CORE")
@@ -99,6 +102,16 @@ def _patch_execv(cov: Coverage, config: CoverageConfig, debug: TDebugCtl) -> Non
     # All the exec* and spawn* functions eventually call execv or execve.
     os.execv = make_execv_patch("execv", os.execv)
     os.execve = make_execv_patch("execve", os.execve)
+
+
+def _patch_fork(debug: TDebugCtl) -> None:
+    """Ensure Coverage is properly reset after a fork."""
+    from coverage.control import _after_fork_in_child
+    if env.WINDOWS:
+        raise CoverageException("patch=fork isn't supported yet on Windows.")
+
+    debug.write("Patching fork")
+    os.register_at_fork(after_in_child=_after_fork_in_child)
 
 
 def _patch_subprocess(config: CoverageConfig, debug: TDebugCtl, make_pth_file: bool) -> None:
@@ -130,7 +143,7 @@ else:
     coverage.process_startup()
 """
 
-PTH_TEXT = f"import sys; exec({PTH_CODE!r})"
+PTH_TEXT = f"import sys; exec({PTH_CODE!r})\n"
 
 def create_pth_files(debug: TDebugCtl = NoDebugging()) -> list[Path]:
     """Create .pth files for measuring subprocesses."""

@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "agilicus"
-version = "1.297.9"
+version = "1.298.0"
 description = "Agilicus SDK"
 license = "MIT"
 homepage = "https://www.agilicus.com/"
 repository = "https://github.com/Agilicus"
 authors = ["Agilicus Devs <dev@agilicus.com>"]
 readme = "README.md"
-include = [ "agilicus_README.md" ]
+include = [ "agilicus_README.md", "README-cli.md" ]
 
 [tool.poetry.dependencies]
 python = "^3.8"

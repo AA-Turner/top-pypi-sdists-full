@@ -10,13 +10,13 @@ from time import sleep
 from typing import Any, Generator
 
 import click
+from configobj import ConfigObj
 from pymysql.cursors import Cursor
 import pyperclip
 import sqlparse
 
 from mycli.compat import WIN
 from mycli.packages.prompt_utils import confirm_destructive_query
-from mycli.packages.special import export
 from mycli.packages.special.delimitercommand import DelimiterCommand
 from mycli.packages.special.favoritequeries import FavoriteQueries
 from mycli.packages.special.main import ArgType, special_command
@@ -36,26 +36,28 @@ PIPE_ONCE: dict[str, Any] = {
     'stdout_mode': None,
 }
 delimiter_command = DelimiterCommand()
+favoritequeries = FavoriteQueries(ConfigObj())
 
 
-@export
+def set_favorite_queries(config):
+    global favoritequeries
+    favoritequeries = FavoriteQueries(config)
+
+
 def set_timing_enabled(val: bool) -> None:
     global TIMING_ENABLED
     TIMING_ENABLED = val
 
 
-@export
 def set_pager_enabled(val: bool) -> None:
     global PAGER_ENABLED
     PAGER_ENABLED = val
 
 
-@export
 def is_pager_enabled() -> bool:
     return PAGER_ENABLED
 
 
-@export
 @special_command(
     "pager",
     "\\P [command]",
@@ -67,11 +69,11 @@ def is_pager_enabled() -> bool:
 def set_pager(arg: str, **_) -> list[tuple]:
     if arg:
         os.environ["PAGER"] = arg
-        msg = "PAGER set to %s." % arg
+        msg = f"PAGER set to {arg}."
         set_pager_enabled(True)
     else:
         if "PAGER" in os.environ:
-            msg = "PAGER set to %s." % os.environ["PAGER"]
+            msg = f"PAGER set to {os.environ['PAGER']}."
         else:
             # This uses click's default per echo_via_pager.
             msg = "Pager enabled."
@@ -80,7 +82,6 @@ def set_pager(arg: str, **_) -> list[tuple]:
     return [(None, None, None, msg)]
 
 
-@export
 @special_command("nopager", "\\n", "Disable pager, print to stdout.", arg_type=ArgType.NO_QUERY, aliases=["\\n"], case_sensitive=True)
 def disable_pager() -> list[tuple]:
     set_pager_enabled(False)
@@ -96,29 +97,24 @@ def toggle_timing() -> list[tuple]:
     return [(None, None, None, message)]
 
 
-@export
 def is_timing_enabled() -> bool:
     return TIMING_ENABLED
 
 
-@export
 def set_expanded_output(val: bool) -> None:
     global use_expanded_output
     use_expanded_output = val
 
 
-@export
 def is_expanded_output() -> bool:
     return use_expanded_output
 
 
-@export
 def set_forced_horizontal_output(val: bool) -> None:
     global force_horizontal_output
     force_horizontal_output = val
 
 
-@export
 def forced_horizontal() -> bool:
     return force_horizontal_output
 
@@ -126,7 +122,6 @@ def forced_horizontal() -> bool:
 _logger = logging.getLogger(__name__)
 
 
-@export
 def editor_command(command: str) -> bool:
     """
     Is this an external editor command?
@@ -137,7 +132,6 @@ def editor_command(command: str) -> bool:
     return command.strip().endswith("\\e") or command.strip().startswith("\\e")
 
 
-@export
 def get_filename(sql: str) -> str | None:
     if sql.strip().startswith("\\e"):
         command, _, filename = sql.partition(" ")
@@ -146,7 +140,6 @@ def get_filename(sql: str) -> str | None:
         return None
 
 
-@export
 def get_editor_query(sql: str) -> str:
     """Get the query part of an editor command."""
     sql = sql.strip()
@@ -161,7 +154,6 @@ def get_editor_query(sql: str) -> str:
     return sql
 
 
-@export
 def open_external_editor(filename: str | None = None, sql: str | None = None) -> tuple[str, str | None]:
     """Open external editor, wait for the user to type in their query, return
     the query.
@@ -184,7 +176,7 @@ def open_external_editor(filename: str | None = None, sql: str | None = None) ->
 
     # Populate the editor buffer with the partial sql (if available) and a
     # placeholder comment.
-    query = click.edit("{sql}\n\n{marker}".format(sql=sql, marker=MARKER), extension=".sql") or ''
+    query = click.edit(f"{sql}\n\n{MARKER}", extension=".sql") or ''
 
     if query:
         query = query.split(MARKER, 1)[0].rstrip("\n")
@@ -196,7 +188,6 @@ def open_external_editor(filename: str | None = None, sql: str | None = None) ->
     return (query, None)
 
 
-@export
 def clip_command(command: str) -> bool:
     """Is this a clip command?
 
@@ -208,7 +199,6 @@ def clip_command(command: str) -> bool:
     return command.strip().endswith("\\clip") or command.strip().startswith("\\clip")
 
 
-@export
 def get_clip_query(sql: str) -> str:
     """Get the query part of a clip command."""
     sql = sql.strip()
@@ -222,7 +212,6 @@ def get_clip_query(sql: str) -> str:
     return sql
 
 
-@export
 def copy_query_to_clipboard(sql: str | None = None) -> str | None:
     """Send query to the clipboard."""
 
@@ -230,14 +219,13 @@ def copy_query_to_clipboard(sql: str | None = None) -> str | None:
     message = None
 
     try:
-        pyperclip.copy("{sql}".format(sql=sql))
+        pyperclip.copy(f"{sql}")
     except RuntimeError as e:
         message = f"Error clipping query: {e}."
 
     return message
 
 
-@export
 def set_redirect(command_part: str | None, file_operator_part: str | None, file_part: str | None) -> list[tuple]:
     if command_part:
         if file_part:
@@ -261,9 +249,9 @@ def execute_favorite_query(cur: Cursor, arg: str, **_) -> Generator[tuple, None,
     name, _separator, arg_str = arg.partition(" ")
     args = shlex.split(arg_str)
 
-    query = FavoriteQueries.instance.get(name)
+    query = favoritequeries.get(name)
     if query is None:
-        message = "No favorite query: %s" % (name)
+        message = f"No favorite query: {name}"
         yield (None, None, None, message)
     else:
         query, arg_error = subst_favorite_query_args(query, args)
@@ -272,7 +260,7 @@ def execute_favorite_query(cur: Cursor, arg: str, **_) -> Generator[tuple, None,
         else:
             for sql in sqlparse.split(query):
                 sql = sql.rstrip(";")
-                title = "> %s" % (sql)
+                title = f"> {sql}"
                 cur.execute(sql)
                 if cur.description:
                     headers = [x[0] for x in cur.description]
@@ -286,10 +274,10 @@ def list_favorite_queries() -> list[tuple]:
     Returns (title, rows, headers, status)"""
 
     headers = ["Name", "Query"]
-    rows = [(r, FavoriteQueries.instance.get(r)) for r in FavoriteQueries.instance.list()]
+    rows = [(r, favoritequeries.get(r)) for r in favoritequeries.list()]
 
     if not rows:
-        status = "\nNo favorite queries found." + FavoriteQueries.instance.usage
+        status = "\nNo favorite queries found." + favoritequeries.usage
     else:
         status = ""
     return [("", rows, headers, status)]
@@ -316,7 +304,7 @@ def save_favorite_query(arg: str, **_) -> list[tuple]:
     """Save a new favorite query.
     Returns (title, rows, headers, status)"""
 
-    usage = "Syntax: \\fs name query.\n\n" + FavoriteQueries.instance.usage
+    usage = "Syntax: \\fs name query.\n\n" + favoritequeries.usage
     if not arg:
         return [(None, None, None, usage)]
 
@@ -326,18 +314,18 @@ def save_favorite_query(arg: str, **_) -> list[tuple]:
     if (not name) or (not query):
         return [(None, None, None, usage + "Err: Both name and query are required.")]
 
-    FavoriteQueries.instance.save(name, query)
+    favoritequeries.save(name, query)
     return [(None, None, None, "Saved.")]
 
 
 @special_command("\\fd", "\\fd [name]", "Delete a favorite query.")
 def delete_favorite_query(arg: str, **_) -> list[tuple]:
     """Delete an existing favorite query."""
-    usage = "Syntax: \\fd name.\n\n" + FavoriteQueries.instance.usage
+    usage = "Syntax: \\fd name.\n\n" + favoritequeries.usage
     if not arg:
         return [(None, None, None, usage)]
 
-    status = FavoriteQueries.instance.delete(arg)
+    status = favoritequeries.delete(arg)
 
     return [(None, None, None, status)]
 
@@ -368,7 +356,7 @@ def execute_system_command(arg: str, **_) -> list[tuple]:
 
         return [(None, None, None, response_str)]
     except OSError as e:
-        return [(None, None, None, "OSError: %s" % e.strerror)]
+        return [(None, None, None, f"OSError: {e.strerror}")]
 
 
 def parseargfile(arg: str) -> tuple[str, str]:
@@ -392,12 +380,11 @@ def set_tee(arg: str, **_) -> list[tuple]:
     try:
         tee_file = open(*parseargfile(arg))
     except (IOError, OSError) as e:
-        raise OSError("Cannot write to file '{}': {}".format(e.filename, e.strerror))
+        raise OSError(f"Cannot write to file '{e.filename}': {e.strerror}")
 
     return [(None, None, None, "")]
 
 
-@export
 def close_tee() -> None:
     global tee_file
     if tee_file:
@@ -411,7 +398,6 @@ def no_tee(arg: str, **_) -> list[tuple]:
     return [(None, None, None, "")]
 
 
-@export
 def write_tee(output: str) -> None:
     global tee_file
     if tee_file:
@@ -427,18 +413,16 @@ def set_once(arg: str, **_) -> list[tuple]:
     try:
         once_file = open(*parseargfile(arg))
     except (IOError, OSError) as e:
-        raise OSError("Cannot write to file '{}': {}".format(e.filename, e.strerror))
+        raise OSError(f"Cannot write to file '{e.filename}': {e.strerror}")
     written_to_once_file = False
 
     return [(None, None, None, "")]
 
 
-@export
 def is_redirected() -> bool:
     return bool(once_file or PIPE_ONCE['process'])
 
 
-@export
 def write_once(output: str) -> None:
     global once_file, written_to_once_file
     if output and once_file:
@@ -448,7 +432,6 @@ def write_once(output: str) -> None:
         written_to_once_file = True
 
 
-@export
 def unset_once_if_written(post_redirect_command: str) -> None:
     """Unset the once file, if it has been written to."""
     global once_file, written_to_once_file
@@ -473,7 +456,7 @@ def _run_post_redirect_hook(post_redirect_command: str, filename: str) -> None:
             stderr=subprocess.DEVNULL,
         )
     except Exception as e:
-        raise OSError("Redirect post hook failed: {}".format(e))
+        raise OSError(f"Redirect post hook failed: {e}")
 
 
 @special_command("\\pipe_once", "\\| command", "Send next result to a subprocess.", aliases=["\\|"])
@@ -498,13 +481,11 @@ def set_pipe_once(arg: str, **_) -> list[tuple]:
     return [(None, None, None, "")]
 
 
-@export
 def write_pipe_once(line: str) -> None:
     if line and PIPE_ONCE['process']:
         PIPE_ONCE['stdin'].append(line)
 
 
-@export
 def flush_pipe_once_if_written(post_redirect_command: str) -> None:
     """Flush the pipe_once cmd, if lines have been written."""
     if not PIPE_ONCE['process']:
@@ -566,7 +547,7 @@ def watch_query(arg: str, **kwargs) -> Generator[tuple, None, None]:
         if left_arg == "-c":
             clear_screen = True
             continue
-        statement = "{0!s} {1!s}".format(left_arg, arg)
+        statement = f"{left_arg} {arg}"
     destructive_prompt = confirm_destructive_query(statement)
     if destructive_prompt is False:
         click.secho("Wise choice!")
@@ -574,7 +555,7 @@ def watch_query(arg: str, **kwargs) -> Generator[tuple, None, None]:
     elif destructive_prompt is True:
         click.secho("Your call!")
     cur = kwargs["cur"]
-    sql_list = [(sql.rstrip(";"), "> {0!s}".format(sql)) for sql in sqlparse.split(statement)]
+    sql_list = [(sql.rstrip(";"), f"> {sql}") for sql in sqlparse.split(statement)]
     old_pager_enabled = is_pager_enabled()
     while True:
         if clear_screen:
@@ -600,18 +581,15 @@ def watch_query(arg: str, **kwargs) -> Generator[tuple, None, None]:
             set_pager_enabled(old_pager_enabled)
 
 
-@export
 @special_command("delimiter", None, "Change SQL delimiter.")
 def set_delimiter(arg: str, **_) -> list[tuple]:
     return delimiter_command.set(arg)
 
 
-@export
 def get_current_delimiter() -> str:
     return delimiter_command.current
 
 
-@export
 def split_queries(input_str: str) -> Generator[str, None, None]:
     for query in delimiter_command.queries_iter(input_str):
         yield query

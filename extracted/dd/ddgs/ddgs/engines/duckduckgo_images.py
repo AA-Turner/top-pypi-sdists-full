@@ -1,5 +1,8 @@
+"""Duckduckgo images search engine implementation."""
+
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from ..base import BaseSearchEngine
@@ -8,7 +11,7 @@ from ..utils import _extract_vqd, json_loads
 
 
 class DuckduckgoImages(BaseSearchEngine[ImagesResult]):
-    """Duckduckgo images search engine"""
+    """Duckduckgo images search engine."""
 
     name = "duckduckgo"
     category = "images"
@@ -16,9 +19,9 @@ class DuckduckgoImages(BaseSearchEngine[ImagesResult]):
 
     search_url = "https://duckduckgo.com/i.js"
     search_method = "GET"
-    search_headers = {"Referer": "https://duckduckgo.com/", "Sec-Fetch-Mode": "cors"}
+    search_headers: Mapping[str, str] = {"Referer": "https://duckduckgo.com/", "Sec-Fetch-Mode": "cors"}
 
-    elements_replace = {
+    elements_replace: Mapping[str, str] = {
         "title": "title",
         "image": "image",
         "thumbnail": "thumbnail",
@@ -36,6 +39,7 @@ class DuckduckgoImages(BaseSearchEngine[ImagesResult]):
     def build_payload(
         self, query: str, region: str, safesearch: str, timelimit: str | None, page: int = 1, **kwargs: Any
     ) -> dict[str, Any]:
+        """Build a payload for the search request."""
         safesearch_base = {"on": "1", "moderate": "1", "off": "-1"}
         timelimit_base = {"d": "day", "w": "week", "m": "month", "y": "year"}
         timelimit = f"time:{timelimit_base[timelimit]}" if timelimit else ""
@@ -61,9 +65,9 @@ class DuckduckgoImages(BaseSearchEngine[ImagesResult]):
             payload["s"] = f"{(page - 1) * 100}"
         return payload
 
-    def extract_results(self, html_text: str) -> list[ImagesResult]:
-        """Extract search results from html text"""
-        json_data = json_loads(html_text)
+    def extract_results(self, html_bytes: bytes) -> list[ImagesResult]:
+        """Extract search results from html bytes."""
+        json_data = json_loads(html_bytes)
         items = json_data.get("results", [])
         results = []
         for item in items:

@@ -56,9 +56,13 @@ fn req_resp_should_work() {
 }
 
 pub fn create_lsp() -> (DuplexStream, DuplexStream) {
-  let globals = GlobalRules::default();
-  let config: RuleConfig<SupportLang> = from_yaml_string(
-    r"
+  let base = Path::new("./").to_path_buf();
+
+  // Create a rule finder closure that builds the rule collection from scratch
+  let rule_finder = move || {
+    let globals = GlobalRules::default();
+    let config: RuleConfig<SupportLang> = from_yaml_string(
+      r"
 id: no-console-rule
 message: No console.log
 severity: warning
@@ -69,16 +73,17 @@ note: no console.log
 fix: |
   alert($$$A)
 ",
-    &globals,
-  )
-  .unwrap()
-  .pop()
-  .unwrap();
-  let base = Path::new("./").to_path_buf();
-  let rc: RuleCollection<SupportLang> = RuleCollection::try_new(vec![config]).unwrap();
-  let rc_result: std::result::Result<_, String> = Ok(rc);
+      &globals,
+    )
+    .unwrap()
+    .pop()
+    .unwrap();
+    let rc: RuleCollection<SupportLang> = RuleCollection::try_new(vec![config]).unwrap();
+    Ok(rc)
+  };
+
   let (service, socket) =
-    LspService::build(|client| Backend::new(client, base, rc_result)).finish();
+    LspService::build(|client| Backend::new(client, base, rule_finder)).finish();
   let (req_client, req_server) = duplex(1024);
   let (resp_server, resp_client) = duplex(1024);
 
@@ -257,4 +262,98 @@ fn test_execute_apply_all_fixes() {
       "Running ExecuteCommand ast-grep.applyAllFixes"
     );
   });
+}
+
+#[tokio::test]
+async fn test_file_watcher_registration() {
+  let (mut req_client, mut resp_client) = create_lsp();
+  let initialize = r#"{
+      "jsonrpc":"2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+        "capabilities": {
+          "workspace": {
+            "didChangeWatchedFiles": {
+              "dynamicRegistration": true
+            }
+          }
+        }
+      }
+    }"#;
+
+  // Send initialize request
+  req_client
+    .write_all(req(initialize).as_bytes())
+    .await
+    .unwrap();
+
+  let mut buf = vec![0; 4096];
+  let len = resp_client.read(&mut buf).await.unwrap();
+  let response = String::from_utf8_lossy(&buf[..len]);
+
+  // Should contain initialization response
+  assert!(response.contains("result") || response.contains("initialize"));
+
+  // Send initialized notification
+  let initialized = r#"{
+      "jsonrpc":"2.0",
+      "method": "initialized",
+      "params": {}
+    }"#;
+
+  req_client
+    .write_all(req(initialized).as_bytes())
+    .await
+    .unwrap();
+
+  // Read responses - there should be file watcher registration
+  let mut buf = vec![0; 4096];
+  let len = resp_client.read(&mut buf).await.unwrap();
+  let response = String::from_utf8_lossy(&buf[..len]);
+
+  // Should contain capability registration for file watching
+  assert!(
+    response.contains("client/registerCapability")
+      || response.contains("workspace/didChangeWatchedFiles")
+      || response.contains("window/logMessage")
+  );
+}
+
+#[tokio::test]
+async fn test_did_change_watched_files() {
+  let (mut req_client, mut resp_client) = create_lsp();
+  initialize_lsp(&mut req_client, &mut resp_client).await;
+
+  // Send didChangeWatchedFiles notification
+  let change_notification = r#"{
+      "jsonrpc":"2.0",
+      "method": "workspace/didChangeWatchedFiles",
+      "params": {
+        "changes": [
+          {
+            "uri": "file:///test/sgconfig.yml",
+            "type": 2
+          }
+        ]
+      }
+    }"#;
+
+  req_client
+    .write_all(req(change_notification).as_bytes())
+    .await
+    .unwrap();
+
+  // Give some time for processing
+  tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+  let mut buf = vec![0; 4096];
+  let len = resp_client.read(&mut buf).await.unwrap();
+  let response = String::from_utf8_lossy(&buf[..len]);
+
+  // Should contain log messages about configuration changes
+  assert!(
+    response.contains("Configuration files changed")
+      || response.contains("watched files have changed")
+  );
 }

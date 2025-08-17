@@ -41,6 +41,7 @@ pub mod celestial_objects {
             VENUS => Some("Venus"),
             EARTH_MOON_BARYCENTER => Some("Earth-Moon Barycenter"),
             MARS_BARYCENTER => Some("Mars Barycenter"),
+            MARS => Some("Mars"),
             JUPITER_BARYCENTER => Some("Jupiter Barycenter"),
             SATURN_BARYCENTER => Some("Saturn Barycenter"),
             URANUS_BARYCENTER => Some("Uranus Barycenter"),
@@ -53,8 +54,13 @@ pub mod celestial_objects {
         }
     }
 
-    /// Converts the provided ID to its human name. Only works for the common celestial bodies. Should be compatible with CCSDS OEM names
+    #[deprecated(since = "0.6.7")]
     pub fn id_to_celestial_name(name: &str) -> Result<NaifId, EphemerisError> {
+        id_from_celestial_name(name)
+    }
+
+    /// Converts the provided ID to its human name. Only works for the common celestial bodies. Should be compatible with CCSDS OEM names
+    pub fn id_from_celestial_name(name: &str) -> Result<NaifId, EphemerisError> {
         match name {
             "Mercury" => Ok(MERCURY),
             "Venus" => Ok(VENUS),
@@ -237,8 +243,8 @@ pub mod orientations {
     pub const IAU_MARS: NaifId = 499;
     pub const IAU_JUPITER: NaifId = 599;
     pub const IAU_SATURN: NaifId = 699;
-    pub const IAU_NEPTUNE: NaifId = 799;
-    pub const IAU_URANUS: NaifId = 899;
+    pub const IAU_URANUS: NaifId = 799;
+    pub const IAU_NEPTUNE: NaifId = 899;
 
     /// Angle between J2000 to solar system ecliptic J2000 ([ECLIPJ2000]), in radians (about 23.43929 degrees). Apply this rotation about the X axis (R1)
     pub const J2000_TO_ECLIPJ2000_ANGLE_RAD: f64 = 0.40909280422232897;
@@ -270,8 +276,16 @@ pub mod orientations {
         }
     }
 
-    /// Converts the provided ID to its human name. Only works for the common celestial bodies. Should be compatible with CCSDS OEM names
+    #[deprecated(
+        since = "0.6.7",
+        note = "use id_from_orientation_name, the original function was incorrectly named"
+    )]
     pub fn id_to_orientation_name(name: &str) -> Result<NaifId, OrientationError> {
+        id_from_orientation_name(name)
+    }
+
+    /// Converts the provided ID to its human name. Only works for the common celestial bodies. Should be compatible with CCSDS OEM names
+    pub fn id_from_orientation_name(name: &str) -> Result<NaifId, OrientationError> {
         match name {
             "J2000" | "ICRF" => Ok(J2000),
             "B1950" => Ok(B1950),
@@ -308,6 +322,8 @@ pub mod frames {
     pub const MERCURY_J2000: Frame = Frame::new(MERCURY, J2000);
     pub const VENUS_J2000: Frame = Frame::new(VENUS, J2000);
     pub const EARTH_MOON_BARYCENTER_J2000: Frame = Frame::new(EARTH_MOON_BARYCENTER, J2000);
+    /// The Mars frame is not available in the standard DE files, and requires a Mars specific BSP.
+    pub const MARS_J2000: Frame = Frame::new(MARS, J2000);
     pub const MARS_BARYCENTER_J2000: Frame = Frame::new(MARS_BARYCENTER, J2000);
     pub const JUPITER_BARYCENTER_J2000: Frame = Frame::new(JUPITER_BARYCENTER, J2000);
     pub const SATURN_BARYCENTER_J2000: Frame = Frame::new(SATURN_BARYCENTER, J2000);

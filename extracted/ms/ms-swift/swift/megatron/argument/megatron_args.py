@@ -10,7 +10,7 @@ import torch
 from transformers.utils.versions import require_version
 
 from swift.llm.argument.base_args import to_abspath
-from swift.utils import get_logger, json_parse_to_dict
+from swift.utils import get_dist_setting, get_logger, json_parse_to_dict
 
 logger = get_logger()
 
@@ -160,6 +160,7 @@ class MegatronArguments(ExtraMegatronArguments):
 
     # dist
     distributed_backend: Literal['nccl', 'gloo'] = 'nccl'
+    local_rank: Optional[int] = None
     use_distributed_optimizer: bool = True
     tensor_model_parallel_size: int = 1
     pipeline_model_parallel_size: int = 1
@@ -217,7 +218,7 @@ class MegatronArguments(ExtraMegatronArguments):
     moe_enable_deepep: bool = False
     moe_grouped_gemm: bool = False
     moe_permute_fusion: bool = False
-    moe_aux_loss_coeff: Optional[float] = None
+    moe_aux_loss_coeff: float = 0.
     moe_z_loss_coeff: Optional[float] = None
     moe_expert_capacity_factor: Optional[float] = None
     moe_shared_expert_overlap: bool = False
@@ -273,6 +274,8 @@ class MegatronArguments(ExtraMegatronArguments):
     def _set_default(self):
         if self.mlp_padding_free and self.sequence_parallel:
             raise ValueError('mlp_padding_free is not compatible with sequence_parallel.')
+        if self.local_rank is None:
+            self.local_rank = get_dist_setting()[1]
         if self.lr is None:
             if self.train_type == 'full':
                 self.lr = 1e-5
@@ -315,8 +318,6 @@ class MegatronArguments(ExtraMegatronArguments):
             self.moe_router_topk = 2
         if self.moe_router_pre_softmax is None:
             self.moe_router_pre_softmax = False
-        if self.moe_aux_loss_coeff is None:
-            self.moe_aux_loss_coeff = 0.
         if self.moe_router_load_balancing_type is None:
             self.moe_router_load_balancing_type = 'aux_loss'
         if self.moe_router_enable_expert_bias is None:
@@ -380,6 +381,9 @@ class MegatronArguments(ExtraMegatronArguments):
         self.tensorboard_dir = to_abspath(self.tensorboard_dir)
         self.extra_megatron_kwargs = json_parse_to_dict(self.extra_megatron_kwargs)
         self._init_no_rope_fusion()
+        if self.load is None and self.no_initialization:
+            raise ValueError('You did not pass `--load`, so you need to set `--no_initialization false` '
+                             'to allow the model to initialize weights properly.')
 
     def _init_no_rope_fusion(self):
         if self.no_rope_fusion is not None:

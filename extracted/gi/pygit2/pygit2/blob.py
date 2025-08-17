@@ -2,8 +2,8 @@ import io
 import threading
 import time
 from contextlib import AbstractContextManager
-from typing import Optional
 from queue import Queue
+from typing import Optional
 
 from ._pygit2 import Blob, Oid
 from .enums import BlobFilter
@@ -84,7 +84,7 @@ class _BlobIO(io.RawIOBase):
         except KeyboardInterrupt:
             return 0
 
-    def close(self):
+    def close(self) -> None:
         try:
             self._ready.wait()
             self._writer_closed.wait()

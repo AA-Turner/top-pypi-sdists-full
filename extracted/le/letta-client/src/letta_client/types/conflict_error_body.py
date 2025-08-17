@@ -8,9 +8,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 
 
 class ConflictErrorBody(UncheckedBaseModel):
-    message: typing.Literal[
-        "You can only migrate agents to a new versioned agent template that belongs to the same project"
-    ] = "You can only migrate agents to a new versioned agent template that belongs to the same project"
+    message: str
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

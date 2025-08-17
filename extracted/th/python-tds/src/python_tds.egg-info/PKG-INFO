@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-tds
-Version: 1.16.1
+Version: 1.17.0
 Summary: Python DBAPI driver for MSSQL using pure Python TDS (Tabular Data Stream) protocol implementation
 Home-page: https://github.com/denisenkom/pytds
 Author: Mikhail Denisenko

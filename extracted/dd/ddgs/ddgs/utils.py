@@ -1,3 +1,5 @@
+"""Utilities."""
+
 from __future__ import annotations
 
 import re
@@ -20,6 +22,7 @@ _REGEX_STRIP_TAGS = re.compile("<.*?>")
 
 
 def json_dumps(obj: Any) -> str:
+    """JSON encode an object."""
     try:
         return (
             orjson.dumps(obj, option=orjson.OPT_INDENT_2).decode()
@@ -27,14 +30,17 @@ def json_dumps(obj: Any) -> str:
             else json.dumps(obj, ensure_ascii=False, indent=2)
         )
     except Exception as ex:
-        raise DDGSException(f"{type(ex).__name__}: {ex}") from ex
+        msg = f"{type(ex).__name__}: {ex}"
+        raise DDGSException(msg) from ex
 
 
 def json_loads(obj: str | bytes) -> Any:
+    """JSON decode an object."""
     try:
         return orjson.loads(obj) if HAS_ORJSON else json.loads(obj)
     except Exception as ex:
-        raise DDGSException(f"{type(ex).__name__}: {ex}") from ex
+        msg = f"{type(ex).__name__}: {ex}"
+        raise DDGSException(msg) from ex
 
 
 def _extract_vqd(html_bytes: bytes, query: str) -> str:
@@ -50,7 +56,8 @@ def _extract_vqd(html_bytes: bytes, query: str) -> str:
             return html_bytes[start:end].decode()
         except ValueError:
             pass
-    raise DDGSException(f"_extract_vqd() {query=} Could not extract vqd.")
+    msg = f"_extract_vqd() {query=} Could not extract vqd."
+    raise DDGSException(msg)
 
 
 def _normalize_url(url: str) -> str:
@@ -63,7 +70,8 @@ def _normalize_text(
     normalize_form: Literal["NFC", "NFD", "NFKC", "NFKD"] = "NFC",
     collapse_spaces: bool = True,
 ) -> str:
-    """
+    """Normalize text.
+
     Strip HTML tags, unescape HTML entities, normalize Unicode,
     replace all separator-like characters with spaces, then
     optionally collapse consecutive whitespace into a single space.

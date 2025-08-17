@@ -24,14 +24,15 @@
 # Boston, MA 02110-1301, USA.
 
 # Import from pygit2
-from .ffi import ffi, C
 from ._pygit2 import GitError
+from .ffi import C, ffi
 
+__all__ = ['GitError']
 
 value_errors = set([C.GIT_EEXISTS, C.GIT_EINVALIDSPEC, C.GIT_EAMBIGUOUS])
 
 
-def check_error(err, io=False):
+def check_error(err: int, io: bool = False) -> None:
     if err >= 0:
         return
 
@@ -68,5 +69,5 @@ def check_error(err, io=False):
 
 # Indicate that we want libgit2 to pretend a function was not set
 class Passthrough(Exception):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__('The function asked for pass-through')

@@ -23,15 +23,18 @@
 # the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301, USA.
 
+from collections.abc import Generator
 from pathlib import Path
+
 import pytest
 
 import pygit2
+from pygit2 import Repository
 from pygit2.enums import ObjectType
 
 
 @pytest.fixture
-def repo(testrepopacked):
+def repo(testrepopacked: Repository) -> Generator[Repository, None, None]:
     testrepo = testrepopacked
 
     odb = pygit2.Odb()
@@ -48,7 +51,7 @@ def repo(testrepopacked):
     yield repo
 
 
-def test_references(repo):
+def test_references(repo: Repository) -> None:
     refs = [(ref.name, ref.target) for ref in repo.references.objects]
     assert sorted(refs) == [
         ('refs/heads/i18n', '5470a671a80ac3789f1a6a8cefbcf43ce7af0563'),
@@ -56,6 +59,6 @@ def test_references(repo):
     ]
 
 
-def test_objects(repo):
+def test_objects(repo: Repository) -> None:
     a = repo.read('323fae03f4606ea9991df8befbb2fca795e648fa')
     assert (ObjectType.BLOB, b'foobar\n') == a

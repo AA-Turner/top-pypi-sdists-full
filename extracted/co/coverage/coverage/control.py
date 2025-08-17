@@ -89,7 +89,7 @@ def override_config(cov: Coverage, **kwargs: TConfigValueIn) -> Iterator[None]:
 
 DEFAULT_DATAFILE = DefaultValue("MISSING")
 _DEFAULT_DATAFILE = DEFAULT_DATAFILE  # Just in case, for backwards compatibility
-CONFIG_FROM_ENVIRONMENT = ":envvar:"
+CONFIG_DATA_PREFIX = ":data:"
 
 class Coverage(TConfigurable):
     """Programmatic access to coverage.py.
@@ -317,8 +317,8 @@ class Coverage(TConfigurable):
         self._should_write_debug = True
 
         # Build our configuration from a number of sources.
-        if config_file == CONFIG_FROM_ENVIRONMENT:
-            self.config = deserialize_config(cast(str, os.getenv("COVERAGE_PROCESS_CONFIG")))
+        if isinstance(config_file, str) and config_file.startswith(CONFIG_DATA_PREFIX):
+            self.config = deserialize_config(config_file[len(CONFIG_DATA_PREFIX):])
         else:
             if not isinstance(config_file, bool):
                 config_file = os.fspath(config_file)
@@ -1410,7 +1410,7 @@ if int(os.getenv("COVERAGE_DEBUG_CALLS", 0)):               # pragma: debugging
     )(Coverage)
 
 
-def process_startup() -> Coverage | None:
+def process_startup(*, force: bool = False) -> Coverage | None:
     """Call this at Python start-up to perhaps measure coverage.
 
     If the environment variable COVERAGE_PROCESS_START is defined, coverage
@@ -1423,12 +1423,12 @@ def process_startup() -> Coverage | None:
     not started by this call.
 
     """
-    cps = os.getenv("COVERAGE_PROCESS_START")
     config_data = os.getenv("COVERAGE_PROCESS_CONFIG")
-    if cps is not None:
+    cps = os.getenv("COVERAGE_PROCESS_START")
+    if config_data is not None:
+        config_file = CONFIG_DATA_PREFIX + config_data
+    elif cps is not None:
         config_file = cps
-    elif config_data is not None:
-        config_file = CONFIG_FROM_ENVIRONMENT
     else:
         # No request for coverage, nothing to do.
         return None
@@ -1442,7 +1442,7 @@ def process_startup() -> Coverage | None:
     #
     # https://github.com/nedbat/coveragepy/issues/340 has more details.
 
-    if hasattr(process_startup, "coverage"):
+    if not force and hasattr(process_startup, "coverage"):
         # We've annotated this function before, so we must have already
         # auto-started coverage.py in this process.  Nothing to do.
         return None
@@ -1457,6 +1457,13 @@ def process_startup() -> Coverage | None:
     cov.start()
 
     return cov
+
+
+def _after_fork_in_child() -> None:
+    """Used by patch=fork in the child process to restart coverage."""
+    if cov := Coverage.current():
+        cov.stop()
+    process_startup(force=True)
 
 
 def _prevent_sub_process_measurement() -> None:

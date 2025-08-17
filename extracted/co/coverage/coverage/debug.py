@@ -8,6 +8,7 @@ from __future__ import annotations
 import _thread
 import atexit
 import contextlib
+import datetime
 import functools
 import inspect
 import itertools
@@ -19,13 +20,7 @@ import sys
 import traceback
 import types
 from collections.abc import Iterable, Iterator, Mapping
-from typing import (
-    IO,
-    Any,
-    Callable,
-    Final,
-    overload,
-)
+from typing import IO, Any, Callable, Final, overload
 
 from coverage.misc import human_sorted_items, isolate_module
 from coverage.types import AnyCallable, TWritable
@@ -124,7 +119,7 @@ class NoDebugging(DebugControl):
     @contextlib.contextmanager
     def without_callers(self) -> Iterator[None]:
         """A dummy context manager to satisfy the api."""
-        yield
+        yield  # pragma: never called
 
     def write(self, msg: str, *, exc: BaseException | None = None) -> None:
         """This will never be called."""
@@ -220,6 +215,20 @@ def short_filename(filename: str | None) -> str | None:
         for before, after in _FILENAME_SUBS:
             filename = filename.replace(before, after)
     return filename
+
+
+def file_summary(filename: str) -> str:
+    """A one-line summary of a file, for log messages."""
+    try:
+        s = os.stat(filename)
+    except FileNotFoundError:
+        summary = "does not exist"
+    except Exception as e:
+        summary = f"error: {e}"
+    else:
+        mod = datetime.datetime.fromtimestamp(s.st_mtime)
+        summary = f"{s.st_size} bytes, modified {mod}"
+    return summary
 
 
 def short_stack(
@@ -610,19 +619,24 @@ def relevant_environment_display(env: Mapping[str, str]) -> list[tuple[str, str]
         A list of pairs (name, value) to show.
 
     """
-    slugs = {"COV", "PY"}
-    include = {"HOME", "TEMP", "TMP"}
-    cloak = {"API", "TOKEN", "KEY", "SECRET", "PASS", "SIGNATURE"}
+    SLUGS = {"COV", "PY"}
+    INCLUDE = {"HOME", "TEMP", "TMP"}
+    CLOAK = {"API", "TOKEN", "KEY", "SECRET", "PASS", "SIGNATURE"}
+    TRUNCATE = {"COVERAGE_PROCESS_CONFIG"}
+    TRUNCATE_LEN = 60
 
     to_show = []
     for name, val in env.items():
-        keep = False
-        if name in include:
-            keep = True
-        elif any(slug in name for slug in slugs):
-            keep = True
-        if keep:
-            if any(slug in name for slug in cloak):
+        show = False
+        if name in INCLUDE:
+            show = True
+        elif any(slug in name for slug in SLUGS):
+            show = True
+        if show:
+            if any(slug in name for slug in CLOAK):
                 val = re.sub(r"\w", "*", val)
+            if name in TRUNCATE:
+                if len(val) > TRUNCATE_LEN:
+                    val = val[:TRUNCATE_LEN-3] + "..."
             to_show.append((name, val))
     return human_sorted_items(to_show)

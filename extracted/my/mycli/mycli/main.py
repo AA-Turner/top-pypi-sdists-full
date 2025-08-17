@@ -1,6 +1,7 @@
-# type: ignore
+from __future__ import annotations
 
 from collections import defaultdict, namedtuple
+from io import TextIOWrapper
 import logging
 import os
 import re
@@ -8,6 +9,7 @@ import shutil
 import sys
 import threading
 import traceback
+from typing import Any, Generator, Iterable, Literal
 
 try:
     from pwd import getpwuid
@@ -24,16 +26,18 @@ from cli_helpers.tabular_output import TabularOutputFormatter, preprocessors
 from cli_helpers.utils import strip_ansi
 import click
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
-from prompt_toolkit.completion import DynamicCompleter
+from prompt_toolkit.completion import Completion, DynamicCompleter
 from prompt_toolkit.document import Document
 from prompt_toolkit.enums import DEFAULT_BUFFER, EditingMode
 from prompt_toolkit.filters import HasFocus, IsDone
-from prompt_toolkit.formatted_text import ANSI
+from prompt_toolkit.formatted_text import ANSI, AnyFormattedText
 from prompt_toolkit.key_binding.bindings.named_commands import register as prompt_register
+from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.layout.processors import ConditionalProcessor, HighlightMatchingBracketProcessor
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.shortcuts import CompleteStyle, PromptSession
 from pymysql import OperationalError
+from pymysql.cursors import Cursor
 import sqlglot
 import sqlparse
 
@@ -51,7 +55,6 @@ from mycli.packages.filepaths import dir_path_exists, guess_socket_location
 from mycli.packages.hybrid_redirection import get_redirect_components, is_redirect_command
 from mycli.packages.parseutils import is_destructive, is_dropping_database
 from mycli.packages.prompt_utils import confirm, confirm_destructive_query
-from mycli.packages.special.favoritequeries import FavoriteQueries
 from mycli.packages.special.main import ArgType
 from mycli.packages.tabular_output import sql_format
 from mycli.packages.toolkit.history import FileHistoryWithTimestamp
@@ -61,18 +64,15 @@ from mycli.sqlexecute import ERROR_CODE_ACCESS_DENIED, FIELD_TYPES, SQLExecute
 try:
     import paramiko
 except ImportError:
-    from mycli.packages.paramiko_stub import paramiko
+    from mycli.packages.paramiko_stub import paramiko  # type: ignore[no-redef]
 
-click.disable_unicode_literals_warning = True
 
 # Query tuples are used for maintaining history
 Query = namedtuple("Query", ["query", "successful", "mutating"])
 
 SUPPORT_INFO = "Home: http://mycli.net\nBug tracker: https://github.com/dbcli/mycli/issues"
-
-
-class PasswordFileError(Exception):
-    """Base exception for errors related to reading password files."""
+DEFAULT_WIDTH = 80
+DEFAULT_HEIGHT = 25
 
 
 class MyCli:
@@ -82,7 +82,7 @@ class MyCli:
     defaults_suffix = None
 
     # In order of being loaded. Files lower in list override earlier ones.
-    cnf_files = [
+    cnf_files: list[str | TextIOWrapper] = [
         "/etc/my.cnf",
         "/etc/mysql/my.cnf",
         "/usr/local/etc/my.cnf",
@@ -91,27 +91,31 @@ class MyCli:
 
     # check XDG_CONFIG_HOME exists and not an empty string
     xdg_config_home = os.environ.get("XDG_CONFIG_HOME", "~/.config")
-    system_config_files = ["/etc/myclirc", os.path.join(os.path.expanduser(xdg_config_home), "mycli", "myclirc")]
+    system_config_files: list[str | TextIOWrapper] = [
+        "/etc/myclirc",
+        os.path.join(os.path.expanduser(xdg_config_home), "mycli", "myclirc"),
+    ]
 
     pwd_config_file = os.path.join(os.getcwd(), ".myclirc")
 
     def __init__(
         self,
-        sqlexecute=None,
-        prompt=None,
-        logfile=None,
-        defaults_suffix=None,
-        defaults_file=None,
-        login_path=None,
-        auto_vertical_output=False,
-        warn=None,
-        myclirc="~/.myclirc",
-    ):
+        sqlexecute: SQLExecute | None = None,
+        prompt: str | None = None,
+        logfile: TextIOWrapper | Literal[False] | None = None,
+        defaults_suffix: str | None = None,
+        defaults_file: str | None = None,
+        login_path: str | None = None,
+        auto_vertical_output: bool = False,
+        warn: bool | None = None,
+        myclirc: str = "~/.myclirc",
+    ) -> None:
         self.sqlexecute = sqlexecute
         self.logfile = logfile
         self.defaults_suffix = defaults_suffix
         self.login_path = login_path
-        self.toolbar_error_message = None
+        self.toolbar_error_message: str | None = None
+        self.prompt_app: PromptSession | None = None
 
         # self.cnf_files is a class variable that stores the list of mysql
         # config files to read in at launch.
@@ -121,16 +125,14 @@ class MyCli:
             self.cnf_files = [defaults_file]
 
         # Load config.
-        config_files = self.system_config_files + [myclirc] + [self.pwd_config_file]
+        config_files: list[str | TextIOWrapper] = self.system_config_files + [myclirc] + [self.pwd_config_file]
         c = self.config = read_config_files(config_files)
         self.multi_line = c["main"].as_bool("multi_line")
         self.key_bindings = c["main"]["key_bindings"]
         special.set_timing_enabled(c["main"].as_bool("timing"))
         self.beep_after_seconds = float(c["main"]["beep_after_seconds"] or 0)
 
-        FavoriteQueries.instance = FavoriteQueries.from_config(self.config)
-
-        self.dsn_alias = None
+        self.dsn_alias: str | None = None
         self.main_formatter = TabularOutputFormatter(format_name=c["main"]["table_format"])
         self.redirect_formatter = TabularOutputFormatter(format_name=c["main"].get("redirect_format", "csv"))
         sql_format.register_new_formatter(self.main_formatter)
@@ -172,7 +174,7 @@ class MyCli:
         self.multiline_continuation_char = c["main"]["prompt_continuation"]
         keyword_casing = c["main"].get("keyword_casing", "auto")
 
-        self.query_history = []
+        self.query_history: list[Query] = []
 
         # Initialize completer.
         self.smart_completion = c["main"].as_bool("smart_completion")
@@ -197,7 +199,7 @@ class MyCli:
 
         self.prompt_app = None
 
-    def register_special_commands(self):
+    def register_special_commands(self) -> None:
         special.register_special_command(self.change_db, "use", "\\u", "Change to a new database.", aliases=["\\u"])
         special.register_special_command(
             self.change_db,
@@ -231,41 +233,48 @@ class MyCli:
             self.change_prompt_format, "prompt", "\\R", "Change prompt format.", aliases=["\\R"], case_sensitive=True
         )
 
-    def change_table_format(self, arg, **_):
+    def change_table_format(self, arg: str, **_) -> Generator[tuple, None, None]:
         try:
             self.main_formatter.format_name = arg
-            yield (None, None, None, "Changed table format to {}".format(arg))
+            yield (None, None, None, f"Changed table format to {arg}")
         except ValueError:
-            msg = "Table format {} not recognized. Allowed formats:".format(arg)
+            msg = f"Table format {arg} not recognized. Allowed formats:"
             for table_type in self.main_formatter.supported_formats:
-                msg += "\n\t{}".format(table_type)
+                msg += f"\n\t{table_type}"
             yield (None, None, None, msg)
 
-    def change_redirect_format(self, arg, **_):
+    def change_redirect_format(self, arg: str, **_) -> Generator[tuple, None, None]:
         try:
             self.redirect_formatter.format_name = arg
-            yield (None, None, None, "Changed redirect format to {}".format(arg))
+            yield (None, None, None, f"Changed redirect format to {arg}")
         except ValueError:
-            msg = "Redirect format {} not recognized. Allowed formats:".format(arg)
+            msg = f"Redirect format {arg} not recognized. Allowed formats:"
             for table_type in self.redirect_formatter.supported_formats:
-                msg += "\n\t{}".format(table_type)
+                msg += f"\n\t{table_type}"
             yield (None, None, None, msg)
 
-    def change_db(self, arg, **_):
+    def change_db(self, arg: str, **_) -> Generator[tuple, None, None]:
+        if arg.startswith("`") and arg.endswith("`"):
+            arg = re.sub(r"^`(.*)`$", r"\1", arg)
+            arg = re.sub(r"``", r"`", arg)
+
         if not arg:
             click.secho("No database selected", err=True, fg="red")
             return
 
-        if arg.startswith("`") and arg.endswith("`"):
-            arg = re.sub(r"^`(.*)`$", r"\1", arg)
-            arg = re.sub(r"``", r"`", arg)
+        assert isinstance(self.sqlexecute, SQLExecute)
         self.sqlexecute.change_db(arg)
 
-        yield (None, None, None, 'You are now connected to database "%s" as user "%s"' % (self.sqlexecute.dbname, self.sqlexecute.user))
+        yield (
+            None,
+            None,
+            None,
+            f'You are now connected to database "{self.sqlexecute.dbname}" as user "{self.sqlexecute.user}"',
+        )
 
-    def execute_from_file(self, arg, **_):
+    def execute_from_file(self, arg: str, **_) -> Iterable[tuple]:
         if not arg:
-            message = "Missing required argument, filename."
+            message = "Missing required argument: filename."
             return [(None, None, None, message)]
         try:
             with open(os.path.expanduser(arg)) as f:
@@ -277,9 +286,10 @@ class MyCli:
             message = "Wise choice. Command execution stopped."
             return [(None, None, None, message)]
 
+        assert isinstance(self.sqlexecute, SQLExecute)
         return self.sqlexecute.run(query)
 
-    def change_prompt_format(self, arg, **_):
+    def change_prompt_format(self, arg: str, **_) -> list[tuple]:
         """
         Change the prompt format.
         """
@@ -288,9 +298,9 @@ class MyCli:
             return [(None, None, None, message)]
 
         self.prompt_format = self.get_prompt(arg)
-        return [(None, None, None, "Changed prompt format to %s" % arg)]
+        return [(None, None, None, f"Changed prompt format to {arg}")]
 
-    def initialize_logging(self):
+    def initialize_logging(self) -> None:
         log_file = os.path.expanduser(self.config["main"]["log_file"])
         log_level = self.config["main"]["log_level"]
 
@@ -305,12 +315,12 @@ class MyCli:
         # Disable logging if value is NONE by switching to a no-op handler
         # Set log level to a high value so it doesn't even waste cycles getting called.
         if log_level.upper() == "NONE":
-            handler = logging.NullHandler()
+            handler: logging.Handler = logging.NullHandler()
             log_level = "CRITICAL"
         elif dir_path_exists(log_file):
             handler = logging.FileHandler(log_file)
         else:
-            self.echo('Error: Unable to open the log file "{}".'.format(log_file), err=True, fg="red")
+            self.echo(f'Error: Unable to open the log file "{log_file}".', err=True, fg="red")
             return
 
         formatter = logging.Formatter("%(asctime)s (%(process)d/%(threadName)s) %(name)s %(levelname)s - %(message)s")
@@ -326,7 +336,7 @@ class MyCli:
         root_logger.debug("Initializing mycli logging.")
         root_logger.debug("Log file %r.", log_file)
 
-    def read_my_cnf_files(self, files, keys):
+    def read_my_cnf_files(self, files: list[str | TextIOWrapper], keys: list[str]) -> dict[str, Any]:
         """
         Reads a list of config files and merges them. The last one will win.
         :param files: list of files to read
@@ -350,7 +360,7 @@ class MyCli:
         if self.defaults_suffix:
             sections.extend([sect + self.defaults_suffix for sect in sections])
 
-        configuration = defaultdict(lambda: None)
+        configuration: dict[str, Any] = defaultdict(lambda: None)
         for key in keys:
             for section in cnf:
                 if section not in sections or key not in cnf[section]:
@@ -360,7 +370,7 @@ class MyCli:
 
         return configuration
 
-    def merge_ssl_with_cnf(self, ssl, cnf):
+    def merge_ssl_with_cnf(self, ssl: dict[str, Any], cnf: dict[str, Any]) -> dict[str, Any]:
         """Merge SSL configuration dict with cnf dict"""
 
         merged = {}
@@ -375,7 +385,7 @@ class MyCli:
             # special case because PyMySQL argument is significantly different
             # from commandline
             if k == "ssl-verify-server-cert":
-                merged["check_hostname"] = v
+                merged["check_hostname"] = str_to_bool(v)
             else:
                 # use argument name just strip "ssl-" prefix
                 arg = k[len(prefix) :]
@@ -385,23 +395,23 @@ class MyCli:
 
     def connect(
         self,
-        database="",
-        user="",
-        passwd="",
-        host="",
-        port="",
-        socket="",
-        charset="",
-        local_infile="",
-        ssl="",
-        ssh_user="",
-        ssh_host="",
-        ssh_port="",
-        ssh_password="",
-        ssh_key_filename="",
-        init_command="",
-        password_file="",
-    ):
+        database: str | None = "",
+        user: str | None = "",
+        passwd: str | None = "",
+        host: str | None = "",
+        port: str | int | None = "",
+        socket: str | None = "",
+        charset: str | None = "",
+        local_infile: bool = False,
+        ssl: dict[str, Any] | None = {},
+        ssh_user: str | None = "",
+        ssh_host: str | None = "",
+        ssh_port: int = 22,
+        ssh_password: str | None = "",
+        ssh_key_filename: str | None = "",
+        init_command: str | None = "",
+        password_file: str | None = "",
+    ) -> None:
         cnf = {
             "database": None,
             "user": None,
@@ -417,21 +427,21 @@ class MyCli:
             "ssl-cert": None,
             "ssl-key": None,
             "ssl-cipher": None,
-            "ssl-verify-serer-cert": None,
+            "ssl-verify-server-cert": None,
         }
 
-        cnf = self.read_my_cnf_files(self.cnf_files, cnf.keys())
+        cnf = self.read_my_cnf_files(self.cnf_files, list(cnf.keys()))
 
         # Fall back to config values only if user did not specify a value.
         database = database or cnf["database"]
         user = user or cnf["user"] or os.getenv("USER")
         host = host or cnf["host"]
         port = port or cnf["port"]
-        ssl = ssl or {}
+        ssl_config: dict[str, Any] = ssl or {}
 
-        port = port and int(port)
-        if not port:
-            port = 3306
+        int_port = port and int(port)
+        if not int_port:
+            int_port = 3306
             if not host or host == "localhost":
                 socket = socket or cnf["socket"] or cnf["default_socket"] or guess_socket_location()
 
@@ -439,62 +449,66 @@ class MyCli:
         charset = charset or cnf["default-character-set"] or "utf8"
 
         # Favor whichever local_infile option is set.
+        use_local_infile = False
         for local_infile_option in (local_infile, cnf["local-infile"], cnf["loose-local-infile"], False):
             try:
-                local_infile = str_to_bool(local_infile_option)
+                use_local_infile = str_to_bool(local_infile_option or '')
                 break
             except (TypeError, ValueError):
                 pass
 
-        ssl = self.merge_ssl_with_cnf(ssl, cnf)
+        ssl_config_or_none: dict[str, Any] | None = self.merge_ssl_with_cnf(ssl_config, cnf)
         # prune lone check_hostname=False
-        if not any(v for v in ssl.values()):
-            ssl = None
+        if not any(v for v in ssl_config.values()):
+            ssl_config_or_none = None
 
         # if the passwd is not specified try to set it using the password_file option
         password_from_file = self.get_password_from_file(password_file)
-        passwd = passwd or password_from_file
+        passwd = passwd if isinstance(passwd, str) else password_from_file
+        passwd = '' if passwd is None else passwd
 
         # Connect to the database.
 
-        def _connect():
+        def _connect() -> None:
             try:
                 self.sqlexecute = SQLExecute(
                     database,
                     user,
                     passwd,
                     host,
-                    port,
+                    int_port,
                     socket,
                     charset,
-                    local_infile,
-                    ssl,
+                    use_local_infile,
+                    ssl_config_or_none,
                     ssh_user,
                     ssh_host,
-                    ssh_port,
+                    int(ssh_port) if ssh_port else None,
                     ssh_password,
                     ssh_key_filename,
                     init_command,
                 )
             except OperationalError as e:
                 if e.args[0] == ERROR_CODE_ACCESS_DENIED:
-                    if password_from_file:
+                    if password_from_file is not None:
                         new_passwd = password_from_file
                     else:
-                        new_passwd = click.prompt(f"Password for {user}", hide_input=True, show_default=False, type=str, err=True)
+                        new_passwd = click.prompt(
+                            f"Password for {user}", hide_input=True, show_default=False, default='', type=str, err=True
+                        )
                     self.sqlexecute = SQLExecute(
                         database,
                         user,
                         new_passwd,
                         host,
-                        port,
+                        int_port,
                         socket,
                         charset,
-                        local_infile,
-                        ssl,
+                        use_local_infile,
+                        ssl_config,
                         ssh_user,
                         ssh_host,
-                        ssh_port,
+                        int(ssh_port) if ssh_port else None,
                         ssh_password,
                         ssh_key_filename,
                         init_command,
@@ -514,7 +528,7 @@ class MyCli:
                         self.logger.debug("Database connection failed: %r.", e)
                         self.logger.error("traceback: %r", traceback.format_exc())
                         self.logger.debug("Retrying over TCP/IP")
-                        self.echo("Failed to connect to local MySQL server through socket '{}':".format(socket))
+                        self.echo(f"Failed to connect to local MySQL server through socket '{socket}':")
                         self.echo(str(e), err=True)
                         self.echo("Retrying over TCP/IP", err=True)
 
@@ -533,7 +547,7 @@ class MyCli:
                 try:
                     port = int(port)
                 except ValueError:
-                    self.echo("Error: Invalid port number: '{0}'.".format(port), err=True, fg="red")
+                    self.echo(f"Error: Invalid port number: '{port}'.", err=True, fg="red")
                     sys.exit(1)
 
                 _connect()
@@ -543,22 +557,27 @@ class MyCli:
             self.echo(str(e), err=True, fg="red")
             sys.exit(1)
 
-    def get_password_from_file(self, password_file):
-        if password_file:
-            try:
-                with open(password_file) as fp:
-                    password = fp.readline().strip()
-                    return password
-            except FileNotFoundError:
-                raise PasswordFileError(f"Password file '{password_file}' not found") from None
-            except PermissionError:
-                raise PasswordFileError(f"Permission denied reading password file '{password_file}'") from None
-            except IsADirectoryError:
-                raise PasswordFileError(f"Path '{password_file}' is a directory, not a file") from None
-            except Exception as e:
-                raise PasswordFileError(f"Error reading password file '{password_file}': {str(e)}") from None
+    def get_password_from_file(self, password_file: str | None) -> str | None:
+        if not password_file:
+            return None
+        try:
+            with open(password_file) as fp:
+                password = fp.readline().strip()
+                return password
+        except FileNotFoundError:
+            click.secho(f"Password file '{password_file}' not found", err=True, fg="red")
+            sys.exit(1)
+        except PermissionError:
+            click.secho(f"Permission denied reading password file '{password_file}'", err=True, fg="red")
+            sys.exit(1)
+        except IsADirectoryError:
+            click.secho(f"Path '{password_file}' is a directory, not a file", err=True, fg="red")
+            sys.exit(1)
+        except Exception as e:
+            click.secho(f"Error reading password file '{password_file}': {str(e)}", err=True, fg="red")
+            sys.exit(1)
 
-    def handle_editor_command(self, text):
+    def handle_editor_command(self, text: str) -> str:
         r"""Editor command is any query that is prefixed or suffixed by a '\e'.
         The reason for a while loop is because a user might edit a query
         multiple times. For eg:
@@ -580,6 +599,7 @@ class MyCli:
                 raise RuntimeError(message)
             while True:
                 try:
+                    assert isinstance(self.prompt_app, PromptSession)
                     text = self.prompt_app.prompt(default=sql)
                     break
                 except KeyboardInterrupt:
@@ -588,7 +608,7 @@ class MyCli:
             continue
         return text
 
-    def handle_clip_command(self, text):
+    def handle_clip_command(self, text: str) -> bool:
         r"""A clip command is any query that is prefixed or suffixed by a
         '\clip'.
 
@@ -605,7 +625,7 @@ class MyCli:
             return True
         return False
 
-    def handle_prettify_binding(self, text):
+    def handle_prettify_binding(self, text: str) -> str:
         try:
             statements = sqlglot.parse(text, read="mysql")
         except Exception:
@@ -619,7 +639,7 @@ class MyCli:
             pretty_text = pretty_text + ";"
         return pretty_text
 
-    def handle_unprettify_binding(self, text):
+    def handle_unprettify_binding(self, text: str) -> str:
         try:
             statements = sqlglot.parse(text, read="mysql")
         except Exception:
@@ -633,9 +653,10 @@ class MyCli:
             unpretty_text = unpretty_text + ";"
         return unpretty_text
 
-    def run_cli(self):
+    def run_cli(self) -> None:
         iterations = 0
         sqlexecute = self.sqlexecute
+        assert isinstance(sqlexecute, SQLExecute)
         logger = self.logger
         self.configure_pager()
 
@@ -648,7 +669,7 @@ class MyCli:
         else:
             history = None
             self.echo(
-                'Error: Unable to open the history file "{}". Your query history will not be saved.'.format(history_file),
+                f'Error: Unable to open the history file "{history_file}". Your query history will not be saved.',
                 err=True,
                 fg="red",
             )
@@ -661,14 +682,14 @@ class MyCli:
             print(SUPPORT_INFO)
             print("Thanks to the contributor -", thanks_picker())
 
-        def get_message():
+        def get_message() -> ANSI:
             prompt = self.get_prompt(self.prompt_format)
             if self.prompt_format == self.default_prompt and len(prompt) > self.max_len_prompt:
                 prompt = self.get_prompt(self.default_prompt_splitln)
             prompt = prompt.replace("\\x1b", "\x1b")
             return ANSI(prompt)
 
-        def get_continuation(width, *_):
+        def get_continuation(width: int, _two: int, _three: int) -> AnyFormattedText:
             if self.multiline_continuation_char == "":
                 continuation = ""
             elif self.multiline_continuation_char:
@@ -678,12 +699,72 @@ class MyCli:
                 continuation = " "
             return [("class:continuation", continuation)]
 
-        def show_suggestion_tip():
+        def show_suggestion_tip() -> bool:
             return iterations < 2
 
-        def one_iteration(text=None):
+        # Keep track of whether or not the query is mutating. In case
+        # of a multi-statement query, the overall query is considered
+        # mutating if any one of the component statements is mutating
+        mutating = False
+
+        def output_res(res: Generator[tuple], start: float) -> None:
+            nonlocal mutating
+            result_count = 0
+            for title, cur, headers, status in res:
+                logger.debug("headers: %r", headers)
+                logger.debug("rows: %r", cur)
+                logger.debug("status: %r", status)
+                threshold = 1000
+                if is_select(status) and cur and cur.rowcount > threshold:
+                    self.echo(
+                        f"The result set has more than {threshold} rows.",
+                        fg="red",
+                    )
+                    if not confirm("Do you want to continue?"):
+                        self.echo("Aborted!", err=True, fg="red")
+                        break
+
+                if self.auto_vertical_output:
+                    if self.prompt_app is not None:
+                        max_width = self.prompt_app.output.get_size().columns
+                    else:
+                        max_width = DEFAULT_WIDTH
+                else:
+                    max_width = None
+
+                formatted = self.format_output(
+                    title,
+                    cur,
+                    headers,
+                    special.is_expanded_output(),
+                    special.is_redirected(),
+                    max_width,
+                )
+
+                t = time() - start
+                try:
+                    if result_count > 0:
+                        self.echo("")
+                    try:
+                        self.output(formatted, status)
+                    except KeyboardInterrupt:
+                        pass
+                    if self.beep_after_seconds > 0 and t >= self.beep_after_seconds:
+                        self.bell()
+                    if special.is_timing_enabled():
+                        self.echo(f"Time: {t:0.03f}s")
+                    self.echo(f"Time: {t:0.03f}s")
+                except KeyboardInterrupt:
+                    pass
+
+                start = time()
+                result_count += 1
+                mutating = mutating or is_mutating(status)
+
+        def one_iteration(text: str | None = None) -> None:
             if text is None:
                 try:
+                    assert self.prompt_app is not None
                     text = self.prompt_app.prompt()
                 except KeyboardInterrupt:
                     return
@@ -707,13 +788,38 @@ class MyCli:
                     logger.error("traceback: %r", traceback.format_exc())
                     self.echo(str(e), err=True, fg="red")
                     return
+                # LLM command support
+                while special.is_llm_command(text):
+                    start = time()
+                    try:
+                        assert sqlexecute.conn is not None
+                        cur = sqlexecute.conn.cursor()
+                        context, sql, duration = special.handle_llm(text, cur)
+                        if context:
+                            click.echo("LLM Response:")
+                            click.echo(context)
+                            click.echo("---")
+                        click.echo(f"Time: {duration:.2f} seconds")
+                        text = self.prompt_app.prompt(default=sql or '')
+                    except KeyboardInterrupt:
+                        return
+                    except special.FinishIteration as e:
+                        if e.results:
+                            output_res(e.results, start)
+                    except RuntimeError as e:
+                        logger.error("sql: %r, error: %r", text, e)
+                        logger.error("traceback: %r", traceback.format_exc())
+                        self.echo(str(e), err=True, fg="red")
+                        return
 
-            if not text.strip():
+            text = text.strip()
+
+            if not text:
                 return
 
             if is_redirect_command(text):
                 sql_part, command_part, file_operator_part, file_part = get_redirect_components(text)
-                text = sql_part
+                text = sql_part or ''
                 try:
                     special.set_redirect(command_part, file_operator_part, file_part)
                 except (FileNotFoundError, OSError, RuntimeError) as e:
@@ -734,17 +840,12 @@ class MyCli:
             else:
                 destroy = True
 
-            # Keep track of whether or not the query is mutating. In case
-            # of a multi-statement query, the overall query is considered
-            # mutating if any one of the component statements is mutating
-            mutating = False
-
             try:
                 logger.debug("sql: %r", text)
 
                 special.write_tee(self.get_prompt(self.prompt_format) + text)
                 if self.logfile:
-                    self.logfile.write("\n# %s\n" % datetime.now())
+                    self.logfile.write(f"\n# {datetime.now()}\n")
                     self.logfile.write(text)
                     self.logfile.write("\n")
 
@@ -754,67 +855,21 @@ class MyCli:
                 self.main_formatter.query = text
                 self.redirect_formatter.query = text
                 successful = True
-                result_count = 0
-                for title, cur, headers, status in res:
-                    logger.debug("headers: %r", headers)
-                    logger.debug("rows: %r", cur)
-                    logger.debug("status: %r", status)
-                    threshold = 1000
-                    if is_select(status) and cur and cur.rowcount > threshold:
-                        self.echo("The result set has more than {} rows.".format(threshold), fg="red")
-                        if not confirm("Do you want to continue?"):
-                            self.echo("Aborted!", err=True, fg="red")
-                            break
-
-                    if self.auto_vertical_output:
-                        max_width = self.prompt_app.output.get_size().columns
-                    else:
-                        max_width = None
-
-                    if special.forced_horizontal():
-                        max_width = None
-
-                    formatted = self.format_output(
-                        title,
-                        cur,
-                        headers,
-                        special.is_expanded_output(),
-                        special.is_redirected(),
-                        max_width,
-                    )
-
-                    t = time() - start
-                    try:
-                        if result_count > 0:
-                            self.echo("")
-                        try:
-                            self.output(formatted, status)
-                        except KeyboardInterrupt:
-                            pass
-                        if self.beep_after_seconds > 0 and t >= self.beep_after_seconds:
-                            self.bell()
-                        if special.is_timing_enabled():
-                            self.echo("Time: %0.03fs" % t)
-                    except KeyboardInterrupt:
-                        pass
-
-                    start = time()
-                    result_count += 1
-                    mutating = mutating or destroy or is_mutating(status)
+                output_res(res, start)
                 special.unset_once_if_written(self.post_redirect_command)
                 special.flush_pipe_once_if_written(self.post_redirect_command)
             except EOFError as e:
                 raise e
             except KeyboardInterrupt:
                 # get last connection id
-                connection_id_to_kill = sqlexecute.connection_id
+                connection_id_to_kill = sqlexecute.connection_id or 0
                 # some mysql compatible databases may not implemente connection_id()
                 if connection_id_to_kill > 0:
                     logger.debug("connection id to kill: %r", connection_id_to_kill)
                     # Restart connection to the database
                     sqlexecute.connect()
                     try:
-                        for title, cur, headers, status in sqlexecute.run("kill %s" % connection_id_to_kill):
+                        for title, cur, headers, status in sqlexecute.run(f"kill {connection_id_to_kill}"):
                             status_str = str(status).lower()
                             if status_str.find("ok") > -1:
                                 logger.debug("cancelled query, connection id: %r, sql: %r", connection_id_to_kill, text)
@@ -827,15 +882,15 @@ class MyCli:
                                 )
                                 self.echo(f"Failed to confirm query cancellation, id: {connection_id_to_kill}", err=True, fg="red")
                     except Exception as e:
-                        self.echo("Encountered error while cancelling query: {}".format(e), err=True, fg="red")
+                        self.echo(f"Encountered error while cancelling query: {e}", err=True, fg="red")
                 else:
                     logger.debug("Did not get a connection id, skip cancelling query")
                     self.echo("Did not get a connection id, skip cancelling query", err=True, fg="red")
             except NotImplementedError:
                 self.echo("Not Yet Implemented.", fg="yellow")
-            except OperationalError as e:
-                logger.debug("Exception: %r", e)
-                if e.args[0] in (2003, 2006, 2013):
+            except OperationalError as e1:
+                logger.debug("Exception: %r", e1)
+                if e1.args[0] in (2003, 2006, 2013):
                     logger.debug("Attempting to reconnect.")
                     self.echo("Reconnecting...", fg="yellow")
                     try:
@@ -843,23 +898,23 @@ class MyCli:
                         logger.debug("Reconnected successfully.")
                         one_iteration(text)
                         return  # OK to just return, cuz the recursion call runs to the end.
-                    except OperationalError as e:
-                        logger.debug("Reconnect failed. e: %r", e)
-                        self.echo(str(e), err=True, fg="red")
+                    except OperationalError as e2:
+                        logger.debug("Reconnect failed. e: %r", e2)
+                        self.echo(str(e2), err=True, fg="red")
                         # If reconnection failed, don't proceed further.
                         return
                 else:
-                    logger.error("sql: %r, error: %r", text, e)
+                    logger.error("sql: %r, error: %r", text, e1)
                     logger.error("traceback: %r", traceback.format_exc())
-                    self.echo(str(e), err=True, fg="red")
+                    self.echo(str(e1), err=True, fg="red")
             except Exception as e:
                 logger.error("sql: %r, error: %r", text, e)
                 logger.error("traceback: %r", traceback.format_exc())
                 self.echo(str(e), err=True, fg="red")
             else:
-                if is_dropping_database(text, self.sqlexecute.dbname):
-                    self.sqlexecute.dbname = None
-                    self.sqlexecute.connect()
+                if is_dropping_database(text, sqlexecute.dbname):
+                    sqlexecute.dbname = None
+                    sqlexecute.connect()
 
                 # Refresh the table names and column names if necessary.
                 if need_completion_refresh(text):
@@ -919,12 +974,12 @@ class MyCli:
             if not self.less_chatty:
                 self.echo("Goodbye!")
 
-    def log_output(self, output):
+    def log_output(self, output: str) -> None:
         """Log the output in the audit log, if it's enabled."""
-        if self.logfile:
+        if isinstance(self.logfile, TextIOWrapper):
             click.echo(output, file=self.logfile)
 
-    def echo(self, s, **kwargs):
+    def echo(self, s: str, **kwargs) -> None:
         """Print a message to stdout.
 
         The message will be logged in the audit log, if enabled.
@@ -935,11 +990,11 @@ class MyCli:
         self.log_output(s)
         click.secho(s, **kwargs)
 
-    def bell(self):
+    def bell(self) -> None:
         """Print a bell on the stderr."""
         click.secho("\a", err=True, nl=False)
 
-    def get_output_margin(self, status=None):
+    def get_output_margin(self, status: str | None = None) -> int:
         """Get the output margin (number of rows for the prompt, footer and
         timing message."""
         margin = self.get_reserved_space() + self.get_prompt(self.prompt_format).count("\n") + 1
@@ -950,7 +1005,7 @@ class MyCli:
 
         return margin
 
-    def output(self, output, status=None):
+    def output(self, output: itertools.chain[str], status: str | None = None) -> None:
         """Output text to stdout or a pager command.
 
         The status text is not outputted to pager or files.
@@ -961,7 +1016,13 @@ class MyCli:
 
         """
         if output:
-            size = self.prompt_app.output.get_size()
+            if self.prompt_app is not None:
+                size = self.prompt_app.output.get_size()
+                size_columns = size.columns
+                size_rows = size.rows
+            else:
+                size_columns = DEFAULT_WIDTH
+                size_rows = DEFAULT_HEIGHT
 
             margin = self.get_output_margin(status)
 
@@ -979,7 +1040,7 @@ class MyCli:
                 elif fits or output_via_pager:
                     # buffering
                     buf.append(line)
-                    if len(line) > size.columns or i > (size.rows - margin):
+                    if len(line) > size_columns or i > (size_rows - margin):
                         fits = False
                         if not self.explicit_pager and special.is_pager_enabled():
                             # doesn't fit, use pager
@@ -996,7 +1057,7 @@ class MyCli:
             if buf:
                 if output_via_pager:
 
-                    def newlinewrapper(text):
+                    def newlinewrapper(text: list[str]) -> Generator[str, None, None]:
                         for line in text:
                             yield line + "\n"
 
@@ -1009,7 +1070,7 @@ class MyCli:
             self.log_output(status)
             click.secho(status)
 
-    def configure_pager(self):
+    def configure_pager(self) -> None:
         # Provide sane defaults for less if they are empty.
         if not os.environ.get("LESS"):
             os.environ["LESS"] = "-RXF"
@@ -1030,10 +1091,11 @@ class MyCli:
         if cnf["skip-pager"] or not self.config["main"].as_bool("enable_pager"):
             special.disable_pager()
 
-    def refresh_completions(self, reset=False):
+    def refresh_completions(self, reset: bool = False) -> list[tuple]:
         if reset:
             with self._completer_lock:
                 self.completer.reset_completions()
+        assert self.sqlexecute is not None
         self.completion_refresher.refresh(
             self.sqlexecute,
             self._on_completions_refreshed,
@@ -1046,7 +1108,7 @@ class MyCli:
 
         return [(None, None, None, "Auto-completion refresh started in the background.")]
 
-    def _on_completions_refreshed(self, new_completer):
+    def _on_completions_refreshed(self, new_completer: SQLCompleter) -> None:
         """Swap the completer object in cli with the newly created completer."""
         with self._completer_lock:
             self.completer = new_completer
@@ -1056,12 +1118,15 @@ class MyCli:
             # "Refreshing completions..." indicator
             self.prompt_app.app.invalidate()
 
-    def get_completions(self, text, cursor_positition):
+    def get_completions(self, text: str, cursor_position: int) -> Iterable[Completion]:
         with self._completer_lock:
-            return self.completer.get_completions(Document(text=text, cursor_position=cursor_positition), None)
+            return self.completer.get_completions(Document(text=text, cursor_position=cursor_position), None)
 
-    def get_prompt(self, string):
+    def get_prompt(self, string: str) -> str:
         sqlexecute = self.sqlexecute
+        assert sqlexecute is not None
+        assert sqlexecute.server_info is not None
+        assert sqlexecute.server_info.species is not None
         host = self.login_path if self.login_path and self.login_path_as_host else sqlexecute.host
         now = datetime.now()
         string = string.replace("\\u", sqlexecute.user or "(none)")
@@ -1080,8 +1145,9 @@ class MyCli:
         string = string.replace("\\_", " ")
         return string
 
-    def run_query(self, query, new_line=True):
+    def run_query(self, query: str, new_line: bool = True) -> None:
         """Runs *query*."""
+        assert self.sqlexecute is not None
         results = self.sqlexecute.run(query)
         for result in results:
             title, cur, headers, status = result
@@ -1099,20 +1165,20 @@ class MyCli:
 
     def format_output(
         self,
-        title,
-        cur,
-        headers,
-        expanded=False,
-        is_redirected=False,
-        max_width=None,
-    ):
+        title: str | None,
+        cur: Cursor | list[tuple] | None,
+        headers: list[str] | None,
+        expanded: bool = False,
+        is_redirected: bool = False,
+        max_width: int | None = None,
+    ) -> itertools.chain[str]:
         if is_redirected:
             use_formatter = self.redirect_formatter
         else:
             use_formatter = self.main_formatter
 
         expanded = expanded or use_formatter.format_name == "vertical"
-        output = []
+        output: itertools.chain[str] = itertools.chain()
 
         output_kwargs = {"dialect": "unix", "disable_numparse": True, "preserve_whitespace": True, "style": self.output_style}
 
@@ -1124,13 +1190,13 @@ class MyCli:
 
         if cur:
             column_types = None
-            if hasattr(cur, "description"):
+            if isinstance(cur, Cursor):
 
-                def get_col_type(col):
+                def get_col_type(col) -> type:
                     col_type = FIELD_TYPES.get(col[1], str)
                     return col_type if type(col_type) is type else str
 
-                column_types = [get_col_type(col) for col in cur.description]
+                column_types = [get_col_type(tup) for tup in cur.description]
 
             if max_width is not None:
                 cur = list(cur)
@@ -1166,14 +1232,14 @@ class MyCli:
 
         return output
 
-    def get_reserved_space(self):
+    def get_reserved_space(self) -> int:
         """Get the number of lines to reserve for the completion menu."""
         reserved_space_ratio = 0.45
         max_reserved_space = 8
         _, height = shutil.get_terminal_size()
         return min(int(round(height * reserved_space_ratio)), max_reserved_space)
 
-    def get_last_query(self):
+    def get_last_query(self) -> str | None:
         """Get the last query executed or None."""
         return self.query_history[-1][0] if self.query_history else None
 
@@ -1216,7 +1282,7 @@ class MyCli:
 @click.option("-d", "--dsn", default="", envvar="DSN", help="Use DSN configured into the [alias_dsn] section of myclirc file.")
 @click.option("--list-dsn", "list_dsn", is_flag=True, help="list of DSN configured into the [alias_dsn] section of myclirc file.")
 @click.option("--list-ssh-config", "list_ssh_config", is_flag=True, help="list ssh configurations in the ssh config (requires paramiko).")
-@click.option("-R", "--prompt", "prompt", help='Prompt format (Default: "{0}").'.format(MyCli.default_prompt))
+@click.option("-R", "--prompt", "prompt", help=f'Prompt format (Default: "{MyCli.default_prompt}").')
 @click.option("-l", "--logfile", type=click.File(mode="a", encoding="utf-8"), help="Log every query and its results to a file.")
 @click.option("--defaults-group-suffix", type=str, help="Read MySQL config groups with the specified suffix.")
 @click.option("--defaults-file", type=click.Path(), help="Only read MySQL options from the given file.")
@@ -1239,48 +1305,48 @@ class MyCli:
 )
 @click.argument("database", default="", nargs=1)
 def cli(
-    database,
-    user,
-    host,
-    port,
-    socket,
-    password,
-    dbname,
-    verbose,
-    prompt,
-    logfile,
-    defaults_group_suffix,
-    defaults_file,
-    login_path,
-    auto_vertical_output,
-    local_infile,
-    ssl_enable,
-    ssl_ca,
-    ssl_capath,
-    ssl_cert,
-    ssl_key,
-    ssl_cipher,
-    tls_version,
-    ssl_verify_server_cert,
-    table,
-    csv,
-    warn,
-    execute,
-    myclirc,
-    dsn,
-    list_dsn,
-    ssh_user,
-    ssh_host,
-    ssh_port,
-    ssh_password,
-    ssh_key_filename,
-    list_ssh_config,
-    ssh_config_path,
-    ssh_config_host,
-    init_command,
-    charset,
-    password_file,
-):
+    database: str,
+    user: str | None,
+    host: str | None,
+    port: int | None,
+    socket: str | None,
+    password: str | None,
+    dbname: str | None,
+    verbose: bool,
+    prompt: str | None,
+    logfile: TextIOWrapper | None,
+    defaults_group_suffix: str | None,
+    defaults_file: str | None,
+    login_path: str | None,
+    auto_vertical_output: bool,
+    local_infile: bool,
+    ssl_enable: bool,
+    ssl_ca: str | None,
+    ssl_capath: str | None,
+    ssl_cert: str | None,
+    ssl_key: str | None,
+    ssl_cipher: str | None,
+    tls_version: str | None,
+    ssl_verify_server_cert: bool,
+    table: bool,
+    csv: bool,
+    warn: bool | None,
+    execute: str | None,
+    myclirc: str,
+    dsn: str,
+    list_dsn: str | None,
+    ssh_user: str | None,
+    ssh_host: str | None,
+    ssh_port: int,
+    ssh_password: str | None,
+    ssh_key_filename: str | None,
+    list_ssh_config: bool,
+    ssh_config_path: str,
+    ssh_config_host: str | None,
+    init_command: str | None,
+    charset: str | None,
+    password_file: str | None,
+) -> None:
     """A MySQL terminal client with auto-completion and syntax highlighting.
 
     \b
@@ -1311,7 +1377,7 @@ def cli(
             sys.exit(1)
         for alias, value in alias_dsn.items():
             if verbose:
-                click.secho("{} : {}".format(alias, value))
+                click.secho(f"{alias} : {value}")
             else:
                 click.secho(alias)
         sys.exit(0)
@@ -1320,7 +1386,7 @@ def cli(
         for host in ssh_config.get_hostnames():
             if verbose:
                 host_config = ssh_config.lookup(host)
-                click.secho("{} : {}".format(host, host_config.get("hostname")))
+                click.secho(f"{host} : {host_config.get('hostname')}")
             else:
                 click.secho(host)
         sys.exit(0)
@@ -1372,28 +1438,28 @@ def cli(
         else:
             dsn_params = {}
 
-        if dsn_params.get('ssl'):
-            ssl_enable = ssl_enable or (dsn_params.get('ssl')[0].lower() == 'true')
-        if dsn_params.get('ssl_ca'):
-            ssl_ca = ssl_ca or dsn_params.get('ssl_ca')[0]
+        if params := dsn_params.get('ssl'):
+            ssl_enable = ssl_enable or (params[0].lower() == 'true')
+        if params := dsn_params.get('ssl_ca'):
+            ssl_ca = ssl_ca or params[0]
             ssl_enable = True
-        if dsn_params.get('ssl_capath'):
-            ssl_capath = ssl_capath or dsn_params.get('ssl_capath')[0]
+        if params := dsn_params.get('ssl_capath'):
+            ssl_capath = ssl_capath or params[0]
             ssl_enable = True
-        if dsn_params.get('ssl_cert'):
-            ssl_cert = ssl_cert or dsn_params.get('ssl_cert')[0]
+        if params := dsn_params.get('ssl_cert'):
+            ssl_cert = ssl_cert or params[0]
             ssl_enable = True
-        if dsn_params.get('ssl_key'):
-            ssl_key = ssl_key or dsn_params.get('ssl_key')[0]
+        if params := dsn_params.get('ssl_key'):
+            ssl_key = ssl_key or params[0]
             ssl_enable = True
-        if dsn_params.get('ssl_cipher'):
-            ssl_cipher = ssl_cipher or dsn_params.get('ssl_cipher')[0]
+        if params := dsn_params.get('ssl_cipher'):
+            ssl_cipher = ssl_cipher or params[0]
             ssl_enable = True
-        if dsn_params.get('tls_version'):
-            tls_version = tls_version or dsn_params.get('tls_version')[0]
+        if params := dsn_params.get('tls_version'):
+            tls_version = tls_version or params[0]
             ssl_enable = True
-        if dsn_params.get('ssl_verify_server_cert'):
-            ssl_verify_server_cert = ssl_verify_server_cert or (dsn_params.get('ssl_verify_server_cert')[0].lower() == 'true')
+        if params := dsn_params.get('ssl_verify_server_cert'):
+            ssl_verify_server_cert = ssl_verify_server_cert or (params[0].lower() == 'true')
             ssl_enable = True
 
     ssl = {
@@ -1421,7 +1487,7 @@ def cli(
 
     ssh_key_filename = ssh_key_filename and os.path.expanduser(ssh_key_filename)
     # Merge init-commands: global, DSN-specific, then CLI
-    init_cmds = []
+    init_cmds: list[str] = []
     # 1) Global init-commands
     global_section = mycli.config.get("init-commands", {})
     for _, val in global_section.items():
@@ -1464,7 +1530,7 @@ def cli(
     )
 
     if combined_init_cmd:
-        click.echo("Executing init-command: %s" % combined_init_cmd, err=True)
+        click.echo(f"Executing init-command: {combined_init_cmd}", err=True)
 
     mycli.logger.debug("Launch Params: \n\tdatabase: %r\tuser: %r\thost: %r\tport: %r", database, user, host, port)
 
@@ -1523,7 +1589,7 @@ def cli(
             sys.exit(1)
 
 
-def need_completion_refresh(queries):
+def need_completion_refresh(queries: str) -> bool:
     """Determines if the completion needs a refresh by checking if the sql
     statement is an alter, create, drop or change db."""
     for query in sqlparse.split(queries):
@@ -1533,9 +1599,10 @@ def need_completion_refresh(queries):
                 return True
         except Exception:
             return False
+    return False
 
 
-def need_completion_reset(queries):
+def need_completion_reset(queries: str) -> bool:
     """Determines if the statement is a database switch such as 'use' or '\\u'.
     When a database is changed the existing completions must be reset before we
     start the completion refresh for the new database.
@@ -1547,9 +1614,10 @@ def need_completion_reset(queries):
                 return True
         except Exception:
             return False
+    return False
 
 
-def is_mutating(status):
+def is_mutating(status: str | None) -> bool:
     """Determines if the statement is mutating based on the status."""
     if not status:
         return False
@@ -1558,35 +1626,34 @@ def is_mutating(status):
     return status.split(None, 1)[0].lower() in mutating
 
 
-def is_select(status):
+def is_select(status: str | None) -> bool:
     """Returns true if the first word in status is 'select'."""
     if not status:
         return False
     return status.split(None, 1)[0].lower() == "select"
 
 
-def thanks_picker():
+def thanks_picker() -> str:
     import mycli
 
     lines = (resources.read_text(mycli, "AUTHORS") + resources.read_text(mycli, "SPONSORS")).split("\n")
 
     contents = []
     for line in lines:
-        m = re.match(r"^ *\* (.*)", line)
-        if m:
+        if m := re.match(r"^ *\* (.*)", line):
             contents.append(m.group(1))
-    return choice(contents)
+    return choice(contents) if contents else 'our sponsors'
 
 
 @prompt_register("edit-and-execute-command")
-def edit_and_execute(event):
+def edit_and_execute(event: KeyPressEvent) -> None:
     """Different from the prompt-toolkit default, we want to have a choice not
     to execute a query after editing, hence validate_and_handle=False."""
     buff = event.current_buffer
     buff.open_in_editor(validate_and_handle=False)
 
 
-def read_ssh_config(ssh_config_path):
+def read_ssh_config(ssh_config_path: str):
     ssh_config = paramiko.config.SSHConfig()
     try:
         with open(ssh_config_path) as f:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 1.37.1
+Version: 1.38.0
 Summary: CLI for MySQL Database. With auto-completion and syntax highlighting.
 Author-email: Mycli Core Team <mycli-dev@googlegroups.com>
 License-Expression: BSD-3-Clause
@@ -21,6 +21,9 @@ Requires-Dist: cli_helpers[styles]>=2.7.0
 Requires-Dist: pyperclip>=1.8.1
 Requires-Dist: pyaes>=1.6.1
 Requires-Dist: pyfzf>=0.3.1
+Requires-Dist: llm>=0.19.0
+Requires-Dist: setuptools
+Requires-Dist: pip
 Provides-Extra: ssh
 Requires-Dist: paramiko; extra == "ssh"
 Requires-Dist: sshtunnel; extra == "ssh"
@@ -33,6 +36,8 @@ Requires-Dist: pytest>=7.4.4; extra == "dev"
 Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
 Requires-Dist: tox>=4.8.0; extra == "dev"
 Requires-Dist: pdbpp>=0.10.3; extra == "dev"
+Requires-Dist: paramiko; extra == "dev"
+Requires-Dist: sshtunnel; extra == "dev"
 Dynamic: license-file
 
 # mycli

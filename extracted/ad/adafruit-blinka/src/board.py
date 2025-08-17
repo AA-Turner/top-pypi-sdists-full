@@ -11,7 +11,7 @@ See `CircuitPython:board` in CircuitPython for more details.
 """
 
 
-__version__ = "8.62.0"
+__version__ = "8.63.0"
 __repo__ = "https://github.com/adafruit/Adafruit_Blinka.git"
 __blinka__ = True
 
@@ -466,6 +466,9 @@ elif board_id == ap_board.INDIEDROID_NOVA:
 
 elif board_id == ap_board.RDK_X3:
     from adafruit_blinka.board.horizon.rdkx3 import *
+
+elif board_id == ap_board.PARTICLE_TACHYON:
+    from adafruit_blinka.board.particle.tachyon import *
 
 elif "sphinx" in sys.modules:
     pass

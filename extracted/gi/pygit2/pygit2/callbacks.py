@@ -63,23 +63,26 @@ API.
 """
 
 # Standard Library
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from functools import wraps
-from typing import Optional, Union, TYPE_CHECKING, Callable, Generator
+from typing import TYPE_CHECKING, Optional, ParamSpec, TypeVar
 
 # pygit2
-from ._pygit2 import Oid, DiffFile
+from ._pygit2 import DiffFile, Oid
+from .credentials import Keypair, Username, UserPass
 from .enums import CheckoutNotify, CheckoutStrategy, CredentialType, StashApplyProgress
-from .errors import check_error, Passthrough
-from .ffi import ffi, C
-from .utils import maybe_string, to_bytes, ptr_to_bytes, StrArray
-from .credentials import Username, UserPass, Keypair
+from .errors import Passthrough, check_error
+from .ffi import C, ffi
+from .utils import StrArray, maybe_string, ptr_to_bytes, to_bytes
 
 _Credentials = Username | UserPass | Keypair
 
 if TYPE_CHECKING:
-    from .remotes import TransferProgress
-    from ._pygit2 import ProxyOpts, PushOptions, CloneOptions
+    from pygit2._libgit2.ffi import GitProxyOptionsC
+
+    from ._pygit2 import CloneOptions, PushOptions
+    from .remotes import PushUpdate, TransferProgress
 #
 # The payload is the way to pass information from the pygit2 API, through
 # libgit2, to the Python callbacks. And back.
@@ -149,7 +152,7 @@ class RemoteCallbacks(Payload):
     def credentials(
         self,
         url: str,
-        username_from_url: Union[str, None],
+        username_from_url: str | None,
         allowed_types: CredentialType,
     ) -> _Credentials:
         """
@@ -195,6 +198,15 @@ class RemoteCallbacks(Payload):
         """
 
         raise Passthrough
+
+    def push_negotiation(self, updates: list['PushUpdate']) -> None:
+        """
+        During a push, called once between the negotiation step and the upload.
+        Provides information about what updates will be performed.
+
+        Override with your own function to check the pending updates
+        and possibly reject them (by raising an exception).
+        """
 
     def transfer_progress(self, stats: 'TransferProgress') -> None:
         """
@@ -390,9 +402,9 @@ def git_fetch_options(payload, opts=None):
 @contextmanager
 def git_proxy_options(
     payload: object,
-    opts: Optional['ProxyOpts'] = None,
+    opts: Optional['GitProxyOptionsC'] = None,
     proxy: None | bool | str = None,
-) -> Generator['ProxyOpts', None, None]:
+) -> Generator['GitProxyOptionsC', None, None]:
     if opts is None:
         opts = ffi.new('git_proxy_options *')
         C.git_proxy_options_init(opts, C.GIT_PROXY_OPTIONS_VERSION)
@@ -403,7 +415,7 @@ def git_proxy_options(
     elif type(proxy) is str:
         opts.type = C.GIT_PROXY_SPECIFIED
         # Keep url in memory, otherwise memory is freed and bad things happen
-        payload.__proxy_url = ffi.new('char[]', to_bytes(proxy))  # type: ignore[attr-defined, no-untyped-call]
+        payload.__proxy_url = ffi.new('char[]', to_bytes(proxy))  # type: ignore[attr-defined]
         opts.url = payload.__proxy_url  # type: ignore[attr-defined]
     else:
         raise TypeError('Proxy must be None, True, or a string')
@@ -425,6 +437,7 @@ def git_push_options(payload, opts=None):
     opts.callbacks.credentials = C._credentials_cb
     opts.callbacks.certificate_check = C._certificate_check_cb
     opts.callbacks.push_update_reference = C._push_update_reference_cb
+    opts.callbacks.push_negotiation = C._push_negotiation_cb
     # Per libgit2 sources, push_transfer_progress may incur a performance hit.
     # So, set it only if the user has overridden the no-op stub.
     if (
@@ -477,8 +490,11 @@ def git_remote_callbacks(payload):
 # exception.
 #
 
+P = ParamSpec('P')
+T = TypeVar('T')
 
-def libgit2_callback(f):
+
+def libgit2_callback(f: Callable[P, T]) -> Callable[P, T]:
     @wraps(f)
     def wrapper(*args):
         data = ffi.from_handle(args[-1])
@@ -496,10 +512,10 @@ def libgit2_callback(f):
             data._stored_exception = e
             return C.GIT_EUSER
 
-    return ffi.def_extern()(wrapper)
+    return ffi.def_extern()(wrapper)  # type: ignore[attr-defined]
 
 
-def libgit2_callback_void(f):
+def libgit2_callback_void(f: Callable[P, T]) -> Callable[P, T]:
     @wraps(f)
     def wrapper(*args):
         data = ffi.from_handle(args[-1])
@@ -516,7 +532,7 @@ def libgit2_callback_void(f):
             data._stored_exception = e
             pass  # Function returns void, so we can't do much here.
 
-    return ffi.def_extern()(wrapper)
+    return ffi.def_extern()(wrapper)  # type: ignore[attr-defined]
 
 
 @libgit2_callback
@@ -554,6 +570,19 @@ def _credentials_cb(cred_out, url, username, allowed, data):
 
     ccred = get_credentials(credentials, url, username, allowed)
     cred_out[0] = ccred[0]
+    return 0
+
+
+@libgit2_callback
+def _push_negotiation_cb(updates, num_updates, data):
+    from .remotes import PushUpdate
+
+    push_negotiation = getattr(data, 'push_negotiation', None)
+    if not push_negotiation:
+        return 0
+
+    py_updates = [PushUpdate(updates[i]) for i in range(num_updates)]
+    push_negotiation(py_updates)
     return 0
 
 
@@ -716,7 +745,7 @@ def _checkout_notify_cb(
     pyworkdir = DiffFile.from_c(ptr_to_bytes(workdir))
 
     try:
-        data.checkout_notify(why, pypath, pybaseline, pytarget, pyworkdir)
+        data.checkout_notify(why, pypath, pybaseline, pytarget, pyworkdir)  # type: ignore[arg-type]
     except Passthrough:
         # Unlike most other operations with optional callbacks, checkout
         # doesn't support the GIT_PASSTHROUGH return code, so we must bypass
@@ -731,7 +760,7 @@ def _checkout_notify_cb(
 
 @libgit2_callback_void
 def _checkout_progress_cb(path, completed_steps, total_steps, data: CheckoutCallbacks):
-    data.checkout_progress(maybe_string(path), completed_steps, total_steps)
+    data.checkout_progress(maybe_string(path), completed_steps, total_steps)  # type: ignore[arg-type]
 
 
 def _git_checkout_options(

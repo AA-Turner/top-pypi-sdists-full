@@ -449,8 +449,6 @@ class Picker:
         # self.stdscr.refresh()
         # self.draw_screen(self.indexed_items, self.highlights)
 
-
-
     def initialise_variables(self, get_data: bool = False) -> None:
         """ Initialise the variables that keep track of the data. """
 
@@ -473,6 +471,7 @@ class Picker:
         
             self.items, self.header = self.refresh_function()
 
+        self.items = pad_lists_to_same_length(self.items)
                     
         if self.items == []: self.items = [[]]
         ## Ensure that items is a List[List[Str]] object
@@ -1261,7 +1260,12 @@ class Picker:
         message_width = notification_width-5
 
         if not message: message = "!!"
-        submenu_items = ["  "+message[i*message_width:(i+1)*message_width] for i in range(len(message)//message_width+1)]
+        if type(message) == type(""):
+            mw = message_width
+            submenu_items = [[message[i*mw:(i+1)*mw]] for i in range(len(message)//mw+1)]
+        elif type(message) != type([]):
+            submenu_items = [["  !!"]]
+
 
         notification_remap_keys = { 
             curses.KEY_RESIZE: curses.KEY_F5,
@@ -1959,7 +1963,8 @@ class Picker:
 
         while True:
             key = self.stdscr.getch()
-            self.logger.info(f"key={key}")
+            if key:
+                self.logger.info(f"key={key}")
             h, w = self.stdscr.getmaxyx()
             if key in self.disabled_keys: continue
             clear_screen=True
@@ -2760,26 +2765,46 @@ class Picker:
                     if not selected_indices:
                         selected_indices = [self.indexed_items[self.cursor_pos][0]]
 
-                    full_values = [format_row_full(self.items[i], self.hidden_columns) for i in selected_indices]  # Use format_row_full for full data
-                    full_values = [self.items[i][self.selected_column] for i in selected_indices]
+                    # full_values = [format_row_full(self.items[i], self.hidden_columns) for i in selected_indices]  # Use format_row_full for full data
+                    if self.cell_cursor:
+                        
+                        full_values = []
+                        for row in self.selected_cells_by_row.keys():
+                            selected_cell_row_str = ""
+                            for cell in self.selected_cells_by_row[row]:
+                                if " " in self.items[row][cell]:
+                                    selected_cell_row_str += repr(self.items[row][cell])
+                                else:
+                                    selected_cell_row_str += self.items[row][cell]
+                                selected_cell_row_str += "\t"
+                            full_values.append(selected_cell_row_str.strip())
+
+
+                        # full_values = ["\t".join([repr(self.items[key][cell]) for cell in self.selected_cells_by_row[key]]) for key in self.selected_cells_by_row.keys()]
+                        # full_values = ["\t".join([self.items[key][cell] for cell in self.selected_cells_by_row[key]]) for key in self.selected_cells_by_row.keys()]
+                    else:
+                        full_values = [self.items[i][self.selected_column] for i in selected_indices]
                     if full_values:
-                        command = usrtxt.split()
+                        # command = usrtxt.split()
+                        command = usrtxt
                         # command = ['xargs', '-d' , '"\n"' '-I', '{}', 'mpv', '{}']
                         # command = ['xargs', '-d' , '"\n"' '-I', '{}', 'mpv', '{}']
                         # command = "xargs -d '\n' -I{} mpv {}"
 
                         try:
-                            process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True)
 
                             if process.stdin != None:
                                 for value in full_values:
-                                    process.stdin.write((repr(value) + '\n').encode())
+                                    process.stdin.write((value + '\n').encode())
+                                    # process.stdin.write((value + '\n').encode())
 
                                 process.stdin.close()
 
                                 self.notification(self.stdscr, message=f"{len(full_values)} strings piped to {repr(usrtxt)}")
                         except Exception as e:
                             self.notification(self.stdscr, message=f"{e}")
+                            # self.notification(self.stdscr, message=f"Error: {str(e)}")
 
 
             elif self.check_key("open", key, self.keys_dict):
@@ -3158,9 +3183,9 @@ def main() -> None:
     function_data["centre_in_terminal_vertical"] = True
     function_data["highlight_full_row"] = True
     function_data["pin_cursor"] = True
-    function_data["display_infobox"] = True
-    function_data["infobox_items"] = [["1"], ["2"], ["3"]]
-    function_data["infobox_title"] = "Title"
+    # function_data["display_infobox"] = True
+    # function_data["infobox_items"] = [["1"], ["2"], ["3"]]
+    # function_data["infobox_title"] = "Title"
     # function_data["footer_string"] = "Title"
     function_data["highlights"] = highlights
     function_data["show_footer"] = False

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skypilot-nightly
-Version: 1.0.0.dev20250812
+Version: 1.0.0.dev20250816
 Summary: SkyPilot: Run AI on Any Infra — Unified, Faster, Cheaper.
 Author: SkyPilot Team
 License: Apache 2.0
@@ -104,9 +104,8 @@ Provides-Extra: ssh
 Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "ssh"
 Requires-Dist: websockets; extra == "ssh"
 Provides-Extra: remote
-Requires-Dist: grpcio!=1.48.0,>=1.32.0; python_version < "3.10" and extra == "remote"
-Requires-Dist: grpcio!=1.48.0,>=1.42.0; python_version >= "3.10" and extra == "remote"
-Requires-Dist: protobuf!=3.19.5,>=3.15.3; extra == "remote"
+Requires-Dist: grpcio>=1.63.0; extra == "remote"
+Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "remote"
 Provides-Extra: runpod
 Requires-Dist: runpod>=1.6.1; extra == "runpod"
 Provides-Extra: fluidstack
@@ -169,9 +168,8 @@ Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "all"
 Requires-Dist: websockets; extra == "all"
 Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "all"
 Requires-Dist: websockets; extra == "all"
-Requires-Dist: grpcio!=1.48.0,>=1.32.0; python_version < "3.10" and extra == "all"
-Requires-Dist: grpcio!=1.48.0,>=1.42.0; python_version >= "3.10" and extra == "all"
-Requires-Dist: protobuf!=3.19.5,>=3.15.3; extra == "all"
+Requires-Dist: grpcio>=1.63.0; extra == "all"
+Requires-Dist: protobuf<7.0.0,>=5.26.1; extra == "all"
 Requires-Dist: runpod>=1.6.1; extra == "all"
 Requires-Dist: cudo-compute>=0.1.10; extra == "all"
 Requires-Dist: pydo>=0.3.0; extra == "all"

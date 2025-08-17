@@ -1,12 +1,30 @@
-from typing import Iterator, Literal, Optional, overload, Type, TypedDict
-from io import IOBase, DEFAULT_BUFFER_SIZE
+from collections.abc import Iterator, Sequence
+from io import DEFAULT_BUFFER_SIZE, IOBase
+from pathlib import Path
 from queue import Queue
 from threading import Event
+from typing import (  # noqa: UP035
+    Generic,
+    Literal,
+    Optional,
+    Type,
+    TypedDict,
+    TypeVar,
+    overload,
+)
+
 from . import Index
+from ._libgit2.ffi import (
+    GitCommitC,
+    GitObjectC,
+    GitProxyOptionsC,
+    GitSignatureC,
+    _Pointer,
+)
 from .enums import (
     ApplyLocation,
-    BranchType,
     BlobFilter,
+    BranchType,
     DeltaStatus,
     DiffFind,
     DiffFlag,
@@ -16,16 +34,12 @@ from .enums import (
     MergeAnalysis,
     MergePreference,
     ObjectType,
-    Option,
     ReferenceFilter,
     ReferenceType,
     ResetMode,
     SortMode,
 )
-from collections.abc import Generator
-
-from .repository import BaseRepository
-from .remotes import Remote
+from .filter import Filter
 
 GIT_OBJ_BLOB = Literal[3]
 GIT_OBJ_COMMIT = Literal[1]
@@ -36,38 +50,6 @@ LIBGIT2_VER_MAJOR: int
 LIBGIT2_VER_MINOR: int
 LIBGIT2_VER_REVISION: int
 LIBGIT2_VERSION: str
-GIT_OPT_GET_MWINDOW_SIZE: int
-GIT_OPT_SET_MWINDOW_SIZE: int
-GIT_OPT_GET_MWINDOW_MAPPED_LIMIT: int
-GIT_OPT_SET_MWINDOW_MAPPED_LIMIT: int
-GIT_OPT_GET_SEARCH_PATH: int
-GIT_OPT_SET_SEARCH_PATH: int
-GIT_OPT_SET_CACHE_OBJECT_LIMIT: int
-GIT_OPT_SET_CACHE_MAX_SIZE: int
-GIT_OPT_ENABLE_CACHING: int
-GIT_OPT_GET_CACHED_MEMORY: int
-GIT_OPT_GET_TEMPLATE_PATH: int
-GIT_OPT_SET_TEMPLATE_PATH: int
-GIT_OPT_SET_SSL_CERT_LOCATIONS: int
-GIT_OPT_SET_USER_AGENT: int
-GIT_OPT_ENABLE_STRICT_OBJECT_CREATION: int
-GIT_OPT_ENABLE_STRICT_SYMBOLIC_REF_CREATION: int
-GIT_OPT_SET_SSL_CIPHERS: int
-GIT_OPT_GET_USER_AGENT: int
-GIT_OPT_ENABLE_OFS_DELTA: int
-GIT_OPT_ENABLE_FSYNC_GITDIR: int
-GIT_OPT_GET_WINDOWS_SHAREMODE: int
-GIT_OPT_SET_WINDOWS_SHAREMODE: int
-GIT_OPT_ENABLE_STRICT_HASH_VERIFICATION: int
-GIT_OPT_SET_ALLOCATOR: int
-GIT_OPT_ENABLE_UNSAVED_INDEX_SAFETY: int
-GIT_OPT_GET_PACK_MAX_OBJECTS: int
-GIT_OPT_SET_PACK_MAX_OBJECTS: int
-GIT_OPT_DISABLE_PACK_KEEP_FILE_CHECKS: int
-GIT_OPT_GET_OWNER_VALIDATION: int
-GIT_OPT_SET_OWNER_VALIDATION: int
-GIT_OPT_GET_MWINDOW_FILE_LIMIT: int
-GIT_OPT_SET_MWINDOW_FILE_LIMIT: int
 GIT_OID_RAWSZ: int
 GIT_OID_HEXSZ: int
 GIT_OID_HEX_ZERO: str
@@ -277,8 +259,10 @@ GIT_FILTER_NO_SYSTEM_ATTRIBUTES: int
 GIT_FILTER_ATTRIBUTES_FROM_HEAD: int
 GIT_FILTER_ATTRIBUTES_FROM_COMMIT: int
 
-class Object:
-    _pointer: bytes
+T = TypeVar('T')
+
+class _ObjectBase(Generic[T]):
+    _pointer: _Pointer[T]
     filemode: FileMode
     id: Oid
     name: str | None
@@ -286,16 +270,25 @@ class Object:
     short_id: str
     type: 'Literal[GIT_OBJ_COMMIT] | Literal[GIT_OBJ_TREE] | Literal[GIT_OBJ_TAG] | Literal[GIT_OBJ_BLOB]'
     type_str: "Literal['commit'] | Literal['tree'] | Literal['tag'] | Literal['blob']"
+    author: Signature
+    committer: Signature
+    tree: Tree
     @overload
     def peel(
-        self, target_type: 'Literal[GIT_OBJ_COMMIT] | Type[Commit]'
+        self, target_type: 'Literal[GIT_OBJ_COMMIT, ObjectType.COMMIT] | Type[Commit]'
     ) -> 'Commit': ...
     @overload
-    def peel(self, target_type: 'Literal[GIT_OBJ_TREE] | Type[Tree]') -> 'Tree': ...
+    def peel(
+        self, target_type: 'Literal[GIT_OBJ_TREE, ObjectType.TREE] | Type[Tree]'
+    ) -> 'Tree': ...
     @overload
-    def peel(self, target_type: 'Literal[GIT_OBJ_TAG] | Type[Tag]') -> 'Tag': ...
+    def peel(
+        self, target_type: 'Literal[GIT_OBJ_TAG, ObjectType.TAG] | Type[Tag]'
+    ) -> 'Tag': ...
     @overload
-    def peel(self, target_type: 'Literal[GIT_OBJ_BLOB] | Type[Blob]') -> 'Blob': ...
+    def peel(
+        self, target_type: 'Literal[GIT_OBJ_BLOB, ObjectType.BLOB] | Type[Blob]'
+    ) -> 'Blob': ...
     @overload
     def peel(self, target_type: 'None') -> 'Commit|Tree|Tag|Blob': ...
     def read_raw(self) -> bytes: ...
@@ -306,6 +299,9 @@ class Object:
     def __le__(self, other) -> bool: ...
     def __lt__(self, other) -> bool: ...
     def __ne__(self, other) -> bool: ...
+
+class Object(_ObjectBase[GitObjectC]):
+    pass
 
 class Reference:
     name: str
@@ -353,20 +349,23 @@ class Blob(Object):
     ) -> Patch: ...
     def diff_to_buffer(
         self,
-        buffer: Optional[bytes] = None,
+        buffer: Optional[bytes | str] = None,
         flag: DiffOption = DiffOption.NORMAL,
         old_as_path: str = ...,
         buffer_as_path: str = ...,
     ) -> Patch: ...
     def _write_to_queue(
         self,
-        queue: Queue,
-        closed: Event,
+        queue: Queue[bytes],
+        ready: Event,
+        done: Event,
         chunk_size: int = DEFAULT_BUFFER_SIZE,
         as_path: Optional[str] = None,
         flags: BlobFilter = BlobFilter.CHECK_FOR_BINARY,
         commit_id: Optional[Oid] = None,
     ) -> None: ...
+    def __buffer__(self, flags: int) -> memoryview: ...
+    def __release_buffer__(self, buffer: memoryview) -> None: ...
 
 class Branch(Reference):
     branch_name: str
@@ -382,7 +381,7 @@ class Branch(Reference):
 class FetchOptions:
     # incomplete
     depth: int
-    proxy_opts: ProxyOpts
+    proxy_opts: GitProxyOptionsC
 
 class CloneOptions:
     # incomplete
@@ -397,7 +396,8 @@ class CloneOptions:
     remote_cb: object
     remote_cb_payload: object
 
-class Commit(Object):
+class Commit(_ObjectBase[GitCommitC]):
+    _pointer: _Pointer[GitCommitC]
     author: Signature
     commit_time: int
     commit_time_offset: int
@@ -417,6 +417,7 @@ class Diff:
     patch: str | None
     patchid: Oid
     stats: DiffStats
+    text: str
     def find_similar(
         self,
         flags: DiffFind = DiffFind.FIND_BY_CONFIG,
@@ -480,6 +481,7 @@ class DiffStats:
 
 class FilterSource:
     # probably incomplete
+    repo: object
     pass
 
 class GitError(Exception): ...
@@ -489,9 +491,9 @@ class Mailmap:
     def __init__(self, *args) -> None: ...
     def add_entry(
         self,
-        real_name: str = ...,
-        real_email: str = ...,
-        replace_name: str = ...,
+        real_name: str | None = ...,
+        real_email: str | None = ...,
+        replace_name: str | None = ...,
         replace_email: str = ...,
     ) -> None: ...
     @staticmethod
@@ -505,6 +507,7 @@ class Note:
     annotated_id: Oid
     id: Oid
     message: str
+    data: bytes
     def remove(
         self, author: Signature, committer: Signature, ref: str = 'refs/notes/commits'
     ) -> None: ...
@@ -513,10 +516,10 @@ class Odb:
     backends: Iterator[OdbBackend]
     def __init__(self, *args, **kwargs) -> None: ...
     def add_backend(self, backend: OdbBackend, priority: int) -> None: ...
-    def add_disk_alternate(self, path: str) -> None: ...
+    def add_disk_alternate(self, path: str | Path) -> None: ...
     def exists(self, oid: _OidArg) -> bool: ...
-    def read(self, oid: _OidArg) -> tuple[int, int, bytes]: ...
-    def write(self, type: int, data: bytes) -> Oid: ...
+    def read(self, oid: _OidArg) -> tuple[int, bytes]: ...
+    def write(self, type: int, data: bytes | str) -> Oid: ...
     def __contains__(self, other: _OidArg) -> bool: ...
     def __iter__(self) -> Iterator[Oid]: ...  # Odb_as_iter
 
@@ -585,7 +588,9 @@ class Refdb:
 class RefdbBackend:
     def __init__(self, *args, **kwargs) -> None: ...
     def compress(self) -> None: ...
-    def delete(self, ref_name: str, old_id: _OidArg, old_target: str) -> None: ...
+    def delete(
+        self, ref_name: str, old_id: _OidArg, old_target: str | None
+    ) -> None: ...
     def ensure_log(self, ref_name: str) -> bool: ...
     def exists(self, refname: str) -> bool: ...
     def has_log(self, ref_name: str) -> bool: ...
@@ -599,27 +604,13 @@ class RefdbBackend:
         force: bool,
         who: Signature,
         message: str,
-        old: _OidArg,
-        old_target: str,
+        old: None | _OidArg,
+        old_target: None | str,
     ) -> None: ...
+    def __iter__(self) -> Iterator[Reference]: ...
 
 class RefdbFsBackend(RefdbBackend):
     def __init__(self, *args, **kwargs) -> None: ...
-
-class References:
-    def __init__(self, repository: BaseRepository) -> None: ...
-    def __getitem__(self, name: str) -> Reference: ...
-    def get(self, key: str) -> Reference: ...
-    def __iter__(self) -> Iterator[str]: ...
-    def iterator(
-        self, references_return_type: ReferenceFilter = ...
-    ) -> Iterator[Reference]: ...
-    def create(self, name: str, target: _OidArg, force: bool = False) -> Reference: ...
-    def delete(self, name: str) -> None: ...
-    def __contains__(self, name: str) -> bool: ...
-    @property
-    def objects(self) -> list[Reference]: ...
-    def compress(self) -> None: ...
 
 _Proxy = None | Literal[True] | str
 
@@ -627,16 +618,11 @@ class _StrArray:
     # incomplete
     count: int
 
-class ProxyOpts:
-    # incomplete
-    type: object
-    url: str
-
 class PushOptions:
     version: int
     pb_parallelism: int
     callbacks: object  # TODO
-    proxy_opts: ProxyOpts
+    proxy_opts: GitProxyOptionsC
     follow_redirects: object  # TODO
     custom_headers: _StrArray
     remote_push_options: _StrArray
@@ -648,60 +634,12 @@ class _LsRemotesDict(TypedDict):
     symref_target: str | None
     oid: Oid
 
-class RemoteCollection:
-    def __init__(self, repo: BaseRepository) -> None: ...
-    def __len__(self) -> int: ...
-    def __iter__(self): ...
-    def __getitem__(self, name: str | int) -> Remote: ...
-    def names(self) -> Generator[str, None, None]: ...
-    def create(self, name: str, url: str, fetch: str | None = None) -> Remote: ...
-    def create_anonymous(self, url: str) -> Remote: ...
-    def rename(self, name: str, new_name: str) -> list[str]: ...
-    def delete(self, name: str) -> None: ...
-    def set_url(self, name: str, url: str) -> None: ...
-    def set_push_url(self, name: str, url: str) -> None: ...
-    def add_fetch(self, name: str, refspec: str) -> None: ...
-    def add_push(self, name: str, refspec: str) -> None: ...
-
-class Branches:
-    local: 'Branches'
-    remote: 'Branches'
-    def __init__(
-        self,
-        repository: BaseRepository,
-        flag: BranchType = ...,
-        commit: Commit | _OidArg | None = None,
-    ) -> None: ...
-    def __getitem__(self, name: str) -> Branch: ...
-    def get(self, key: str) -> Branch: ...
-    def __iter__(self) -> Iterator[str]: ...
-    def create(self, name: str, commit: Commit, force: bool = False) -> Branch: ...
-    def delete(self, name: str) -> None: ...
-    def with_commit(self, commit: Commit | _OidArg | None) -> 'Branches': ...
-    def __contains__(self, name: _OidArg) -> bool: ...
-
 class Repository:
-    _pointer: bytes
-    default_signature: Signature
-    head: Reference
-    head_is_detached: bool
-    head_is_unborn: bool
-    is_bare: bool
-    is_empty: bool
-    is_shallow: bool
-    odb: Odb
-    path: str
-    refdb: Refdb
-    workdir: str
-    references: References
-    remotes: RemoteCollection
-    branches: Branches
-    def __init__(self, *args, **kwargs) -> None: ...
     def TreeBuilder(self, src: Tree | _OidArg = ...) -> TreeBuilder: ...
     def _disown(self, *args, **kwargs) -> None: ...
-    def _from_c(self, *args, **kwargs) -> None: ...
-    def __getitem__(self, key: str | Oid) -> Object: ...
-    def add_worktree(self, name: str, path: str, ref: Reference = ...) -> Worktree: ...
+    def add_worktree(
+        self, name: str, path: str | Path, ref: Reference = ...
+    ) -> Worktree: ...
     def applies(
         self,
         diff: Diff,
@@ -713,10 +651,10 @@ class Repository:
     ) -> None: ...
     def cherrypick(self, id: _OidArg) -> None: ...
     def compress_references(self) -> None: ...
-    def create_blob(self, data: bytes) -> Oid: ...
+    def create_blob(self, data: str | bytes) -> Oid: ...
     def create_blob_fromdisk(self, path: str) -> Oid: ...
     def create_blob_fromiobase(self, iobase: IOBase) -> Oid: ...
-    def create_blob_fromworkdir(self, path: str) -> Oid: ...
+    def create_blob_fromworkdir(self, path: str | Path) -> Oid: ...
     def create_branch(self, name: str, commit: Commit, force=False) -> Branch: ...
     def create_commit(
         self,
@@ -725,7 +663,7 @@ class Repository:
         committer: Signature,
         message: str | bytes,
         tree: _OidArg,
-        parents: list[_OidArg],
+        parents: Sequence[_OidArg],
         encoding: str = ...,
     ) -> Oid: ...
     def create_commit_string(
@@ -749,9 +687,6 @@ class Repository:
         ref: str = 'refs/notes/commits',
         force: bool = False,
     ) -> Oid: ...
-    def create_reference(
-        self, name: str, target: _OidArg, force: bool = False
-    ) -> Reference: ...
     def create_reference_direct(
         self, name: str, target: _OidArg, force: bool, message: Optional[str] = None
     ) -> Reference: ...
@@ -771,7 +706,7 @@ class Repository:
     def listall_stashes(self) -> list[Stash]: ...
     def listall_submodules(self) -> list[str]: ...
     def lookup_branch(
-        self, branch_name: str, branch_type: BranchType = BranchType.LOCAL
+        self, branch_name: str | bytes, branch_type: BranchType = BranchType.LOCAL
     ) -> Branch: ...
     def lookup_note(
         self, annotated_id: str, ref: str = 'refs/notes/commits'
@@ -794,14 +729,13 @@ class Repository:
     def references_iterator_init(self) -> Iterator[Reference]: ...
     def references_iterator_next(
         self,
-        iter: Iterator,
+        iter: Iterator[T],
         references_return_type: ReferenceFilter = ReferenceFilter.ALL,
     ) -> Reference: ...
     def reset(self, oid: _OidArg, reset_type: ResetMode) -> None: ...
     def revparse(self, revspec: str) -> RevSpec: ...
     def revparse_ext(self, revision: str) -> tuple[Object, Reference]: ...
     def revparse_single(self, revision: str) -> Object: ...
-    def set_ident(self, name: str, email: str) -> None: ...
     def set_odb(self, odb: Odb) -> None: ...
     def set_refdb(self, refdb: Refdb) -> None: ...
     def status(
@@ -819,7 +753,7 @@ class RevSpec:
 
 class Signature:
     _encoding: str | None
-    _pointer: bytes
+    _pointer: _Pointer[GitSignatureC]
     email: str
     name: str
     offset: int
@@ -828,7 +762,7 @@ class Signature:
     time: int
     def __init__(
         self,
-        name: str,
+        name: str | bytes,
         email: str,
         time: int = -1,
         offset: int = 0,
@@ -884,11 +818,11 @@ class Tree(Object):
         interhunk_lines: int = 0,
     ) -> Diff: ...
     def __contains__(self, other: str) -> bool: ...  # Tree_contains
-    def __getitem__(self, index: str | int) -> Object: ...  # Tree_subscript
+    def __getitem__(self, index: str | int) -> Tree | Blob: ...  # Tree_subscript
     def __iter__(self) -> Iterator[Object]: ...
     def __len__(self) -> int: ...  # Tree_len
-    def __rtruediv__(self, other: str) -> Object: ...
-    def __truediv__(self, other: str) -> Object: ...  # Tree_divide
+    def __rtruediv__(self, other: str) -> Tree | Blob: ...
+    def __truediv__(self, other: str) -> Tree | Blob: ...  # Tree_divide
 
 class TreeBuilder:
     def clear(self) -> None: ...
@@ -914,14 +848,15 @@ class Worktree:
     def prune(self, force=False) -> None: ...
 
 def discover_repository(
-    path: str, across_fs: bool = False, ceiling_dirs: str = ...
+    path: str | Path, across_fs: bool = False, ceiling_dirs: str = ...
 ) -> str | None: ...
-def hash(data: bytes) -> Oid: ...
+def hash(data: bytes | str) -> Oid: ...
 def hashfile(path: str) -> Oid: ...
 def init_file_backend(path: str, flags: int = 0) -> object: ...
-def option(opt: Option, *args) -> None: ...
 def reference_is_valid_name(refname: str) -> bool: ...
 def tree_entry_cmp(a: Object, b: Object) -> int: ...
 def _cache_enums() -> None: ...
+def filter_register(name: str, filter: type[Filter]) -> None: ...
+def filter_unregister(name: str) -> None: ...
 
 _OidArg = str | Oid

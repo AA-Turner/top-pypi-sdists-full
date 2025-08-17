@@ -9,7 +9,7 @@ import requests
 import sys
 from datetime import date, datetime
 from urllib.parse import urlparse
-from prettytable import MSWORD_FRIENDLY
+from prettytable import TableStyle
 from click_shell import shell
 from appdirs import user_data_dir
 
@@ -5424,7 +5424,7 @@ def list_agent_connectors(
     results = connectors.query_agents(ctx, **kwargs)
     table = connectors.format_agents_as_text(ctx, results, **kwargs)
     if output_msfriendly:
-        table.set_style(MSWORD_FRIENDLY)
+        table.set_style(TableStyle.MSWORD_FRIENDLY)
     if sort_by is not None and ctx.obj["output_format"] != "json":
         print(table.get_string(sortby=sort_by, reversesort=reverse_sort))
     else:

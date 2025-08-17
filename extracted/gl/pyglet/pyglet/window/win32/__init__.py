@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 import unicodedata
-from ctypes.wintypes import HICON, HWND, MSG, POINT, RECT, SIZE, UINT
+from ctypes.wintypes import DWORD, HICON, HWND, MSG, POINT, RECT, SIZE, UINT
 from functools import lru_cache
 from typing import Callable, Sequence
 
@@ -10,6 +10,8 @@ from pyglet import compat_platform
 from pyglet.libs.win32 import constants
 from pyglet.libs.win32.types import (
     BITMAPINFOHEADER,
+    BYTE,
+    COLORREF,
     HCURSOR,
     HRAWINPUT,
     ICONINFO,
@@ -166,15 +168,17 @@ class Win32Window(BaseWindow):
         else:
             styles = {
                 self.WINDOW_STYLE_DEFAULT: (constants.WS_OVERLAPPEDWINDOW, 0),
-                self.WINDOW_STYLE_DIALOG: (constants.WS_OVERLAPPED | constants.WS_CAPTION | constants.WS_SYSMENU,
-                                           constants.WS_EX_DLGMODALFRAME),
-                self.WINDOW_STYLE_TOOL: (constants.WS_OVERLAPPED | constants.WS_CAPTION | constants.WS_SYSMENU,
-                                         constants.WS_EX_TOOLWINDOW),
+                self.WINDOW_STYLE_DIALOG: (
+                    constants.WS_OVERLAPPED | constants.WS_CAPTION | constants.WS_SYSMENU,
+                    constants.WS_EX_DLGMODALFRAME,
+                ),
+                self.WINDOW_STYLE_TOOL: (
+                    constants.WS_OVERLAPPED | constants.WS_CAPTION | constants.WS_SYSMENU,
+                    constants.WS_EX_TOOLWINDOW,
+                ),
                 self.WINDOW_STYLE_BORDERLESS: (constants.WS_POPUP, 0),
-                self.WINDOW_STYLE_TRANSPARENT: (constants.WS_OVERLAPPEDWINDOW,
-                                                constants.WS_EX_LAYERED),
-                self.WINDOW_STYLE_OVERLAY: (constants.WS_POPUP,
-                                            constants.WS_EX_LAYERED | constants.WS_EX_TRANSPARENT),
+                self.WINDOW_STYLE_TRANSPARENT: (constants.WS_OVERLAPPEDWINDOW, constants.WS_EX_LAYERED),
+                self.WINDOW_STYLE_OVERLAY: (constants.WS_POPUP, constants.WS_EX_LAYERED | constants.WS_EX_TRANSPARENT),
             }
             self._ws_style, self._ex_ws_style = styles[self._style]
 
@@ -299,7 +303,7 @@ class Win32Window(BaseWindow):
             _user32.SetWindowPos(self._hwnd, hwnd_after,
                                  self._screen.x, self._screen.y, width, height, constants.SWP_FRAMECHANGED)
         elif self.style == 'transparent' or self.style == 'overlay':
-            _user32.SetLayeredWindowAttributes(self._hwnd, 0, 254, constants.LWA_ALPHA)
+            self._set_transparency()
             if self.style == 'overlay':
                 _user32.SetWindowPos(self._hwnd, constants.HWND_TOPMOST, 0,
                                      0, width, height, constants.SWP_NOMOVE | constants.SWP_NOSIZE)
@@ -382,7 +386,7 @@ class Win32Window(BaseWindow):
     def switch_to(self) -> None:
         self.context.set_current()
 
-    def update_transparency(self) -> None:
+    def _set_transparency(self) -> None:
         region = _gdi32.CreateRectRgn(0, 0, -1, -1)
         bb = DWM_BLURBEHIND()
         bb.dwFlags = constants.DWM_BB_ENABLE | constants.DWM_BB_BLURREGION
@@ -392,16 +396,38 @@ class Win32Window(BaseWindow):
         _dwmapi.DwmEnableBlurBehindWindow(self._hwnd, byref(bb))
         _gdi32.DeleteObject(region)
 
+        _user32.SetLayeredWindowAttributes(self._hwnd, 0, 255, constants.LWA_ALPHA)
+
     def flip(self) -> None:
         self.draw_mouse_cursor()
 
         if not self._fullscreen and (self._always_dwm or self._dwm_composition_enabled()) and self._interval:
             _dwmapi.DwmFlush()
 
-        if self.style in ('overlay', 'transparent'):
-            self.update_transparency()
-
         self.context.flip()
+
+    def set_mouse_passthrough(self, state: bool) -> None:
+        color_ref = COLORREF()
+        alpha = BYTE()
+        flags = DWORD()
+
+        if self._ex_ws_style & constants.WS_EX_LAYERED:
+            _user32.GetLayeredWindowAttributes(self._hwnd, byref(color_ref), byref(alpha), byref(flags))
+
+        if state:
+            self._ex_ws_style |= (constants.WS_EX_TRANSPARENT | constants.WS_EX_LAYERED)
+        else:
+            self._ex_ws_style &= ~constants.WS_EX_TRANSPARENT
+
+            if self._ex_ws_style & constants.WS_EX_LAYERED and not flags.value & constants.LWA_ALPHA:
+                self._ex_ws_style &= ~constants.WS_EX_LAYERED
+
+        _user32.SetWindowLongW(self._hwnd, constants.GWL_EXSTYLE, self._ex_ws_style)
+
+        if state:
+            _user32.SetLayeredWindowAttributes(self._hwnd, color_ref.value, alpha.value, flags.value)
+
+
 
     def set_location(self, x: int, y: int) -> None:
         x, y = self._client_to_window_pos(x, y)

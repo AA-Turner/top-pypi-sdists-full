@@ -1,9 +1,9 @@
 [tool.poetry]
 name = "pytest-sugar"
-version = "1.0.0"
+version = "1.1.0"
 description = "Pytest plugin that adds a progress bar and other visual enhancements"
 authors = ["Teemu <orkkiolento@gmail.com>", "Janne Vanhala <janne.vanhala@gmail.com>"]
-license = "BSD 3-Clause"
+license = "BSD-3-Clause"
 readme = "README.md"
 keywords = ["testing", "pytest", "plugin"]
 classifiers = [
@@ -25,7 +25,6 @@ Homepage = "https://github.com/Teemu/pytest-sugar"
 python = ">=3.8.1,<4.0"
 pytest = ">=6.2.0"
 termcolor = ">=2.1.0"
-packaging = ">=21.3"
 
 [tool.poetry.dev-dependencies]
 black = "^24.0"

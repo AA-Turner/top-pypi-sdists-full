@@ -11,6 +11,7 @@ from prompt_toolkit.completion.base import Document
 from mycli.packages.completion_engine import suggest_type
 from mycli.packages.filepaths import complete_path, parse_path, suggest_path
 from mycli.packages.parseutils import last_word
+from mycli.packages.special import llm
 from mycli.packages.special.favoritequeries import FavoriteQueries
 
 _logger = logging.getLogger(__name__)
@@ -920,7 +921,7 @@ class SQLCompleter(Completer):
 
     def escape_name(self, name: str) -> str:
         if name and ((not self.name_pattern.match(name)) or (name.upper() in self.reserved_words) or (name.upper() in self.functions)):
-            name = "`%s`" % name
+            name = f'`{name}`'
 
         return name
 
@@ -1078,7 +1079,7 @@ class SQLCompleter(Completer):
 
         if fuzzy:
             regex = ".*?".join(map(re.escape, text))
-            pat = re.compile("(%s)" % regex)
+            pat = re.compile(f'({regex})')
             for item in collection:
                 r = pat.search(item.lower())
                 if r:
@@ -1103,7 +1104,7 @@ class SQLCompleter(Completer):
     def get_completions(
         self,
         document: Document,
-        complete_event: CompleteEvent,
+        complete_event: CompleteEvent | None,
         smart_completion: bool | None = None,
     ) -> Iterable[Completion]:
         word_before_cursor = document.get_word_before_cursor(WORD=True)
@@ -1202,6 +1203,19 @@ class SQLCompleter(Completer):
             elif suggestion["type"] == "file_name":
                 file_names_m = self.find_files(word_before_cursor)
                 completions.extend(file_names_m)
+            elif suggestion["type"] == "llm":
+                if not word_before_cursor:
+                    tokens = document.text.split()[1:]
+                else:
+                    tokens = document.text.split()[1:-1]
+                possible_entries = llm.get_completions(tokens)
+                subcommands_m = self.find_matches(
+                    word_before_cursor,
+                    possible_entries,
+                    start_only=False,
+                    fuzzy=True,
+                )
+                completions.extend(subcommands_m)
 
         return completions
 

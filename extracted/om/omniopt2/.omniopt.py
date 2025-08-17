@@ -26,6 +26,8 @@ import traceback
 import inspect
 import tracemalloc
 import resource
+from urllib.parse import urlencode
+
 import psutil
 
 FORCE_EXIT: bool = False
@@ -6526,7 +6528,7 @@ def insert_jobs_from_csv(this_csv_file_path: str) -> None:
 def normalize_path(file_path: str) -> str:
     return file_path.replace("//", "/")
 
-def insert_jobs_from_lists(csv_path, arm_params_list, results_list, __status):
+def insert_jobs_from_lists(csv_path: str, arm_params_list: Any, results_list: Any, __status: Any) -> None:
     cnt = 0
     err_msgs = []
 
@@ -10414,7 +10416,7 @@ def main() -> None:
     print_run_info()
 
     initialize_nvidia_logs()
-    write_ui_url_if_present()
+    write_ui_url()
 
     LOGFILE_DEBUG_GET_NEXT_TRIALS = get_current_run_folder('get_next_trials.csv')
     cli_params_experiment_parameters = parse_parameters()
@@ -10542,10 +10544,77 @@ def initialize_nvidia_logs() -> None:
     global NVIDIA_SMI_LOGS_BASE
     NVIDIA_SMI_LOGS_BASE = get_current_run_folder('gpu_usage_')
 
-def write_ui_url_if_present() -> None:
-    if args.ui_url:
-        with open(get_current_run_folder("ui_url.txt"), mode="a", encoding="utf-8") as myfile:
-            myfile.write(decode_if_base64(args.ui_url))
+def build_gui_url(config: argparse.Namespace) -> str:
+    base_url = get_base_url()
+    params = collect_params(config)
+    return f"{base_url}?{urlencode(params, doseq=True)}"
+
+def collect_params(config: argparse.Namespace) -> dict:
+    params = {}
+    for attr, value in vars(config).items():
+        if attr == "run_program":
+            params[attr] = global_vars["joined_run_program"]
+        elif attr == "parameter" and value is not None:
+            params.update(process_parameters(config.parameter))
+        elif isinstance(value, bool):
+            params[attr] = int(value)
+        elif isinstance(value, list):
+            params[attr] = value
+        elif value is not None:
+            params[attr] = value
+    return params
+
+def process_parameters(parameters: list) -> dict:
+    params = {}
+    for i, param in enumerate(parameters):
+        if isinstance(param, dict):
+            name = param.get("name", f"param_{i}")
+            ptype = param.get("type", "unknown")
+        else:
+            name = param[0] if len(param) > 0 else f"param_{i}"
+            ptype = param[1] if len(param) > 1 else "unknown"
+
+        params[f"parameter_{i}_name"] = name
+        params[f"parameter_{i}_type"] = ptype
+
+        if ptype == "range":
+            params.update(process_range_parameter(i, param))
+        elif ptype == "choice":
+            params.update(process_choice_parameter(i, param))
+        elif ptype == "fixed":
+            params.update(process_fixed_parameter(i, param))
+
+    params["num_parameters"] = len(parameters)
+    return params
+
+def process_range_parameter(i: int, param: list) -> dict:
+    return {
+        f"parameter_{i}_min": param[2] if len(param) > 3 else 0,
+        f"parameter_{i}_max": param[3] if len(param) > 3 else 1,
+        f"parameter_{i}_number_type": param[4] if len(param) > 4 else "float",
+        f"parameter_{i}_log_scale": "false",
+    }
+
+def process_choice_parameter(i: int, param: list) -> dict:
+    choices = ""
+    if len(param) > 2 and param[2]:
+        choices = ",".join([c.strip() for c in str(param[2]).split(",")])
+    return {f"parameter_{i}_values": choices}
+
+def process_fixed_parameter(i: int, param: list) -> dict:
+    return {f"parameter_{i}_value": param[2] if len(param) > 2 else ""}
+
+def get_base_url() -> str:
+    file_path = Path.home() / ".oo_base_url"
+    if file_path.exists():
+        return file_path.read_text().strip()
+
+    return "https://imageseg.scads.de/omniax/"
+
+def write_ui_url() -> None:
+    url = build_gui_url(args)
+    with open(get_current_run_folder("ui_url.txt"), mode="a", encoding="utf-8") as myfile:
+        myfile.write(decode_if_base64(url))
 
 def handle_random_steps() -> None:
     if args.parameter and args.continue_previous_job and random_steps <= 0:

@@ -5,9 +5,10 @@ Source: https://github.com/BoboTiG/python-mss.
 from __future__ import annotations
 
 import os
-import os.path
 import platform
 import sys
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -16,7 +17,6 @@ from unittest.mock import Mock, patch
 import pytest
 
 import mss
-import mss.tools
 from mss.__main__ import main as entry_point
 from mss.base import MSSBase
 from mss.exception import ScreenShotError
@@ -64,14 +64,9 @@ def test_bad_monitor() -> None:
         sct.shot(mon=222)
 
 
-def test_repr(pixel_ratio: int) -> None:
+def test_repr() -> None:
     box = {"top": 0, "left": 0, "width": 10, "height": 10}
-    expected_box = {
-        "top": 0,
-        "left": 0,
-        "width": 10 * pixel_ratio,
-        "height": 10 * pixel_ratio,
-    }
+    expected_box = {"top": 0, "left": 0, "width": 10, "height": 10}
     with mss.mss(display=os.getenv("DISPLAY")) as sct:
         img = sct.grab(box)
     ref = ScreenShot(bytearray(b"42"), expected_box)
@@ -195,7 +190,7 @@ def test_entry_point_with_no_argument(capsys: pytest.CaptureFixture) -> None:
     assert "usage: mss" in captured.out
 
 
-def test_grab_with_tuple(pixel_ratio: int) -> None:
+def test_grab_with_tuple() -> None:
     left = 100
     top = 100
     right = 500
@@ -207,7 +202,7 @@ def test_grab_with_tuple(pixel_ratio: int) -> None:
         # PIL like
         box = (left, top, right, lower)
         im = sct.grab(box)
-        assert im.size == (width * pixel_ratio, height * pixel_ratio)
+        assert im.size == (width, height)
 
         # MSS like
         box2 = {"left": left, "top": top, "width": width, "height": height}
@@ -217,7 +212,7 @@ def test_grab_with_tuple(pixel_ratio: int) -> None:
         assert im.rgb == im2.rgb
 
 
-def test_grab_with_tuple_percents(pixel_ratio: int) -> None:
+def test_grab_with_tuple_percents() -> None:
     with mss.mss(display=os.getenv("DISPLAY")) as sct:
         monitor = sct.monitors[1]
         left = monitor["left"] + monitor["width"] * 5 // 100  # 5% from the left
@@ -230,7 +225,7 @@ def test_grab_with_tuple_percents(pixel_ratio: int) -> None:
         # PIL like
         box = (left, top, right, lower)
         im = sct.grab(box)
-        assert im.size == (width * pixel_ratio, height * pixel_ratio)
+        assert im.size == (width, height)
 
         # MSS like
         box2 = {"left": left, "top": top, "width": width, "height": height}
@@ -242,8 +237,6 @@ def test_grab_with_tuple_percents(pixel_ratio: int) -> None:
 
 def test_thread_safety() -> None:
     """Regression test for issue #169."""
-    import threading
-    import time
 
     def record(check: dict) -> None:
         """Record for one second."""

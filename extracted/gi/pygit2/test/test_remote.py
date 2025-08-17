@@ -24,16 +24,16 @@
 # Boston, MA 02110-1301, USA.
 
 import sys
-from pathlib import Path
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 
 import pygit2
-from pygit2 import Repository, Remote
-from pygit2.remotes import TransferProgress
-from . import utils
+from pygit2 import Remote, Repository
+from pygit2.remotes import PushUpdate, TransferProgress
 
+from . import utils
 
 REMOTE_NAME = 'origin'
 REMOTE_URL = 'https://github.com/libgit2/pygit2.git'
@@ -193,15 +193,56 @@ def test_remote_list(testrepo: Repository) -> None:
 
 
 @utils.requires_network
-def test_ls_remotes(testrepo: Repository) -> None:
+def test_list_heads(testrepo: Repository) -> None:
     assert 1 == len(testrepo.remotes)
     remote = testrepo.remotes[0]
 
-    refs = remote.ls_remotes()
+    refs = remote.list_heads()
     assert refs
 
     # Check that a known ref is returned.
-    assert next(iter(r for r in refs if r['name'] == 'refs/tags/v0.28.2'))
+    assert next(iter(r for r in refs if r.name == 'refs/tags/v0.28.2'))
+
+
+@utils.requires_network
+def test_ls_remotes_deprecated(testrepo: Repository) -> None:
+    assert 1 == len(testrepo.remotes)
+    remote = testrepo.remotes[0]
+
+    new_refs = remote.list_heads()
+
+    with pytest.warns(DeprecationWarning, match='Use list_heads'):
+        old_refs = remote.ls_remotes()
+
+    assert new_refs
+    assert old_refs
+
+    for new, old in zip(new_refs, old_refs, strict=True):
+        assert new.name == old['name']
+        assert new.oid == old['oid']
+        assert new.local == old['local']
+        assert new.symref_target == old['symref_target']
+        if new.local:
+            assert new.loid == old['loid']
+        else:
+            assert new.loid == pygit2.Oid(b'')
+            assert old['loid'] is None
+
+
+@utils.requires_network
+def test_list_heads_without_implicit_connect(testrepo: Repository) -> None:
+    assert 1 == len(testrepo.remotes)
+    remote = testrepo.remotes[0]
+
+    with pytest.raises(pygit2.GitError, match='this remote has never connected'):
+        remote.list_heads(connect=False)
+
+    remote.connect()
+    refs = remote.list_heads(connect=False)
+    assert refs
+
+    # Check that a known ref is returned.
+    assert next(iter(r for r in refs if r.name == 'refs/tags/v0.28.2'))
 
 
 def test_remote_collection(testrepo: Repository) -> None:
@@ -282,11 +323,13 @@ def test_update_tips(emptyrepo: Repository) -> None:
     ]
 
     class MyCallbacks(pygit2.RemoteCallbacks):
-        def __init__(self, tips):
+        tips: list[tuple[str, pygit2.Oid, pygit2.Oid]]
+
+        def __init__(self, tips: list[tuple[str, pygit2.Oid, pygit2.Oid]]) -> None:
             self.tips = tips
             self.i = 0
 
-        def update_tips(self, name, old, new):
+        def update_tips(self, name: str, old: pygit2.Oid, new: pygit2.Oid) -> None:
             assert self.tips[self.i] == (name, old, new)
             self.i += 1
 
@@ -296,7 +339,7 @@ def test_update_tips(emptyrepo: Repository) -> None:
 
 
 @utils.requires_network
-def test_ls_remotes_certificate_check() -> None:
+def test_list_heads_certificate_check() -> None:
     url = 'https://github.com/pygit2/empty.git'
 
     class MyCallbacks(pygit2.RemoteCallbacks):
@@ -318,7 +361,7 @@ def test_ls_remotes_certificate_check() -> None:
     remote = git.remotes.create_anonymous(url)
 
     callbacks = MyCallbacks()
-    refs = remote.ls_remotes(callbacks=callbacks)
+    refs = remote.list_heads(callbacks=callbacks)
 
     # Sanity check that we indeed got some refs.
     assert len(refs) > 0
@@ -342,7 +385,7 @@ def clone(tmp_path: Path) -> Generator[Repository, None, None]:
 
 
 @pytest.fixture
-def remote(origin, clone):
+def remote(origin: Repository, clone: Repository) -> Generator[Remote, None, None]:
     yield clone.remotes.create('origin', origin.path)
 
 
@@ -404,9 +447,12 @@ def test_push_transfer_progress(
     assert origin.branches['master'].target == new_tip_id
 
 
+@pytest.mark.parametrize('reject_from', ['push_transfer_progress', 'push_negotiation'])
 def test_push_interrupted_from_callbacks(
-    origin: Repository, clone: Repository, remote: Remote
+    origin: Repository, clone: Repository, remote: Remote, reject_from: str
 ) -> None:
+    reject_message = 'retreat! retreat!'
+
     tip = clone[clone.head.target]
     clone.create_commit(
         'refs/heads/master',
@@ -418,10 +464,15 @@ def test_push_interrupted_from_callbacks(
     )
 
     class MyCallbacks(pygit2.RemoteCallbacks):
+        def push_negotiation(self, updates: list[PushUpdate]) -> None:
+            if reject_from == 'push_negotiation':
+                raise InterruptedError(reject_message)
+
         def push_transfer_progress(
             self, objects_pushed: int, total_objects: int, bytes_pushed: int
         ) -> None:
-            raise InterruptedError('retreat! retreat!')
+            if reject_from == 'push_transfer_progress':
+                raise InterruptedError(reject_message)
 
     assert origin.branches['master'].target == tip.id
 
@@ -502,3 +553,37 @@ def test_push_threads(origin: Repository, clone: Repository, remote: Remote) -> 
     callbacks = RemoteCallbacks()
     remote.push(['refs/heads/master'], callbacks, threads=1)
     assert callbacks.push_options.pb_parallelism == 1
+
+
+def test_push_negotiation(
+    origin: Repository, clone: Repository, remote: Remote
+) -> None:
+    old_tip = clone[clone.head.target]
+    new_tip_id = clone.create_commit(
+        'refs/heads/master',
+        old_tip.author,
+        old_tip.author,
+        'empty commit',
+        old_tip.tree.id,
+        [old_tip.id],
+    )
+
+    the_updates: list[PushUpdate] = []
+
+    class MyCallbacks(pygit2.RemoteCallbacks):
+        def push_negotiation(self, updates: list[PushUpdate]) -> None:
+            the_updates.extend(updates)
+
+    assert origin.branches['master'].target == old_tip.id
+    assert 'new_branch' not in origin.branches
+
+    callbacks = MyCallbacks()
+    remote.push(['refs/heads/master'], callbacks=callbacks)
+
+    assert len(the_updates) == 1
+    assert the_updates[0].src_refname == 'refs/heads/master'
+    assert the_updates[0].dst_refname == 'refs/heads/master'
+    assert the_updates[0].src == old_tip.id
+    assert the_updates[0].dst == new_tip_id
+
+    assert origin.branches['master'].target == new_tip_id

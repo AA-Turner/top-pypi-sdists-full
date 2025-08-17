@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vectorbt
-Version: 0.28.0
+Version: 0.28.1
 Summary: Python library for backtesting and analyzing trading strategies at scale
 Home-page: https://github.com/polakowo/vectorbt
 Author: Oleg Polakow
@@ -29,7 +29,7 @@ Requires-Dist: numpy>=1.16.5
 Requires-Dist: pandas
 Requires-Dist: scipy
 Requires-Dist: matplotlib
-Requires-Dist: plotly<6.0.0,>=4.12.0
+Requires-Dist: plotly>=4.12.0
 Requires-Dist: ipywidgets>=7.0.0
 Requires-Dist: numba<0.57.0,>=0.53.1; python_version < "3.10"
 Requires-Dist: numba<0.57.0,>=0.56.0; python_version >= "3.10" and python_version < "3.11"

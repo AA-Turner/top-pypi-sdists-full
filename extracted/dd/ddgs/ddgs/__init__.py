@@ -1,8 +1,13 @@
+"""DDGS | Dux Distributed Global Search.
+
+A metasearch library that aggregates results from diverse web search services.
+"""
+
 import logging
 
 from .ddgs import DDGS
 
-__version__ = "9.5.2"
+__version__ = "9.5.3"
 __all__ = ("DDGS",)
 
 

@@ -41,7 +41,7 @@ setup(
     zip_safe=False,
     include_package_data=True,
     platforms="any",
-    install_requires=["pytest>=6.2.0", "termcolor>=2.1.0", "packaging>=21.3"],
+    install_requires=["pytest>=6.2.0", "termcolor>=2.1.0"],
     extras_require={
         "dev": [
             "black",
@@ -65,6 +65,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
 )

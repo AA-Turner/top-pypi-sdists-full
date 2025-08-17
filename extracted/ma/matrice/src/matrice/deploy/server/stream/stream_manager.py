@@ -28,6 +28,7 @@ class StreamManager:
         num_producers: int = 1,
         app_name: str = "",
         app_version: str = "",
+        inference_pipeline_id: str = ""
     ):
         """Initialize simple stream manager.
         
@@ -39,6 +40,7 @@ class StreamManager:
             config: Stream configuration
             app_name: Application name for result formatting
             app_version: Application version for result formatting
+            inference_pipeline_id: ID of the inference pipeline
         """
         self.session = session
         self.deployment_id = deployment_id
@@ -49,7 +51,7 @@ class StreamManager:
         self.num_producers = num_producers
         self.app_name = app_name
         self.app_version = app_version
-        
+        self.inference_pipeline_id = inference_pipeline_id
         # Simple standard Python queues
         self.input_queue = queue.Queue()
         self.output_queue = queue.Queue()
@@ -205,7 +207,8 @@ class StreamManager:
             session=self.session,
             deployment_id=self.deployment_id,
             deployment_instance_id=self.deployment_instance_id,
-            input_queue=queue_wrapper
+            input_queue=queue_wrapper,
+            inference_pipeline_id=self.inference_pipeline_id
         )
         
         await worker.start()
@@ -249,6 +252,7 @@ class StreamManager:
             output_queue=queue_wrapper,
             app_name=self.app_name,
             app_version=self.app_version,
+            inference_pipeline_id=self.inference_pipeline_id
         )
         
         await worker.start()

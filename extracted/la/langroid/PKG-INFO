@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langroid
-Version: 0.58.3
+Version: 0.59.0
 Summary: Harness LLMs with Multi-Agent Programming
 Author-email: Prasad Chalasani <pchalasani@gmail.com>
 License: MIT
@@ -35,7 +35,8 @@ Requires-Dist: onnxruntime<2.0.0,>=1.16.1
 Requires-Dist: openai<2.0.0,>=1.61.1
 Requires-Dist: pandas<3.0.0,>=2.0.3
 Requires-Dist: prettytable<4.0.0,>=3.8.0
-Requires-Dist: pydantic<3.0.0,>=1
+Requires-Dist: pydantic-settings<3.0.0,>=2.0.0
+Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: pygithub<2.0.0,>=1.58.1
 Requires-Dist: pygments<3.0.0,>=2.15.1
 Requires-Dist: pymupdf4llm<0.1.0,>=0.0.17

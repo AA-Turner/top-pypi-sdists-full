@@ -1,5 +1,8 @@
+"""Duckduckgo videos search engine implementation."""
+
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from ..base import BaseSearchEngine
@@ -8,7 +11,7 @@ from ..utils import _extract_vqd, json_loads
 
 
 class DuckduckgoVideos(BaseSearchEngine[VideosResult]):
-    """Duckduckgo videos search engine"""
+    """Duckduckgo videos search engine."""
 
     name = "duckduckgo"
     category = "videos"
@@ -17,7 +20,7 @@ class DuckduckgoVideos(BaseSearchEngine[VideosResult]):
     search_url = "https://duckduckgo.com/v.js"
     search_method = "GET"
 
-    elements_replace = {
+    elements_replace: Mapping[str, str] = {
         "content": "content",
         "description": "description",
         "duration": "duration",
@@ -41,6 +44,7 @@ class DuckduckgoVideos(BaseSearchEngine[VideosResult]):
     def build_payload(
         self, query: str, region: str, safesearch: str, timelimit: str | None, page: int = 1, **kwargs: Any
     ) -> dict[str, Any]:
+        """Build a payload for the search request."""
         safesearch_base = {"on": "1", "moderate": "-1", "off": "-2"}
         timelimit = f"publishedAfter:{timelimit}" if timelimit else ""
         resolution = kwargs.get("resolution")
@@ -61,9 +65,9 @@ class DuckduckgoVideos(BaseSearchEngine[VideosResult]):
             payload["s"] = f"{(page - 1) * 60}"
         return payload
 
-    def extract_results(self, html_text: str) -> list[VideosResult]:
-        """Extract search results from lxml tree"""
-        json_data = json_loads(html_text)
+    def extract_results(self, html_bytes: bytes) -> list[VideosResult]:
+        """Extract search results from lxml tree."""
+        json_data = json_loads(html_bytes)
         items = json_data.get("results", [])
         results = []
         for item in items:

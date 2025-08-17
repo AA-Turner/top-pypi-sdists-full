@@ -1309,12 +1309,24 @@ class AsyncKafkaUtils:
         
         # Track producer start state and protect concurrent start attempts
         self._producer_started = False
+        self._producer_start_lock = None  # Will be created when needed
+        
+        # Check if we can create the lock now (if event loop is available)
         try:
-            # Lock for coordinating concurrent start calls
+            asyncio.get_running_loop()
+            # Event loop is available, create the lock
             self._producer_start_lock = asyncio.Lock()
-        except Exception:
-            # Fallback in environments without an event loop at init time
-            self._producer_start_lock = None
+        except RuntimeError:
+            # No event loop available at init time, will create lock later when needed
+            pass
+
+    def _is_event_loop_available(self) -> bool:
+        """Check if event loop is available and not shutting down."""
+        try:
+            loop = asyncio.get_running_loop()
+            return not loop.is_closed()
+        except RuntimeError:
+            return False
 
     def _record_metric(self, operation: str, topic: str, start_time: float, end_time: float, 
                       success: bool, error_msg: str = None, message_key: str = None, 
@@ -1580,6 +1592,16 @@ class AsyncKafkaUtils:
         Raises:
             AsyncKafkaError: If producer initialization fails
         """
+        # Check if event loop is available and not shutting down
+        try:
+            loop = asyncio.get_running_loop()
+            if loop.is_closed():
+                raise RuntimeError("Event loop is closed, cannot set up async producer")
+        except RuntimeError as exc:
+            if "no running event loop" in str(exc).lower():
+                raise RuntimeError("No event loop available for async producer setup")
+            raise
+
         producer_config = {
             "bootstrap_servers": self.bootstrap_servers,
             "acks": "all",  # Keep "all" for better reliability
@@ -1615,18 +1637,25 @@ class AsyncKafkaUtils:
         try:
             # Ensure only one coroutine starts the producer
             if self._producer_start_lock is None:
-                self._producer_start_lock = asyncio.Lock()
+                try:
+                    self._producer_start_lock = asyncio.Lock()
+                except RuntimeError as exc:
+                    if "cannot schedule new futures after shutdown" in str(exc):
+                        raise RuntimeError("Cannot create producer lock: event loop is shutting down")
+                    raise
+            
             async with self._producer_start_lock:
                 if not self._producer_started:
                     await self.producer.start()
                     self._producer_started = True
             logging.info("Successfully set up async Kafka producer")
-        except AsyncKafkaError as exc:
-            logging.error("Failed to start async producer: %s", str(exc))
+        except (AsyncKafkaError, RuntimeError) as exc:
+            error_msg = f"Failed to start async producer: {str(exc)}"
+            logging.error(error_msg)
             # Clean up on failure
             self.producer = None
             self._producer_started = False
-            raise
+            raise RuntimeError(error_msg) from exc
 
     class RebalanceListener(ConsumerRebalanceListener):
         """Listener for partition rebalance events."""
@@ -1908,9 +1937,24 @@ class AsyncKafkaUtils:
         if not self.producer:
             raise RuntimeError("Producer not initialized. Call setup_producer() first.")
         if not self._producer_started:
+            # Check if event loop is available
+            try:
+                loop = asyncio.get_running_loop()
+                if loop.is_closed():
+                    raise RuntimeError("Cannot start producer: event loop is closed")
+            except RuntimeError as exc:
+                if "no running event loop" in str(exc).lower():
+                    raise RuntimeError("Cannot start producer: no event loop available")
+                raise
+                
             # Coordinate concurrent start attempts
             if self._producer_start_lock is None:
-                self._producer_start_lock = asyncio.Lock()
+                try:
+                    self._producer_start_lock = asyncio.Lock()
+                except RuntimeError as exc:
+                    if "cannot schedule new futures after shutdown" in str(exc):
+                        raise RuntimeError("Cannot create producer lock: event loop is shutting down")
+                    raise
             async with self._producer_start_lock:
                 if not self._producer_started:
                     await self.producer.start()
@@ -2534,6 +2578,16 @@ class MatriceKafkaDeployment:
             if not hasattr(self.async_kafka, 'producer') or not self.async_kafka.producer:
                 await self.async_kafka.setup_producer()
             return True
+        except RuntimeError as exc:
+            error_msg = str(exc)
+            if any(phrase in error_msg for phrase in [
+                "event loop is closed", "no event loop available", 
+                "event loop is shutting down", "cannot schedule new futures after shutdown"
+            ]):
+                logging.warning(f"Cannot set up async Kafka producer due to event loop state: {error_msg}")
+                return False
+            logging.error("Failed to set up async Kafka producer: %s", str(exc))
+            return False
         except Exception as exc:
             logging.error("Failed to set up async Kafka producer: %s", str(exc))
             return False
@@ -2673,10 +2727,14 @@ class MatriceKafkaDeployment:
             key: Optional key for message partitioning (stream_id/camera_id)
             
         Raises:
-            RuntimeError: If producer is not initialized
+            RuntimeError: If producer is not initialized or event loop is unavailable
             ValueError: If message is invalid
             AsyncKafkaError: If message production fails
         """
+        # Check if async_kafka is available and event loop is in good state
+        if self.async_kafka and not self.async_kafka._is_event_loop_available():
+            raise RuntimeError("Cannot produce message: event loop is not available or shutting down")
+            
         if not await self._ensure_async_producer():
             raise RuntimeError("Failed to set up async Kafka producer")
         await self.async_kafka.produce_message(self.producing_topic, message, key=key, timeout=timeout)

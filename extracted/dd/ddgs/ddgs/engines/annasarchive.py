@@ -1,5 +1,8 @@
+"""Anna's Archive search engine implementation."""
+
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from ..base import BaseSearchEngine
@@ -7,7 +10,7 @@ from ..results import BooksResult
 
 
 class AnnasArchive(BaseSearchEngine[BooksResult]):
-    """Anna's Archive search engine"""
+    """Anna's Archive search engine."""
 
     name = "annasarchive"
     category = "books"
@@ -17,7 +20,7 @@ class AnnasArchive(BaseSearchEngine[BooksResult]):
     search_method = "GET"
 
     items_xpath = "//div[contains(@id, 'record-list')]//div[a or contains(@class, 'js-scroll-hidden')]"
-    elements_xpath = {
+    elements_xpath: Mapping[str, str] = {
         "title": ".//h3//text()",
         "author": ".//div[h3]/div[3]//text()",
         "publisher": ".//div[h3]/div[2]//text()",
@@ -29,13 +32,15 @@ class AnnasArchive(BaseSearchEngine[BooksResult]):
     def build_payload(
         self, query: str, region: str, safesearch: str, timelimit: str | None, page: int = 1, **kwargs: Any
     ) -> dict[str, Any]:
-        payload = {"q": query, "page": f"{page}"}
-        return payload
+        """Build a payload for the search request."""
+        return {"q": query, "page": f"{page}"}
 
-    def pre_process_html(self, html_text: str) -> str:
-        return html_text.replace("<!--", "").replace("-->", "")
+    def pre_process_html(self, html_bytes: bytes) -> bytes:
+        """Pre-process the HTML before parsing it."""
+        return html_bytes.replace(b"<!--", b"").replace(b"-->", b"")
 
     def post_extract_results(self, results: list[BooksResult]) -> list[BooksResult]:
+        """Post-process search results."""
         base_url = self.search_url.split("/search")[0]
         for result in results:
             result.url = f"{base_url}{result.url}"

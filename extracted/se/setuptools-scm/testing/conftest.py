@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import shutil
 import sys
 
 from pathlib import Path
@@ -37,7 +38,15 @@ def pytest_report_header() -> list[str]:
     for pkg in VERSION_PKGS:
         pkg_version = version(pkg)
         path = __import__(pkg).__file__
-        res.append(f"{pkg} version {pkg_version} from {path!r}")
+        if path and "site-packages" in path:
+            # Replace everything up to and including site-packages with site::
+            parts = path.split("site-packages", 1)
+            if len(parts) > 1:
+                path = "site:." + parts[1]
+        elif path and str(Path.cwd()) in path:
+            # Replace current working directory with CWD::
+            path = path.replace(str(Path.cwd()), "CWD:.")
+        res.append(f"{pkg} version {pkg_version} from {path}")
     return res
 
 
@@ -84,6 +93,14 @@ def wd(tmp_path: Path) -> WorkDir:
     target_wd = tmp_path.resolve() / "wd"
     target_wd.mkdir()
     return WorkDir(target_wd)
+
+
+@pytest.fixture(scope="session")
+def hg_exe() -> str:
+    hg = shutil.which("hg")
+    if hg is None:
+        pytest.skip("hg executable not found")
+    return hg
 
 
 @pytest.fixture

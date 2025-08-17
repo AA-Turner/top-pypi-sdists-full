@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock, call, mock_open
 import subprocess
 import sys
 import importlib.metadata
@@ -103,7 +103,6 @@ class TestPackageManager(unittest.TestCase):
         self.assertTrue(result)
         mock_is_installed.assert_has_calls([call("requests"), call("numpy")], any_order=True)
         
-        # FIX: Update expected call with new default kwargs
         expected_install_cmd = ["install", "--index-url", "http://example.com", "requests", "numpy"]
         mock_run_command.assert_called_once_with(
             expected_install_cmd, dry_run=False, verbose=False, capture_output=True
@@ -121,7 +120,6 @@ class TestPackageManager(unittest.TestCase):
         self.assertTrue(result)
         mock_is_installed.assert_has_calls([call("requests"), call("numpy")], any_order=True)
 
-        # FIX: Update expected call with new default kwargs
         expected_install_cmd = ["install", "numpy"]
         mock_run_command.assert_called_once_with(
             expected_install_cmd, dry_run=False, verbose=False, capture_output=True
@@ -258,16 +256,65 @@ class TestPackageManager(unittest.TestCase):
         ], any_order=True)
         mock_install_multiple.assert_not_called()
 
-    # FIX: Use a more reliable patch for logging
     @patch.object(pm_logging.getLogger("pipmaster.package_manager"), 'error')
     def test_ensure_packages_invalid_input_type(self, mock_logger_error):
-        requirements = "not a list or dict"
+        requirements = 123  # Use a type that is actually invalid
         result = self.pm.ensure_packages(requirements) # type: ignore
         self.assertFalse(result)
         mock_logger_error.assert_called_once()
         self.assertIn("Invalid requirements type", mock_logger_error.call_args[0][0])
 
-    # FIX: Move this test inside the class
+    @patch('pipmaster.package_manager.PackageManager.ensure_packages')
+    @patch('builtins.open', new_callable=mock_open, read_data="requests>=2.25\n# A comment\nnumpy")
+    def test_ensure_requirements_success(self, mock_file, mock_ensure_packages):
+        mock_ensure_packages.return_value = True
+        result = self.pm.ensure_requirements("dummy_reqs.txt", dry_run=True, verbose=True)
+
+        self.assertTrue(result)
+        mock_file.assert_called_once_with("dummy_reqs.txt", 'r', encoding='utf-8')
+        mock_ensure_packages.assert_called_once_with(
+            requirements=['requests>=2.25', 'numpy'],
+            index_url=None,
+            extra_args=[],
+            dry_run=True,
+            verbose=True
+        )
+
+    @patch('pipmaster.package_manager.PackageManager.ensure_packages')
+    @patch('builtins.open', new_callable=mock_open, read_data="--index-url http://example.com\nrequests # inline comment")
+    def test_ensure_requirements_with_pip_options(self, mock_file, mock_ensure_packages):
+        mock_ensure_packages.return_value = True
+        result = self.pm.ensure_requirements("dummy_reqs.txt")
+
+        self.assertTrue(result)
+        mock_file.assert_called_once_with("dummy_reqs.txt", 'r', encoding='utf-8')
+        mock_ensure_packages.assert_called_once_with(
+            requirements=['requests'],
+            index_url=None,
+            extra_args=['--index-url', 'http://example.com'],
+            dry_run=False,
+            verbose=False
+        )
+
+    @patch('pipmaster.package_manager.PackageManager.ensure_packages')
+    @patch('builtins.open')
+    def test_ensure_requirements_file_not_found(self, mock_file, mock_ensure_packages):
+        mock_file.side_effect = FileNotFoundError
+        result = self.pm.ensure_requirements("non_existent.txt")
+
+        self.assertFalse(result)
+        mock_file.assert_called_once_with("non_existent.txt", 'r', encoding='utf-8')
+        mock_ensure_packages.assert_not_called()
+
+    @patch('pipmaster.package_manager.PackageManager.ensure_packages')
+    @patch('builtins.open', new_callable=mock_open, read_data="# Only comments\n\n   # and whitespace")
+    def test_ensure_requirements_empty_or_comments_only(self, mock_file, mock_ensure_packages):
+        result = self.pm.ensure_requirements("empty.txt")
+
+        self.assertTrue(result)
+        mock_file.assert_called_once_with("empty.txt", 'r', encoding='utf-8')
+        mock_ensure_packages.assert_not_called()
+
     @patch('subprocess.run')
     def test_run_pip_command_verbose_no_capture(self, mock_run):
         mock_run.return_value = self._create_mock_result(returncode=0)

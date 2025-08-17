@@ -245,3 +245,33 @@ def test_archive(
         os.link("data/datafile", datalink)
 
     assert set(find_files()) == _sep({archive_file, "data/datafile", "data/datalink"})
+
+
+@pytest.fixture
+def hg_wd(wd: WorkDir, monkeypatch: pytest.MonkeyPatch) -> WorkDir:
+    try:
+        wd("hg init")
+    except OSError:
+        pytest.skip("hg executable not found")
+    (wd.cwd / "file").touch()
+    wd("hg add file")
+    monkeypatch.chdir(wd.cwd)
+    return wd
+
+
+def test_hg_gone(hg_wd: WorkDir, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PATH", str(hg_wd.cwd / "not-existing"))
+    assert set(find_files()) == set()
+
+
+def test_hg_command_from_env(
+    hg_wd: WorkDir,
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+    hg_exe: str,
+) -> None:
+    with monkeypatch.context() as m:
+        m.setenv("SETUPTOOLS_SCM_HG_COMMAND", hg_exe)
+        m.setenv("PATH", str(hg_wd.cwd / "not-existing"))
+        # No module reloading needed - runtime configuration works immediately
+        assert set(find_files()) == {"file"}

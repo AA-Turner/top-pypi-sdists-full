@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quantecon
-Version: 0.8.2
+Version: 0.9.0
 Summary: Import the main names to top level.
 Keywords: quantitative,economics
 Author-email: QuantEcon Project <admin@quantecon.org>
@@ -88,7 +88,7 @@ If your version is below what’s available on [PyPI](https://pypi.python.org/p
 Many examples of QuantEcon.py in action can be found at [Quantitative Economics](https://lectures.quantecon.org/). See also the
 
 *   [Documentation](https://quanteconpy.readthedocs.org/en/latest/)
-*   [Notebook gallery](https://notes.quantecon.org)
+*   [Notebook gallery](https://github.com/QuantEcon/notebook-gallery)
 
 QuantEcon.py is supported financially by the [Alfred P. Sloan Foundation](http://www.sloan.org/) and is part of the [QuantEcon organization](https://quantecon.org).
 

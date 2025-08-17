@@ -7,6 +7,8 @@ on:
     - "*"
     tags:
     - "v*"
+  release:
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
@@ -20,9 +22,12 @@ jobs:
   package:
     name: Build & inspect our package.
     runs-on: ubuntu-latest
+    env:
+      # Use no-local-version for package builds to ensure clean versions for PyPI uploads
+      SETUPTOOLS_SCM_NO_LOCAL: "1"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -39,10 +44,13 @@ jobs:
         include:
         - os: windows-latest
           python_version: 'msys2'
+    env:
+      # Enable tracemalloc to debug gc errors with popen objects (especially on Windows)
+      PYTHONTRACEMALLOC: "1"
 
     name: ${{ matrix.os }} - Python ${{ matrix.python_version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Setup python
@@ -51,6 +59,8 @@ jobs:
         with:
           python-version: ${{ matrix.python_version }}
           architecture: x64
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v6
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
         if: matrix.python_version == 'msys2'
@@ -81,43 +91,61 @@ jobs:
           echo "C:\Program Files (x86)\gnupg\bin" >> $env:GITHUB_PATH
           git config --system gpg.program "C:\Program Files (x86)\gnupg\bin\gpg.exe"
         if: runner.os == 'Windows'
-      - run: pip install -U 'setuptools>=61'
-      - uses: actions/download-artifact@v4
+      - run: uv sync --group test --group docs --extra rich
+      - uses: actions/download-artifact@v5
         with:
           name: Packages
           path: dist
       - shell: bash
-        run: pip install "$(echo -n dist/*whl)[toml,test]"
+        run: uv pip install "$(echo -n dist/*whl)"
       - run: |
           $(hg debuginstall --template "{pythonexe}") -m pip install hg-git --user
         if: matrix.os == 'ubuntu-latest'
       # this hopefully helps with os caches, hg init sometimes gets 20s timeouts
       - run: hg version
-      - run: pytest
-        timeout-minutes: 15
+      - run: uv run pytest
+        timeout-minutes: 25
 
   dist_upload:
 
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
+    if: (github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')) || (github.event_name == 'release' && github.event.action == 'published')
     permissions:
       id-token: write
     needs: [test]
     steps:
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: Packages
         path: dist
     - name: Publish package to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
 
+  upload-release-assets:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'published'
+    needs: [test]
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/download-artifact@v5
+      with:
+        name: Packages
+        path: dist
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v2
+      with:
+        files: dist/*
+        fail_on_unmatched_files: true
+
   test-pypi-upload:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [test]
     permissions:
       id-token: write
     steps:
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v5
       with:
         name: Packages
         path: dist

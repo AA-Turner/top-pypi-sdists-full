@@ -1,11 +1,11 @@
+from __future__ import annotations
+
 from collections import namedtuple
 from enum import Enum
 import logging
 from typing import Callable
 
 from pymysql.cursors import Cursor
-
-from mycli.packages.special import export
 
 logger = logging.getLogger(__name__)
 
@@ -31,23 +31,30 @@ class ArgType(Enum):
     RAW_QUERY = 2
 
 
-@export
 class CommandNotFound(Exception):
     pass
 
 
-@export
-def parse_special_command(sql: str) -> tuple[str, bool, str]:
+class Verbosity(Enum):
+    SUCCINCT = "succinct"
+    NORMAL = "normal"
+    VERBOSE = "verbose"
+
+
+def parse_special_command(sql: str) -> tuple[str, Verbosity, str]:
     command, _, arg = sql.partition(" ")
-    verbose = "+" in command
-    command = command.strip().replace("+", "")
-    return (command, verbose, arg.strip())
+    verbosity = Verbosity.NORMAL
+    if "+" in command:
+        verbosity = Verbosity.VERBOSE
+    elif "-" in command:
+        verbosity = Verbosity.SUCCINCT
+    command = command.strip().strip("+-")
+    return (command, verbosity, arg.strip())
 
 
-@export
 def special_command(
     command: str,
-    shortcut: str,
+    shortcut: str | None,
     description: str,
     arg_type: ArgType = ArgType.PARSED_QUERY,
     hidden: bool = False,
@@ -70,11 +77,10 @@ def special_command(
     return wrapper
 
 
-@export
 def register_special_command(
     handler: Callable,
     command: str,
-    shortcut: str,
+    shortcut: str | None,
     description: str,
     arg_type: ArgType = ArgType.PARSED_QUERY,
     hidden: bool = False,
@@ -104,22 +110,21 @@ def register_special_command(
         )
 
 
-@export
 def execute(cur: Cursor, sql: str) -> list[tuple]:
     """Execute a special command and return the results. If the special command
     is not supported a CommandNotFound will be raised.
     """
-    command, verbose, arg = parse_special_command(sql)
+    command, verbosity, arg = parse_special_command(sql)
 
     if (command not in COMMANDS) and (command.lower() not in COMMANDS):
-        raise CommandNotFound
+        raise CommandNotFound()
 
     try:
         special_cmd = COMMANDS[command]
     except KeyError:
         special_cmd = COMMANDS[command.lower()]
         if special_cmd.case_sensitive:
-            raise CommandNotFound("Command not found: %s" % command)
+            raise CommandNotFound(f'Command not found: {command}')
 
     # "help <SQL KEYWORD> is a special case. We want built-in help, not
     # mycli help here.
@@ -129,7 +134,7 @@ def execute(cur: Cursor, sql: str) -> list[tuple]:
     if special_cmd.arg_type == ArgType.NO_QUERY:
         return special_cmd.handler()
     elif special_cmd.arg_type == ArgType.PARSED_QUERY:
-        return special_cmd.handler(cur=cur, arg=arg, verbose=verbose)
+        return special_cmd.handler(cur=cur, arg=arg, verbose=(verbosity == Verbosity.VERBOSE))
     elif special_cmd.arg_type == ArgType.RAW_QUERY:
         return special_cmd.handler(cur=cur, query=sql)
 
@@ -155,14 +160,14 @@ def show_keyword_help(cur: Cursor, arg: str) -> list[tuple]:
     :return: list
     """
     keyword = arg.strip('"').strip("'")
-    query = "help '{0}'".format(keyword)
+    query = f"help '{keyword}'"
     logger.debug(query)
     cur.execute(query)
     if cur.description and cur.rowcount > 0:
         headers = [x[0] for x in cur.description]
         return [(None, cur, headers, "")]
     else:
-        return [(None, None, None, "No help found for {0}.".format(keyword))]
+        return [(None, None, None, f'No help found for {keyword}.')]
 
 
 @special_command("exit", "\\q", "Exit.", arg_type=ArgType.NO_QUERY, aliases=["\\q"])

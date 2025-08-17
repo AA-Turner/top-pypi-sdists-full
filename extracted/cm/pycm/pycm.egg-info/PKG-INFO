@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pycm
-Version: 4.3
+Version: 4.4
 Summary: Multi-class confusion matrix library in Python
 Home-page: https://github.com/sepandhaghighi/pycm
-Download-URL: https://github.com/sepandhaghighi/pycm/tarball/v4.3
+Download-URL: https://github.com/sepandhaghighi/pycm/tarball/v4.4
 Author: PyCM Development Team
 Author-email: info@pycm.io
 License: MIT
@@ -16,7 +16,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -36,7 +35,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Human Machine Interfaces
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
-Requires-Python: >=3.6
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS.md
@@ -121,11 +120,12 @@ PyCM is the swiss-army knife of confusion matrices, targeted mainly at data scie
 		<td align="center">Code Quality</td>
 		<td align="center"><a class="badge-align" href="https://www.codacy.com/app/sepand-haghighi/pycm?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=sepandhaghighi/pycm&amp;utm_campaign=Badge_Grade"><img src="https://api.codacy.com/project/badge/Grade/5d9463998a0040d09afc2b80c389365c"/></a></td>
 		<td align="center"><a href="https://www.codefactor.io/repository/github/sepandhaghighi/pycm/overview/dev"><img src="https://www.codefactor.io/repository/github/sepandhaghighi/pycm/badge/dev" alt="CodeFactor" /></a></td>
-		<td align="center"><a href="https://codebeat.co/projects/github-com-sepandhaghighi-pycm-dev"><img alt="codebeat badge" src="https://codebeat.co/badges/f6642af1-c343-48c2-bd3e-eee802facf39" /></a></td>
 	</tr>
 </table>
 
 ## Installation
+
+⚠️  PyCM 4.3 is the last version to support **Python 3.6**
 
 ⚠️  PyCM 3.9 is the last version to support **Python 3.5**
 
@@ -136,10 +136,10 @@ PyCM is the swiss-army knife of confusion matrices, targeted mainly at data scie
 ### PyPI
 
 - Check [Python Packaging User Guide](https://packaging.python.org/installing/)
-- Run `pip install pycm==4.3`
+- Run `pip install pycm==4.4`
 
 ### Source code
-- Download [Version 4.3](https://github.com/sepandhaghighi/pycm/archive/v4.3.zip) or [Latest Source](https://github.com/sepandhaghighi/pycm/archive/dev.zip)
+- Download [Version 4.4](https://github.com/sepandhaghighi/pycm/archive/v4.4.zip) or [Latest Source](https://github.com/sepandhaghighi/pycm/archive/dev.zip)
 - Run `pip install .`
 
 ### Conda
@@ -151,7 +151,7 @@ PyCM is the swiss-army knife of confusion matrices, targeted mainly at data scie
 ### MATLAB
 
 - Download and install [MATLAB](https://www.mathworks.com/products/matlab.html) (>=8.5, 64/32 bit)
-- Download and install [Python3.x](https://www.python.org/downloads/) (>=3.6, 64/32 bit)
+- Download and install [Python3.x](https://www.python.org/downloads/) (>=3.7, 64/32 bit)
 	- [x] Select `Add to PATH` option
 	- [x] Select `Install pip` option
 - Run `pip install pycm`
@@ -537,6 +537,10 @@ PyCM can be used online in interactive Jupyter Notebooks via the Binder or Colab
 
 ## Acknowledgments
 
+[NLnet foundation](https://nlnet.nl) has supported the PyCM project from version **4.3** to **4.7** through the [NGI0 Commons](https://nlnet.nl/commonsfund/) Fund. This fund is set up by [NLnet foundation](https://nlnet.nl) with funding from the European Commission's [Next Generation Internet program](https://ngi.eu), administered by DG Communications Networks, Content, and Technology under grant agreement [**No 101135429**](https://nlnet.nl/project/PyCM-API/).
+
+<a href="https://nlnet.nl"><img src="https://github.com/sepandhaghighi/pycm/raw/master/Otherfiles/NlNet.svg" height="50px" alt="NLnet foundation"></a> &nbsp;  <a href="https://nlnet.nl/commonsfund/"><img src="https://github.com/sepandhaghighi/pycm/raw/master/Otherfiles/NGI0Core.svg" height="50px" alt="NGI0 Commons"></a>
+
 [NLnet foundation](https://nlnet.nl) has supported the PyCM project from version **3.6** to **4.0** through the [NGI Assure](https://nlnet.nl/assure) Fund. This fund is set up by [NLnet foundation](https://nlnet.nl) with funding from the European Commission's [Next Generation Internet program](https://ngi.eu), administered by DG Communications Networks, Content, and Technology under grant agreement [**No 957073**](https://nlnet.nl/project/PyCM/).
 
 <a href="https://nlnet.nl"><img src="https://github.com/sepandhaghighi/pycm/raw/master/Otherfiles/NlNet.svg" height="50px" alt="NLnet foundation"></a> &nbsp;  <a href="https://nlnet.nl/assure"><img src="https://github.com/sepandhaghighi/pycm/raw/master/Otherfiles/NGIAssure.svg" height="50px" alt="NGI Assure"></a>
@@ -608,6 +612,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+## [4.4] - 2025-08-16
+### Added
+- `print_timings` method
+- Test outcome positive rate
+- Positive rate
+- `run_report_benchmark` function
+### Changed
+- `README.md` modified
+- Test system modified
+- Document modified
+- `PRE_calc` function renamed to `proportion_calc`
+- `Python 3.6` support dropped
 ## [4.3] - 2025-04-04
 ### Added
 - `dissimilarity_matrix` method
@@ -1379,7 +1395,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - TPR
 - documents and `README.md`
 
-[Unreleased]: https://github.com/sepandhaghighi/pycm/compare/v4.3...dev
+[Unreleased]: https://github.com/sepandhaghighi/pycm/compare/v4.4...dev
+[4.4]: https://github.com/sepandhaghighi/pycm/compare/v4.3...v4.4
 [4.3]: https://github.com/sepandhaghighi/pycm/compare/v4.2...v4.3
 [4.2]: https://github.com/sepandhaghighi/pycm/compare/v4.1...v4.2
 [4.1]: https://github.com/sepandhaghighi/pycm/compare/v4.0...v4.1

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Parameters and constants."""
-PYCM_VERSION = "4.3"
+PYCM_VERSION = "4.4"
 
 
 OVERVIEW = '''
@@ -55,6 +55,16 @@ HTML_DATASET_TYPE_TEMPLATE = (
     "<p>{message1}</p>\n"
     "<p>{message2}</p>\n"
 )
+
+TIMINGS_TEMPLATE = """
+Matrix Creation: {matrix_creation:.6f} s
+
+Class Statistics: {class_statistics:.6f} s
+
+Overall Statistics: {overall_statistics:.6f} s
+
+Total: {total:.6f} s
+"""
 
 PROBABILITY_SIZE_ERROR = "All elements of the probability vector must have the same length and match the number of classes."
 PROBABILITY_TYPE_ERROR = "Probability vector elements must be numeric."
@@ -154,8 +164,10 @@ CLASS_PARAMS = {
     "FN": "FN",
     "POP": "POP",
     "P": "P",
+    "PR": "PR",
     "N": "N",
     "TOP": "TOP",
+    "TOPR": "TOPR",
     "TON": "TON",
     "PRE": "PRE",
     "G": "G",
@@ -603,7 +615,10 @@ PARAMS_DESCRIPTION = {
     "AUPR": "Area under the PR curve",
     "ICSI": "Individual classification success index",
     "HD": "Hamming distance",
-    "BB": "Braun-Blanquet similarity"}
+    "BB": "Braun-Blanquet similarity",
+    "PR": "Positive rate",
+    "TOPR": "Test outcome positive rate",
+}
 
 PARAMS_LINK = {
     "TPR": "TPR-(True-positive-rate)",
@@ -734,6 +749,8 @@ PARAMS_LINK = {
     "Krippendorff Alpha": "Krippendorff's-alpha",
     "HD": "HD-(Hamming-distance)",
     "BB": "BB-(Braun-Blanquet-similarity)",
+    "PR": "PR-(Positive-rate)",
+    "TOPR": "TOPR-(Test-outcome-positive-rate)",
     "SOA7(Lambda A)": "SOA7-(Goodman-&-Kruskal's-lambda-A-benchmark)",
     "SOA8(Lambda B)": "SOA8-(Goodman-&-Kruskal's-lambda-B-benchmark)",
     "SOA9(Krippendorff Alpha)": "SOA9-(Krippendorff's-alpha-benchmark)",
@@ -861,6 +878,19 @@ BENCHMARK_COLOR = {
 }
 
 BENCHMARK_LIST = list(BENCHMARK_COLOR)
+
+BENCHMARK_CLASS_SIZES = [2, 5, 10, 100, 1000]
+BENCHMARK_POPULATION_SIZES = [10, 100, 1000, 10000]
+BENCHMARK_REPORT_TEMPLATE = """Number of classes: {num_classes}
+Population size: {total_population}
+Class distribution scenario: {scenario}
+Timing:
+    + Matrix creation: {timing_matrix_creation}s
+    + Class statistics: {timing_class_statistics}s
+    + Overall statistics: {timing_overall_statistics}s
+    + Total: {timing_total}s
+======================================================
+"""
 
 
 TABLE_COLOR = {

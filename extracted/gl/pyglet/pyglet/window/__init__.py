@@ -511,9 +511,21 @@ class BaseWindow(EventDispatcher, metaclass=_WindowMetaclass):
             screen = display.get_default_screen()
 
         if not config:
-            for template_config in [gl.Config(double_buffer=True, depth_size=24, major_version=3, minor_version=3),
-                                    gl.Config(double_buffer=True, depth_size=16, major_version=3, minor_version=3),
-                                    None]:
+            alpha_size = None
+            transparent_fb = False
+            # Override config settings if intention is transparency.
+            if style in ('transparent', 'overlay'):
+                # Ensure the framebuffer is large enough to support transparency.
+                alpha_size = 8
+                transparent_fb = True
+
+            for template_config in [
+                gl.Config(double_buffer=True, depth_size=24, major_version=3, minor_version=3,
+                          alpha_size=alpha_size, transparent_framebuffer=transparent_fb),
+                gl.Config(double_buffer=True, depth_size=16, major_version=3, minor_version=3,
+                          alpha_size=alpha_size, transparent_framebuffer=transparent_fb),
+                None,
+            ]:
                 try:
                     config = screen.get_best_config(template_config)
                     break
@@ -522,10 +534,10 @@ class BaseWindow(EventDispatcher, metaclass=_WindowMetaclass):
             if not config:
                 msg = 'No standard config is available.'
                 raise NoSuchConfigException(msg)
-
-        # Necessary on Windows. More investigation needed:
-        if style in ('transparent', 'overlay'):
-            config.alpha = 8
+        else:
+            if style in ('transparent', 'overlay'):
+                config.alpha_size = 8
+                config.transparent_framebuffer = True
 
         if not config.is_complete():
             config = screen.get_best_config(config)
@@ -649,7 +661,7 @@ class BaseWindow(EventDispatcher, metaclass=_WindowMetaclass):
         """Close the window.
 
         After closing the window, the GL context will be invalid.  The
-        window instance cannot be reused once closed. To re-use windows,
+        window instance cannot be reused once closed. To reuse windows,
         see :py:meth:`.set_visible` instead.
 
         The :py:meth:`pyglet.app.EventLoop.on_window_close` event is
@@ -813,6 +825,21 @@ class BaseWindow(EventDispatcher, metaclass=_WindowMetaclass):
         """
         raise NotImplementedError
 
+    def set_mouse_passthrough(self, state: bool) -> None:
+        """Set whether the operating system will ignore mouse input from this window.
+
+        Behavior may differ across operating systems. This is typically used in window overlays with
+        transparent frame buffers.
+
+        Args:
+            state:
+                ``True`` will allow mouse input to pass through the window to anything behind it. Otherwise, ``False``
+                allows the window to accept focus again.
+
+        .. versionadded:: 2.1.8
+        """
+        raise NotImplementedError
+
     @abstractmethod
     def minimize(self) -> None:
         """Minimize the window."""
@@ -841,16 +868,18 @@ class BaseWindow(EventDispatcher, metaclass=_WindowMetaclass):
             self.dispatch_event('on_close')
 
     def _on_internal_resize(self, width: int, height: int) -> None:
-        gl.glViewport(0, 0, *self.get_framebuffer_size())
+        framebuffer_size = self.get_framebuffer_size()
+        gl.glViewport(0, 0, max(framebuffer_size[0], 1), max(framebuffer_size[1], 1))
         w, h = self.get_size()
-        self.projection = Mat4.orthogonal_projection(0, w, 0, h, -8192, 8192)
+        self.projection = Mat4.orthogonal_projection(0, max(w, 1), 0, max(h, 1), -8192, 8192)
         self.dispatch_event('on_resize', w, h)
 
     def _on_internal_scale(self, scale: float, dpi: int) -> None:
-        gl.glViewport(0, 0, *self.get_framebuffer_size())
+        framebuffer_size = self.get_framebuffer_size()
+        gl.glViewport(0, 0, max(framebuffer_size[0], 1), max(framebuffer_size[1], 1))
         w, h = self.get_size()
-        self.projection = Mat4.orthogonal_projection(0, w, 0, h, -8192, 8192)
-        self._mouse_cursor.scaling = scale
+        self.projection = Mat4.orthogonal_projection(0, max(w, 1), 0, max(h, 1), -8192, 8192)
+        self._mouse_cursor.scaling = self._get_mouse_scale()
         self.dispatch_event('on_scale', scale, dpi)
 
     def on_resize(self, width: int, height: int) -> EVENT_HANDLE_STATE:
@@ -1118,8 +1147,15 @@ class BaseWindow(EventDispatcher, metaclass=_WindowMetaclass):
         if cursor is None:
             cursor = DefaultMouseCursor()
         self._mouse_cursor = cursor
-        self._mouse_cursor.scaling = self.scale
+        self._mouse_cursor.scaling = self._get_mouse_scale()
         self.set_mouse_platform_visible()
+
+    def _get_mouse_scale(self):
+        """The mouse scale factoring in the DPI.
+
+        On Mac, this is always 1.0.
+        """
+        return self.scale
 
     def set_exclusive_mouse(self, exclusive: bool = True) -> None:
         """Hide the mouse cursor and direct all mouse events to this window.
@@ -1687,6 +1723,8 @@ class BaseWindow(EventDispatcher, metaclass=_WindowMetaclass):
             * MOTION_END_OF_FILE
             * MOTION_BACKSPACE
             * MOTION_DELETE
+            * MOTION_COPY
+            * MOTION_PASTE
 
             :event:
             """
@@ -1717,6 +1755,8 @@ class BaseWindow(EventDispatcher, metaclass=_WindowMetaclass):
             * MOTION_PREVIOUS_PAGE
             * MOTION_BEGINNING_OF_FILE
             * MOTION_END_OF_FILE
+            * MOTION_COPY
+            * MOTION_PASTE
 
             :event:
             """

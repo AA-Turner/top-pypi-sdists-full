@@ -1,22 +1,26 @@
 Metadata-Version: 2.4
 Name: optype
-Version: 0.13.2
-Summary: Building blocks for precise & flexible type hints
-Keywords: typing,type hints,numpy
+Version: 0.13.3
+Summary: Building Blocks for Precise & Flexible Type Hints
+Keywords: annotations,basedpyright,checker,checking,hinting,hints,mypy,numpy,numpy-typing-compat,pyright,protocols,stubs,type,typechecking,typehinting,typehints,typing
 Author: Joren Hammudoglu
 Author-email: Joren Hammudoglu <jhammudoglu@gmail.com>
 License-Expression: BSD-3-Clause
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
 Requires-Dist: typing-extensions>=4.10 ; python_full_version < '3.13'
-Requires-Dist: numpy-typing-compat>=1.25.20250814 ; extra == 'numpy'
+Requires-Dist: numpy-typing-compat>=1.25.20250814,<3 ; extra == 'numpy'
 Requires-Python: >=3.11
 Project-URL: Changelog, https://github.com/jorenham/optype/releases
 Project-URL: Documentation, https://github.com/jorenham/optype/blob/master/README.md

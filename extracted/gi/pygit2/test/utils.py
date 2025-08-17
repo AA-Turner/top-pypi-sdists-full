@@ -25,12 +25,15 @@
 
 # Standard library
 import hashlib
-from pathlib import Path
 import shutil
 import socket
 import stat
 import sys
 import zipfile
+from collections.abc import Callable
+from pathlib import Path
+from types import TracebackType
+from typing import Any, Optional, ParamSpec, TypeVar
 
 # Requirements
 import pytest
@@ -38,6 +41,8 @@ import pytest
 # Pygit2
 import pygit2
 
+T = TypeVar('T')
+P = ParamSpec('P')
 
 requires_future_libgit2 = pytest.mark.xfail(
     pygit2.LIBGIT2_VER < (2, 0, 0),
@@ -71,7 +76,7 @@ fails_in_macos = pytest.mark.xfail(
 )
 
 
-def gen_blob_sha1(data):
+def gen_blob_sha1(data: bytes) -> str:
     # http://stackoverflow.com/questions/552659/assigning-git-sha1s-without-git
     m = hashlib.sha1()
     m.update(f'blob {len(data)}\0'.encode())
@@ -79,13 +84,18 @@ def gen_blob_sha1(data):
     return m.hexdigest()
 
 
-def force_rm_handle(remove_path, path, excinfo):
-    path = Path(path)
+def force_rm_handle(
+    # Callable[..., Any], str, , object
+    remove_path: Callable[..., Any],
+    path_str: str,
+    excinfo: tuple[type[BaseException], BaseException, TracebackType],
+) -> None:
+    path = Path(path_str)
     path.chmod(path.stat().st_mode | stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH)
     remove_path(path)
 
 
-def rmtree(path):
+def rmtree(path: str | Path) -> None:
     """In Windows a read-only file cannot be removed, and shutil.rmtree fails.
     So we implement our own version of rmtree to address this issue.
     """
@@ -94,11 +104,11 @@ def rmtree(path):
 
 
 class TemporaryRepository:
-    def __init__(self, name, tmp_path):
+    def __init__(self, name: str, tmp_path: Path) -> None:
         self.name = name
         self.tmp_path = tmp_path
 
-    def __enter__(self):
+    def __enter__(self) -> Path:
         path = Path(__file__).parent / 'data' / self.name
         temp_repo_path = Path(self.tmp_path) / path.stem
         if path.suffix == '.zip':
@@ -111,11 +121,22 @@ class TemporaryRepository:
 
         return temp_repo_path
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
         pass
 
 
-def assertRaisesWithArg(exc_class, arg, func, *args, **kwargs):
+def assertRaisesWithArg(
+    exc_class: type[Exception],
+    arg: object,
+    func: Callable[P, T],
+    *args: P.args,
+    **kwargs: P.kwargs,
+) -> None:
     with pytest.raises(exc_class) as excinfo:
         func(*args, **kwargs)
     assert excinfo.value.args == (arg,)

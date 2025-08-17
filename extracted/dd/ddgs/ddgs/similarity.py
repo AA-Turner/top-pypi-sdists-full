@@ -1,8 +1,11 @@
+"""Simple filter ranker."""
+
 import re
 
 
 class SimpleFilterRanker:
-    """
+    """Simple filter ranker.
+
     1) Pull any doc with 'wikipedia.org' in its href to the top.
     2) Bucket the rest according to where query tokens appear:
        - both title & body/description
@@ -27,6 +30,7 @@ class SimpleFilterRanker:
         return any(tok in lower_text for tok in tokens)
 
     def rank(self, docs: list[dict[str, str]], query: str) -> list[dict[str, str]]:
+        """Rank a list of docs based on a query string."""
         tokens = self._extract_tokens(query)
 
         wiki_hits = []

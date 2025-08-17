@@ -89,6 +89,7 @@ impl ProjectConfig {
     let global_rules = find_util_rules(self)?;
     read_directory_yaml(self, global_rules, rule_overwrite)
   }
+
   /// returns a Result of Result.
   /// The inner Result is for configuration not found, or ProjectNotExist
   /// The outer Result is for definitely wrong config.

@@ -22,7 +22,8 @@ class KafkaConsumerWorker:
         input_queue,  # Simple queue wrapper
         consumer_group_suffix: str = "",
         poll_timeout: float = 1.0,
-        max_messages_per_poll: int = 1
+        max_messages_per_poll: int = 1,
+        inference_pipeline_id: str = ""
     ):
         """Initialize Kafka consumer worker.
         
@@ -43,19 +44,28 @@ class KafkaConsumerWorker:
         self.input_queue = input_queue
         self.poll_timeout = poll_timeout
         self.max_messages_per_poll = max_messages_per_poll
-        
+        self.inference_pipeline_id = inference_pipeline_id
         # Kafka setup with unique consumer group for this worker
         consumer_group_id = f"{deployment_id}-consumer-{worker_id}"
         if consumer_group_suffix:
             consumer_group_id += f"-{consumer_group_suffix}"
-        
+        custom_request_service_id = (
+            self.inference_pipeline_id
+            if (
+                self.inference_pipeline_id
+                and self.inference_pipeline_id != "000000000000000000000000"
+            )
+            else deployment_id
+        )
         self.kafka_deployment = MatriceKafkaDeployment(
             session,
             deployment_id,
             "server",
             consumer_group_id,
             f"{deployment_instance_id}-consumer-{worker_id}",
+            custom_request_service_id=custom_request_service_id
         )
+        self.kafka_deployment._ensure_async_consumer()
         
         # Worker state
         self.is_running = False

@@ -8,10 +8,20 @@ from ...core.unchecked_base_model import UncheckedBaseModel
 
 
 class TemplatesListResponseTemplatesItem(UncheckedBaseModel):
-    name: str
+    name: str = pydantic.Field()
+    """
+    The exact name of the template
+    """
+
     id: str
     project_id: str
     project_slug: str
+    latest_version: str = pydantic.Field()
+    """
+    The latest version of the template
+    """
+
+    description: typing.Optional[str] = None
     template_deployment_slug: str = pydantic.Field()
     """
     The full name of the template, including version and project slug

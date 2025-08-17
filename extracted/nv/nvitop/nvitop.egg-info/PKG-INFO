@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nvitop
-Version: 1.5.2
+Version: 1.5.3
 Summary: An interactive NVIDIA-GPU process viewer and beyond, the one-stop solution for GPU process management.
 Author-email: Xuehai Pan <XuehaiPan@pku.edu.cn>
 License: Apache-2.0 AND GPL-3.0-only
@@ -37,7 +37,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING
-Requires-Dist: nvidia-ml-py<12.576.0a0,>=11.450.51
+Requires-Dist: nvidia-ml-py<13.581.0a0,>=11.450.51
 Requires-Dist: psutil>=5.6.6
 Requires-Dist: colorama>=0.4.0; platform_system == "Windows"
 Requires-Dist: windows-curses>=2.2.0; platform_system == "Windows"
@@ -54,50 +54,8 @@ Provides-Extra: cuda11
 Requires-Dist: nvidia-ml-py<=11.525.150,>=11.450.51; extra == "cuda11"
 Provides-Extra: cuda12
 Requires-Dist: nvidia-ml-py<=12.575.51,>=12.535.77; extra == "cuda12"
-Provides-Extra: pynvml-11-450-51
-Requires-Dist: nvidia-ml-py==11.450.51; extra == "pynvml-11-450-51"
-Provides-Extra: pynvml-11-450-129
-Requires-Dist: nvidia-ml-py==11.450.129; extra == "pynvml-11-450-129"
-Provides-Extra: pynvml-11-460-79
-Requires-Dist: nvidia-ml-py==11.460.79; extra == "pynvml-11-460-79"
-Provides-Extra: pynvml-11-470-66
-Requires-Dist: nvidia-ml-py==11.470.66; extra == "pynvml-11-470-66"
-Provides-Extra: pynvml-11-495-46
-Requires-Dist: nvidia-ml-py==11.495.46; extra == "pynvml-11-495-46"
-Provides-Extra: pynvml-11-510-69
-Requires-Dist: nvidia-ml-py==11.510.69; extra == "pynvml-11-510-69"
-Provides-Extra: pynvml-11-515-48
-Requires-Dist: nvidia-ml-py==11.515.48; extra == "pynvml-11-515-48"
-Provides-Extra: pynvml-11-515-75
-Requires-Dist: nvidia-ml-py==11.515.75; extra == "pynvml-11-515-75"
-Provides-Extra: pynvml-11-525-84
-Requires-Dist: nvidia-ml-py==11.525.84; extra == "pynvml-11-525-84"
-Provides-Extra: pynvml-11-525-112
-Requires-Dist: nvidia-ml-py==11.525.112; extra == "pynvml-11-525-112"
-Provides-Extra: pynvml-11-525-131
-Requires-Dist: nvidia-ml-py==11.525.131; extra == "pynvml-11-525-131"
-Provides-Extra: pynvml-11-525-150
-Requires-Dist: nvidia-ml-py==11.525.150; extra == "pynvml-11-525-150"
-Provides-Extra: pynvml-12-535-77
-Requires-Dist: nvidia-ml-py==12.535.77; extra == "pynvml-12-535-77"
-Provides-Extra: pynvml-12-535-108
-Requires-Dist: nvidia-ml-py==12.535.108; extra == "pynvml-12-535-108"
-Provides-Extra: pynvml-12-535-133
-Requires-Dist: nvidia-ml-py==12.535.133; extra == "pynvml-12-535-133"
-Provides-Extra: pynvml-12-535-161
-Requires-Dist: nvidia-ml-py==12.535.161; extra == "pynvml-12-535-161"
-Provides-Extra: pynvml-12-550-52
-Requires-Dist: nvidia-ml-py==12.550.52; extra == "pynvml-12-550-52"
-Provides-Extra: pynvml-12-550-89
-Requires-Dist: nvidia-ml-py==12.550.89; extra == "pynvml-12-550-89"
-Provides-Extra: pynvml-12-555-43
-Requires-Dist: nvidia-ml-py==12.555.43; extra == "pynvml-12-555-43"
-Provides-Extra: pynvml-12-560-30
-Requires-Dist: nvidia-ml-py==12.560.30; extra == "pynvml-12-560-30"
-Provides-Extra: pynvml-12-570-86
-Requires-Dist: nvidia-ml-py==12.570.86; extra == "pynvml-12-570-86"
-Provides-Extra: pynvml-12-575-51
-Requires-Dist: nvidia-ml-py==12.575.51; extra == "pynvml-12-575-51"
+Provides-Extra: cuda13
+Requires-Dist: nvidia-ml-py==13.580.65; extra == "cuda13"
 Dynamic: license-file
 Dynamic: provides-extra
 
@@ -305,7 +263,7 @@ Install from conda-forge ([![conda-forge](https://img.shields.io/conda/v/conda-f
 conda install -c conda-forge nvitop
 ```
 
-Install the latest version from GitHub (![Commit Count](https://img.shields.io/github/commits-since/XuehaiPan/nvitop/v1.5.2)):
+Install the latest version from GitHub (![Commit Count](https://img.shields.io/github/commits-since/XuehaiPan/nvitop/v1.5.3)):
 
 ```bash
 pip3 install --upgrade pip setuptools

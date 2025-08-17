@@ -320,7 +320,7 @@ def get_table_style(ctx):
             DEFAULT,
             MARKDOWN,
             PLAIN_COLUMNS,
-            MSWORD_FRIENDLY,
+            TableStyle,
         )
 
         if table_style_str == "default":
@@ -330,7 +330,7 @@ def get_table_style(ctx):
         elif table_style_str == "plain":
             table_style = PLAIN_COLUMNS
         elif table_style_str == "msword":
-            table_style = MSWORD_FRIENDLY
+            table_style = TableStyle.MSWORD_FRIENDLY
         else:
             raise Exception(f"invalid table style {table_style_str}")
     return table_style

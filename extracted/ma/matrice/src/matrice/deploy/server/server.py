@@ -92,6 +92,7 @@ class MatriceDeployServer:
             )
             self.deployment_id = self.action_details.get("_idDeployment")
             self.model_id = self.action_details.get("_idModelDeploy")
+            self.inference_pipeline_id = self.action_details.get("inference_pipeline_id")
 
             # Validate deployment information
             if not all(
@@ -335,6 +336,7 @@ class MatriceDeployServer:
             num_producers=int(self.action_details.get("numProducers", 1)),
             app_name=self.app_name,
             app_version=self.app_version,
+            inference_pipeline_id=self.inference_pipeline_id
         )
 
         # Start stream manager in background thread since it's async
@@ -343,6 +345,9 @@ class MatriceDeployServer:
 
             async def start_and_run_until_shutdown():
                 try:
+                    # Add small delay to ensure server components are fully initialized
+                    await asyncio.sleep(2.0)
+                    
                     await self.stream_manager.start()
                     logging.info("Stream manager started successfully")
                     
@@ -359,11 +364,24 @@ class MatriceDeployServer:
                     
                 except Exception as exc:
                     logging.error("Error in stream manager: %s", str(exc))
+                    # Update status to indicate error
+                    try:
+                        self.action_tracker.update_status(
+                            "ERROR",
+                            "ERROR", 
+                            f"Stream manager error: {str(exc)}"
+                        )
+                    except Exception:
+                        pass  # Don't fail if status update fails
                     raise
 
             try:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
+                
+                # Ensure loop is properly set up
+                logging.debug("Stream manager event loop created and set")
+                
                 try:
                     loop.run_until_complete(start_and_run_until_shutdown())
                     
@@ -395,8 +413,9 @@ class MatriceDeployServer:
                 finally:
                     try:
                         # Close the event loop only after everything is cleaned up
-                        loop.close()
-                        logging.info("Stream event loop closed successfully")
+                        if not loop.is_closed():
+                            loop.close()
+                            logging.info("Stream event loop closed successfully")
                     except Exception as exc:
                         logging.warning("Error closing stream event loop: %s", str(exc))
                         

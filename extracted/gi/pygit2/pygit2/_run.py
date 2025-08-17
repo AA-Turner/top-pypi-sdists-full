@@ -29,11 +29,11 @@ This is an special module, it provides stuff used by by pygit2 at run-time.
 
 # Import from the Standard Library
 import codecs
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Import from cffi
-from cffi import FFI  # type: ignore
+from cffi import FFI
 
 # Import from pygit2
 try:
@@ -81,6 +81,7 @@ h_files = [
     'revert.h',
     'stash.h',
     'submodule.h',
+    'options.h',
     'callbacks.h',  # Bridge from libgit2 to Python
 ]
 h_source = []

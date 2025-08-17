@@ -2,7 +2,7 @@
 import os
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional
 
 import torch
 import torch.nn.functional as F
@@ -241,10 +241,10 @@ class Qwen2VLTemplate(Template):
             video = inputs.videos[index]
             if os.path.isdir(video):
                 video = [os.path.join(video, fname) for fname in os.listdir(video)]
-            video = fetch_video({'video': video})
+            video, video_kwargs = fetch_video({'video': video}, return_video_sample_fps=True)
             if isinstance(video, torch.Tensor):
                 video = video.to(torch.uint8)
-            inputs.videos[index] = video
+            inputs.videos[index] = (video, video_kwargs)
             return ['<|vision_start|><|video_pad|><|vision_end|>']
 
     def replace_ref(self, ref: str, index: int, inputs: StdTemplateInputs) -> List[Context]:
@@ -260,27 +260,28 @@ class Qwen2VLTemplate(Template):
         labels = encoded['labels']
         loss_scale = encoded.get('loss_scale', None)
         images = inputs.images
-        videos = inputs.videos
+        videos = [video[0] for video in inputs.videos]
+        fps = [video[1] for video in inputs.videos]
         for media_type in ['images', 'videos']:
             if locals()[media_type]:
                 if media_type == 'images':
                     media_token = self.image_token_id
-                    media_inputs = processor.image_processor(
-                        images=images, videos=None, return_tensors='pt', do_resize=False)
+                    media_inputs = processor.image_processor(images=images, return_tensors='pt', do_resize=False)
                     media_grid_thw = media_inputs['image_grid_thw']
                 else:
+                    kwargs = {}
                     if hasattr(processor, 'video_processor'):
                         processor_func = processor.video_processor
                     else:
                         processor_func = processor.image_processor
-                    media_inputs = processor_func(images=None, videos=videos, return_tensors='pt', do_resize=False)
+                        kwargs['images'] = None
+                    media_inputs = processor_func(videos=videos, return_tensors='pt', do_resize=False, **kwargs)
                     media_grid_thw = media_inputs['video_grid_thw']
                     media_token = self.video_token_id
                     if self.version == 'v2_5':
-                        from qwen_vl_utils import vision_process
                         media_inputs['second_per_grid_ts'] = [
-                            processor.image_processor.temporal_patch_size / vision_process.FPS
-                        ] * len(media_grid_thw)
+                            processor.image_processor.temporal_patch_size / tmp for tmp in fps
+                        ]
                 idx_list = findall(input_ids, media_token)
                 merge_length = processor.image_processor.merge_size**2
 
@@ -288,8 +289,8 @@ class Qwen2VLTemplate(Template):
                     token_len = (media_grid_thw[i].prod() // merge_length)
                     return [media_token] * token_len
 
-                input_ids, labels = self._extend_tokens(input_ids, labels, idx_list, _get_new_tokens)
-                loss_scale = self._extend_loss_scale(loss_scale, idx_list, _get_new_tokens)
+                input_ids, labels, loss_scale = self._extend_tokens(input_ids, labels, loss_scale, idx_list,
+                                                                    _get_new_tokens)
                 encoded.update(media_inputs)
 
         encoded['input_ids'] = input_ids
@@ -334,7 +335,7 @@ class Qwen2VLTemplate(Template):
             if is_deepspeed_enabled():
                 from PIL import Image
                 images = [Image.new('RGB', (32, 32), (0, 0, 0))]
-                media_inputs = self.processor.image_processor(images=images, videos=None, return_tensors='pt')
+                media_inputs = self.processor.image_processor(images=images, return_tensors='pt')
                 device = input_ids.device
                 media_inputs = to_device(media_inputs, device)
                 pixel_values = media_inputs['pixel_values'].type(dtype)
@@ -529,8 +530,8 @@ class Qwen2_5OmniTemplate(Qwen2_5VLTemplate):
             def _get_new_audio_tokens(i):
                 return audio_token_id * audio_lengths[i]
 
-            input_ids, labels = self._extend_tokens(input_ids, labels, idx_list, _get_new_audio_tokens)
-            loss_scale = self._extend_loss_scale(loss_scale, idx_list, _get_new_audio_tokens)
+            input_ids, labels, loss_scale = self._extend_tokens(input_ids, labels, loss_scale, idx_list,
+                                                                _get_new_audio_tokens)
 
         for media_type in ['image', 'video']:
             token = f'<|{media_type.upper()}|>'
@@ -567,9 +568,8 @@ class Qwen2_5OmniTemplate(Qwen2_5VLTemplate):
                                 res += audio_token_id * audio_seq_length
                         return res
 
-                    input_ids, labels = self._extend_tokens(input_ids, labels, idx_list,
-                                                            _get_new_tokens_use_audio_in_video)
-                    loss_scale = self._extend_loss_scale(loss_scale, idx_list, _get_new_tokens_use_audio_in_video)
+                    input_ids, labels, loss_scale = self._extend_tokens(input_ids, labels, loss_scale, idx_list,
+                                                                        _get_new_tokens_use_audio_in_video)
 
                 else:
 
@@ -577,8 +577,8 @@ class Qwen2_5OmniTemplate(Qwen2_5VLTemplate):
                         token_len = (media_grid_thw[i].prod() // (merge_size**2))
                         return token_id * token_len
 
-                    input_ids, labels = self._extend_tokens(input_ids, labels, idx_list, _get_new_tokens)
-                    loss_scale = self._extend_loss_scale(loss_scale, idx_list, _get_new_tokens)
+                    input_ids, labels, loss_scale = self._extend_tokens(input_ids, labels, loss_scale, idx_list,
+                                                                        _get_new_tokens)
 
         encoded['input_ids'] = input_ids
         encoded['labels'] = labels

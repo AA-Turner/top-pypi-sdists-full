@@ -23,16 +23,18 @@
 # the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301, USA.
 
-# Import setuptools before distutils to avoid user warning
-from setuptools import setup, Extension
+# mypy: disable-error-code="import-not-found, import-untyped"
 
+# Import setuptools before distutils to avoid user warning
+import os
+import sys
+from distutils import log  # type: ignore[attr-defined]
 from distutils.command.build import build
 from distutils.command.sdist import sdist
-from distutils import log
-import os
 from pathlib import Path
-from subprocess import Popen, PIPE
-import sys
+from subprocess import PIPE, Popen
+
+from setuptools import Extension, setup
 
 # Import stuff from pygit2/_utils.py without loading the whole pygit2 package
 sys.path.insert(0, 'pygit2')
@@ -45,7 +47,7 @@ libgit2_bin, libgit2_kw = get_libgit2_paths()
 
 
 class sdist_files_from_git(sdist):
-    def get_file_list(self):
+    def get_file_list(self) -> None:
         popen = Popen(
             ['git', 'ls-files'], stdout=PIPE, stderr=PIPE, universal_newlines=True
         )
@@ -54,7 +56,7 @@ class sdist_files_from_git(sdist):
             print(stderrdata)
             sys.exit()
 
-        def exclude(line):
+        def exclude(line: str) -> bool:
             for prefix in ['.', 'appveyor.yml', 'docs/', 'misc/']:
                 if line.startswith(prefix):
                     return True
@@ -95,11 +97,11 @@ cmdclass = {
 
 # On Windows, we install the git2.dll too.
 class BuildWithDLLs(build):
-    def _get_dlls(self):
+    def _get_dlls(self) -> list[tuple[Path, Path]]:
         # return a list of (FQ-in-name, relative-out-name) tuples.
         ret = []
         bld_ext = self.distribution.get_command_obj('build_ext')
-        compiler_type = bld_ext.compiler.compiler_type
+        compiler_type = bld_ext.compiler.compiler_type  # type: ignore[attr-defined]
         libgit2_dlls = []
         if compiler_type == 'msvc':
             libgit2_dlls.append('git2.dll')
@@ -119,7 +121,7 @@ class BuildWithDLLs(build):
                 log.debug(f'(looked in {look_dirs})')
         return ret
 
-    def run(self):
+    def run(self) -> None:
         build.run(self)
         for s, d in self._get_dlls():
             self.copy_file(s, d)
@@ -127,7 +129,7 @@ class BuildWithDLLs(build):
 
 # On Windows we package up the dlls with the plugin.
 if os.name == 'nt':
-    cmdclass['build'] = BuildWithDLLs
+    cmdclass['build'] = BuildWithDLLs  # type: ignore[assignment]
 
 src = __dir__ / 'src'
 pygit2_exts = [str(path) for path in sorted(src.iterdir()) if path.suffix == '.c']

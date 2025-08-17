@@ -1,28 +1,30 @@
+"""Google search engine implementation."""
+
 from __future__ import annotations
 
-import string
-from random import choices
+from collections.abc import Mapping
+from secrets import token_urlsafe
 from time import time
 from typing import Any
 
 from ..base import BaseSearchEngine
 from ..results import TextResult
 
-_arcid_random = None  # (random_part, timestamp)
+_arcid_random = None  # (random_token, timestamp)
 
 
 def ui_async(start: int) -> str:
+    """Generate 'async' payload param."""
     global _arcid_random
     now = int(time())
-    # regen if first call or TTL expired
     if not _arcid_random or now - _arcid_random[1] > 3600:
-        rnd = "".join(choices(string.ascii_letters + string.digits + "_-", k=23))
-        _arcid_random = (rnd, now)
+        rnd_token = token_urlsafe(23 * 3 // 4)
+        _arcid_random = (rnd_token, now)
     return f"arc_id:srp_{_arcid_random[0]}_1{start:02},use_ac:true,_fmt:prog"
 
 
 class Google(BaseSearchEngine[TextResult]):
-    """Google search engine"""
+    """Google search engine."""
 
     name = "google"
     category = "text"
@@ -32,7 +34,7 @@ class Google(BaseSearchEngine[TextResult]):
     search_method = "GET"
 
     items_xpath = "//div[@data-snc]"
-    elements_xpath = {
+    elements_xpath: Mapping[str, str] = {
         "title": ".//h3//text()",
         "href": ".//a[h3]/@href",
         "body": ".//div[starts-with(@data-sncf, '1')]//text()",
@@ -41,6 +43,7 @@ class Google(BaseSearchEngine[TextResult]):
     def build_payload(
         self, query: str, region: str, safesearch: str, timelimit: str | None, page: int = 1, **kwargs: Any
     ) -> dict[str, Any]:
+        """Build a payload for the Google search request."""
         safesearch_base = {"on": "2", "moderate": "1", "off": "0"}
         start = (page - 1) * 10
         payload = {

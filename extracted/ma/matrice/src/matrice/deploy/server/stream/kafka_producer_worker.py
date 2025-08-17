@@ -20,7 +20,8 @@ class KafkaProducerWorker:
         output_queue,  # Simple queue wrapper
         app_name: str = "",
         app_version: str = "",
-        produce_timeout: float = 10.0
+        produce_timeout: float = 10.0,
+        inference_pipeline_id: str = ""
     ):
         """Initialize Kafka producer worker.
         
@@ -33,6 +34,7 @@ class KafkaProducerWorker:
             app_name: Application name for result formatting
             app_version: Application version for result formatting
             produce_timeout: Timeout for producing to Kafka
+            inference_pipeline_id: ID of the inference pipeline
         """
         self.worker_id = worker_id
         self.session = session
@@ -42,7 +44,7 @@ class KafkaProducerWorker:
         self.app_name = app_name
         self.app_version = app_version
         self.produce_timeout = produce_timeout
-        
+        self.inference_pipeline_id = inference_pipeline_id
         # Kafka setup for producer (no consumer group needed)
         self.kafka_deployment = MatriceKafkaDeployment(
             session,
@@ -51,7 +53,8 @@ class KafkaProducerWorker:
             f"{deployment_id}-producer-{worker_id}",  # Not used for producer
             f"{deployment_instance_id}-producer-{worker_id}",
         )
-        
+        self.kafka_deployment._ensure_async_producer()
+
         # Worker state
         self.is_running = False
         self.is_active = True
@@ -135,25 +138,46 @@ class KafkaProducerWorker:
                         )
                     except Exception:
                         pass
+                    
                     output_message = self._construct_output_stream(message)
-                    await asyncio.wait_for(
-                        self.kafka_deployment.async_produce_message(
-                            output_message,
-                            key=message.get("message_key")
-                        ),
-                        timeout=self.produce_timeout
-                    )
-                    self.messages_consumed += 1
-                    self.messages_produced += 1
-                    self.last_produce_time = datetime.now(timezone.utc)
+                    
+                    # Attempt to produce message with error handling for event loop issues
                     try:
-                        self.logger.debug(
-                            f"Produced key={message.get('message_key')} topic={self.kafka_deployment.producing_topic}"
+                        await asyncio.wait_for(
+                            self.kafka_deployment.async_produce_message(
+                                output_message,
+                                key=message.get("message_key")
+                            ),
+                            timeout=self.produce_timeout
                         )
-                    except Exception:
-                        pass
-                    retry_delay = 1.0
-                    consecutive_errors = 0
+                        self.messages_consumed += 1
+                        self.messages_produced += 1
+                        self.last_produce_time = datetime.now(timezone.utc)
+                        try:
+                            self.logger.debug(
+                                f"Produced key={message.get('message_key')} topic={self.kafka_deployment.producing_topic}"
+                            )
+                        except Exception:
+                            pass
+                        retry_delay = 1.0
+                        consecutive_errors = 0
+                    except RuntimeError as exc:
+                        error_msg = str(exc)
+                        if any(phrase in error_msg for phrase in [
+                            "event loop is closed", "no event loop available", 
+                            "event loop is shutting down", "cannot schedule new futures after shutdown"
+                        ]):
+                            self.logger.warning(
+                                f"Producer worker {self.worker_id} cannot produce due to event loop state: {error_msg}. "
+                                "This may indicate shutdown is in progress."
+                            )
+                            # Don't count this as a failed message since it's likely due to shutdown
+                            await asyncio.sleep(1.0)  # Brief pause before retrying
+                            continue
+                        else:
+                            self.logger.error(f"Runtime error producing message in producer worker {self.worker_id}: {error_msg}")
+                            self.messages_failed += 1
+                            
                 except asyncio.TimeoutError:
                     self.logger.error(f"Timeout producing message in producer worker {self.worker_id}")
                     self.messages_failed += 1

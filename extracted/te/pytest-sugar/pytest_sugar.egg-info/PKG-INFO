@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pytest-sugar
-Version: 1.0.0
+Version: 1.1.0
 Summary: pytest-sugar is a plugin for pytest that changes the default look and feel of pytest (e.g. progressbar, show tests that fail instantly).
 Home-page: https://github.com/Teemu/pytest-sugar
 Author: Teemu, Janne Vanhala and others
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Description-Content-Type: text/markdown
 Provides-Extra: dev
@@ -56,6 +57,32 @@ If you would like more detailed output (one test per line), then you may use the
 If you would like to run tests without pytest-sugar, use:
 
     pytest -p no:sugar
+
+## Usage
+pytest-sugar provides several command-line options to customize its output and behavior. These options enhance test reporting and Playwright trace integration:
+
+
+Show detailed test failures instead of one-line tracebacks.
+Use this if you want to see the full failure information instantly.
+
+    --old-summary
+
+Force pytest-sugar output even if pytest doesn’t detect a real terminal.
+Useful when running tests in CI systems or other non-interactive environments.
+
+    --force-sugar
+
+
+Specify the directory where Playwright trace files are stored.
+Defaults to Playwright default: "test-results"
+
+    --sugar-trace-dir <directory>
+
+Disable Playwright trace file detection and output display.
+Use this if you want to turn off trace collection or display entirely.
+
+    --sugar-no-trace
+
 
 ## How to contribute 👷‍♂️
 

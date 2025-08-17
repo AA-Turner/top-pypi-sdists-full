@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: signify
-Version: 0.8.0
+Version: 0.8.1
 Summary: Module to generate and verify PE signatures
 Author-email: Ralph Broenink <ralph@ralphbroenink.net>
 License-Expression: MIT
@@ -28,6 +28,8 @@ Requires-Dist: mscerts
 Requires-Dist: typing_extensions>=4.6.0
 Provides-Extra: msi
 Requires-Dist: olefile; extra == "msi"
+Provides-Extra: full
+Requires-Dist: olefile; extra == "full"
 Dynamic: license-file
 
 Signify

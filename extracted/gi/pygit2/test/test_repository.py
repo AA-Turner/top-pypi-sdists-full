@@ -23,56 +23,71 @@
 # the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301, USA.
 
-from pathlib import Path
 import shutil
 import tempfile
+from pathlib import Path
+from typing import Optional
 
 import pytest
 
 # pygit2
 import pygit2
-from pygit2 import init_repository, clone_repository, discover_repository, IndexEntry
-from pygit2 import Oid
+from pygit2 import (
+    Blob,
+    Commit,
+    DiffFile,
+    IndexEntry,
+    Oid,
+    Remote,
+    Repository,
+    Worktree,
+    clone_repository,
+    discover_repository,
+    init_repository,
+)
+from pygit2.credentials import Keypair, Username, UserPass
 from pygit2.enums import (
     CheckoutNotify,
     CheckoutStrategy,
+    CredentialType,
+    FileMode,
     FileStatus,
     ObjectType,
     RepositoryOpenFlag,
     RepositoryState,
     ResetMode,
     StashApplyProgress,
-    FileMode,
 )
 from pygit2.index import MergeFileResult
+
 from . import utils
 
 
-def test_is_empty(testrepo):
+def test_is_empty(testrepo: Repository) -> None:
     assert not testrepo.is_empty
 
 
-def test_is_bare(testrepo):
+def test_is_bare(testrepo: Repository) -> None:
     assert not testrepo.is_bare
 
 
-def test_get_path(testrepo_path):
+def test_get_path(testrepo_path: tuple[Repository, Path]) -> None:
     testrepo, path = testrepo_path
     assert Path(testrepo.path).resolve() == (path / '.git').resolve()
 
 
-def test_get_workdir(testrepo_path):
+def test_get_workdir(testrepo_path: tuple[Repository, Path]) -> None:
     testrepo, path = testrepo_path
     assert Path(testrepo.workdir).resolve() == path.resolve()
 
 
-def test_set_workdir(testrepo):
+def test_set_workdir(testrepo: Repository) -> None:
     directory = tempfile.mkdtemp()
     testrepo.workdir = directory
     assert Path(testrepo.workdir).resolve() == Path(directory).resolve()
 
 
-def test_checkout_ref(testrepo):
+def test_checkout_ref(testrepo: Repository) -> None:
     ref_i18n = testrepo.lookup_reference('refs/heads/i18n')
 
     # checkout i18n with conflicts and default strategy should
@@ -81,39 +96,48 @@ def test_checkout_ref(testrepo):
         testrepo.checkout(ref_i18n)
 
     # checkout i18n with GIT_CHECKOUT_FORCE
-    head = testrepo.head
-    head = testrepo[head.target]
+    head_object = testrepo.head
+    head = testrepo[head_object.target]
     assert 'new' not in head.tree
     testrepo.checkout(ref_i18n, strategy=CheckoutStrategy.FORCE)
 
-    head = testrepo.head
-    head = testrepo[head.target]
+    head_object = testrepo.head
+    head = testrepo[head_object.target]
     assert head.id == ref_i18n.target
     assert 'new' in head.tree
     assert 'bye.txt' not in testrepo.status()
 
 
-def test_checkout_callbacks(testrepo):
+def test_checkout_callbacks(testrepo: Repository) -> None:
     ref_i18n = testrepo.lookup_reference('refs/heads/i18n')
 
     class MyCheckoutCallbacks(pygit2.CheckoutCallbacks):
-        def __init__(self):
+        def __init__(self) -> None:
             super().__init__()
-            self.conflicting_paths = set()
-            self.updated_paths = set()
+            self.conflicting_paths: set[str] = set()
+            self.updated_paths: set[str] = set()
             self.completed_steps = -1
             self.total_steps = -1
 
         def checkout_notify_flags(self) -> CheckoutNotify:
             return CheckoutNotify.CONFLICT | CheckoutNotify.UPDATED
 
-        def checkout_notify(self, why, path, baseline, target, workdir):
+        def checkout_notify(
+            self,
+            why: CheckoutNotify,
+            path: str,
+            baseline: Optional[DiffFile],
+            target: Optional[DiffFile],
+            workdir: Optional[DiffFile],
+        ) -> None:
             if why == CheckoutNotify.CONFLICT:
                 self.conflicting_paths.add(path)
             elif why == CheckoutNotify.UPDATED:
                 self.updated_paths.add(path)
 
-        def checkout_progress(self, path: str, completed_steps: int, total_steps: int):
+        def checkout_progress(
+            self, path: str, completed_steps: int, total_steps: int
+        ) -> None:
             self.completed_steps = completed_steps
             self.total_steps = total_steps
 
@@ -126,8 +150,8 @@ def test_checkout_callbacks(testrepo):
     assert -1 == callbacks.completed_steps  # shouldn't have done anything
 
     # checkout i18n with GIT_CHECKOUT_FORCE
-    head = testrepo.head
-    head = testrepo[head.target]
+    head_object = testrepo.head
+    head = testrepo[head_object.target]
     assert 'new' not in head.tree
     callbacks = MyCheckoutCallbacks()
     testrepo.checkout(ref_i18n, strategy=CheckoutStrategy.FORCE, callbacks=callbacks)
@@ -138,29 +162,38 @@ def test_checkout_callbacks(testrepo):
     assert callbacks.completed_steps == callbacks.total_steps
 
 
-def test_checkout_aborted_from_callbacks(testrepo):
+def test_checkout_aborted_from_callbacks(testrepo: Repository) -> None:
     ref_i18n = testrepo.lookup_reference('refs/heads/i18n')
 
-    def read_bye_txt():
-        return testrepo[testrepo.create_blob_fromworkdir('bye.txt')].data
+    def read_bye_txt() -> bytes:
+        blob = testrepo[testrepo.create_blob_fromworkdir('bye.txt')]
+        assert isinstance(blob, Blob)
+        return blob.data
 
     s = testrepo.status()
     assert s == {'bye.txt': FileStatus.WT_NEW}
 
     class MyCheckoutCallbacks(pygit2.CheckoutCallbacks):
-        def __init__(self):
+        def __init__(self) -> None:
             super().__init__()
             self.invoked_times = 0
 
-        def checkout_notify(self, why, path, baseline, target, workdir):
+        def checkout_notify(
+            self,
+            why: CheckoutNotify,
+            path: str,
+            baseline: Optional[DiffFile],
+            target: Optional[DiffFile],
+            workdir: Optional[DiffFile],
+        ) -> None:
             self.invoked_times += 1
             # skip one file so we're certain that NO files are affected,
             # even if aborting the checkout from the second file
             if self.invoked_times == 2:
                 raise InterruptedError('Stop the checkout!')
 
-    head = testrepo.head
-    head = testrepo[head.target]
+    head_object = testrepo.head
+    head = testrepo[head_object.target]
     assert 'new' not in head.tree
     assert b'bye world\n' == read_bye_txt()
     callbacks = MyCheckoutCallbacks()
@@ -176,7 +209,7 @@ def test_checkout_aborted_from_callbacks(testrepo):
     assert b'bye world\n' == read_bye_txt()
 
 
-def test_checkout_branch(testrepo):
+def test_checkout_branch(testrepo: Repository) -> None:
     branch_i18n = testrepo.lookup_branch('i18n')
 
     # checkout i18n with conflicts and default strategy should
@@ -185,19 +218,19 @@ def test_checkout_branch(testrepo):
         testrepo.checkout(branch_i18n)
 
     # checkout i18n with GIT_CHECKOUT_FORCE
-    head = testrepo.head
-    head = testrepo[head.target]
+    head_object = testrepo.head
+    head = testrepo[head_object.target]
     assert 'new' not in head.tree
     testrepo.checkout(branch_i18n, strategy=CheckoutStrategy.FORCE)
 
-    head = testrepo.head
-    head = testrepo[head.target]
+    head_object = testrepo.head
+    head = testrepo[head_object.target]
     assert head.id == branch_i18n.target
     assert 'new' in head.tree
     assert 'bye.txt' not in testrepo.status()
 
 
-def test_checkout_index(testrepo):
+def test_checkout_index(testrepo: Repository) -> None:
     # some changes to working dir
     with (Path(testrepo.workdir) / 'hello.txt').open('w') as f:
         f.write('new content')
@@ -208,7 +241,7 @@ def test_checkout_index(testrepo):
     assert 'hello.txt' not in testrepo.status()
 
 
-def test_checkout_head(testrepo):
+def test_checkout_head(testrepo: Repository) -> None:
     # some changes to the index
     with (Path(testrepo.workdir) / 'bye.txt').open('w') as f:
         f.write('new content')
@@ -224,7 +257,7 @@ def test_checkout_head(testrepo):
     assert 'bye.txt' not in testrepo.status()
 
 
-def test_checkout_alternative_dir(testrepo):
+def test_checkout_alternative_dir(testrepo: Repository) -> None:
     ref_i18n = testrepo.lookup_reference('refs/heads/i18n')
     extra_dir = Path(testrepo.workdir) / 'extra-dir'
     extra_dir.mkdir()
@@ -233,7 +266,7 @@ def test_checkout_alternative_dir(testrepo):
     assert not len(list(extra_dir.iterdir())) == 0
 
 
-def test_checkout_paths(testrepo):
+def test_checkout_paths(testrepo: Repository) -> None:
     ref_i18n = testrepo.lookup_reference('refs/heads/i18n')
     ref_master = testrepo.lookup_reference('refs/heads/master')
     testrepo.checkout(ref_master)
@@ -242,7 +275,7 @@ def test_checkout_paths(testrepo):
     assert status['new'] == FileStatus.INDEX_NEW
 
 
-def test_merge_base(testrepo):
+def test_merge_base(testrepo: Repository) -> None:
     commit = testrepo.merge_base(
         '5ebeeebb320790caf276b9fc8b24546d63316533',
         '4ec4389a8068641da2d6578db0419484972284c8',
@@ -258,7 +291,7 @@ def test_merge_base(testrepo):
     assert testrepo.merge_base(indep, commit) is None
 
 
-def test_descendent_of(testrepo):
+def test_descendent_of(testrepo: Repository) -> None:
     assert not testrepo.descendant_of(
         '5ebeeebb320790caf276b9fc8b24546d63316533',
         '4ec4389a8068641da2d6578db0419484972284c8',
@@ -283,7 +316,7 @@ def test_descendent_of(testrepo):
         )
 
 
-def test_ahead_behind(testrepo):
+def test_ahead_behind(testrepo: Repository) -> None:
     ahead, behind = testrepo.ahead_behind(
         '5ebeeebb320790caf276b9fc8b24546d63316533',
         '4ec4389a8068641da2d6578db0419484972284c8',
@@ -299,7 +332,7 @@ def test_ahead_behind(testrepo):
     assert 1 == behind
 
 
-def test_reset_hard(testrepo):
+def test_reset_hard(testrepo: Repository) -> None:
     ref = '5ebeeebb320790caf276b9fc8b24546d63316533'
     with (Path(testrepo.workdir) / 'hello.txt').open() as f:
         lines = f.readlines()
@@ -316,7 +349,7 @@ def test_reset_hard(testrepo):
     assert 'bonjour le monde\n' not in lines
 
 
-def test_reset_soft(testrepo):
+def test_reset_soft(testrepo: Repository) -> None:
     ref = '5ebeeebb320790caf276b9fc8b24546d63316533'
     with (Path(testrepo.workdir) / 'hello.txt').open() as f:
         lines = f.readlines()
@@ -337,7 +370,7 @@ def test_reset_soft(testrepo):
         diff[0]
 
 
-def test_reset_mixed(testrepo):
+def test_reset_mixed(testrepo: Repository) -> None:
     ref = '5ebeeebb320790caf276b9fc8b24546d63316533'
     with (Path(testrepo.workdir) / 'hello.txt').open() as f:
         lines = f.readlines()
@@ -356,11 +389,12 @@ def test_reset_mixed(testrepo):
 
     # mixed reset will set the index to match working copy
     diff = testrepo.diff(cached=True)
+    assert diff.patch is not None
     assert 'hola mundo\n' in diff.patch
     assert 'bonjour le monde\n' in diff.patch
 
 
-def test_stash(testrepo):
+def test_stash(testrepo: Repository) -> None:
     stash_hash = '6aab5192f88018cb98a7ede99c242f43add5a2fd'
     stash_message = 'custom stash message'
     sig = pygit2.Signature(
@@ -397,7 +431,7 @@ def test_stash(testrepo):
         testrepo.stash_pop()
 
 
-def test_stash_partial(testrepo):
+def test_stash_partial(testrepo: Repository) -> None:
     stash_message = 'custom stash message'
     sig = pygit2.Signature(
         name='Stasher', email='stasher@example.com', time=1641000000, offset=0
@@ -416,7 +450,7 @@ def test_stash_partial(testrepo):
     assert testrepo.status()['bye.txt'] == FileStatus.WT_NEW
     assert testrepo.status()['untracked2.txt'] == FileStatus.WT_NEW
 
-    def stash_pathspecs(paths):
+    def stash_pathspecs(paths: list[str]) -> bool:
         stash_id = testrepo.stash(
             sig, message=stash_message, keep_all=True, paths=paths
         )
@@ -435,7 +469,7 @@ def test_stash_partial(testrepo):
     assert stash_pathspecs(['hello.txt', 'bye.txt'])
 
 
-def test_stash_progress_callback(testrepo):
+def test_stash_progress_callback(testrepo: Repository) -> None:
     sig = pygit2.Signature(
         name='Stasher', email='stasher@example.com', time=1641000000, offset=0
     )
@@ -450,7 +484,7 @@ def test_stash_progress_callback(testrepo):
     progress_sequence = []
 
     class MyStashApplyCallbacks(pygit2.StashApplyCallbacks):
-        def stash_apply_progress(self, progress: StashApplyProgress):
+        def stash_apply_progress(self, progress: StashApplyProgress) -> None:
             progress_sequence.append(progress)
 
     # apply the stash
@@ -468,7 +502,7 @@ def test_stash_progress_callback(testrepo):
     ]
 
 
-def test_stash_aborted_from_callbacks(testrepo):
+def test_stash_aborted_from_callbacks(testrepo: Repository) -> None:
     sig = pygit2.Signature(
         name='Stasher', email='stasher@example.com', time=1641000000, offset=0
     )
@@ -485,7 +519,7 @@ def test_stash_aborted_from_callbacks(testrepo):
     # define callbacks that will abort the unstash process
     # just as libgit2 is ready to write the files to disk
     class MyStashApplyCallbacks(pygit2.StashApplyCallbacks):
-        def stash_apply_progress(self, progress: StashApplyProgress):
+        def stash_apply_progress(self, progress: StashApplyProgress) -> None:
             if progress == StashApplyProgress.CHECKOUT_UNTRACKED:
                 raise InterruptedError('Stop applying the stash!')
 
@@ -507,7 +541,7 @@ def test_stash_aborted_from_callbacks(testrepo):
     assert repo_stashes[0].message == 'On master: custom stash message'
 
 
-def test_stash_apply_checkout_options(testrepo):
+def test_stash_apply_checkout_options(testrepo: Repository) -> None:
     sig = pygit2.Signature(
         name='Stasher', email='stasher@example.com', time=1641000000, offset=0
     )
@@ -523,7 +557,14 @@ def test_stash_apply_checkout_options(testrepo):
 
     # define callbacks that raise an InterruptedError when checkout detects a conflict
     class MyStashApplyCallbacks(pygit2.StashApplyCallbacks):
-        def checkout_notify(self, why, path, baseline, target, workdir):
+        def checkout_notify(
+            self,
+            why: CheckoutNotify,
+            path: str,
+            baseline: Optional[DiffFile],
+            target: Optional[DiffFile],
+            workdir: Optional[DiffFile],
+        ) -> None:
             if why == CheckoutNotify.CONFLICT:
                 raise InterruptedError('Applying the stash would create a conflict')
 
@@ -550,9 +591,12 @@ def test_stash_apply_checkout_options(testrepo):
         assert f.read() == 'stashed content'
 
 
-def test_revert_commit(testrepo):
+def test_revert_commit(testrepo: Repository) -> None:
     master = testrepo.head.peel()
+    assert isinstance(master, Commit)
     commit_to_revert = testrepo['4ec4389a8068641da2d6578db0419484972284c8']
+    assert isinstance(commit_to_revert, Commit)
+
     parent = commit_to_revert.parents[0]
     commit_diff_stats = parent.tree.diff_to_tree(commit_to_revert.tree).stats
 
@@ -564,9 +608,10 @@ def test_revert_commit(testrepo):
     assert revert_diff_stats.files_changed == commit_diff_stats.files_changed
 
 
-def test_revert(testrepo):
+def test_revert(testrepo: Repository) -> None:
     hello_txt = Path(testrepo.workdir) / 'hello.txt'
     commit_to_revert = testrepo['4ec4389a8068641da2d6578db0419484972284c8']
+    assert isinstance(commit_to_revert, Commit)
 
     assert testrepo.state() == RepositoryState.NONE
     assert not testrepo.message
@@ -584,7 +629,7 @@ def test_revert(testrepo):
     )
 
 
-def test_default_signature(testrepo):
+def test_default_signature(testrepo: Repository) -> None:
     config = testrepo.config
     config['user.name'] = 'Random J Hacker'
     config['user.email'] = 'rjh@example.com'
@@ -594,7 +639,7 @@ def test_default_signature(testrepo):
     assert 'rjh@example.com' == sig.email
 
 
-def test_new_repo(tmp_path):
+def test_new_repo(tmp_path: Path) -> None:
     repo = init_repository(tmp_path, False)
 
     oid = repo.write(ObjectType.BLOB, 'Test')
@@ -603,55 +648,57 @@ def test_new_repo(tmp_path):
     assert (tmp_path / '.git').exists()
 
 
-def test_no_arg(tmp_path):
+def test_no_arg(tmp_path: Path) -> None:
     repo = init_repository(tmp_path)
     assert not repo.is_bare
 
 
-def test_no_arg_aspath(tmp_path):
+def test_no_arg_aspath(tmp_path: Path) -> None:
     repo = init_repository(Path(tmp_path))
     assert not repo.is_bare
 
 
-def test_pos_arg_false(tmp_path):
+def test_pos_arg_false(tmp_path: Path) -> None:
     repo = init_repository(tmp_path, False)
     assert not repo.is_bare
 
 
-def test_pos_arg_true(tmp_path):
+def test_pos_arg_true(tmp_path: Path) -> None:
     repo = init_repository(tmp_path, True)
     assert repo.is_bare
 
 
-def test_keyword_arg_false(tmp_path):
+def test_keyword_arg_false(tmp_path: Path) -> None:
     repo = init_repository(tmp_path, bare=False)
     assert not repo.is_bare
 
 
-def test_keyword_arg_true(tmp_path):
+def test_keyword_arg_true(tmp_path: Path) -> None:
     repo = init_repository(tmp_path, bare=True)
     assert repo.is_bare
 
 
-def test_discover_repo(tmp_path):
+def test_discover_repo(tmp_path: Path) -> None:
     repo = init_repository(tmp_path, False)
     subdir = tmp_path / 'test1' / 'test2'
     subdir.mkdir(parents=True)
     assert repo.path == discover_repository(str(subdir))
 
 
-def test_discover_repo_aspath(tmp_path):
+def test_discover_repo_aspath(tmp_path: Path) -> None:
     repo = init_repository(Path(tmp_path), False)
     subdir = Path(tmp_path) / 'test1' / 'test2'
     subdir.mkdir(parents=True)
     assert repo.path == discover_repository(subdir)
 
 
-def test_discover_repo_not_found():
-    assert discover_repository(tempfile.tempdir) is None
+def test_discover_repo_not_found() -> None:
+    tempdir = tempfile.tempdir
+    assert tempdir is not None
+    assert discover_repository(tempdir) is None
 
 
-def test_repository_init(barerepo_path):
+def test_repository_init(barerepo_path: tuple[Repository, Path]) -> None:
     barerepo, path = barerepo_path
     assert isinstance(path, Path)
     pygit2.Repository(path)
@@ -659,7 +706,7 @@ def test_repository_init(barerepo_path):
     pygit2.Repository(bytes(path))
 
 
-def test_clone_repository(barerepo, tmp_path):
+def test_clone_repository(barerepo: Repository, tmp_path: Path) -> None:
     assert barerepo.is_bare
     repo = clone_repository(Path(barerepo.path), tmp_path / 'clonepath')
     assert not repo.is_empty
@@ -669,14 +716,14 @@ def test_clone_repository(barerepo, tmp_path):
     assert not repo.is_bare
 
 
-def test_clone_bare_repository(barerepo, tmp_path):
+def test_clone_bare_repository(barerepo: Repository, tmp_path: Path) -> None:
     repo = clone_repository(barerepo.path, tmp_path / 'clone', bare=True)
     assert not repo.is_empty
     assert repo.is_bare
 
 
 @utils.requires_network
-def test_clone_shallow_repository(tmp_path):
+def test_clone_shallow_repository(tmp_path: Path) -> None:
     # shallow cloning currently only works with remote repositories
     url = 'https://github.com/libgit2/TestGitRepository'
     repo = clone_repository(url, tmp_path / 'clone-shallow', depth=1)
@@ -684,15 +731,17 @@ def test_clone_shallow_repository(tmp_path):
     assert repo.is_shallow
 
 
-def test_clone_repository_and_remote_callbacks(barerepo, tmp_path):
+def test_clone_repository_and_remote_callbacks(
+    barerepo: Repository, tmp_path: Path
+) -> None:
     url = Path(barerepo.path).resolve().as_uri()
     repo_path = tmp_path / 'clone-into'
 
-    def create_repository(path, bare):
+    def create_repository(path: Path, bare: bool) -> Repository:
         return init_repository(path, bare)
 
     # here we override the name
-    def create_remote(repo, name, url):
+    def create_remote(repo: Repository, name: str, url: str) -> Remote:
         return repo.remotes.create('custom_remote', url)
 
     repo = clone_repository(
@@ -705,7 +754,7 @@ def test_clone_repository_and_remote_callbacks(barerepo, tmp_path):
 
 
 @utils.requires_network
-def test_clone_with_credentials(tmp_path):
+def test_clone_with_credentials(tmp_path: Path) -> None:
     url = 'https://github.com/libgit2/TestGitRepository'
     credentials = pygit2.UserPass('libgit2', 'libgit2')
     callbacks = pygit2.RemoteCallbacks(credentials=credentials)
@@ -715,9 +764,14 @@ def test_clone_with_credentials(tmp_path):
 
 
 @utils.requires_network
-def test_clone_bad_credentials(tmp_path):
+def test_clone_bad_credentials(tmp_path: Path) -> None:
     class MyCallbacks(pygit2.RemoteCallbacks):
-        def credentials(self, url, username, allowed):
+        def credentials(
+            self,
+            url: str,
+            username_from_url: str | None,
+            allowed_types: CredentialType,
+        ) -> Username | UserPass | Keypair:
             raise RuntimeError('Unexpected error')
 
     url = 'https://github.com/github/github'
@@ -726,12 +780,14 @@ def test_clone_bad_credentials(tmp_path):
     assert str(exc.value) == 'Unexpected error'
 
 
-def test_clone_with_checkout_branch(barerepo, tmp_path):
+def test_clone_with_checkout_branch(barerepo: Repository, tmp_path: Path) -> None:
     # create a test case which isolates the remote
     test_repo = clone_repository(
         barerepo.path, tmp_path / 'testrepo-orig.git', bare=True
     )
-    test_repo.create_branch('test', test_repo[test_repo.head.target])
+    commit = test_repo[test_repo.head.target]
+    assert isinstance(commit, Commit)
+    test_repo.create_branch('test', commit)
     repo = clone_repository(
         test_repo.path, tmp_path / 'testrepo.git', checkout_branch='test', bare=True
     )
@@ -740,7 +796,7 @@ def test_clone_with_checkout_branch(barerepo, tmp_path):
 
 @utils.requires_proxy
 @utils.requires_network
-def test_clone_with_proxy(tmp_path):
+def test_clone_with_proxy(tmp_path: Path) -> None:
     url = 'https://github.com/libgit2/TestGitRepository'
     repo = clone_repository(
         url,
@@ -791,14 +847,14 @@ def test_clone_with_proxy(tmp_path):
 #    # assert repo.remotes[0].fetchspec == "refs/heads/test"
 
 
-def test_worktree(testrepo):
+def test_worktree(testrepo: Repository) -> None:
     worktree_name = 'foo'
     worktree_dir = Path(tempfile.mkdtemp())
     # Delete temp path so that it's not present when we attempt to add the
     # worktree later
     worktree_dir.rmdir()
 
-    def _check_worktree(worktree):
+    def _check_worktree(worktree: Worktree) -> None:
         # Confirm the name attribute matches the specified name
         assert worktree.name == worktree_name
         # Confirm the path attribute points to the correct path
@@ -833,7 +889,7 @@ def test_worktree(testrepo):
     assert testrepo.list_worktrees() == []
 
 
-def test_worktree_aspath(testrepo):
+def test_worktree_aspath(testrepo: Repository) -> None:
     worktree_name = 'foo'
     worktree_dir = Path(tempfile.mkdtemp())
     # Delete temp path so that it's not present when we attempt to add the
@@ -843,13 +899,14 @@ def test_worktree_aspath(testrepo):
     assert testrepo.list_worktrees() == [worktree_name]
 
 
-def test_worktree_custom_ref(testrepo):
+def test_worktree_custom_ref(testrepo: Repository) -> None:
     worktree_name = 'foo'
     worktree_dir = Path(tempfile.mkdtemp())
     branch_name = 'version1'
 
     # New branch based on head
     tip = testrepo.revparse_single('HEAD')
+    assert isinstance(tip, Commit)
     worktree_ref = testrepo.branches.create(branch_name, tip)
     # Delete temp path so that it's not present when we attempt to add the
     # worktree later
@@ -877,7 +934,7 @@ def test_worktree_custom_ref(testrepo):
     assert branch_name in testrepo.branches
 
 
-def test_open_extended(tmp_path):
+def test_open_extended(tmp_path: Path) -> None:
     with utils.TemporaryRepository('dirtyrepo.zip', tmp_path) as path:
         orig_repo = pygit2.Repository(path)
         assert not orig_repo.is_bare
@@ -911,7 +968,7 @@ def test_open_extended(tmp_path):
         assert not repo.workdir
 
 
-def test_is_shallow(testrepo):
+def test_is_shallow(testrepo: Repository) -> None:
     assert not testrepo.is_shallow
 
     # create a dummy shallow file
@@ -921,7 +978,7 @@ def test_is_shallow(testrepo):
     assert testrepo.is_shallow
 
 
-def test_repository_hashfile(testrepo):
+def test_repository_hashfile(testrepo: Repository) -> None:
     original_hash = testrepo.index['hello.txt'].id
 
     # Test simple use
@@ -931,8 +988,8 @@ def test_repository_hashfile(testrepo):
     # Test absolute path
     # For best results on Windows, pass a pure POSIX path. (See https://github.com/libgit2/libgit2/issues/6825)
     absolute_path = Path(testrepo.workdir, 'hello.txt')
-    absolute_path = absolute_path.as_posix()  # Windows compatibility
-    h = testrepo.hashfile(str(absolute_path))
+    absolute_path_str = absolute_path.as_posix()  # Windows compatibility
+    h = testrepo.hashfile(str(absolute_path_str))
     assert h == original_hash
 
     # Test missing path
@@ -944,7 +1001,7 @@ def test_repository_hashfile(testrepo):
         testrepo.hashfile('hello.txt', ObjectType.OFS_DELTA)
 
 
-def test_repository_hashfile_filter(testrepo):
+def test_repository_hashfile_filter(testrepo: Repository) -> None:
     original_hash = testrepo.index['hello.txt'].id
 
     with open(Path(testrepo.workdir, 'hello.txt'), 'rb') as f:
@@ -971,8 +1028,8 @@ def test_repository_hashfile_filter(testrepo):
     # Treat absolute path with filters.
     # For best results on Windows, pass a pure POSIX path. (See https://github.com/libgit2/libgit2/issues/6825)
     absolute_path = Path(testrepo.workdir, 'hellocrlf.txt')
-    absolute_path = absolute_path.as_posix()  # Windows compatibility
-    h = testrepo.hashfile(str(absolute_path))
+    absolute_path_str = absolute_path.as_posix()  # Windows compatibility
+    h = testrepo.hashfile(str(absolute_path_str))
     assert h == original_hash
 
     # Bypass filters
@@ -989,65 +1046,75 @@ def test_repository_hashfile_filter(testrepo):
         h = testrepo.hashfile('hello.txt')
 
 
-def test_merge_file_from_index_deprecated(testrepo):
+def test_merge_file_from_index_deprecated(testrepo: Repository) -> None:
     hello_txt = testrepo.index['hello.txt']
     hello_txt_executable = IndexEntry(
         hello_txt.path, hello_txt.id, FileMode.BLOB_EXECUTABLE
     )
     hello_world = IndexEntry('hello_world.txt', hello_txt.id, hello_txt.mode)
 
+    def get_hello_txt_from_repo() -> str:
+        blob = testrepo.get(hello_txt.id)
+        assert isinstance(blob, Blob)
+        return blob.data.decode()
+
     # no change
     res = testrepo.merge_file_from_index(hello_txt, hello_txt, hello_txt)
-    assert res == testrepo.get(hello_txt.id).data.decode()
+    assert res == get_hello_txt_from_repo()
 
     # executable switch on ours
     res = testrepo.merge_file_from_index(hello_txt, hello_txt_executable, hello_txt)
-    assert res == testrepo.get(hello_txt.id).data.decode()
+    assert res == get_hello_txt_from_repo()
 
     # executable switch on theirs
     res = testrepo.merge_file_from_index(hello_txt, hello_txt, hello_txt_executable)
-    assert res == testrepo.get(hello_txt.id).data.decode()
+    assert res == get_hello_txt_from_repo()
 
     # executable switch on both
     res = testrepo.merge_file_from_index(
         hello_txt, hello_txt_executable, hello_txt_executable
     )
-    assert res == testrepo.get(hello_txt.id).data.decode()
+    assert res == get_hello_txt_from_repo()
 
     # path switch on ours
     res = testrepo.merge_file_from_index(hello_txt, hello_world, hello_txt)
-    assert res == testrepo.get(hello_txt.id).data.decode()
+    assert res == get_hello_txt_from_repo()
 
     # path switch on theirs
     res = testrepo.merge_file_from_index(hello_txt, hello_txt, hello_world)
-    assert res == testrepo.get(hello_txt.id).data.decode()
+    assert res == get_hello_txt_from_repo()
 
     # path switch on both
     res = testrepo.merge_file_from_index(hello_txt, hello_world, hello_world)
-    assert res == testrepo.get(hello_txt.id).data.decode()
+    assert res == get_hello_txt_from_repo()
 
     # path switch on ours, executable flag switch on theirs
     res = testrepo.merge_file_from_index(hello_txt, hello_world, hello_txt_executable)
-    assert res == testrepo.get(hello_txt.id).data.decode()
+    assert res == get_hello_txt_from_repo()
 
     # path switch on theirs, executable flag switch on ours
     res = testrepo.merge_file_from_index(hello_txt, hello_txt_executable, hello_world)
-    assert res == testrepo.get(hello_txt.id).data.decode()
+    assert res == get_hello_txt_from_repo()
 
 
-def test_merge_file_from_index_non_deprecated(testrepo):
+def test_merge_file_from_index_non_deprecated(testrepo: Repository) -> None:
     hello_txt = testrepo.index['hello.txt']
     hello_txt_executable = IndexEntry(
         hello_txt.path, hello_txt.id, FileMode.BLOB_EXECUTABLE
     )
     hello_world = IndexEntry('hello_world.txt', hello_txt.id, hello_txt.mode)
+
+    def get_hello_txt_from_repo() -> str:
+        blob = testrepo.get(hello_txt.id)
+        assert isinstance(blob, Blob)
+        return blob.data.decode()
 
     # no change
     res = testrepo.merge_file_from_index(
         hello_txt, hello_txt, hello_txt, use_deprecated=False
     )
     assert res == MergeFileResult(
-        True, hello_txt.path, hello_txt.mode, testrepo.get(hello_txt.id).data.decode()
+        True, hello_txt.path, hello_txt.mode, get_hello_txt_from_repo()
     )
 
     # executable switch on ours
@@ -1058,7 +1125,7 @@ def test_merge_file_from_index_non_deprecated(testrepo):
         True,
         hello_txt.path,
         hello_txt_executable.mode,
-        testrepo.get(hello_txt.id).data.decode(),
+        get_hello_txt_from_repo(),
     )
 
     # executable switch on theirs
@@ -1069,7 +1136,7 @@ def test_merge_file_from_index_non_deprecated(testrepo):
         True,
         hello_txt.path,
         hello_txt_executable.mode,
-        testrepo.get(hello_txt.id).data.decode(),
+        get_hello_txt_from_repo(),
     )
 
     # executable switch on both
@@ -1080,7 +1147,7 @@ def test_merge_file_from_index_non_deprecated(testrepo):
         True,
         hello_txt.path,
         hello_txt_executable.mode,
-        testrepo.get(hello_txt.id).data.decode(),
+        get_hello_txt_from_repo(),
     )
 
     # path switch on ours
@@ -1088,7 +1155,7 @@ def test_merge_file_from_index_non_deprecated(testrepo):
         hello_txt, hello_world, hello_txt, use_deprecated=False
     )
     assert res == MergeFileResult(
-        True, hello_world.path, hello_txt.mode, testrepo.get(hello_txt.id).data.decode()
+        True, hello_world.path, hello_txt.mode, get_hello_txt_from_repo()
     )
 
     # path switch on theirs
@@ -1096,16 +1163,14 @@ def test_merge_file_from_index_non_deprecated(testrepo):
         hello_txt, hello_txt, hello_world, use_deprecated=False
     )
     assert res == MergeFileResult(
-        True, hello_world.path, hello_txt.mode, testrepo.get(hello_txt.id).data.decode()
+        True, hello_world.path, hello_txt.mode, get_hello_txt_from_repo()
     )
 
     # path switch on both
     res = testrepo.merge_file_from_index(
         hello_txt, hello_world, hello_world, use_deprecated=False
     )
-    assert res == MergeFileResult(
-        True, None, hello_txt.mode, testrepo.get(hello_txt.id).data.decode()
-    )
+    assert res == MergeFileResult(True, None, hello_txt.mode, get_hello_txt_from_repo())
 
     # path switch on ours, executable flag switch on theirs
     res = testrepo.merge_file_from_index(
@@ -1115,7 +1180,7 @@ def test_merge_file_from_index_non_deprecated(testrepo):
         True,
         hello_world.path,
         hello_txt_executable.mode,
-        testrepo.get(hello_txt.id).data.decode(),
+        get_hello_txt_from_repo(),
     )
 
     # path switch on theirs, executable flag switch on ours
@@ -1126,5 +1191,5 @@ def test_merge_file_from_index_non_deprecated(testrepo):
         True,
         hello_world.path,
         hello_txt_executable.mode,
-        testrepo.get(hello_txt.id).data.decode(),
+        get_hello_txt_from_repo(),
     )

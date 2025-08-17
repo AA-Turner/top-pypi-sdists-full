@@ -1,5 +1,8 @@
+"""Brave search engine implementation."""
+
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from ..base import BaseSearchEngine
@@ -7,7 +10,7 @@ from ..results import TextResult
 
 
 class Brave(BaseSearchEngine[TextResult]):
-    """Brave search engine"""
+    """Brave search engine."""
 
     name = "brave"
     category = "text"
@@ -17,7 +20,7 @@ class Brave(BaseSearchEngine[TextResult]):
     search_method = "GET"
 
     items_xpath = "//div[@data-type='web']"
-    elements_xpath = {
+    elements_xpath: Mapping[str, str] = {
         "title": ".//div[(contains(@class,'title') or contains(@class,'sitename-container')) and position()=last()]//text()",  # noqa: E501
         "href": "./a/@href",
         "body": ".//div[contains(@class, 'description')]//text()",
@@ -26,6 +29,7 @@ class Brave(BaseSearchEngine[TextResult]):
     def build_payload(
         self, query: str, region: str, safesearch: str, timelimit: str | None, page: int = 1, **kwargs: Any
     ) -> dict[str, Any]:
+        """Build a payload for the search request."""
         payload = {"q": query, "source": "web"}
         country, lang = region.lower().split("-")
         cookies = {country: country, "useLocation": "0"}
