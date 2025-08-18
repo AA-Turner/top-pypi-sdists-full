@@ -3,7 +3,7 @@ import json
 from importlib.metadata import version
 
 import vessl
-from openapi_client.exceptions import ApiException
+from vessl.openapi_client.exceptions import ApiException
 from vessl.util import logger
 from vessl.util.constant import VESSL_LOG_LEVEL, VESSL_LOG_FAIL_ON_ERROR
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: insights-core
-Version: 3.6.2
+Version: 3.6.3
 Summary: Insights Core is a data collection and analysis framework
 Home-page: https://github.com/redhatinsights/insights-core
 Author: Red Hat, Inc.
@@ -233,7 +233,8 @@ Requires-Dist: lockfile
 Requires-Dist: pyyaml
 Requires-Dist: redis
 Requires-Dist: requests
-Requires-Dist: setuptools; python_version >= "3.12"
+Requires-Dist: rpm; python_version >= "3.6"
+Requires-Dist: setuptools; python_version < "3.10"
 Requires-Dist: six
 Provides-Extra: client
 Requires-Dist: oyaml; extra == "client"

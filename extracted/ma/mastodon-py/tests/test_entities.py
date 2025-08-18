@@ -135,6 +135,40 @@ def test_entity_status(mastodon_base, mastodon_admin):
     match_on=['method', 'uri'],
     cassette_library_dir='tests/cassettes_entity_tests'
 )
+def test_entity_quote(mastodon_base, mastodon_admin):
+    mastodon = mastodon_base
+    result = mastodon.status(115044073088181107).quote
+    assert real_issubclass(type(result), Quote), str(type(result)) + ' is not a subclass of Quote'
+    result = Entity.from_json(result.to_json())
+    if sys.version_info >= (3, 9):
+        assert real_issubclass(type(result), Quote), str(type(result)) + ' is not a subclass of Quote after to_json/from_json'
+
+@pytest.mark.vcr(
+    filter_query_parameters=[('access_token', 'DUMMY'), ('client_id', 'DUMMY'), ('client_secret', 'DUMMY')],
+    filter_post_data_parameters=[('access_token', 'DUMMY'), ('client_id', 'DUMMY'), ('client_secret', 'DUMMY')],
+    filter_headers=[('Authorization', 'DUMMY')],
+    before_record_request=vcr_filter,
+    before_record_response=token_scrubber,
+    match_on=['method', 'uri'],
+    cassette_library_dir='tests/cassettes_entity_tests'
+)
+def test_entity_shallowquote(mastodon_base, mastodon_admin):
+    mastodon = mastodon_base
+    result = mastodon.status(115044073088181107).quote.quoted_status.quote
+    assert real_issubclass(type(result), ShallowQuote), str(type(result)) + ' is not a subclass of ShallowQuote'
+    result = Entity.from_json(result.to_json())
+    if sys.version_info >= (3, 9):
+        assert real_issubclass(type(result), ShallowQuote), str(type(result)) + ' is not a subclass of ShallowQuote after to_json/from_json'
+
+@pytest.mark.vcr(
+    filter_query_parameters=[('access_token', 'DUMMY'), ('client_id', 'DUMMY'), ('client_secret', 'DUMMY')],
+    filter_post_data_parameters=[('access_token', 'DUMMY'), ('client_id', 'DUMMY'), ('client_secret', 'DUMMY')],
+    filter_headers=[('Authorization', 'DUMMY')],
+    before_record_request=vcr_filter,
+    before_record_response=token_scrubber,
+    match_on=['method', 'uri'],
+    cassette_library_dir='tests/cassettes_entity_tests'
+)
 def test_entity_statusedit(mastodon_base, mastodon_admin):
     mastodon = mastodon_base
     result = mastodon.status_history(110446223051565765)[-1]
@@ -874,11 +908,30 @@ def test_entity_instanceusageusers(mastodon_base, mastodon_admin):
     match_on=['method', 'uri'],
     cassette_library_dir='tests/cassettes_entity_tests'
 )
+def test_entity_ruletranslation(mastodon_base, mastodon_admin):
+    mastodon = mastodon_base
+    result = mastodon.instance().rules[0].translations['de']
+    if sys.version_info >= (3, 9):
+        assert real_issubclass(type(result), RuleTranslation), str(type(result)) + ' is not a subclass of RuleTranslation'
+        result = Entity.from_json(result.to_json())
+    if sys.version_info >= (3, 9):
+        assert real_issubclass(type(result), RuleTranslation), str(type(result)) + ' is not a subclass of RuleTranslation after to_json/from_json'
+
+@pytest.mark.vcr(
+    filter_query_parameters=[('access_token', 'DUMMY'), ('client_id', 'DUMMY'), ('client_secret', 'DUMMY')],
+    filter_post_data_parameters=[('access_token', 'DUMMY'), ('client_id', 'DUMMY'), ('client_secret', 'DUMMY')],
+    filter_headers=[('Authorization', 'DUMMY')],
+    before_record_request=vcr_filter,
+    before_record_response=token_scrubber,
+    match_on=['method', 'uri'],
+    cassette_library_dir='tests/cassettes_entity_tests'
+)
 def test_entity_rule(mastodon_base, mastodon_admin):
     mastodon = mastodon_base
     result = mastodon.instance().rules[0]
-    assert real_issubclass(type(result), Rule), str(type(result)) + ' is not a subclass of Rule'
-    result = Entity.from_json(result.to_json())
+    if sys.version_info >= (3, 9):
+        assert real_issubclass(type(result), Rule), str(type(result)) + ' is not a subclass of Rule'
+        result = Entity.from_json(result.to_json())
     if sys.version_info >= (3, 9):
         assert real_issubclass(type(result), Rule), str(type(result)) + ' is not a subclass of Rule after to_json/from_json'
 
@@ -1730,4 +1783,60 @@ def test_entity_supportedlocale(mastodon_base, mastodon_admin):
     result = Entity.from_json(result.to_json())
     if sys.version_info >= (3, 9):
         assert real_issubclass(type(result), SupportedLocale), str(type(result)) + ' is not a subclass of SupportedLocale after to_json/from_json'
+
+@pytest.mark.vcr(
+    filter_query_parameters=[('access_token', 'DUMMY'), ('client_id', 'DUMMY'), ('client_secret', 'DUMMY')],
+    filter_post_data_parameters=[('access_token', 'DUMMY'), ('client_id', 'DUMMY'), ('client_secret', 'DUMMY')],
+    filter_headers=[('Authorization', 'DUMMY')],
+    before_record_request=vcr_filter,
+    before_record_response=token_scrubber,
+    match_on=['method', 'uri'],
+    cassette_library_dir='tests/cassettes_entity_tests'
+)
+def test_entity_oauthserverinfo(mastodon_base, mastodon_admin):
+    mastodon = mastodon_base
+    result = mastodon.oauth_authorization_server_info()
+    assert real_issubclass(type(result), OAuthServerInfo), str(type(result)) + ' is not a subclass of OAuthServerInfo'
+    result = Entity.from_json(result.to_json())
+    if sys.version_info >= (3, 9):
+        assert real_issubclass(type(result), OAuthServerInfo), str(type(result)) + ' is not a subclass of OAuthServerInfo after to_json/from_json'
+
+@pytest.mark.vcr(
+    filter_query_parameters=[('access_token', 'DUMMY'), ('client_id', 'DUMMY'), ('client_secret', 'DUMMY')],
+    filter_post_data_parameters=[('access_token', 'DUMMY'), ('client_id', 'DUMMY'), ('client_secret', 'DUMMY')],
+    filter_headers=[('Authorization', 'DUMMY')],
+    before_record_request=vcr_filter,
+    before_record_response=token_scrubber,
+    match_on=['method', 'uri'],
+    cassette_library_dir='tests/cassettes_entity_tests'
+)
+def test_entity_oauthuserinfo(mastodon_base, mastodon_admin):
+    mastodon = mastodon_base
+    result = mastodon.oauth_userinfo()
+    assert real_issubclass(type(result), OAuthUserInfo), str(type(result)) + ' is not a subclass of OAuthUserInfo'
+    result = Entity.from_json(result.to_json())
+    if sys.version_info >= (3, 9):
+        assert real_issubclass(type(result), OAuthUserInfo), str(type(result)) + ' is not a subclass of OAuthUserInfo after to_json/from_json'
+
+@pytest.mark.vcr(
+    filter_query_parameters=[('access_token', 'DUMMY'), ('client_id', 'DUMMY'), ('client_secret', 'DUMMY')],
+    filter_post_data_parameters=[('access_token', 'DUMMY'), ('client_id', 'DUMMY'), ('client_secret', 'DUMMY')],
+    filter_headers=[('Authorization', 'DUMMY')],
+    before_record_request=vcr_filter,
+    before_record_response=token_scrubber,
+    match_on=['method', 'uri'],
+    cassette_library_dir='tests/cassettes_entity_tests'
+)
+def test_entity_termsofservice(mastodon_base, mastodon_admin):
+    mastodon = mastodon_admin
+    result = mastodon.instance_terms_of_service()
+    assert real_issubclass(type(result), TermsOfService), str(type(result)) + ' is not a subclass of TermsOfService'
+    result = Entity.from_json(result.to_json())
+    if sys.version_info >= (3, 9):
+        assert real_issubclass(type(result), TermsOfService), str(type(result)) + ' is not a subclass of TermsOfService after to_json/from_json'
+    result = mastodon.instance_terms_of_service(datetime(2025, 8, 17))
+    assert real_issubclass(type(result), TermsOfService), str(type(result)) + ' is not a subclass of TermsOfService (additional function)'
+    result = Entity.from_json(result.to_json())
+    if sys.version_info >= (3, 9):
+        assert real_issubclass(type(result), TermsOfService), str(type(result)) + ' is not a subclass of TermsOfService after to_json/from_json (additional function)'
 

@@ -31,14 +31,14 @@ class PipelineFile(pydantic.BaseModel):
     external_file_id: typing.Optional[str]
     file_size: typing.Optional[int]
     file_type: typing.Optional[str]
-    project_id: str = pydantic.Field(description="The ID of the project that the file belongs to")
+    project_id: typing.Optional[str]
     last_modified_at: typing.Optional[dt.datetime]
-    resource_info: typing.Optional[typing.Dict[str, typing.Optional[PipelineFileResourceInfoValue]]]
-    permission_info: typing.Optional[typing.Dict[str, typing.Optional[PipelineFilePermissionInfoValue]]]
-    data_source_id: typing.Optional[str]
     file_id: typing.Optional[str]
     pipeline_id: str = pydantic.Field(description="The ID of the pipeline that the file is associated with")
+    resource_info: typing.Optional[typing.Dict[str, typing.Optional[PipelineFileResourceInfoValue]]]
+    permission_info: typing.Optional[typing.Dict[str, typing.Optional[PipelineFilePermissionInfoValue]]]
     custom_metadata: typing.Optional[typing.Dict[str, typing.Optional[PipelineFileCustomMetadataValue]]]
+    data_source_id: typing.Optional[str]
     config_hash: typing.Optional[typing.Dict[str, typing.Optional[PipelineFileConfigHashValue]]]
     indexed_page_count: typing.Optional[int]
     status: typing.Optional[PipelineFileStatus]

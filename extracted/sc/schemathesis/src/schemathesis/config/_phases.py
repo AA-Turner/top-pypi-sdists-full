@@ -110,13 +110,39 @@ class CoveragePhaseConfig(DiffBase):
 
 
 @dataclass(repr=False)
+class InferenceConfig(DiffBase):
+    algorithms: list[str]
+
+    __slots__ = ("algorithms",)
+
+    def __init__(
+        self,
+        *,
+        algorithms: list[str] | None = None,
+    ) -> None:
+        self.algorithms = algorithms if algorithms is not None else ["location-headers"]
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> InferenceConfig:
+        return cls(
+            algorithms=data.get("algorithms", ["location-headers"]),
+        )
+
+    @property
+    def is_enabled(self) -> bool:
+        """Inference is enabled if any algorithms are configured."""
+        return bool(self.algorithms)
+
+
+@dataclass(repr=False)
 class StatefulPhaseConfig(DiffBase):
     enabled: bool
     generation: GenerationConfig
     checks: ChecksConfig
     max_steps: int
+    inference: InferenceConfig
 
-    __slots__ = ("enabled", "generation", "checks", "max_steps")
+    __slots__ = ("enabled", "generation", "checks", "max_steps", "inference")
 
     def __init__(
         self,
@@ -125,11 +151,13 @@ class StatefulPhaseConfig(DiffBase):
         generation: GenerationConfig | None = None,
         checks: ChecksConfig | None = None,
         max_steps: int | None = None,
+        inference: InferenceConfig | None = None,
     ) -> None:
         self.enabled = enabled
         self.max_steps = max_steps or DEFAULT_STATEFUL_STEP_COUNT
         self.generation = generation or GenerationConfig()
         self.checks = checks or ChecksConfig()
+        self.inference = inference or InferenceConfig()
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> StatefulPhaseConfig:
@@ -138,6 +166,7 @@ class StatefulPhaseConfig(DiffBase):
             max_steps=data.get("max-steps"),
             generation=GenerationConfig.from_dict(data.get("generation", {})),
             checks=ChecksConfig.from_dict(data.get("checks", {})),
+            inference=InferenceConfig.from_dict(data.get("inference", {})),
         )
 
 
@@ -173,11 +202,20 @@ class PhasesConfig(DiffBase):
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PhasesConfig:
+        # Use the outer "enabled" value as default for all phases.
+        default_enabled = data.get("enabled", None)
+
+        def merge(sub: dict[str, Any]) -> dict[str, Any]:
+            # Merge the default enabled flag with the sub-dict; the sub-dict takes precedence.
+            if default_enabled is not None:
+                return {"enabled": default_enabled, **sub}
+            return sub
+
         return cls(
-            examples=ExamplesPhaseConfig.from_dict(data.get("examples", {})),
-            coverage=CoveragePhaseConfig.from_dict(data.get("coverage", {})),
-            fuzzing=PhaseConfig.from_dict(data.get("fuzzing", {})),
-            stateful=StatefulPhaseConfig.from_dict(data.get("stateful", {})),
+            examples=ExamplesPhaseConfig.from_dict(merge(data.get("examples", {}))),
+            coverage=CoveragePhaseConfig.from_dict(merge(data.get("coverage", {}))),
+            fuzzing=PhaseConfig.from_dict(merge(data.get("fuzzing", {}))),
+            stateful=StatefulPhaseConfig.from_dict(merge(data.get("stateful", {}))),
         )
 
     def update(self, *, phases: list[str]) -> None:

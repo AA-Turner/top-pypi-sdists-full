@@ -4,7 +4,6 @@ use itertools::Either;
 use tombi_config::TomlVersion;
 use tombi_diagnostic::{Diagnostic, SetDiagnostics};
 use tombi_document_tree::IntoDocumentTreeAndErrors;
-use url::Url;
 
 use crate::lint::Lint;
 
@@ -12,7 +11,7 @@ pub struct Linter<'a> {
     toml_version: TomlVersion,
     options: Cow<'a, crate::LintOptions>,
     source_text: Cow<'a, str>,
-    source_url_or_path: Option<Either<&'a Url, &'a std::path::Path>>,
+    source_uri_or_path: Option<Either<&'a tombi_uri::Uri, &'a std::path::Path>>,
     schema_store: &'a tombi_schema_store::SchemaStore,
     pub(crate) diagnostics: Vec<crate::Diagnostic>,
 }
@@ -21,14 +20,14 @@ impl<'a> Linter<'a> {
     pub fn new(
         toml_version: TomlVersion,
         options: &'a crate::LintOptions,
-        source_url_or_path: Option<Either<&'a Url, &'a std::path::Path>>,
+        source_uri_or_path: Option<Either<&'a tombi_uri::Uri, &'a std::path::Path>>,
         schema_store: &'a tombi_schema_store::SchemaStore,
     ) -> Self {
         Self {
             toml_version,
             options: Cow::Borrowed(options),
             source_text: Cow::Borrowed(""),
-            source_url_or_path,
+            source_uri_or_path,
             schema_store,
             diagnostics: Vec::new(),
         }
@@ -40,21 +39,16 @@ impl<'a> Linter<'a> {
             tombi_parser::parse_document_header_comments(source).cast::<tombi_ast::Root>()
         {
             let root = parsed.tree();
-            let source_schema = match self
-                .schema_store
-                .resolve_source_schema_from_ast(&root, self.source_url_or_path)
-                .await
-            {
-                Ok(Some(schema)) => Some(schema),
-                Ok(None) => None,
-                Err((err, range)) => {
-                    self.diagnostics.push(Diagnostic::new_warning(
-                        err.to_string(),
-                        err.code(),
-                        range,
-                    ));
-                    None
-                }
+            let (source_schema, error_with_range) =
+                tombi_schema_store::lint_source_schema_from_ast(
+                    &root,
+                    self.source_uri_or_path,
+                    self.schema_store,
+                )
+                .await;
+            if let Some((err, range)) = error_with_range {
+                self.diagnostics
+                    .push(Diagnostic::new_warning(err.to_string(), err.code(), range));
             };
 
             let document_tombi_comment_directive =
@@ -76,7 +70,7 @@ impl<'a> Linter<'a> {
         if let Some(document_tombi_comment_directive) = &document_tombi_comment_directive {
             if let Some(lint) = &document_tombi_comment_directive.lint {
                 if lint.disable == Some(true) {
-                    match self.source_url_or_path.map(|path| match path {
+                    match self.source_uri_or_path.map(|path| match path {
                         Either::Left(url) => url.to_string(),
                         Either::Right(path) => path.to_string_lossy().to_string(),
                     }) {
@@ -95,6 +89,7 @@ impl<'a> Linter<'a> {
         }
 
         self.toml_version = document_tombi_comment_directive
+            .as_ref()
             .and_then(|directive| directive.toml_version)
             .unwrap_or_else(|| {
                 source_schema
@@ -125,8 +120,13 @@ impl<'a> Linter<'a> {
                 let schema_context = tombi_schema_store::SchemaContext {
                     toml_version: self.toml_version,
                     root_schema: source_schema.root_schema.as_ref(),
-                    sub_schema_url_map: Some(&source_schema.sub_schema_url_map),
+                    sub_schema_uri_map: Some(&source_schema.sub_schema_uri_map),
                     store: self.schema_store,
+                    strict: document_tombi_comment_directive
+                        .as_ref()
+                        .and_then(|directive| {
+                            directive.schema.as_ref().and_then(|schema| schema.strict)
+                        }),
                 };
                 if let Err(schema_diagnostics) =
                     tombi_validator::validate(document_tree, &source_schema, &schema_context).await

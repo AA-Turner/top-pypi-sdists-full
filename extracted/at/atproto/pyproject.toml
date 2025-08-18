@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "atproto"
-version = "0.0.61" # This is a placeholder. Dynamic version from Git Tag will be used.
+version = "0.0.62" # This is a placeholder. Dynamic version from Git Tag will be used.
 description = "The AT Protocol SDK"
 authors = ["Ilya (Marshal) <ilya@marshal.dev>"]
 license = "MIT"

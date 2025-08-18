@@ -3,7 +3,7 @@ py-modules = ["vessl"]
 
 [tool.poetry]
 name = "vessl"
-version = "0.1.198" # to be overridden in CI
+version = "0.1.199" # to be overridden in CI
 description = "SDK and CLI for VESSL"
 license = "MIT"
 authors = [
@@ -67,8 +67,6 @@ pytest = "^6.2.4"
 pytest-order = "^1.0.0"
 mock = "^4.0.3"
 pycryptodome = "^3.10.1"
-torch = "^2.0.1"
-transformers = "^4.38.2"
 
 [tool.poetry.extras]
 media = [] # deprecated
@@ -91,8 +89,16 @@ log_cli_level = "INFO"
 line-length = 100
 target-version = ['py39', 'py310', 'py311', 'py312']
 include = '\.pyi?$'
-force-exclude = 'openapi_client'
+force-exclude = '''
+(
+    openapi_client
+    | vessl/openapi_client
+)
+'''
 
 [tool.isort]
 profile = 'black'
-skip_glob = 'openapi_client'
+skip_glob = [
+    'openapi_client',
+    'vessl/openapi_client'
+]

@@ -1,17 +1,22 @@
 """Parser for attributes in ReST-style docstrings"""
-from typing import List, Optional, Tuple
+
 from dataclasses import dataclass
+from typing import List, Optional, Tuple
+
 
 @dataclass
 class Attribute:
+    """Represents a parsed attribute with name, type, and description."""
+
     name: str
     type: Optional[str] = None
     description: Optional[str] = None
 
 
 def parse_attributes(docstring: str) -> Tuple[List[Attribute], List[int]]:
+    """Parse attributes from a ReST-style docstring."""
     attributes = []
-    lines = docstring.split('\n')
+    lines = docstring.split("\n")
 
     current_attr_lines = []
     current_attr_line_nums = []
@@ -38,7 +43,7 @@ def parse_attributes(docstring: str) -> Tuple[List[Attribute], List[int]]:
         elif inside_attribute_block:
             if not stripped_line and current_attr_lines:
                 # Check if the next line is also blank indicating end of block
-                if current_attr_lines[-1].strip() == '':
+                if current_attr_lines[-1].strip() == "":
                     inside_attribute_block = False
                     attrs, line_nums_with_actual_attr = parse_attribute_block(
                         current_attr_lines, current_attr_line_nums
@@ -73,9 +78,10 @@ def parse_attributes(docstring: str) -> Tuple[List[Attribute], List[int]]:
 
 
 def parse_attribute_block(
-        lines: List[str],
-        global_line_nums: List[int],
+    lines: List[str],
+    global_line_nums: List[int],
 ) -> Tuple[Attribute, List[int]]:
+    """Parse a single attribute block from lines."""
     name = None
     type_ = None
     description = []
@@ -92,11 +98,11 @@ def parse_attribute_block(
         current_indent_level = len(line) - len(line.lstrip())
 
         if stripped_line.startswith(".. attribute ::"):
-            name = stripped_line[len(".. attribute ::"):].strip()
+            name = stripped_line[len(".. attribute ::") :].strip()
             lines_with_actual_attr.append(line)
             line_nums_with_actual_attr.append(j)
         elif stripped_line.startswith(":type:"):
-            type_ = stripped_line[len(":type:"):].strip()
+            type_ = stripped_line[len(":type:") :].strip()
             lines_with_actual_attr.append(line)
             line_nums_with_actual_attr.append(j)
         elif current_indent_level > base_indent_level:
@@ -109,7 +115,7 @@ def parse_attribute_block(
                 line_nums_with_actual_attr.append(j)
 
     # Clean up the description, removing leading/trailing empty lines
-    description_text = '\n'.join(description).strip() if description else None
+    description_text = "\n".join(description).strip() if description else None
 
     attr = Attribute(name=name, type=type_, description=description_text)
 

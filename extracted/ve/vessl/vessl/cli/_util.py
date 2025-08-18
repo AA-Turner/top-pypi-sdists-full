@@ -5,7 +5,7 @@ import click
 from tabulate import tabulate
 from terminaltables import AsciiTable
 
-from openapi_client.models import StorageFile
+from vessl.openapi_client.models import StorageFile
 from vessl.util.fmt import format_key, format_data, format_size, format_bool
 
 UNDEFINED = click.style("undefined", fg="red")

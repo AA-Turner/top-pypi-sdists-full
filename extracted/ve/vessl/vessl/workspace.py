@@ -10,8 +10,8 @@ import humanfriendly
 import inquirer
 import paramiko
 
-from openapi_client import CliWorkspaceBackupCreateAPIInput
-from openapi_client.models import (
+from vessl.openapi_client import CliWorkspaceBackupCreateAPIInput
+from vessl.openapi_client.models import (
     InfluxdbWorkloadLog,
     OrmVolumeMountRequests,
     OrmWorkspacePort,

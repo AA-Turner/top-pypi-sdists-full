@@ -8,8 +8,8 @@ from typing import List, Optional, TextIO
 
 import click
 
-from openapi_client import SecretGenericSecretUpsertAPIInput
-from openapi_client.models import (
+from vessl.openapi_client import SecretGenericSecretUpsertAPIInput
+from vessl.openapi_client.models import (
     ModelserviceModelServiceRevisionListResponse,
     ResponseModelServiceInfo,
     ResponseModelServiceRevision,

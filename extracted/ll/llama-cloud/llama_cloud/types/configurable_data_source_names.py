@@ -16,6 +16,7 @@ class ConfigurableDataSourceNames(str, enum.Enum):
     NOTION_PAGE = "NOTION_PAGE"
     CONFLUENCE = "CONFLUENCE"
     JIRA = "JIRA"
+    JIRA_V_2 = "JIRA_V2"
     BOX = "BOX"
 
     def visit(
@@ -29,6 +30,7 @@ class ConfigurableDataSourceNames(str, enum.Enum):
         notion_page: typing.Callable[[], T_Result],
         confluence: typing.Callable[[], T_Result],
         jira: typing.Callable[[], T_Result],
+        jira_v_2: typing.Callable[[], T_Result],
         box: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is ConfigurableDataSourceNames.S_3:
@@ -49,5 +51,7 @@ class ConfigurableDataSourceNames(str, enum.Enum):
             return confluence()
         if self is ConfigurableDataSourceNames.JIRA:
             return jira()
+        if self is ConfigurableDataSourceNames.JIRA_V_2:
+            return jira_v_2()
         if self is ConfigurableDataSourceNames.BOX:
             return box()

@@ -65,7 +65,7 @@ class KafkaConsumerWorker:
             f"{deployment_instance_id}-consumer-{worker_id}",
             custom_request_service_id=custom_request_service_id
         )
-        self.kafka_deployment._ensure_async_consumer()
+        # Note: async consumer setup moved to start() method
         
         # Worker state
         self.is_running = False
@@ -90,9 +90,31 @@ class KafkaConsumerWorker:
             self.logger.warning(f"Consumer worker {self.worker_id} is already running")
             return
         
+        # Check if event loop is available before starting
+        try:
+            loop = asyncio.get_running_loop()
+            if loop.is_closed():
+                raise RuntimeError("Event loop is closed, cannot start consumer worker")
+        except RuntimeError as exc:
+            if "no running event loop" in str(exc).lower():
+                raise RuntimeError("No event loop available for consumer worker startup")
+            raise
+        
         self.is_running = True
         self.is_active = True
         self._stop_event.clear()
+        
+        # Set up async consumer now that we have a valid event loop
+        try:
+            consumer_setup_success = await self.kafka_deployment._ensure_async_consumer()
+            if not consumer_setup_success:
+                raise RuntimeError("Failed to set up async Kafka consumer")
+            self.logger.debug(f"Async consumer set up successfully for worker {self.worker_id}")
+        except Exception as exc:
+            self.is_running = False
+            self.is_active = False
+            self.logger.error(f"Failed to set up async consumer for worker {self.worker_id}: {str(exc)}")
+            raise RuntimeError(f"Failed to set up async consumer: {str(exc)}")
         
         # Start the processing loop
         self._processing_task = asyncio.create_task(self._processing_loop())
@@ -160,17 +182,22 @@ class KafkaConsumerWorker:
                         )
                     except Exception:
                         pass
-                    success = await self.input_queue.put(processed_message, timeout=0.1)
-                    if success:
+                    try:
+                        await self.input_queue.put(processed_message)
                         self.messages_consumed += 1
                         self.messages_queued += 1
                         self.last_message_time = datetime.now(timezone.utc)
                         retry_delay = 1.0
                         consecutive_errors = 0
-                    else:
+                    except asyncio.QueueFull:
                         self.messages_dropped += 1
                         self.logger.warning(
-                            f"Dropped message in consumer {self.worker_id} - queue full or backpressure"
+                            f"Dropped message in consumer {self.worker_id} - input queue full (size: {self.input_queue.qsize()})"
+                        )
+                    except Exception as put_exc:
+                        self.messages_dropped += 1
+                        self.logger.error(
+                            f"Failed to put message in queue for consumer {self.worker_id}: {str(put_exc)}"
                         )
                 except Exception as exc:
                     self.logger.error(
@@ -220,7 +247,7 @@ class KafkaConsumerWorker:
             "messages_dropped": self.messages_dropped,
             "last_message_time": self.last_message_time.isoformat() if self.last_message_time else None,
             "queue_size": self.input_queue.qsize(),
-            "queue_under_backpressure": self.input_queue.is_under_backpressure(),
+            "queue_under_backpressure": self.input_queue.full(),
         }
     
     def reset_metrics(self) -> None:

@@ -6,6 +6,7 @@ import typing
 from ..core.datetime_utils import serialize_datetime
 from .classifier_rule import ClassifierRule
 from .classify_parsing_configuration import ClassifyParsingConfiguration
+from .status_enum import StatusEnum
 
 try:
     import pydantic
@@ -27,6 +28,7 @@ class ClassifyJob(pydantic.BaseModel):
     rules: typing.List[ClassifierRule] = pydantic.Field(description="The rules to classify the files")
     user_id: str = pydantic.Field(description="The ID of the user")
     project_id: str = pydantic.Field(description="The ID of the project")
+    status: StatusEnum = pydantic.Field(description="The status of the classify job")
     parsing_configuration: typing.Optional[ClassifyParsingConfiguration] = pydantic.Field(
         description="The configuration for the parsing job"
     )

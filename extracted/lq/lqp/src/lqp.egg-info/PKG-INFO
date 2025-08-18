@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: lqp
-Version: 0.1.10
+Version: 0.1.11
 Summary: A parser for Logical Query Protocol (LQP) S-expressions into Protobuf
-Author-email: Niko Göbel <nikolas.goebel@relational.ai>
+Author-email: Niko Göbel <nikolas.goebel@relational.ai>, David Zhao <david.zhao@relational.ai>, Minsung Cho <minsung.cho@relational.ai>, Martin McGrane <martin.mcgrane@relational.ai>
 Description-Content-Type: text/markdown
 Requires-Dist: lark>=1.1.9
 Requires-Dist: protobuf<5.0.0,>=3.20.3

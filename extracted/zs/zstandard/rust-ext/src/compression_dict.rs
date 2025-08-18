@@ -44,6 +44,8 @@ pub struct ZstdCompressionDict {
     ddict: Option<DDict<'static>>,
 }
 
+unsafe impl Sync for ZstdCompressionDict {}
+
 impl ZstdCompressionDict {
     pub(crate) fn load_into_cctx(&self, cctx: &CCtx) -> PyResult<()> {
         if let Some(cdict) = &self.cdict {
@@ -118,7 +120,7 @@ impl ZstdCompressionDict {
     }
 
     fn as_bytes<'p>(&self, py: Python<'p>) -> PyResult<Bound<'p, PyBytes>> {
-        Ok(PyBytes::new_bound(py, &self.data))
+        Ok(PyBytes::new(py, &self.data))
     }
 
     fn dict_id(&self) -> u32 {

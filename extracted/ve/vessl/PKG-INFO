@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: vessl
-Version: 0.1.198
+Version: 0.1.199
 Summary: SDK and CLI for VESSL
 License: MIT
 Author: VESSL AI Dev Team
@@ -93,16 +93,4 @@ Default project: my-default-project
 VESSL Software Development Kit is a python library that allows easy access to VESSL resources in your python programs and scripts. 
 
 Refer to  [VESSL SDK Docs](https://docs.vessl.ai/api-reference/python-sdk) for details.
-
-
-## Misc.
-
-### For M1
-
-```bash
-docker context create remote --docker "host=ssh://ec2-user@10.110.3.24"
-docker context use remote
-docker build . -t vessl-python-sdk
-docker run vessl-python-sdk
-```
 

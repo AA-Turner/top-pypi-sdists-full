@@ -2,7 +2,7 @@ from typing import Optional
 
 import click
 
-from openapi_client import ResponseStorageV2Info
+from vessl.openapi_client import ResponseStorageV2Info
 from vessl.cli._base import (
     VesslGroup,
     vessl_argument,

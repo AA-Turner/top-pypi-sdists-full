@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: harfile
-Version: 0.3.0
+Version: 0.3.1
 Summary: Writer for HTTP Archive (HAR) files
 Project-URL: Changelog, https://github.com/schemathesis/harfile/blob/main/CHANGELOG.md
 Project-URL: Bug Tracker, https://github.com/schemathesis/harfile
@@ -55,12 +55,12 @@ Description-Content-Type: text/markdown
 [![Python versions](https://img.shields.io/pypi/pyversions/harfile.svg)](https://pypi.org/project/harfile/)
 [![License](https://img.shields.io/pypi/l/harfile.svg)](https://opensource.org/licenses/MIT)
 
-This package provides zero dependency writer for building HAR (HTTP Archive) files in Python.
+This package provides a zero-dependency writer for building HAR (HTTP Archive) files in Python.
 
-**NOTES**: 
+**NOTES**:
 
-- The writer assumes single-threaded
-- Pages are not supported
+- The writer assumes a single-threaded environment.
+- Pages are not supported.
 
 ## Usage
 
@@ -83,8 +83,13 @@ with harfile.open("filename.har") as har:
         ),
         response=harfile.Response(
             status=200,
-            status_text="OK",
+            statusText="OK",
             httpVersion="HTTP/1.1",
+        ),
+        timings=harfile.Timings(
+            send=0,
+            wait=0,
+            receive=0,
         ),
     )
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: mistralai
-Version: 1.9.3
+Version: 1.9.6
 Summary: Python Client SDK for the Mistral AI API.
 Author: Mistral
 Requires-Python: >=3.9
@@ -17,9 +17,11 @@ Requires-Dist: eval-type-backport (>=0.2.0)
 Requires-Dist: google-auth (>=2.27.0) ; extra == "gcp"
 Requires-Dist: griffe (>=1.7.3,<2.0) ; extra == "agents"
 Requires-Dist: httpx (>=0.28.1)
+Requires-Dist: invoke (>=2.2.0,<3.0.0)
 Requires-Dist: mcp (>=1.0,<2.0) ; (python_version >= "3.10") and (extra == "agents")
 Requires-Dist: pydantic (>=2.10.3)
 Requires-Dist: python-dateutil (>=2.8.2)
+Requires-Dist: pyyaml (>=6.0.2,<7.0.0)
 Requires-Dist: requests (>=2.32.3) ; extra == "gcp"
 Requires-Dist: typing-inspection (>=0.4.0)
 Project-URL: Repository, https://github.com/mistralai/client-python.git

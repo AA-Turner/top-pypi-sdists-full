@@ -4,7 +4,7 @@ import torch
 
 class EasyOCRExtractor:
     def __init__(self, lang=['en', 'hi', 'ar'], gpu=False, model_storage_directory=None, 
-                 download_enabled=True, detector=True, recognizer=True):
+                 download_enabled=True, detector=True, recognizer=True, verbose=False):
         """
         Initializes the EasyOCR text extractor with optimized parameters.
         
@@ -15,6 +15,7 @@ class EasyOCRExtractor:
             download_enabled (bool): Allow downloading models if not found. Default is True.
             detector (bool): Load text detection model. Default is True.
             recognizer (bool): Load text recognition model. Default is True.
+            verbose (bool): Enable verbose output (e.g., progress bars). Default is False.
         """
         self.lang = lang
         self.gpu = gpu
@@ -27,6 +28,7 @@ class EasyOCRExtractor:
         self.download_enabled = download_enabled
         self.detector = detector
         self.recognizer = recognizer
+        self.verbose = verbose
         self.reader = None
     
     def setup(self):
@@ -41,7 +43,8 @@ class EasyOCRExtractor:
                 model_storage_directory=self.model_storage_directory,
                 download_enabled=self.download_enabled,
                 detector=self.detector,
-                recognizer=self.recognizer
+                recognizer=self.recognizer,
+                verbose=self.verbose
             )
     
     def extract(self, image_np, bboxes=None, detail=1, paragraph=False, 

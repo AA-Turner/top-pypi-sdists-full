@@ -1,6 +1,6 @@
 from typing import List
 
-from openapi_client.models.response_kernel_resource_spec import (
+from vessl.openapi_client.models.response_kernel_resource_spec import (
     ResponseKernelResourceSpec,
 )
 from vessl import vessl_api

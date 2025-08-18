@@ -14,6 +14,7 @@ log_file: str = os.path.join(FROGML_DIR_PATH, "frogml-log-history.log")
 
 DEFAULT_LOGGING = {
     "version": 1,
+    "disable_existing_loggers": False,
     "formatters": {
         "standard": {
             "format": "%(asctime)s - %(levelname)s - %(name)s.%(module)s.%(funcName)s:%(lineno)d - %(message)s"

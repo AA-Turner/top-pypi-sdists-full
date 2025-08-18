@@ -19,19 +19,23 @@ class DataCatalogConfiguration(google.protobuf.message.Message):
 
     GLUE_FIELD_NUMBER: builtins.int
     BIG_LAKE_FIELD_NUMBER: builtins.int
+    UNITY_CATALOG_FIELD_NUMBER: builtins.int
     @property
     def glue(self) -> global___GlueConfiguration: ...
     @property
     def big_lake(self) -> global___BigLakeConfiguration: ...
+    @property
+    def unity_catalog(self) -> global___UnityCatalogConfiguration: ...
     def __init__(
         self,
         *,
         glue: global___GlueConfiguration | None = ...,
         big_lake: global___BigLakeConfiguration | None = ...,
+        unity_catalog: global___UnityCatalogConfiguration | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["big_lake", b"big_lake", "glue", b"glue", "type", b"type"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["big_lake", b"big_lake", "glue", b"glue", "type", b"type"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["glue", "big_lake"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["big_lake", b"big_lake", "glue", b"glue", "type", b"type", "unity_catalog", b"unity_catalog"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["big_lake", b"big_lake", "glue", b"glue", "type", b"type", "unity_catalog", b"unity_catalog"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["glue", "big_lake", "unity_catalog"] | None: ...
 
 global___DataCatalogConfiguration = DataCatalogConfiguration
 
@@ -66,3 +70,20 @@ class GlueConfiguration(google.protobuf.message.Message):
     ) -> None: ...
 
 global___GlueConfiguration = GlueConfiguration
+
+class UnityCatalogConfiguration(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CATALOG_NAME_FIELD_NUMBER: builtins.int
+    URL_FIELD_NUMBER: builtins.int
+    catalog_name: builtins.str
+    url: builtins.str
+    def __init__(
+        self,
+        *,
+        catalog_name: builtins.str = ...,
+        url: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["catalog_name", b"catalog_name", "url", b"url"]) -> None: ...
+
+global___UnityCatalogConfiguration = UnityCatalogConfiguration

@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Dict, Any
 
-from openapi_client import ProtoLLMDocument
+from vessl.openapi_client import ProtoLLMDocument
 
 
 class DocumentParserType(Enum):

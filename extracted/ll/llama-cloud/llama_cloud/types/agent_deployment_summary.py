@@ -23,6 +23,7 @@ class AgentDeploymentSummary(pydantic.BaseModel):
     display_name: str = pydantic.Field(description="Display name of the deployed app")
     created_at: dt.datetime = pydantic.Field(description="Timestamp when the app deployment was created")
     updated_at: dt.datetime = pydantic.Field(description="Timestamp when the app deployment was last updated")
+    api_key_id: typing.Optional[str]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

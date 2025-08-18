@@ -4,8 +4,8 @@ from typing import Dict, List
 import click
 import inquirer
 
-from openapi_client import OrmModelServiceGatewayTrafficSplitEntry as TrafficSplitEntry
-from openapi_client import (
+from vessl.openapi_client import OrmModelServiceGatewayTrafficSplitEntry as TrafficSplitEntry
+from vessl.openapi_client import (
     ResponseKernelCluster,
     ResponseKernelImage,
     ResponseModelServiceGatewayInfo,
@@ -20,7 +20,7 @@ from openapi_client import (
     V1Port,
     V1VariableValue,
 )
-from openapi_client.models import secret_generic_secret_upsert_api_input
+from vessl.openapi_client.models import secret_generic_secret_upsert_api_input
 from vessl import vessl_api
 from vessl.cli._util import print_data, print_table_tabulate
 from vessl.models.vessl_model import VesslModel

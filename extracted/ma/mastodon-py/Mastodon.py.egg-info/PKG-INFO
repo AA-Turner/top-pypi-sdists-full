@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: Mastodon.py
-Version: 2.0.1
+Version: 2.1.0
 Summary: Python wrapper for the Mastodon API
 Author-email: Lorenz Diener <lorenzd+mastodonpypypi@gmail.com>
 License: MIT
@@ -26,11 +26,13 @@ Requires-Dist: http_ece>=1.0.5; extra == "webpush"
 Requires-Dist: cryptography>=1.6.0; extra == "webpush"
 Provides-Extra: blurhash
 Requires-Dist: blurhash>=1.1.4; extra == "blurhash"
+Provides-Extra: grapheme
+Requires-Dist: grapheme>=0.6.0; extra == "grapheme"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: vcrpy; extra == "test"
-Requires-Dist: pytest-vcr; extra == "test"
+Requires-Dist: pytest-recording; extra == "test"
 Requires-Dist: pytest-mock; extra == "test"
 Requires-Dist: requests-mock; extra == "test"
 Requires-Dist: pytz; extra == "test"
@@ -39,17 +41,18 @@ Provides-Extra: test-old
 Requires-Dist: pytest; extra == "test-old"
 Requires-Dist: pytest-cov; extra == "test-old"
 Requires-Dist: vcrpy; extra == "test-old"
-Requires-Dist: pytest-vcr; extra == "test-old"
+Requires-Dist: pytest-recording; extra == "test-old"
 Requires-Dist: pytest-mock; extra == "test-old"
 Requires-Dist: requests-mock; extra == "test-old"
 Requires-Dist: pytz; extra == "test-old"
 Provides-Extra: docs
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
+Dynamic: license-file
 
 Mastodon.py
 ===========
 Python wrapper for the Mastodon ( https://github.com/mastodon/mastodon/ ) API.
-Feature complete for public API as of Mastodon version 4.3.0 and easy to get started with:
+Feature complete for public API as of Mastodon version 4.4.3 and easy to get started with:
 
 .. code-block:: python
 

@@ -20,6 +20,8 @@ cdef extern from "numpy/arrayobject.h":
     int NPY_ARRAY_FORCECAST
     int PyArray_ISCARRAY( np.ndarray instance )
     int PyArray_ISCARRAY_RO( np.ndarray instance )
+
+    # cdef object PyArray_FromScalar(object scalar, np.dtype outcode)
     cdef np.ndarray PyArray_Zeros(int nd, np.npy_intp* dims, np.dtype, int fortran)
     cdef np.ndarray PyArray_EnsureArray(object)
     cdef int PyArray_FillWithScalar(np.ndarray, object)
@@ -87,6 +89,8 @@ cdef class NumpyHandler(FormatHandler):
         self.gl_constant_to_array = gl_to_a
     
     cdef np.ndarray c_check_array( self, object instance ):
+        # if PyArray_CheckScalar( instance ):
+        #     return PyArray_FromScalar(instance, NULL)
         if not PyArray_Check( instance ):
             raise TypeError(
                 """Numpy format handler passed a non-numpy-array object %s (of type %s)"""%( instance, type(instance) ),

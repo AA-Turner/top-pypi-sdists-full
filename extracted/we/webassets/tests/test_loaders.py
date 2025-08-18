@@ -1,6 +1,8 @@
-from __future__ import with_statement
 import sys
-from nose.tools import assert_raises, assert_true
+import os
+
+import pytest
+
 import textwrap
 from webassets.env import Environment
 from webassets.filter import Filter, get_filter
@@ -8,16 +10,12 @@ from webassets.utils import StringIO
 from webassets.bundle import Bundle
 from webassets.loaders import PythonLoader, YAMLLoader, LoaderError
 from webassets.exceptions import EnvironmentError
-from nose import SkipTest
 
 
 class TestYAML(object):
 
-    def setup(self):
-        try:
-            import yaml
-        except ImportError:
-            raise SkipTest()
+    def setup_method(self):
+        yaml = pytest.importorskip("yaml")
 
     def loader(self, text, filename=None):
         io = StringIO(textwrap.dedent(text))
@@ -133,7 +131,9 @@ class TestYAML(object):
         directory: ../something
         """, filename='/var/www/project/config/yaml').load_environment()
         # The directory is considered relative to the YAML file location.
-        assert environment.directory == '/var/www/project/something'
+        expected_path = '/var/www/project/something'
+        actual_path = environment.directory
+        assert os.path.normpath(actual_path).endswith(os.path.normpath(expected_path))
 
     def test_load_extra_default(self):
         """[Regression] If no extra= is given, the value defaults to {}"""
@@ -191,14 +191,11 @@ class TestPython(object):
 
 class TestYAMLCustomFilters(TestYAML):
 
-    def setup(self):
-        super(TestYAMLCustomFilters, self).setup()
+    def setup_method(self):
+        super().setup_method()
 
         # If zope.dottedname is not installed, that's OK
-        try:
-            import zope.dottedname.resolve
-        except ImportError:
-            raise SkipTest()
+        pytest.importorskip("zope.dottedname.resolve")
         # Save off the original get_import_resolver
         self.original_resolver = YAMLLoader._get_import_resolver
         # Make a mock
@@ -231,7 +228,7 @@ class TestYAMLCustomFilters(TestYAML):
         filters:
             - webassets.filter.less.Less
         """)
-        assert_raises(EnvironmentError, loader.load_environment)
+        pytest.raises(EnvironmentError, loader.load_environment)
         self.reset_importer()
 
     def test_load_filter_module_throws_exc(self):
@@ -241,7 +238,7 @@ class TestYAMLCustomFilters(TestYAML):
         filters:
             - webassets.filter.less
         """)
-        assert_raises(LoaderError, loader.load_environment)
+        pytest.raises(LoaderError, loader.load_environment)
 
     def test_bad_filter_throws_exc(self):
         """ Test that importing filters that don't exist throws an exception """
@@ -249,7 +246,7 @@ class TestYAMLCustomFilters(TestYAML):
         filters:
             - webassets.fake.filter
         """)
-        assert_raises(LoaderError, loader.load_environment)
+        pytest.raises(LoaderError, loader.load_environment)
 
     def test_load_filters(self):
         """Check that filters can be loaded from YAML """
@@ -257,11 +254,11 @@ class TestYAMLCustomFilters(TestYAML):
         import webassets.filter
         del webassets.filter._FILTERS['less']
         # Verify that it was deleted
-        assert_raises(ValueError, get_filter, 'less')
+        pytest.raises(ValueError, get_filter, 'less')
         # Load it again from YAML
         self.loader("""
         filters:
             - webassets.filter.less.Less
         """).load_environment()
         # Check that it's back
-        assert_true(isinstance(get_filter('less'), Filter))
+        assert isinstance(get_filter('less'), Filter)

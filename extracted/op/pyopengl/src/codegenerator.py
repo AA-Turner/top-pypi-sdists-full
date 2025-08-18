@@ -300,6 +300,7 @@ from OpenGL.raw.%(prefix)s.%(owner)s.%(module)s import _EXTENSION_NAME
                             )
                             .encode('ascii', 'ignore')
                             .decode('ascii', 'ignore')
+                            .replace('\\', '\\\\')
                         )
                     )
                     break

@@ -2,10 +2,10 @@ import threading
 
 from urllib3.exceptions import MaxRetryError
 
-from openapi_client.models.experiment_progress_update_api_input import (
+from vessl.openapi_client.models.experiment_progress_update_api_input import (
     ExperimentProgressUpdateAPIInput,
 )
-from openapi_client.models.run_execution_progress_update_api_input import (
+from vessl.openapi_client.models.run_execution_progress_update_api_input import (
     RunExecutionProgressUpdateAPIInput,
 )
 from vessl.util import logger

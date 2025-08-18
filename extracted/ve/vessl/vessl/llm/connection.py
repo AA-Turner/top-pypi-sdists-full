@@ -1,6 +1,6 @@
 from typing import Literal, Optional
 
-from openapi_client import (
+from vessl.openapi_client import (
     ProtoLLMModelConnection,
     ProtoLLMUserGroup,
     ProtoLLMVectorDBConnConfig,

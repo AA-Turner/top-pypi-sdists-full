@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "check-jsonschema"
-version = "0.33.2"
+version = "0.33.3"
 description = "A jsonschema CLI and pre-commit hook"
 authors = [
     { name = "Stephen Rosen", email = "sirosen0@gmail.com" },
@@ -44,7 +44,7 @@ dev = [
 docs = [
     "sphinx<9",
     "sphinx-issues<6",
-    "furo==2024.8.6",
+    "furo==2025.7.19",
 ]
 
 [project.scripts]

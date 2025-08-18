@@ -1,6 +1,6 @@
 from typing import Optional
 
-from openapi_client import V1LLMPermissionConfig, ProtoLLMKnowledge
+from vessl.openapi_client import V1LLMPermissionConfig, ProtoLLMKnowledge
 
 
 class Knowledge(object):

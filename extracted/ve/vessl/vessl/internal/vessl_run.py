@@ -7,15 +7,15 @@ from typing import Any, Dict, List, Optional, Union
 
 from urllib3.exceptions import MaxRetryError
 
-from openapi_client.models.experiment_metric_entry import ExperimentMetricEntry
-from openapi_client.models.experiment_metrics_update_api_input import (
+from vessl.openapi_client.models.experiment_metric_entry import ExperimentMetricEntry
+from vessl.openapi_client.models.experiment_metrics_update_api_input import (
     ExperimentMetricsUpdateAPIInput,
 )
-from openapi_client.models.response_experiment_info import ResponseExperimentInfo
-from openapi_client.models.run_execution_metrics_update_api_input import (
+from vessl.openapi_client.models.response_experiment_info import ResponseExperimentInfo
+from vessl.openapi_client.models.run_execution_metrics_update_api_input import (
     RunExecutionMetricsUpdateAPIInput,
 )
-from openapi_client.models.v1_plot_entry import V1PlotEntry
+from vessl.openapi_client.models.v1_plot_entry import V1PlotEntry
 from vessl.internal.collector import (
     Collector,
     RunExecutionMetricCollector,

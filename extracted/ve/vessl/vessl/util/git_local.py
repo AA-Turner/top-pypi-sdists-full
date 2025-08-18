@@ -1,7 +1,7 @@
 import os
 from typing import Optional, Tuple
 
-from openapi_client.models import ResponseProjectInfo
+from vessl.openapi_client.models import ResponseProjectInfo
 from vessl import vessl_api
 from vessl.util.common import safe_cast
 from vessl.util.exception import GitError

@@ -1,6 +1,6 @@
 from typing import Optional, Literal
 
-from openapi_client import ProtoLLMVectorDBConnAuth
+from vessl.openapi_client import ProtoLLMVectorDBConnAuth
 
 
 class ConnectionAuthUserPass(object):

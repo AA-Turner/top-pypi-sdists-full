@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.9
+Version: 2.6.11
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, o1, o3, GPT-4, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: py_gpt,py-gpt,pygpt,desktop,app,o1,o3,gpt-5,gpt,gpt4,gpt-4o,gpt-4v,gpt3.5,gpt-4,gpt-4-vision,gpt-3.5,llama3,mistral,gemini,grok,deepseek,bielik,claude,tts,whisper,vision,chatgpt,dall-e,chat,chatbot,assistant,text completion,image generation,ai,api,openai,api key,langchain,llama-index,ollama,presets,ui,qt,pyside
@@ -108,7 +108,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.9** | build: **2025-08-17** | Python: **>=3.10, <3.14**
+Release: **2.6.11** | build: **2025-08-18** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -1461,7 +1461,7 @@ as well as list and create directories.
 
 - `Mailer` - Provides the ability to send, receive and read emails.
 
-- `Google` - Access Gmail, Drive, Calendar, Contacts, YouTube, Keep for managing emails, files, events, notes, video info, and contacts.
+- `Google` - Access Gmail, Drive, Docs, Maps, Calendar, Contacts, Colab, YouTube, Keep - for managing emails, files, events, notes, video info, and contacts.
 
 - `Facebook` - Manage user info, pages, posts, and photos on Facebook pages.
 
@@ -2772,30 +2772,69 @@ The plugin provides voice control command execution within a conversation.
 
 See the ``Accessibility`` section for more details.
 
-## Google (Gmail, Drive, Calendar, Contacts, YT, Keep)
+## Google (Gmail, Drive, Calendar, Contacts, YT, Keep, Docs, Maps, Colab)
 
-- Listing recent emails from Gmail.
-- Listing all emails from Gmail.
-- Searching emails in Gmail.
-- Retrieving email details by ID in Gmail.
-- Sending an email via Gmail.
-- Listing recent calendar events.
-- Listing today's calendar events.
-- Listing tomorrow's calendar events.
-- Listing all calendar events.
-- Retrieving calendar events by a specific date.
-- Adding a new event to the calendar.
-- Deleting an event from the calendar.
-- Listing notes from Google Keep.
-- Adding a new note to Google Keep.
-- Listing files from Google Drive.
-- Finding a file in Google Drive by its path.
-- Downloading a file from Google Drive.
-- Uploading a file to Google Drive.
-- Retrieving information about a YouTube video.
-- Retrieving the transcript of a YouTube video.
-- Listing contacts from Google Contacts.
-- Adding a new contact to Google Contacts.
+- **Gmail**
+  - Listing recent emails from Gmail.
+  - Listing all emails from Gmail.
+  - Searching emails in Gmail.
+  - Retrieving email details by ID in Gmail.
+  - Sending an email via Gmail.
+  
+- **Google Calendar**
+  - Listing recent calendar events.
+  - Listing today's calendar events.
+  - Listing tomorrow's calendar events.
+  - Listing all calendar events.
+  - Retrieving calendar events by a specific date.
+  - Adding a new event to the calendar.
+  - Deleting an event from the calendar.
+  
+- **Google Keep**
+  - Listing notes from Google Keep.
+  - Adding a new note to Google Keep.
+  
+- **Google Drive**
+  - Listing files from Google Drive.
+  - Finding a file in Google Drive by its path.
+  - Downloading a file from Google Drive.
+  - Uploading a file to Google Drive.
+  
+- **YouTube**
+  - Retrieving information about a YouTube video.
+  - Retrieving the transcript of a YouTube video.
+  
+- **Google Contacts**
+  - Listing contacts from Google Contacts.
+  - Adding a new contact to Google Contacts.
+  
+- **Google Docs**
+  - Creating a new document.
+  - Retrieving a document.
+  - Listing documents.
+  - Appending text to a document.
+  - Replacing text in a document.
+  - Inserting a heading in a document.
+  - Exporting a document.
+  - Copying from a template.
+  
+- **Google Maps**
+  - Geocoding an address.
+  - Reverse geocoding coordinates.
+  - Getting directions between locations.
+  - Using the distance matrix.
+  - Text search for places.
+  - Finding nearby places.
+  - Generating static map images.
+  
+- **Google Colab**
+  - Listing notebooks.
+  - Creating a new notebook.
+  - Adding a code cell.
+  - Adding a markdown cell.
+  - Getting a link to a notebook.
+  - Renaming a notebook.
+  - Duplicating a notebook.
 
 ## Facebook
 
@@ -3528,6 +3567,10 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 
 **General**
 
+- `Verbose` - enables verbose mode.
+
+- `Auto retrieve additional context from RAG`: Auto retrieve additional context from RAG at the beginning if the index is provided.
+
 - `Display a tray notification when the goal is achieved.`: If enabled, a notification will be displayed after goal achieved / finished run.
 
 **Agents (LlamaIndex / OpenAI)**
@@ -3537,8 +3580,6 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 - `Max evaluation steps in loop` - Maximum evaluation steps to achieve the final result, set 0 to infinity
 
 - `Append and compare previous evaluation prompt in next evaluation` - If enabled, previous improvement prompt will be checked in next eval in loop, default: False
-
-- `Verbose` - enables verbose mode.
 
 - `Split response messages` - Split response messages to separated context items in OpenAI Agents mode.
 
@@ -4524,6 +4565,20 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.11 (2025-08-18)**
+
+- Added the ability to close the dialog window with the Esc key.
+- Made context item deletion without output refresh.
+- Optimizations.
+
+**2.6.10 (2025-08-17)**
+
+- Enhanced the handling of the context list.
+- Integrated RAG into OpenAI Agents.
+- Enhanced RAG management in Agents.
+- Added an option: Config -> Agents -> General -> Auto-retrieve additional context from RAG.
+- Included Google Docs, Maps, and Colab in the Google plugin.
 
 **2.6.9 (2025-08-17)**
 

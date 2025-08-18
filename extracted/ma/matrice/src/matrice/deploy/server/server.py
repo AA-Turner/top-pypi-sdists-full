@@ -157,29 +157,37 @@ class MatriceDeployServer:
     def _register_shutdown_handlers(self):
         """Register signal handlers and atexit callback for graceful shutdown."""
         def signal_handler(signum, frame):
-            logging.info("Received signal %d, initiating graceful shutdown...", signum)
+            logging.info("Received signal %d, triggering shutdown through utils...", signum)
             try:
-                self.stop_server()
+                # Use utils shutdown to trigger coordinated shutdown
+                if hasattr(self, 'utils') and self.utils:
+                    self.utils._shutdown_initiated.set()
+                else:
+                    # Fallback to direct shutdown if utils not available
+                    self.stop_server()
+                    os._exit(0)
             except Exception as exc:
                 logging.error("Error during signal-triggered shutdown: %s", str(exc))
-            finally:
-                os._exit(0)
-        
+                os._exit(1)
+
         def atexit_handler():
             logging.info("Process exiting, ensuring graceful shutdown...")
             try:
                 if not self._shutdown_event.is_set():
-                    self.stop_server()
+                    if hasattr(self, 'utils') and self.utils and not self.utils._shutdown_initiated.is_set():
+                        self.utils._shutdown_initiated.set()
+                    else:
+                        self.stop_server()
             except Exception as exc:
                 logging.error("Error during atexit shutdown: %s", str(exc))
-        
+
         # Register signal handlers for graceful shutdown
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGINT, signal_handler)
-        
+
         # Register atexit handler as a final safety net
         atexit.register(atexit_handler)
-        
+
         logging.info("Shutdown handlers registered successfully")
 
     def _validate_init_parameters(self, load_model, predict, action_id, external_port):
@@ -214,7 +222,7 @@ class MatriceDeployServer:
                 f"Invalid external port: {external_port}. Must be between 1 and 65535"
             )
 
-    def start(self):
+    def start(self, block=True):
         """Start the proxy interface and all server components."""
         try:
             self._validate_configuration()
@@ -231,15 +239,17 @@ class MatriceDeployServer:
                 "Model deployment model loaded",
             )
             self.utils = MatriceDeployServerUtils(
-                self.action_tracker, self.inference_interface, self.external_port
+                self.action_tracker, self.inference_interface, self.external_port, self
             )
             self.utils.update_deployment_address()
-            # self.utils.run_background_checkers()
+            self.utils.run_background_checkers()
             self.action_tracker.update_status(
                 "MDL_DPY_STR",
                 "SUCCESS",
                 "Model deployment started",
             )
+            if block:
+                self.utils.wait_for_shutdown()
         except Exception as exc:
             logging.error("Failed to start server components: %s", str(exc))
             self.action_tracker.update_status(
@@ -336,101 +346,70 @@ class MatriceDeployServer:
             num_producers=int(self.action_details.get("numProducers", 1)),
             app_name=self.app_name,
             app_version=self.app_version,
-            inference_pipeline_id=self.inference_pipeline_id
+            inference_pipeline_id=self.inference_pipeline_id,
         )
 
-        # Start stream manager in background thread since it's async
-        def start_stream_manager():
-            """Start the async stream manager in a new event loop."""
+        def run_stream_manager_in_thread():
+            """Run stream manager in a separate thread with its own event loop."""
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
-            async def start_and_run_until_shutdown():
+            async def run_stream_manager_until_shutdown():
                 try:
-                    # Add small delay to ensure server components are fully initialized
-                    await asyncio.sleep(2.0)
+                    # Check if shutdown was already signaled before starting
+                    if self._shutdown_event.is_set():
+                        logging.warning("Shutdown already signaled, not starting stream manager")
+                        return
                     
                     await self.stream_manager.start()
                     logging.info("Stream manager started successfully")
-                    
-                    # Wait for shutdown signal instead of waiting forever
+
+                    # Wait until shutdown event (poll periodically since threading.Event isn't async)
                     while not self._shutdown_event.is_set():
-                        try:
-                            await asyncio.sleep(1.0)  # Check shutdown every second
-                        except asyncio.CancelledError:
-                            break
+                        await asyncio.sleep(0.1)
                     
-                    logging.info("Shutdown signal received, stopping stream manager")
-                    await self.stream_manager.stop()
-                    logging.info("Stream manager stopped successfully")
-                    
-                except Exception as exc:
-                    logging.error("Error in stream manager: %s", str(exc))
-                    # Update status to indicate error
-                    try:
-                        self.action_tracker.update_status(
-                            "ERROR",
-                            "ERROR", 
-                            f"Stream manager error: {str(exc)}"
-                        )
-                    except Exception:
-                        pass  # Don't fail if status update fails
+                    logging.info("Shutdown event received, stream manager will stop")
+                except asyncio.CancelledError:
+                    logging.info("Stream manager task was cancelled")
                     raise
+                except Exception as exc:
+                    logging.error("Stream manager crashed: %s", exc)
+                    raise
+                finally:
+                    if self.stream_manager:
+                        try:
+                            await self.stream_manager.stop()
+                        except Exception as exc:
+                            logging.error("Error while stopping stream manager: %s", exc)
+                        else:
+                            logging.info("Stream manager stopped successfully")
 
             try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                
-                # Ensure loop is properly set up
-                logging.debug("Stream manager event loop created and set")
-                
+                loop.run_until_complete(run_stream_manager_until_shutdown())
+            finally:
                 try:
-                    loop.run_until_complete(start_and_run_until_shutdown())
-                    
-                    # After main coroutine completes, ensure all tasks are properly cleaned up
+                    # Cancel any straggler tasks
                     pending = asyncio.all_tasks(loop)
-                    if pending:
-                        logging.info("Cancelling %d pending tasks in stream manager loop", len(pending))
-                        for task in pending:
-                            if not task.done():
-                                task.cancel()
-                        
-                        # Wait for all tasks to complete with timeout
-                        try:
-                            loop.run_until_complete(
-                                asyncio.wait_for(
-                                    asyncio.gather(*pending, return_exceptions=True),
-                                    timeout=10.0
-                                )
-                            )
-                            logging.info("All pending tasks cancelled successfully")
-                        except asyncio.TimeoutError:
-                            logging.warning("Some tasks did not cancel within timeout")
-                        except Exception as exc:
-                            logging.warning("Error during task cancellation: %s", str(exc))
-                    
-                    # Give a brief moment for final cleanup
-                    time.sleep(0.1)
-                    
+                    for task in pending:
+                        task.cancel()
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                except Exception as exc:
+                    logging.warning("Error while cancelling pending tasks: %s", exc)
                 finally:
-                    try:
-                        # Close the event loop only after everything is cleaned up
-                        if not loop.is_closed():
-                            loop.close()
-                            logging.info("Stream event loop closed successfully")
-                    except Exception as exc:
-                        logging.warning("Error closing stream event loop: %s", str(exc))
-                        
-            except Exception as exc:
-                logging.error("Failed to start stream manager: %s", str(exc))
-                raise
-
+                    loop.close()
+                    logging.info("Stream manager loop closed")
+        
         try:
+            # Start the stream manager in a separate thread
             self._stream_manager_thread = threading.Thread(
-                target=start_stream_manager, daemon=False, name="StreamManager"
+                target=run_stream_manager_in_thread,
+                name="StreamManagerThread",
+                daemon=False
             )
             self._stream_manager_thread.start()
             logging.info("Stream manager thread started successfully")
         except Exception as exc:
-            logging.error("Failed to start stream thread: %s", str(exc))
+            logging.error("Failed to start stream manager thread: %s", str(exc))
             raise
 
     def _start_proxy_interface(self):
@@ -451,43 +430,47 @@ class MatriceDeployServer:
         self.proxy_interface.start()
         logging.info("Proxy interface started successfully")
 
-    def start_server(self):
+    def start_server(self, block=True):
         """Start the server and related components.
+
+        Args:
+            block: If True, wait for shutdown signal. If False, return immediately after starting.
 
         Raises:
             Exception: If unable to initialize server
         """
-        self.start()
+        self.start(block=block)
 
     def stop_server(self):
         """Stop the server and related components."""
         try:
             logging.info("Initiating server shutdown...")
-            
+
             # Signal shutdown to all components
             self._shutdown_event.set()
             
-            # Wait for stream manager thread to finish if it exists
+            # Wait for stream manager thread to finish
             if self._stream_manager_thread and self._stream_manager_thread.is_alive():
-                logging.info("Waiting for stream manager thread to finish...")
-                self._stream_manager_thread.join(timeout=30.0)  # 30 second timeout
-                if self._stream_manager_thread.is_alive():
-                    logging.warning("Stream manager thread did not finish within timeout")
-                else:
-                    logging.info("Stream manager thread finished successfully")
-            
+                logging.info("Waiting for stream manager thread to stop...")
+                try:
+                    self._stream_manager_thread.join(timeout=10.0)
+                    if self._stream_manager_thread.is_alive():
+                        logging.warning("Stream manager thread did not stop within timeout")
+                    else:
+                        logging.info("Stream manager thread stopped successfully")
+                except Exception as exc:
+                    logging.error("Error waiting for stream manager thread: %s", str(exc))
+
             # Stop proxy interface
             if self.proxy_interface:
                 try:
-                    # Add proxy interface stop method if available
-                    if hasattr(self.proxy_interface, 'stop'):
-                        self.proxy_interface.stop()
+                    self.proxy_interface.stop()
                     logging.info("Proxy interface stopped")
                 except Exception as exc:
                     logging.error("Error stopping proxy interface: %s", str(exc))
-            
+
             logging.info("Server shutdown completed")
-            
+
         except Exception as exc:
             logging.error("Error during server shutdown: %s", str(exc))
             raise
@@ -501,6 +484,7 @@ class MatriceDeployServerUtils:
         action_tracker: ActionTracker,
         inference_interface: InferenceInterface,
         external_port: int,
+        main_server: 'MatriceDeployServer' = None,
     ):
         """Initialize utils with reference to the main server.
 
@@ -508,6 +492,7 @@ class MatriceDeployServerUtils:
             action_tracker: ActionTracker instance
             inference_interface: InferenceInterface instance
             external_port: External port number
+            main_server: Reference to the main MatriceDeployServer instance
         """
         self.action_tracker = action_tracker
         self.session = self.action_tracker.session
@@ -522,9 +507,14 @@ class MatriceDeployServerUtils:
         self.auto_shutdown = self.action_details.get("autoShutdown", True)
         self.inference_interface = inference_interface
         self.external_port = external_port
+        self.main_server = main_server
         self._ip = None
         self._ip_fetch_attempts = 0
         self._max_ip_fetch_attempts = MAX_IP_FETCH_ATTEMPTS
+        
+        # Shutdown coordination
+        self._shutdown_initiated = threading.Event()
+        self._shutdown_complete = threading.Event()
 
     @property
     def ip(self):
@@ -688,9 +678,6 @@ class MatriceDeployServerUtils:
                     "Exception while notifying backend of shutdown: %s", str(exc)
                 )
 
-            # Allow time for cleanup
-            time.sleep(CLEANUP_DELAY_SECONDS)
-
             # Update status
             try:
                 self.action_tracker.update_status(
@@ -702,13 +689,23 @@ class MatriceDeployServerUtils:
             except Exception as exc:
                 logging.error("Failed to update deployment status: %s", str(exc))
 
-            logging.info("Waiting for final cleanup...")
-            time.sleep(FINAL_CLEANUP_DELAY_SECONDS)
-            logging.info("Shutdown complete, exiting process")
+            # Signal shutdown initiation instead of direct exit
+            logging.info("Signaling shutdown to main thread...")
+            self._shutdown_initiated.set()
+            
+            # Wait for coordinated shutdown to complete or timeout
+            if self._shutdown_complete.wait(timeout=30.0):
+                logging.info("Coordinated shutdown completed, exiting process")
+            else:
+                logging.warning("Coordinated shutdown timed out, forcing exit")
+            
+            # Final exit
             os._exit(0)
 
         except Exception as exc:
             logging.error("Error during shutdown: %s", str(exc))
+            # Signal shutdown even on error
+            self._shutdown_initiated.set()
             os._exit(1)
 
     def shutdown_checker(self):
@@ -866,19 +863,61 @@ class MatriceDeployServerUtils:
         shutdown_thread = threading.Thread(
             target=self.shutdown_checker,
             name="ShutdownChecker",
+            daemon=False,
         )
         heartbeat_thread = threading.Thread(
             target=self.heartbeat_checker,
             name="HeartbeatChecker",
+            daemon=False,
         )
-
-        shutdown_thread.daemon = True
-        heartbeat_thread.daemon = True
 
         shutdown_thread.start()
         heartbeat_thread.start()
 
         logging.info("Background checker threads started successfully")
+
+    def wait_for_shutdown(self):
+        """Wait for shutdown to be initiated by background checkers or external signals.
+        
+        This method blocks the main thread until shutdown is triggered.
+        """
+        try:
+            logging.info("Main thread waiting for shutdown signal...")
+            
+            # Wait for shutdown to be initiated
+            self._shutdown_initiated.wait()
+            
+            logging.info("Shutdown signal received, initiating server shutdown...")
+            
+            # Trigger coordinated shutdown
+            if self.main_server:
+                try:
+                    self.main_server.stop_server()
+                    logging.info("Server shutdown completed")
+                except Exception as exc:
+                    logging.error("Error during server shutdown: %s", str(exc))
+            
+            # Signal that shutdown is complete
+            self._shutdown_complete.set()
+            
+        except KeyboardInterrupt:
+            logging.info("Received KeyboardInterrupt, initiating shutdown...")
+            self._shutdown_initiated.set()
+            if self.main_server:
+                try:
+                    self.main_server.stop_server()
+                except Exception as exc:
+                    logging.error("Error during keyboard interrupt shutdown: %s", str(exc))
+            self._shutdown_complete.set()
+        except Exception as exc:
+            logging.error("Error in wait_for_shutdown: %s", str(exc))
+            self._shutdown_initiated.set()
+            if self.main_server:
+                try:
+                    self.main_server.stop_server()
+                except Exception as exc:
+                    logging.error("Error during exception shutdown: %s", str(exc))
+            self._shutdown_complete.set()
 
     def update_deployment_address(self):
         """Update the deployment address in the backend.

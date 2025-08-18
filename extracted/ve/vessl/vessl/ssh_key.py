@@ -1,8 +1,8 @@
 import os
 from typing import List
 
-from openapi_client.models import ResponseSSHKeyInfo
-from openapi_client.models.ssh_key_create_api_input import SSHKeyCreateAPIInput
+from vessl.openapi_client.models import ResponseSSHKeyInfo
+from vessl.openapi_client.models.ssh_key_create_api_input import SSHKeyCreateAPIInput
 from vessl import vessl_api
 
 

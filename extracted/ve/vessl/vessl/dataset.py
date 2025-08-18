@@ -1,7 +1,7 @@
 from typing import List
 
-from openapi_client import VESSLDatasetCreateAPIInput
-from openapi_client.models import (
+from vessl.openapi_client import VESSLDatasetCreateAPIInput
+from vessl.openapi_client.models import (
     GSDatasetCreateAPIInput,
     ResponseDatasetInfo,
     ResponseDatasetInfoDetail,

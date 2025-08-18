@@ -3,7 +3,7 @@ import time
 import warnings
 from typing import Dict, List
 
-from openapi_client import (
+from vessl.openapi_client import (
     ModelServiceGatewayUpdateAPIInput,
     ModelserviceModelServiceListResponse,
     ModelserviceModelServiceRevisionListResponse,
@@ -11,8 +11,8 @@ from openapi_client import (
     ModelServiceRevisionUpdateAPIInput,
     ModelServiceRolloutCreateAPIInput,
 )
-from openapi_client import OrmModelServiceGatewayTrafficSplitEntry as TrafficSplitEntry
-from openapi_client import (
+from vessl.openapi_client import OrmModelServiceGatewayTrafficSplitEntry as TrafficSplitEntry
+from vessl.openapi_client import (
     ResponseModelServiceGatewayInfo,
     ResponseModelServiceInfo,
     ResponseModelServiceRevision,
@@ -21,7 +21,7 @@ from openapi_client import (
     V1Autoscaling,
     V1RunArgument
 )
-from openapi_client.models.model_service_revision_create_from_yamlv2_api_input import (
+from vessl.openapi_client.models.model_service_revision_create_from_yamlv2_api_input import (
     ModelServiceRevisionCreateFromYAMLV2APIInput,
 )
 from vessl import vessl_api

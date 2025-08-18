@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Optional
 
-from openapi_client import (
+from vessl.openapi_client import (
     ResponseKernelClusterNodeInfo,
     StorageCreateAPIInput,
     StorageValidateConnectionAPIInput,

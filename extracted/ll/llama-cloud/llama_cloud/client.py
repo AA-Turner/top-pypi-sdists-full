@@ -8,6 +8,7 @@ from .core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from .environment import LlamaCloudEnvironment
 from .resources.admin.client import AdminClient, AsyncAdminClient
 from .resources.agent_deployments.client import AgentDeploymentsClient, AsyncAgentDeploymentsClient
+from .resources.alpha.client import AlphaClient, AsyncAlphaClient
 from .resources.beta.client import AsyncBetaClient, BetaClient
 from .resources.chat_apps.client import AsyncChatAppsClient, ChatAppsClient
 from .resources.classifier.client import AsyncClassifierClient, ClassifierClient
@@ -61,6 +62,7 @@ class LlamaCloud:
         self.llama_extract = LlamaExtractClient(client_wrapper=self._client_wrapper)
         self.reports = ReportsClient(client_wrapper=self._client_wrapper)
         self.beta = BetaClient(client_wrapper=self._client_wrapper)
+        self.alpha = AlphaClient(client_wrapper=self._client_wrapper)
 
 
 class AsyncLlamaCloud:
@@ -97,6 +99,7 @@ class AsyncLlamaCloud:
         self.llama_extract = AsyncLlamaExtractClient(client_wrapper=self._client_wrapper)
         self.reports = AsyncReportsClient(client_wrapper=self._client_wrapper)
         self.beta = AsyncBetaClient(client_wrapper=self._client_wrapper)
+        self.alpha = AsyncAlphaClient(client_wrapper=self._client_wrapper)
 
 
 def _get_base_url(*, base_url: typing.Optional[str] = None, environment: LlamaCloudEnvironment) -> str:

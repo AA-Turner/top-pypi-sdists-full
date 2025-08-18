@@ -2,6 +2,7 @@
 
 .. seealso:: http://epydoc.sourceforge.net/manual-fields.html
 """
+
 import inspect
 import re
 import typing as T
@@ -25,7 +26,7 @@ def _clean_str(string: str) -> T.Optional[str]:
     return None
 
 
-def parse(text: str) -> Docstring:
+def parse(text: T.Optional[str]) -> Docstring:
     """Parse the epydoc-style docstring into its components.
 
     :returns: parsed docstring
@@ -120,7 +121,7 @@ def parse(text: str) -> Docstring:
 
     # Combine type_name, arg_name, and description information
     params: T.Dict[str, T.Dict[str, T.Any]] = {}
-    for (base, key, args, desc) in stream:
+    for base, key, args, desc in stream:
         if base not in ["param", "return"]:
             continue  # nothing to do
 
@@ -137,7 +138,7 @@ def parse(text: str) -> Docstring:
                 )
 
     is_done: T.Dict[str, bool] = {}
-    for (base, key, args, desc) in stream:
+    for base, key, args, desc in stream:
         if base == "param" and not is_done.get(args[0], False):
             (arg_name,) = args
             info = params[arg_name]

@@ -4,7 +4,7 @@ from typing import List, Optional
 
 import click
 
-from openapi_client import ModelRepositoryCreateAPIInput, ResponseSimpleModelInfo
+from vessl.openapi_client import ModelRepositoryCreateAPIInput, ResponseSimpleModelInfo
 from vessl import list_experiment_output_files, list_experiments, vessl_api
 from vessl.cli._base import (
     VesslGroup,

@@ -121,7 +121,7 @@ class AuthKeyValidator:
         """Start the auth key update loop in a background thread."""
         threading.Thread(
             target=self.update_auth_keys_loop,
-            daemon=True,
+            daemon=False,
         ).start()
 
     def stop(self) -> None:
@@ -295,7 +295,7 @@ class RequestsLogger:
         """Start the prediction logging thread."""
         threading.Thread(
             target=self.log_prediction_info_thread,
-            daemon=True,
+            daemon=False,
         ).start()
 
     def stop(self) -> None:

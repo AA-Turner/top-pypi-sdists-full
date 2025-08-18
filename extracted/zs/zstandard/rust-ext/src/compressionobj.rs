@@ -20,6 +20,8 @@ pub struct ZstdCompressionObj {
     finished: bool,
 }
 
+unsafe impl Sync for ZstdCompressionObj {}
+
 impl ZstdCompressionObj {
     pub fn new(cctx: Arc<CCtx<'static>>) -> PyResult<Self> {
         Ok(ZstdCompressionObj {
@@ -63,9 +65,10 @@ impl ZstdCompressionObj {
             source = result.1;
         }
 
-        Ok(PyBytes::new_bound(py, &compressed))
+        Ok(PyBytes::new(py, &compressed))
     }
 
+    #[pyo3(signature = (flush_mode=None))]
     fn flush<'p>(
         &mut self,
         py: Python<'p>,
@@ -108,7 +111,7 @@ impl ZstdCompressionObj {
             result.extend(&chunk);
 
             if !call_again {
-                return Ok(PyBytes::new_bound(py, &result));
+                return Ok(PyBytes::new(py, &result));
             }
         }
     }

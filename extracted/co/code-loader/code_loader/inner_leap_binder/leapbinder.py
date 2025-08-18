@@ -49,6 +49,7 @@ class LeapBinder:
         self._extend_with_default_losses()
 
         self.mapping_connections: List[NodeConnection] = []
+        self.integration_test_func: Optional[Callable[[str, PreprocessResponse], Any]] = None
 
         self.batch_size_to_validate: Optional[int] = None
 

@@ -1,20 +1,18 @@
-from nose.plugins.skip import SkipTest
+import pytest
+
 from webassets import Environment as AssetsEnvironment, Bundle
 from webassets.test import TempEnvironmentHelper
 
 
-try:
-    import jinja2
-except ImportError:
-    raise SkipTest('Jinja2 not installed')
-else:
-    from jinja2 import Template, Environment as JinjaEnvironment
-    from webassets.ext.jinja2 import AssetsExtension, Jinja2Loader
+jinja2 = pytest.importorskip('jinja2')
+
+from jinja2 import Template, Environment as JinjaEnvironment
+from webassets.ext.jinja2 import AssetsExtension, Jinja2Loader
 
 
 class TestTemplateTag(object):
 
-    def setup(self):
+    def setup_method(self):
         # Setup the assets environment.
         assets_env = AssetsEnvironment('', '')
         self.foo_bundle = Bundle()
@@ -46,7 +44,7 @@ class TestTemplateTag(object):
         self.jinja_env.add_extension(AssetsExtension)
         self.jinja_env.assets_environment = assets_env
 
-    def teardown(self):
+    def teardown_method(self):
         AssetsExtension.BundleClass = self._old_bundle_class
         del self._old_bundle_class
 
@@ -125,8 +123,8 @@ class TestLoader(TempEnvironmentHelper):
             """
     }
 
-    def setup(self):
-        TempEnvironmentHelper.setup(self)
+    def setup_method(self):
+        super().setup_method()
         self.jinja_env = JinjaEnvironment()
         self.jinja_env.add_extension(AssetsExtension)
         self.jinja_env.assets_environment = self.env

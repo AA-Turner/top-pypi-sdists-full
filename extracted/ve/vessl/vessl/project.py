@@ -1,6 +1,6 @@
 from typing import List
 
-from openapi_client.models import ProjectCreateAPIInput, ResponseProjectInfo
+from vessl.openapi_client.models import ProjectCreateAPIInput, ResponseProjectInfo
 from vessl import vessl_api
 from vessl.organization import _get_organization_name
 from vessl.util.exception import InvalidProjectError

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "must-cdk",
-    "version": "0.0.96",
+    "version": "0.0.97",
     "description": "must-cdk",
     "license": "Apache-2.0",
     "url": "https://github.com/globalmsq/must-cdk.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "must_cdk._jsii": [
-            "must-cdk@0.0.96.jsii.tgz"
+            "must-cdk@0.0.97.jsii.tgz"
         ],
         "must_cdk": [
             "py.typed"

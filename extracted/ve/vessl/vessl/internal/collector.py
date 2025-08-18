@@ -5,8 +5,8 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union
 
-from openapi_client.models import ExperimentMetricEntry
-from openapi_client.models.v1_plot_entry import (
+from vessl.openapi_client.models import ExperimentMetricEntry
+from vessl.openapi_client.models.v1_plot_entry import (
     V1PlotEntry,
 )
 from vessl.util import logger

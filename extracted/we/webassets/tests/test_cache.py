@@ -1,8 +1,6 @@
-from __future__ import with_statement
-
 import random
 import pytest
-from nose.tools import assert_equal
+
 from webassets.filter import Filter
 from webassets.cache import BaseCache, FilesystemCache, MemoryCache
 from webassets.updater import TimestampUpdater
@@ -89,8 +87,8 @@ class TestCacheIsUsed(TempEnvironmentHelper):
     """Ensure the cache is used during the build process.
     """
 
-    def setup(self):
-        TempEnvironmentHelper.setup(self)
+    def setup_method(self):
+        super().setup_method()
 
         class MyCache(BaseCache):
             def __init__(self):
@@ -123,15 +121,15 @@ class TestCacheIsUsed(TempEnvironmentHelper):
         bundle = self.mkbundle('in1', 'in2', output='out', filters=self.filter)
         self.cache.enabled = False
         bundle.build()
-        assert_equal(self.cache.getops, 6)  # 2x first, 2x input, 1x output, 1x cache
-        assert_equal(self.cache.setops, 7)  # like getops + 1x bdef
+        assert self.cache.getops == 6  # 2x first, 2x input, 1x output, 1x cache
+        assert self.cache.setops == 7  # like getops + 1x bdef
 
     def test_cache_enabled(self):
         bundle = self.mkbundle('in1', 'in2', output='out', filters=self.filter)
         self.cache.enabled = True
         bundle.build()
-        assert_equal(self.cache.getops, 6)  # # 2x first, 2x input, 1x output, 1x cache
-        assert_equal(self.cache.setops, 1)  # one hit by (bdef)
+        assert self.cache.getops == 6  # # 2x first, 2x input, 1x output, 1x cache
+        assert self.cache.setops == 1  # one hit by (bdef)
 
     def test_filesystem_cache(self):
         """Regresssion test for two bugs:

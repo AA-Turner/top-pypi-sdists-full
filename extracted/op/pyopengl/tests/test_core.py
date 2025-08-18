@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 from __future__ import print_function
 import pygame, pygame.display
-import logging, time, traceback, unittest, os
+import logging, time, traceback, unittest, os, pytest
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -100,13 +100,9 @@ class TestCore(basetestcase.BaseTest):
                     glVertex3dv([1, 0, 4, 5])
                 except ValueError:
                     # Got expected value error (good)
-                    assert (
-                        OpenGL.ARRAY_SIZE_CHECKING
-                    ), """Should have raised ValueError when doing array size checking"""
+                    assert OpenGL.ARRAY_SIZE_CHECKING, """Should have raised ValueError when doing array size checking"""
                 else:
-                    assert (
-                        not OpenGL.ARRAY_SIZE_CHECKING
-                    ), """Should not have raised ValueError when not doing array size checking"""
+                    assert not OpenGL.ARRAY_SIZE_CHECKING, """Should not have raised ValueError when not doing array size checking"""
             finally:
                 glEnd()
             a = glGenTextures(1)
@@ -261,6 +257,17 @@ class TestCore(basetestcase.BaseTest):
                 glBindBuffer(GL_ARRAY_BUFFER, 0)
                 glDeleteVertexArrays(1, vertex_array)
                 glDeleteBuffers(1, buffer)
+
+        @pytest.mark.skipif(
+            not OpenGL.SIZE_1_ARRAY_UNPACK,
+            reason="Tests array unpack that is not configured",
+        )
+        def test_scalars_mapped_to_arrays(self):
+            if not glGenBuffers or not glGenVertexArrays:
+                return None
+            buffer = glGenBuffers(1)
+            assert isscalar(buffer), type(buffer)
+            glDeleteBuffers(1, buffer)
 
     def test_glbufferparameter_create(self):
         if not glGenBuffers or not glGenVertexArrays:

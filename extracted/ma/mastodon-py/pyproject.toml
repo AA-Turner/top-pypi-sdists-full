@@ -4,7 +4,7 @@ build-backend= "setuptools.build_meta"
 
 [project]
 name = "Mastodon.py"
-version = "2.0.1"
+version = "2.1.0"
 description = "Python wrapper for the Mastodon API"
 readme = "README.rst"
 authors = [
@@ -37,11 +37,14 @@ webpush = [
 blurhash = [
     'blurhash>=1.1.4',
 ]
+grapheme = [
+    'grapheme>=0.6.0',
+]
 test = [
     'pytest',
     'pytest-cov',
     'vcrpy',
-    'pytest-vcr',
+    'pytest-recording',
     'pytest-mock',
     'requests-mock',
     'pytz',
@@ -51,7 +54,7 @@ test_old = [
     'pytest',
     'pytest-cov',
     'vcrpy',
-    'pytest-vcr',
+    'pytest-recording',
     'pytest-mock',
     'requests-mock',
     'pytz',

@@ -28,7 +28,7 @@ class CustomerFacingIssueToActionHistoryDto(BaseModel):
     CustomerFacingIssueToActionHistoryDto
     """ # noqa: E501
     issue_id: Optional[StrictStr] = Field(default=None, description="The id of the issue the action history belongs to", alias="issueId")
-    actions: Optional[List[CustomerFacingIssueActionDto]] = Field(default=None, description="The actions that were performed on the issue. could be an empty list")
+    actions: Optional[List[CustomerFacingIssueActionDto]] = Field(default=None, description="The last 100 actions that were performed on the issue. could be an empty list")
     __properties: ClassVar[List[str]] = ["issueId", "actions"]
 
     model_config = ConfigDict(

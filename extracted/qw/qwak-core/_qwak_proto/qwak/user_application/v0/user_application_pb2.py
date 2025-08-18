@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n/qwak/user_application/v0/user_application.proto\x12\x18qwak.user_application.v0\x1a\x1cgoogle/protobuf/struct.proto\".\n\x04Spec\x12&\n\x05value\x18\x01 \x01(\x0b\x32\x17.google.protobuf.Struct\"0\n\x06Status\x12&\n\x05value\x18\x01 \x01(\x0b\x32\x17.google.protobuf.Struct*\xaa\x03\n\x04Type\x12!\n\x1dINVALID_USER_APPLICATION_TYPE\x10\x00\x12\x10\n\x0cREMOTE_BUILD\x10\x01\x12\x1f\n\x17\x42\x41TCH_FEATURE_PROCESSOR\x10\x02\x1a\x02\x08\x01\x12#\n\x1bSTREAMING_FEATURE_PROCESSOR\x10\x03\x1a\x02\x08\x01\x12\x18\n\x14\x42\x41TCH_INFERENCE_TASK\x10\x04\x12\x14\n\x10MODEL_DEPLOYMENT\x10\x05\x12\x11\n\rMODEL_MONITOR\x10\x06\x12\x1b\n\x17\x44\x45PLOYMENT_MICROSERVICE\x10\x07\x12\x0f\n\x0b\x41PPLICATION\x10\x08\x12\x14\n\x10\x42\x41TCH_FEATURESET\x10\t\x12\x18\n\x14\x43USTOMER_ALERT_STACK\x10\n\x12\x11\n\rMODEL_TRAFFIC\x10\x0b\x12\x18\n\x14STREAMING_FEATURESET\x10\x0c\x12$\n STREAMING_AGGREGATION_FEATURESET\x10\r\x12\x1a\n\x16MLOPS_MODEL_DEPLOYMENT\x10\x0e\x12\x17\n\x13MLOPS_MODEL_TRAFFIC\x10\x0f\x42\xaa\x01\n\x1f\x63om.qwak.ai.user_application.v0P\x01Z\x84\x01github.com/qwak-ai/qwak-platform/services/core/go/admiral/user-application-value-api/pb/qwak/user_application/v0;user_application_v0b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n/qwak/user_application/v0/user_application.proto\x12\x18qwak.user_application.v0\x1a\x1cgoogle/protobuf/struct.proto\".\n\x04Spec\x12&\n\x05value\x18\x01 \x01(\x0b\x32\x17.google.protobuf.Struct\"0\n\x06Status\x12&\n\x05value\x18\x01 \x01(\x0b\x32\x17.google.protobuf.Struct*\xba\x03\n\x04Type\x12!\n\x1dINVALID_USER_APPLICATION_TYPE\x10\x00\x12\x10\n\x0cREMOTE_BUILD\x10\x01\x12\x1f\n\x17\x42\x41TCH_FEATURE_PROCESSOR\x10\x02\x1a\x02\x08\x01\x12#\n\x1bSTREAMING_FEATURE_PROCESSOR\x10\x03\x1a\x02\x08\x01\x12\x18\n\x14\x42\x41TCH_INFERENCE_TASK\x10\x04\x12\x14\n\x10MODEL_DEPLOYMENT\x10\x05\x12\x11\n\rMODEL_MONITOR\x10\x06\x12\x1b\n\x17\x44\x45PLOYMENT_MICROSERVICE\x10\x07\x12\x0f\n\x0b\x41PPLICATION\x10\x08\x12\x14\n\x10\x42\x41TCH_FEATURESET\x10\t\x12\x18\n\x14\x43USTOMER_ALERT_STACK\x10\n\x12\x11\n\rMODEL_TRAFFIC\x10\x0b\x12\x18\n\x14STREAMING_FEATURESET\x10\x0c\x12$\n STREAMING_AGGREGATION_FEATURESET\x10\r\x12\x1a\n\x16MLOPS_MODEL_DEPLOYMENT\x10\x0e\x12\x17\n\x13MLOPS_MODEL_TRAFFIC\x10\x0f\x12\x0e\n\nAI_GATEWAY\x10\x10\x42\xaa\x01\n\x1f\x63om.qwak.ai.user_application.v0P\x01Z\x84\x01github.com/qwak-ai/qwak-platform/services/core/go/admiral/user-application-value-api/pb/qwak/user_application/v0;user_application_v0b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -28,7 +28,7 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _TYPE.values_by_name["STREAMING_FEATURE_PROCESSOR"]._options = None
   _TYPE.values_by_name["STREAMING_FEATURE_PROCESSOR"]._serialized_options = b'\010\001'
   _globals['_TYPE']._serialized_start=206
-  _globals['_TYPE']._serialized_end=632
+  _globals['_TYPE']._serialized_end=648
   _globals['_SPEC']._serialized_start=107
   _globals['_SPEC']._serialized_end=153
   _globals['_STATUS']._serialized_start=155

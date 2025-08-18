@@ -41,7 +41,6 @@ class Hurdle(BaseDistribution):
     >>> base = Normal(mu=1.0, sigma=1.0)
     >>> hurdle = Hurdle(0.5, base)
     >>> samples = hurdle.sample(1000)
-
     """
 
     _tags = {
@@ -73,6 +72,29 @@ class Hurdle(BaseDistribution):
             index=index if index is not None else distribution.index,
             columns=columns if columns is not None else distribution.columns,
         )
+
+        # the capabilities of this (self) distribution are exact
+        # if and only if the capabilities of the inner distribution are exact
+        self_exact_capas = self.get_tag("capabilities:exact", []).copy()
+        self_approx_capas = self.get_tag("capabilities:approx", []).copy()
+        distr_exact_capas = distribution.get_tag("capabilities:exact", []).copy()
+        for capa in self_exact_capas:
+            if capa not in distr_exact_capas:
+                self_exact_capas.remove(capa)
+                self_approx_capas.append(capa)
+
+        self.set_tags(**{"capabilities:exact": self_exact_capas})
+        self.set_tags(**{"capabilities:approx": self_approx_capas})
+
+        # the measuretype of this distribution is discrete if the inner distribution
+        # is discrete, otherwise it is mixed
+        inner_measuretype = distribution.get_tag("distr:measuretype", "mixed")
+        if inner_measuretype == "discrete":
+            self.set_tags(**{"distr:measuretype": "discrete"})
+
+        inner_paramtype = distribution.get_tag("distr:paramtype", "parametric")
+        if inner_paramtype != "parametric":
+            self.set_tags(**{"distr:paramtype": inner_paramtype})
 
     # NB: not sure how much we need to conform with sklearn, but according to their
     # docs we shouldn't modify the input variables:
@@ -167,12 +189,12 @@ class Hurdle(BaseDistribution):
     def get_test_params(cls, parameter_set="default"):  # noqa: D102
         import pandas as pd
 
-        from skpro.distributions import Poisson
+        from skpro.distributions import NegativeBinomial
 
         # scalar
         params_1 = {
             "p": 0.3,
-            "distribution": Poisson(mu=1.0),
+            "distribution": NegativeBinomial(mu=1.0, alpha=1.0),
         }
 
         # array 1
@@ -180,10 +202,10 @@ class Hurdle(BaseDistribution):
         idx = pd.Index([0, 1])
         cols = pd.Index(["a", "b", "c"])
 
-        poisson = Poisson(mu=mu, columns=cols, index=idx)
+        negbin = NegativeBinomial(mu=mu, alpha=1.0, columns=cols, index=idx)
         params_2 = {
             "p": 0.3,
-            "distribution": poisson,
+            "distribution": negbin,
             "index": idx,
             "columns": cols,
         }
@@ -191,7 +213,7 @@ class Hurdle(BaseDistribution):
         # array 2
         params_3 = {
             "p": np.array([0.2, 0.3]).reshape(-1, 1),
-            "distribution": poisson,
+            "distribution": negbin,
             "index": idx,
             "columns": cols,
         }

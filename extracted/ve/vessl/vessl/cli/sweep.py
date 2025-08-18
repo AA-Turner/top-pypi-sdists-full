@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Tuple
 
 import click
 
-from openapi_client import OrmParameter, OrmSweepObjective
+from vessl.openapi_client import OrmParameter, OrmSweepObjective
 from vessl.cli._base import VesslGroup, vessl_argument, vessl_option
 from vessl.cli._util import (
     print_data,

@@ -12,6 +12,7 @@ class UsageResponseActiveAlertsItem(str, enum.Enum):
     CONFIGURED_SPEND_LIMIT_EXCEEDED = "configured_spend_limit_exceeded"
     FREE_CREDITS_EXHAUSTED = "free_credits_exhausted"
     INTERNAL_SPENDING_ALERT = "internal_spending_alert"
+    HAS_SPENDING_ALERT = "has_spending_alert"
 
     def visit(
         self,
@@ -20,6 +21,7 @@ class UsageResponseActiveAlertsItem(str, enum.Enum):
         configured_spend_limit_exceeded: typing.Callable[[], T_Result],
         free_credits_exhausted: typing.Callable[[], T_Result],
         internal_spending_alert: typing.Callable[[], T_Result],
+        has_spending_alert: typing.Callable[[], T_Result],
     ) -> T_Result:
         if self is UsageResponseActiveAlertsItem.PLAN_SPEND_LIMIT_EXCEEDED:
             return plan_spend_limit_exceeded()
@@ -31,3 +33,5 @@ class UsageResponseActiveAlertsItem(str, enum.Enum):
             return free_credits_exhausted()
         if self is UsageResponseActiveAlertsItem.INTERNAL_SPENDING_ALERT:
             return internal_spending_alert()
+        if self is UsageResponseActiveAlertsItem.HAS_SPENDING_ALERT:
+            return has_spending_alert()

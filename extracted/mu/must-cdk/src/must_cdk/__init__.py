@@ -52,6 +52,11 @@ must-cdk amplify init -d /path/to/project
 * Load balanced service deployments
 * Auto-scaling configurations
 * Health check implementations
+* Environment variables support
+* Secrets management integration
+* Custom container names
+* Enhanced container configuration
+* Container access after creation
 
 ### 🌐 CloudFront Patterns
 
@@ -1194,9 +1199,18 @@ class CloudFrontToOrigins(
     name_mapping={
         "container_port": "containerPort",
         "image": "image",
+        "command": "command",
+        "cpu": "cpu",
+        "entry_point": "entryPoint",
+        "environment": "environment",
+        "essential": "essential",
         "health_check": "healthCheck",
         "memory_limit": "memoryLimit",
         "memory_reservation": "memoryReservation",
+        "name": "name",
+        "secrets": "secrets",
+        "user": "user",
+        "working_directory": "workingDirectory",
     },
 )
 class ContainerProps:
@@ -1205,17 +1219,35 @@ class ContainerProps:
         *,
         container_port: jsii.Number,
         image: _aws_cdk_aws_ecs_ceddda9d.ContainerImage,
+        command: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cpu: typing.Optional[jsii.Number] = None,
+        entry_point: typing.Optional[typing.Sequence[builtins.str]] = None,
+        environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        essential: typing.Optional[builtins.bool] = None,
         health_check: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
         memory_limit: typing.Optional[jsii.Number] = None,
         memory_reservation: typing.Optional[jsii.Number] = None,
+        name: typing.Optional[builtins.str] = None,
+        secrets: typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_ecs_ceddda9d.Secret]] = None,
+        user: typing.Optional[builtins.str] = None,
+        working_directory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Configuration for the ECS Fargate task definition and container.
 
         :param container_port: The port number the container listens on.
         :param image: Container image to deploy.
+        :param command: Command to run in the container.
+        :param cpu: CPU units for this container (default: uses task-level CPU allocation).
+        :param entry_point: Entry point for the container.
+        :param environment: Environment variables to set in the container.
+        :param essential: Whether this container is essential (default: true).
         :param health_check: Optional container health check configuration.
         :param memory_limit: Hard memory limit in MiB for the task (default: 2048).
         :param memory_reservation: Soft memory reservation in MiB for the container (default: 1024).
+        :param name: Optional container name (default: Container{index}).
+        :param secrets: Secrets to inject into the container from AWS Systems Manager Parameter Store or AWS Secrets Manager.
+        :param user: User to run the container as.
+        :param working_directory: Working directory inside the container.
         '''
         if isinstance(health_check, dict):
             health_check = _aws_cdk_aws_ecs_ceddda9d.HealthCheck(**health_check)
@@ -1223,19 +1255,46 @@ class ContainerProps:
             type_hints = typing.get_type_hints(_typecheckingstub__54ea2679bab87dfe8eb538ebc455f8d93200c1beb37ad6e093fa52678f8ac1fc)
             check_type(argname="argument container_port", value=container_port, expected_type=type_hints["container_port"])
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
+            check_type(argname="argument command", value=command, expected_type=type_hints["command"])
+            check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
+            check_type(argname="argument entry_point", value=entry_point, expected_type=type_hints["entry_point"])
+            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
+            check_type(argname="argument essential", value=essential, expected_type=type_hints["essential"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
             check_type(argname="argument memory_limit", value=memory_limit, expected_type=type_hints["memory_limit"])
             check_type(argname="argument memory_reservation", value=memory_reservation, expected_type=type_hints["memory_reservation"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument secrets", value=secrets, expected_type=type_hints["secrets"])
+            check_type(argname="argument user", value=user, expected_type=type_hints["user"])
+            check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "container_port": container_port,
             "image": image,
         }
+        if command is not None:
+            self._values["command"] = command
+        if cpu is not None:
+            self._values["cpu"] = cpu
+        if entry_point is not None:
+            self._values["entry_point"] = entry_point
+        if environment is not None:
+            self._values["environment"] = environment
+        if essential is not None:
+            self._values["essential"] = essential
         if health_check is not None:
             self._values["health_check"] = health_check
         if memory_limit is not None:
             self._values["memory_limit"] = memory_limit
         if memory_reservation is not None:
             self._values["memory_reservation"] = memory_reservation
+        if name is not None:
+            self._values["name"] = name
+        if secrets is not None:
+            self._values["secrets"] = secrets
+        if user is not None:
+            self._values["user"] = user
+        if working_directory is not None:
+            self._values["working_directory"] = working_directory
 
     @builtins.property
     def container_port(self) -> jsii.Number:
@@ -1250,6 +1309,38 @@ class ContainerProps:
         result = self._values.get("image")
         assert result is not None, "Required property 'image' is missing"
         return typing.cast(_aws_cdk_aws_ecs_ceddda9d.ContainerImage, result)
+
+    @builtins.property
+    def command(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Command to run in the container.'''
+        result = self._values.get("command")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def cpu(self) -> typing.Optional[jsii.Number]:
+        '''CPU units for this container (default: uses task-level CPU allocation).'''
+        result = self._values.get("cpu")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def entry_point(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Entry point for the container.'''
+        result = self._values.get("entry_point")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def environment(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Environment variables to set in the container.'''
+        result = self._values.get("environment")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def essential(self) -> typing.Optional[builtins.bool]:
+        '''Whether this container is essential (default: true).'''
+        result = self._values.get("essential")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def health_check(self) -> typing.Optional[_aws_cdk_aws_ecs_ceddda9d.HealthCheck]:
@@ -1268,6 +1359,32 @@ class ContainerProps:
         '''Soft memory reservation in MiB for the container (default: 1024).'''
         result = self._values.get("memory_reservation")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Optional container name (default: Container{index}).'''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def secrets(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_ecs_ceddda9d.Secret]]:
+        '''Secrets to inject into the container from AWS Systems Manager Parameter Store or AWS Secrets Manager.'''
+        result = self._values.get("secrets")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_ecs_ceddda9d.Secret]], result)
+
+    @builtins.property
+    def user(self) -> typing.Optional[builtins.str]:
+        '''User to run the container as.'''
+        result = self._values.get("user")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def working_directory(self) -> typing.Optional[builtins.str]:
+        '''Working directory inside the container.'''
+        result = self._values.get("working_directory")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1631,6 +1748,12 @@ class EcsCodeDeploy(
     @jsii.member(jsii_name="codeDeployApp")
     def code_deploy_app(self) -> _aws_cdk_aws_codedeploy_ceddda9d.EcsApplication:
         return typing.cast(_aws_cdk_aws_codedeploy_ceddda9d.EcsApplication, jsii.get(self, "codeDeployApp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="containers")
+    def containers(self) -> typing.List[_aws_cdk_aws_ecs_ceddda9d.ContainerDefinition]:
+        '''Container definitions created by this construct.'''
+        return typing.cast(typing.List[_aws_cdk_aws_ecs_ceddda9d.ContainerDefinition], jsii.get(self, "containers"))
 
     @builtins.property
     @jsii.member(jsii_name="greenTargetGroup")
@@ -3626,9 +3749,18 @@ def _typecheckingstub__54ea2679bab87dfe8eb538ebc455f8d93200c1beb37ad6e093fa52678
     *,
     container_port: jsii.Number,
     image: _aws_cdk_aws_ecs_ceddda9d.ContainerImage,
+    command: typing.Optional[typing.Sequence[builtins.str]] = None,
+    cpu: typing.Optional[jsii.Number] = None,
+    entry_point: typing.Optional[typing.Sequence[builtins.str]] = None,
+    environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    essential: typing.Optional[builtins.bool] = None,
     health_check: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     memory_limit: typing.Optional[jsii.Number] = None,
     memory_reservation: typing.Optional[jsii.Number] = None,
+    name: typing.Optional[builtins.str] = None,
+    secrets: typing.Optional[typing.Mapping[builtins.str, _aws_cdk_aws_ecs_ceddda9d.Secret]] = None,
+    user: typing.Optional[builtins.str] = None,
+    working_directory: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

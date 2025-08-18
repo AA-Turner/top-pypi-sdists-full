@@ -6,7 +6,6 @@
 
 from __future__ import absolute_import
 
-import cffi
 import distutils.ccompiler
 import distutils.sysconfig
 import os
@@ -14,6 +13,8 @@ import re
 import subprocess
 import tempfile
 
+import cffi
+import packaging.tags
 
 HERE = os.path.abspath(os.path.dirname(__file__))
 
@@ -22,7 +23,7 @@ SOURCES = [
 ]
 
 # Headers whose preprocessed output will be fed into cdef().
-HEADERS = [os.path.join(HERE, "zstd", p) for p in ("zstd.h", "zdict.h")]
+HEADERS = [os.path.join(HERE, "zstd", p) for p in ("zstd_errors.h", "zstd.h", "zdict.h")]
 
 INCLUDE_DIRS = [
     os.path.join(HERE, "zstd"),
@@ -71,24 +72,30 @@ def preprocess(path):
         lines = []
         it = iter(fh)
 
-        for l in it:
+        for line in it:
             # zstd.h includes <stddef.h>, which is also included by cffi's
             # boilerplate. This can lead to duplicate declarations. So we strip
             # this include from the preprocessor invocation.
             #
-            # The same things happens for including zstd.h, so give it the same
-            # treatment.
+            # The same things happens for including zstd.h and zstd_errors.h, so
+            # give them the same treatment.
             #
             # We define ZSTD_STATIC_LINKING_ONLY, which is redundant with the inline
             # #define in zstdmt_compress.h and results in a compiler warning. So drop
             # the inline #define.
-            if l.startswith(
+            if line.startswith(
                 (
                     b"#include <stddef.h>",
                     b'#include "zstd.h"',
+                    b'#include "zstd_errors.h"',
                     b"#define ZSTD_STATIC_LINKING_ONLY",
                 )
             ):
+                continue
+
+            # There's a naked `static` before the declaration of ZSTD_customMem that
+            # confuses the cffi parser. Strip it.
+            if line == b'static\n':
                 continue
 
             # The preprocessor environment on Windows doesn't define include
@@ -97,8 +104,8 @@ def preprocess(path):
             # a bit hacky. But it gets the job done.
             # TODO make limits.h work on Windows so we ensure INT_MAX is
             # correct.
-            if l.startswith(b"#include <limits.h>"):
-                l = b"#define INT_MAX 2147483647\n"
+            if line.startswith(b"#include <limits.h>"):
+                line = b"#define INT_MAX 2147483647\n"
 
             # ZSTDLIB_API may not be defined if we dropped zstd.h. It isn't
             # important so just filter it out. Ditto for ZSTDLIB_STATIC_API and
@@ -108,10 +115,10 @@ def preprocess(path):
                 b"ZSTDLIB_STATIC_API",
                 b"ZDICTLIB_STATIC_API",
             ):
-                if l.startswith(prefix):
-                    l = l[len(prefix) :]
+                if line.startswith(prefix):
+                    line = line[len(prefix) :]
 
-            lines.append(l)
+            lines.append(line)
 
     fd, input_file = tempfile.mkstemp(suffix=".h")
     os.write(fd, b"".join(lines))
@@ -157,19 +164,24 @@ def normalize_output(output):
 
     return b"\n".join(lines)
 
+# musl 1.1 doesn't define qsort_r. We need to force using the C90
+# variant.
+define_macros = []
+for tag in packaging.tags.platform_tags():
+    if tag.startswith("musllinux_1_1_"):
+        define_macros.append(("ZDICT_QSORT", "ZDICT_QSORT_C90"))
+
 
 ffi = cffi.FFI()
-# zstd.h uses a possible undefined MIN(). Define it until
-# https://github.com/facebook/zstd/issues/976 is fixed.
 # *_DISABLE_DEPRECATE_WARNINGS prevents the compiler from emitting a warning
 # when cffi uses the function. Since we statically link against zstd, even
 # if we use the deprecated functions it shouldn't be a huge problem.
 ffi.set_source(
     "zstandard._cffi",
     """
-#define MIN(a,b) ((a)<(b) ? (a) : (b))
 #define ZSTD_STATIC_LINKING_ONLY
 #define ZSTD_DISABLE_DEPRECATE_WARNINGS
+#include <zstd_errors.h>
 #include <zstd.h>
 #define ZDICT_STATIC_LINKING_ONLY
 #define ZDICT_DISABLE_DEPRECATE_WARNINGS
@@ -177,9 +189,10 @@ ffi.set_source(
 """,
     sources=SOURCES,
     include_dirs=INCLUDE_DIRS,
+    define_macros=define_macros
 )
 
-DEFINE = re.compile(b"^\\#define ([a-zA-Z0-9_]+) ")
+DEFINE = re.compile(rb"^#define\s+([a-zA-Z0-9_]+)\s+(\S+)")
 
 sources = []
 
@@ -204,12 +217,17 @@ for header in HEADERS:
             if m.group(1) in (b"ZSTD_LIB_VERSION", b"ZSTD_VERSION_STRING"):
                 continue
 
+            # These defines create aliases from old (camelCase) type names
+            # to the new PascalCase names, which breaks CFFI.
+            if m.group(1).lower() == m.group(2).lower():
+                continue
+
             # The ... is magic syntax by the cdef parser to resolve the
             # value at compile time.
-            sources.append(m.group(0) + b" ...")
+            sources.append(b"#define " + m.group(1) + b" ...")
 
 cdeflines = b"\n".join(sources).splitlines()
-cdeflines = [l for l in cdeflines if l.strip()]
+cdeflines = [line for line in cdeflines if line.strip()]
 ffi.cdef(b"\n".join(cdeflines).decode("latin1"))
 
 if __name__ == "__main__":

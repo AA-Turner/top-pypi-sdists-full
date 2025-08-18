@@ -55,15 +55,19 @@ def test_status_card(api):
         api.status_delete(status['id'])
 
 # Old-version card api
+# skip these entirely now, 2.9.2 was a long time ago and we can't regenerate them.
+@pytest.mark.skip("Skipping pre-2.9.2 tests")
 def test_status_card_pre_2_9_2(api):
     if sys.version_info > (3, 9): # 3.10 and up will not load the json data and regenerating it would require a 2.9.2 instance
         pytest.skip("Test skipped for 3.10 and up")
     else:
+        api._Mastodon__version_check_worked = True
+        api._Mastodon__version_check_tried = True
         with vcr.use_cassette('test_status_card.yaml', cassette_library_dir='tests/cassettes_pre_2_9_2', record_mode='none'):    
             import time
             status = api.status_post("http://example.org/")
             time.sleep(5) # Card generation may take time
-            api.verify_minimum_version("2.9.2", cached=False)
+            api.verify_minimum_version("2.9.2", cached=True)
             card = api.status_card(status['id'])
             try:
                 assert card
@@ -77,18 +81,21 @@ def test_status_context(status, api):
     assert context
 
 @pytest.mark.vcr()
-def test_status_reblogged_by(api, status, status3, api3):
-    api3.status_reblog(status3['id'])
+def test_status_reblogged_by(api, status3, api3):
+    assert api3.status_reblog(status3['id'])
+    time.sleep(3)
     reblogs = api3.status_reblogged_by(status3['id'])
     assert isinstance(reblogs, list)
     assert len(reblogs) == 1
-    api.status_reblog(status)
+    status = api.status_post("bwooh!", visibility='private')
+    assert api.status_reblog(status)
     reblogs = api.status_reblogged_by(status['id'])
     assert isinstance(reblogs, list)
     assert len(reblogs) == 0
 
 @pytest.mark.vcr()
-def test_status_reblog_visibility(status, api, status3, api3):
+def test_status_reblog_visibility(api, status3, api3):
+    status = api.status_post("bwooh! secret", visibility='private')
     reblog_result = api.status_reblog(status['id'], visibility = 'unlisted')
     assert reblog_result.visibility == 'private'
     reblog_result = api3.status_reblog(status3, visibility = 'unlisted')
@@ -296,3 +303,34 @@ def test_status_translate(api, status):
     with pytest.raises(MastodonAPIError):
         translation = api.status_translate(status['id'], 'de')
         
+@pytest.mark.vcr(match_on=['path'])   
+def test_status_delete_media(api, status):
+    # Prepare a status with media
+    try:
+        media = api.media_post('tests/image.jpg')
+        status_with_media = api.status_post('Status with media', media_ids=media)
+
+        # Delete it without media wipe
+        deleted_status = api.status_delete(status_with_media['id'], delete_media=False)
+        assert deleted_status['id'] == status_with_media['id']
+        print(deleted_status.media_attachments[0].id)
+
+        time.sleep(5)  # Wait for media deletion to be processed
+
+        # Now repost and delete it with media wipe
+        status_with_media = api.status_post('Status with media reposted', media_ids=[deleted_status.media_attachments[0].id])
+        deleted_status = api.status_delete(status_with_media['id'], delete_media=True)
+        assert deleted_status['id'] == status_with_media['id']
+
+        time.sleep(5)  # Wait for media deletion to be processed
+
+        # Check that the media is deleted by trying to repost again (should fail)
+        with pytest.raises(MastodonAPIError):
+            api.status_post('Trying to repost deleted media', media_ids=status_with_media['media_attachments'][0].id)
+    finally:
+        # Delete status if it exists
+        try:
+            api.status_delete(status_with_media['id'])
+        except:
+            pass
+

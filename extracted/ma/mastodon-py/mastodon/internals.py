@@ -14,11 +14,12 @@ import collections
 import base64
 import os
 import inspect
+import warnings
 
 from mastodon.versions import parse_version_string
 from mastodon.errors import MastodonNetworkError, MastodonIllegalArgumentError, MastodonRatelimitError, MastodonNotFoundError, \
                     MastodonUnauthorizedError, MastodonInternalServerError, MastodonBadGatewayError, MastodonServiceUnavailableError, \
-                    MastodonGatewayTimeoutError, MastodonServerError, MastodonAPIError, MastodonMalformedEventError
+                    MastodonGatewayTimeoutError, MastodonServerError, MastodonAPIError, MastodonMalformedEventError, MastodonDeprecationWarning
 from mastodon.compat import urlparse, magic, PurePath, Path
 from mastodon.defaults import _DEFAULT_STREAM_TIMEOUT, _DEFAULT_STREAM_RECONNECT_WAIT_SEC
 from mastodon.return_types import AttribAccessDict, PaginatableList, try_cast_recurse
@@ -165,7 +166,13 @@ class Mastodon():
                 else:
                     kwargs['data'] = params
 
-                response_object = self.session.request(method, base_url + endpoint, **kwargs)
+                # nb: the no-op "auth" parameter is neccesary to ensure requests will never override
+                # the Bearer auth header that we add with a HTTP Basic Auth header, which can otherwise
+                # happen if the user has a .netrc file with a matching host (including a "default" entry).
+                # Passing trust_env = False would also work, but would be worse, since it also disables
+                # systemwide proxy settings, which are probably still good to respect, even if the .netrc
+                # login behaviour is undesirable in every case.
+                response_object = self.session.request(method, base_url + endpoint, **kwargs, auth=lambda x: x)
                 if self.debug_requests:
                     print(f'Mastodon: Request URL: {response_object.request.url}')
                     print(f'Mastodon: Request body: {response_object.request.body}')
@@ -175,6 +182,10 @@ class Mastodon():
 
             if response_object is None:
                 raise MastodonIllegalArgumentError("Illegal request.")
+
+            # Is there a "deprecation" header present?
+            if 'deprecation' in response_object.headers:
+                warnings.warn("Endpoint " + endpoint + " is marked as deprecated and may be removed in future Mastodon versions.", MastodonDeprecationWarning)
 
             # Parse rate limiting headers
             if 'X-RateLimit-Remaining' in response_object.headers and do_ratelimiting:
@@ -637,6 +648,31 @@ class Mastodon():
         # Some API endpoints can't handle extra /'s in path requests
         base_url = base_url.rstrip("/")
         return base_url
+
+    @staticmethod
+    def __oauth_url_check(oauth_url, allow_http=False):
+        """Internal helper to check and normalize OAuth URLs"""
+        if "?" in oauth_url:
+            # Throw an error, we do not support OAuth URLs with query parameters, even if this is in theory a
+            # valid thing to have for most endpoints.
+            raise MastodonIllegalArgumentError("OAuth URLs with query parameters are not supported by Mastodon.py.")
+        
+        if "#" in oauth_url:
+            # A fragment is just straight up not allowed by the spec.
+            raise MastodonIllegalArgumentError("OAuth URLs with fragments are not permitted.")
+        
+        if "@" in oauth_url:
+            # Username/password is RIGHT OUT.
+            raise MastodonIllegalArgumentError("OAuth URLs with username/password are not permitted.")
+
+        # OAuth URLs *must* include the scheme, and the scheme *must* be https.
+        # We allow http if a flag is set because testing requires it.
+        if not oauth_url.startswith("https://"):
+            if allow_http:
+                if not oauth_url.startswith("http://"):
+                    raise MastodonIllegalArgumentError("OAuth URLs must use with http or https.")
+            else:
+                raise MastodonIllegalArgumentError("OAuth URLs must use with https.")
 
     @staticmethod
     def __deprotocolize(base_url):

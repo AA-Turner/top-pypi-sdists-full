@@ -44,7 +44,6 @@ from .classification_result import ClassificationResult
 from .classifier_rule import ClassifierRule
 from .classify_job import ClassifyJob
 from .classify_job_results import ClassifyJobResults
-from .classify_job_with_status import ClassifyJobWithStatus
 from .classify_parsing_configuration import ClassifyParsingConfiguration
 from .cloud_astra_db_vector_store import CloudAstraDbVectorStore
 from .cloud_az_storage_blob_data_source import CloudAzStorageBlobDataSource
@@ -54,6 +53,8 @@ from .cloud_confluence_data_source import CloudConfluenceDataSource
 from .cloud_document import CloudDocument
 from .cloud_document_create import CloudDocumentCreate
 from .cloud_jira_data_source import CloudJiraDataSource
+from .cloud_jira_data_source_v_2 import CloudJiraDataSourceV2
+from .cloud_jira_data_source_v_2_api_version import CloudJiraDataSourceV2ApiVersion
 from .cloud_milvus_vector_store import CloudMilvusVectorStore
 from .cloud_mongo_db_atlas_vector_search import CloudMongoDbAtlasVectorSearch
 from .cloud_notion_page_data_source import CloudNotionPageDataSource
@@ -246,6 +247,7 @@ from .paginated_list_pipeline_files_response import PaginatedListPipelineFilesRe
 from .paginated_report_response import PaginatedReportResponse
 from .paginated_response_agent_data import PaginatedResponseAgentData
 from .paginated_response_aggregate_group import PaginatedResponseAggregateGroup
+from .paginated_response_classify_job import PaginatedResponseClassifyJob
 from .paginated_response_quota_configuration import PaginatedResponseQuotaConfiguration
 from .parse_job_config import ParseJobConfig
 from .parse_job_config_priority import ParseJobConfigPriority
@@ -437,7 +439,6 @@ __all__ = [
     "ClassifierRule",
     "ClassifyJob",
     "ClassifyJobResults",
-    "ClassifyJobWithStatus",
     "ClassifyParsingConfiguration",
     "CloudAstraDbVectorStore",
     "CloudAzStorageBlobDataSource",
@@ -447,6 +448,8 @@ __all__ = [
     "CloudDocument",
     "CloudDocumentCreate",
     "CloudJiraDataSource",
+    "CloudJiraDataSourceV2",
+    "CloudJiraDataSourceV2ApiVersion",
     "CloudMilvusVectorStore",
     "CloudMongoDbAtlasVectorSearch",
     "CloudNotionPageDataSource",
@@ -631,6 +634,7 @@ __all__ = [
     "PaginatedReportResponse",
     "PaginatedResponseAgentData",
     "PaginatedResponseAggregateGroup",
+    "PaginatedResponseClassifyJob",
     "PaginatedResponseQuotaConfiguration",
     "ParseJobConfig",
     "ParseJobConfigPriority",

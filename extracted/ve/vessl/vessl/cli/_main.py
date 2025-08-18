@@ -18,7 +18,7 @@ from sentry_sdk.integrations.logging import ignore_logger
 
 import vessl
 from vessl._version import __VERSION__
-from vessl.cli._base import VesslGroup
+from vessl.cli._base import VesslGroup, dd_log_cmd
 from vessl.cli.dataset import cli as dataset_cli
 from vessl.cli.experiment import cli as experiment_cli
 from vessl.cli.experiment import create as experiment_create
@@ -40,9 +40,9 @@ from vessl.cli.sweep import cli as sweep_cli
 from vessl.cli.volume import cli as volume_cli
 from vessl.cli.workspace import cli as workspace_cli
 from vessl.experiment import list_github_code_refs
-from vessl.run import create_run, run_from_yaml, wrap_str
+from vessl.run import create_run, wrap_str
 from vessl.util.common import safe_cast
-from vessl.util.config import DEFAULT_CONFIG_PATH, VesslConfigLoader
+from vessl.util.config import DEFAULT_CONFIG_PATH, VesslConfigLoader, create_user_data_collection_file, notified_user_data_collection
 from vessl.util.constant import (
     ENABLE_SENTRY,
     EXPERIMENT_WORKING_DIR,
@@ -54,7 +54,7 @@ from vessl.util.constant import (
     VESSL_ENV,
     WHISPER_V3,
 )
-from vessl.util.echo import print_warning
+from vessl.util.echo import print_info, print_warning
 from vessl.util.exception import (
     InvalidOrganizationError,
     InvalidProjectError,
@@ -192,6 +192,12 @@ def configure(
 
 @cli.group(cls=VesslGroup, invoke_without_command=True)
 def whoami():
+    if not notified_user_data_collection():
+        print_info("Basic information on command executions will be collected to improve future CLI version releases.")
+        print_info("More information can be found in ~/.vessl/tracing-agreement file.")
+        print()
+        create_user_data_collection_file()
+    
     if vessl.vessl_api.is_in_run_exec_context():
         vessl.vessl_api.set_access_token(no_prompt=True)
         user = vessl.vessl_api.user
@@ -278,49 +284,6 @@ def list():
         f"Organization: {organization}\n"
         f"Project: {project}"
     )
-
-
-@cli.vessl_run_command()
-@click.pass_context
-@click.argument("command", nargs=-1)
-@click.option(
-    "-f",
-    "--file",
-    type=click.STRING,
-    help="yaml file for run definition.",
-)
-def run(ctx, command: List[str], file: str):
-    if len(command) == 0 and file == None:
-        print("Missing argument")
-        return
-    # configure
-    ctx.params = {}
-    args = []
-    ctx.args = configure.parse_args(ctx, args)
-    ctx.forward(configure)
-
-    if file:
-        if not os.path.exists(file):
-            print(wrap_str(f" Yaml does not exist! Check yaml path {file}.", "red"))
-            return
-        with open(file, "r") as yaml_file:
-            created_run = run_from_yaml(yaml_file=yaml_file, yaml_body="", yaml_file_name=file)
-    elif len(command) > 0:
-        args = []
-        args.extend(["--command", " ".join(command)])
-        args.extend(["--working-dir", f"{EXPERIMENT_WORKING_DIR}local/"])
-        args.extend(["--upload-local-file", f".:{EXPERIMENT_WORKING_DIR}local/"])
-
-        ctx.params = {}
-        ctx.args = experiment_create.parse_args(ctx, args)
-        ctx.forward(experiment_create)
-
-        experiment_number = ctx.obj.get("experiment_number")
-        ctx.params = {}
-        ctx.args = experiment_logs.parse_args(ctx, [str(experiment_number), "--follow"])
-        ctx.forward(experiment_logs)
-    else:
-        pass
 
 
 @cli.vessl_run_command()

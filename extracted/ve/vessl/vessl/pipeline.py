@@ -4,15 +4,15 @@ from typing import Dict, List, Optional
 
 import requests
 
-from openapi_client.models import (
+from vessl.openapi_client.models import (
     ResponsePipeline,
     ResponsePipelineExecution,
     ResponsePipelineStepExecution,
 )
-from openapi_client.models.pipeline_step_execution_variable_update_api_input import (
+from vessl.openapi_client.models.pipeline_step_execution_variable_update_api_input import (
     PipelineStepExecutionVariableUpdateAPIInput,
 )
-from openapi_client.models.pipeline_trigger_dispatch_api_input import (
+from vessl.openapi_client.models.pipeline_trigger_dispatch_api_input import (
     PipelineTriggerDispatchAPIInput,
 )
 from vessl import vessl_api

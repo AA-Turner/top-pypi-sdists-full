@@ -1,3 +1,4 @@
+from qwak_inference.configuration.log_config import logger
 from qwak_inference.realtime_client import RealTimeClient
 
 clients = ["RealTimeClient"]
@@ -13,11 +14,11 @@ try:
 except ImportError:
     # We are conditional loading these clients since the skinny does
     # not support them due to the pandas, numpy, joblib, etc. dependencies
-    print(
+    logger.debug(
         "Notice that BatchInferenceClient and FeedbackClient are not available in the skinny package. "
         'In order to use them, please install them as extras: pip install "qwak-inference[batch,feedback]".'
     )
 
 __all__ = clients
 
-__version__ = "0.1.23"
+__version__ = "0.1.24"

@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Union, Tuple, Sequence, Optional, Dict
 import datetime as dt
+from decimal import Decimal
 
 # Tree representation of LQP. Each non-terminal (those with more than one
 # option) is an "abstract" class and each terminal is its own class. All of
@@ -211,35 +212,66 @@ class Cast(Formula):
 class Var(LqpNode):
     name: str
 
-# UInt128(low::fixed64, high::fixed64)
+# UInt128Value(low::fixed64, high::fixed64)
 @dataclass(frozen=True)
-class UInt128(LqpNode):
+class UInt128Value(LqpNode):
     value: int
 
-# Int128(low::fixed64, high::fixed64)
+# Int128Value(low::fixed64, high::fixed64)
 @dataclass(frozen=True)
-class Int128(LqpNode):
+class Int128Value(LqpNode):
     value: int
 
 @dataclass(frozen=True)
-class Missing(LqpNode):
+class MissingValue(LqpNode):
     pass
+
+# DateValue(year: int, month: int, day: int)
+@dataclass(frozen=True)
+class DateValue(LqpNode):
+    value: dt.date
+
+# DatetimeValue(year: int, month: int, day: int, hour: int, minute: int, second: int, microsecond: int)
+@dataclass(frozen=True)
+class DateTimeValue(LqpNode):
+    value: dt.datetime
+
+# DecimalValue(precision: int, scale: int, value: Decimal)
+@dataclass(frozen=True)
+class DecimalValue(LqpNode):
+    precision: int
+    scale: int
+    value: Decimal
+
+# BooleanValue(value: bool)
+# Note: We need a custom BooleanValue class to distinguish it from Python's `int` type.
+# Python's built-in `bool` is a subclass of `int`.
+@dataclass(frozen=True)
+class BooleanValue(LqpNode):
+    value: bool
 
 @dataclass(frozen=True)
 class Value(LqpNode):
-    value: Union[str, int, float, UInt128, Int128, Missing]
-    cast_type: Optional[Type]
-
-# Constant(value::Value)
-Constant = Union[Value]
+    value: Union[
+        str,
+        int,
+        float,
+        UInt128Value,
+        Int128Value,
+        MissingValue,
+        DateValue,
+        DateTimeValue,
+        DecimalValue,
+        BooleanValue
+    ]
 
 # SpecializedValue(value::Value)
 @dataclass(frozen=True)
 class SpecializedValue(LqpNode):
     value: Value
 
-# Term := Var | Constant
-Term = Union[Var, Constant]
+# Term := Var | Value
+Term = Union[Var, Value]
 
 # RelTerm := Term | SpecializedValue
 RelTerm = Union[Term, SpecializedValue]
@@ -248,7 +280,7 @@ RelTerm = Union[Term, SpecializedValue]
 @dataclass(frozen=True)
 class Attribute(LqpNode):
     name: str
-    args: Sequence[Constant]
+    args: Sequence[Value]
 
 # RelationId(id::UInt128)
 @dataclass(frozen=True)
@@ -280,6 +312,7 @@ class TypeName(Enum):
     DATETIME = 7
     MISSING = 8
     DECIMAL = 9
+    BOOLEAN = 10
 
     def __str__(self) -> str:
         return self.name

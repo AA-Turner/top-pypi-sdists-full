@@ -7,6 +7,7 @@ import google.protobuf.descriptor
 import google.protobuf.message
 import qwak.administration.runtime_configuration.v0.creds.secret_pb2
 import qwak.administration.runtime_configuration.v0.hosting.aws.auth_pb2
+import qwak.administration.runtime_configuration.v0.hosting.azure.auth_pb2
 import sys
 
 if sys.version_info >= (3, 8):
@@ -21,19 +22,23 @@ class HostingConfiguration(google.protobuf.message.Message):
 
     AWS_HOST_CONFIGURATION_FIELD_NUMBER: builtins.int
     GCP_HOST_CONFIGURATION_FIELD_NUMBER: builtins.int
+    AZURE_HOST_CONFIGURATION_FIELD_NUMBER: builtins.int
     @property
     def aws_host_configuration(self) -> global___AWSHostingConfiguration: ...
     @property
     def gcp_host_configuration(self) -> global___GCPHostingConfiguration: ...
+    @property
+    def azure_host_configuration(self) -> global___AzureHostingConfiguration: ...
     def __init__(
         self,
         *,
         aws_host_configuration: global___AWSHostingConfiguration | None = ...,
         gcp_host_configuration: global___GCPHostingConfiguration | None = ...,
+        azure_host_configuration: global___AzureHostingConfiguration | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["aws_host_configuration", b"aws_host_configuration", "gcp_host_configuration", b"gcp_host_configuration", "type", b"type"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["aws_host_configuration", b"aws_host_configuration", "gcp_host_configuration", b"gcp_host_configuration", "type", b"type"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["aws_host_configuration", "gcp_host_configuration"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["aws_host_configuration", b"aws_host_configuration", "azure_host_configuration", b"azure_host_configuration", "gcp_host_configuration", b"gcp_host_configuration", "type", b"type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["aws_host_configuration", b"aws_host_configuration", "azure_host_configuration", b"azure_host_configuration", "gcp_host_configuration", b"gcp_host_configuration", "type", b"type"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["aws_host_configuration", "gcp_host_configuration", "azure_host_configuration"] | None: ...
 
 global___HostingConfiguration = HostingConfiguration
 
@@ -117,3 +122,22 @@ class IAMServiceAccount(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["role_name", b"role_name"]) -> None: ...
 
 global___IAMServiceAccount = IAMServiceAccount
+
+class AzureHostingConfiguration(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    AZURE_AUTH_FIELD_NUMBER: builtins.int
+    REGION_FIELD_NUMBER: builtins.int
+    @property
+    def azure_auth(self) -> qwak.administration.runtime_configuration.v0.hosting.azure.auth_pb2.AzureAuthentication: ...
+    region: builtins.str
+    def __init__(
+        self,
+        *,
+        azure_auth: qwak.administration.runtime_configuration.v0.hosting.azure.auth_pb2.AzureAuthentication | None = ...,
+        region: builtins.str = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["azure_auth", b"azure_auth"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["azure_auth", b"azure_auth", "region", b"region"]) -> None: ...
+
+global___AzureHostingConfiguration = AzureHostingConfiguration

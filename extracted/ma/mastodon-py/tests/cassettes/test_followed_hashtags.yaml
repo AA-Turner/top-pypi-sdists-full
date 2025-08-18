@@ -5,7 +5,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -18,45 +18,45 @@ interactions:
     uri: http://localhost:3000/api/v1/tags/heeho/unfollow
   response:
     body:
-      string: '{"name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1739404800","accounts":"0","uses":"0"},{"day":"1739318400","accounts":"0","uses":"0"},{"day":"1739232000","accounts":"0","uses":"0"},{"day":"1739145600","accounts":"0","uses":"0"},{"day":"1739059200","accounts":"0","uses":"0"},{"day":"1738972800","accounts":"0","uses":"0"},{"day":"1738886400","accounts":"0","uses":"0"}],"following":false}'
+      string: '{"id":"","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1755388800","accounts":"0","uses":"0"},{"day":"1755302400","accounts":"0","uses":"0"},{"day":"1755216000","accounts":"0","uses":"0"},{"day":"1755129600","accounts":"0","uses":"0"},{"day":"1755043200","accounts":"0","uses":"0"},{"day":"1754956800","accounts":"0","uses":"0"},{"day":"1754870400","accounts":"0","uses":"0"}],"following":false,"featuring":false}'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
-      - '416'
-      Content-Security-Policy:
+      - '442'
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
-      - W/"18b17474207470ef5337b71ad0baf4c4"
-      Referrer-Policy:
+      etag:
+      - W/"0a11108f81275f480c3d04b321bb56b0"
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=1.69, cache_generate.active_support;dur=1.03,
-        cache_write.active_support;dur=0.10, instantiation.active_record;dur=0.44,
-        start_processing.action_controller;dur=0.01, render.active_model_serializers;dur=2.29,
-        process_action.action_controller;dur=34.40
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.680335Z'
-      X-Request-Id:
-      - e26d5d9b-a6e0-4e42-8713-c9c29a75f668
-      X-Runtime:
-      - '0.072818'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=1.57, cache_generate.active_support;dur=1.63,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.20,
+        start_processing.action_controller;dur=0.01, render.active_model_serializers;dur=2.66,
+        process_action.action_controller;dur=33.70
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.572235Z'
+      x-request-id:
+      - 3612e6c0-cc8c-442e-b124-a041a953c00a
+      x-runtime:
+      - '0.058800'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -66,7 +66,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -79,43 +79,43 @@ interactions:
     body:
       string: '[]'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
       - '2'
-      Content-Security-Policy:
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
+      etag:
       - W/"4f53cda18c2baa0c0354bb5f9a3ecbe5"
-      Referrer-Policy:
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=2.65, cache_generate.active_support;dur=0.99,
-        cache_write.active_support;dur=0.09, instantiation.active_record;dur=0.33,
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=2.87, cache_generate.active_support;dur=0.90,
+        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.15,
         start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.04,
-        process_action.action_controller;dur=23.79
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.737333Z'
-      X-Request-Id:
-      - cd7695ba-88c4-456b-99fe-cf9454c13902
-      X-Runtime:
-      - '0.040994'
-      X-XSS-Protection:
-      - '0'
+        process_action.action_controller;dur=33.12
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.634209Z'
+      x-request-id:
+      - 436cac1d-3ee5-458e-bf3a-f685893ce088
+      x-runtime:
+      - '0.053924'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -125,7 +125,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -138,45 +138,46 @@ interactions:
     uri: http://localhost:3000/api/v1/tags/heeho/follow
   response:
     body:
-      string: '{"name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1739404800","accounts":"0","uses":"0"},{"day":"1739318400","accounts":"0","uses":"0"},{"day":"1739232000","accounts":"0","uses":"0"},{"day":"1739145600","accounts":"0","uses":"0"},{"day":"1739059200","accounts":"0","uses":"0"},{"day":"1738972800","accounts":"0","uses":"0"},{"day":"1738886400","accounts":"0","uses":"0"}],"following":true}'
+      string: '{"id":"3","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1755388800","accounts":"0","uses":"0"},{"day":"1755302400","accounts":"0","uses":"0"},{"day":"1755216000","accounts":"0","uses":"0"},{"day":"1755129600","accounts":"0","uses":"0"},{"day":"1755043200","accounts":"0","uses":"0"},{"day":"1754956800","accounts":"0","uses":"0"},{"day":"1754870400","accounts":"0","uses":"0"}],"following":true,"featuring":false}'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
-      - '415'
-      Content-Security-Policy:
+      - '442'
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
-      - W/"8ef02514fafe00317b51293bd7d474d6"
-      Referrer-Policy:
+      etag:
+      - W/"65347e4be293e60273c31155e31a7b24"
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=5.03, cache_generate.active_support;dur=1.04,
-        cache_write.active_support;dur=0.10, instantiation.active_record;dur=0.52,
-        start_processing.action_controller;dur=0.00, transaction.active_record;dur=4.94,
-        render.active_model_serializers;dur=2.21, process_action.action_controller;dur=34.72
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.780319Z'
-      X-Request-Id:
-      - 0fe467f9-7875-41f2-9907-5ed27ea37e4e
-      X-Runtime:
-      - '0.050458'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=9.80, cache_generate.active_support;dur=1.37,
+        cache_write.active_support;dur=0.09, instantiation.active_record;dur=0.25,
+        start_processing.action_controller;dur=0.01, start_transaction.active_record;dur=0.00,
+        transaction.active_record;dur=9.11, render.active_model_serializers;dur=3.99,
+        process_action.action_controller;dur=47.36
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.699973Z'
+      x-request-id:
+      - f4bae5b3-aa5d-442d-b15f-e2d1e57ef83f
+      x-runtime:
+      - '0.068940'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -186,7 +187,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -197,47 +198,47 @@ interactions:
     uri: http://localhost:3000/api/v1/followed_tags
   response:
     body:
-      string: '[{"name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1739404800","accounts":"0","uses":"0"},{"day":"1739318400","accounts":"0","uses":"0"},{"day":"1739232000","accounts":"0","uses":"0"},{"day":"1739145600","accounts":"0","uses":"0"},{"day":"1739059200","accounts":"0","uses":"0"},{"day":"1738972800","accounts":"0","uses":"0"},{"day":"1738886400","accounts":"0","uses":"0"}],"following":true}]'
+      string: '[{"id":"3","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1755388800","accounts":"0","uses":"0"},{"day":"1755302400","accounts":"0","uses":"0"},{"day":"1755216000","accounts":"0","uses":"0"},{"day":"1755129600","accounts":"0","uses":"0"},{"day":"1755043200","accounts":"0","uses":"0"},{"day":"1754956800","accounts":"0","uses":"0"},{"day":"1754870400","accounts":"0","uses":"0"}],"following":true,"featuring":false}]'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
-      - '417'
-      Content-Security-Policy:
+      - '444'
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
-      - W/"a9c450e91e706def15a20b01122bad7d"
-      Link:
+      etag:
+      - W/"2f92872464211e16efb0478eb9c6cab1"
+      link:
       - <http://localhost:3000/api/v1/followed_tags?since_id=1>; rel="prev"
-      Referrer-Policy:
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=1.25, cache_generate.active_support;dur=1.05,
-        cache_write.active_support;dur=0.11, instantiation.active_record;dur=0.59,
-        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=1.35,
-        process_action.action_controller;dur=23.72
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.837252Z'
-      X-Request-Id:
-      - a7b30236-180d-4f1f-b524-abec09c45d44
-      X-Runtime:
-      - '0.040330'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=1.84, cache_generate.active_support;dur=1.07,
+        cache_write.active_support;dur=0.10, instantiation.active_record;dur=0.40,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=1.84,
+        process_action.action_controller;dur=32.26
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.778481Z'
+      x-request-id:
+      - d7a293d0-af83-4e2f-9c9a-50262c70dbb8
+      x-runtime:
+      - '0.051749'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -247,7 +248,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -260,45 +261,46 @@ interactions:
     uri: http://localhost:3000/api/v1/tags/heeho/unfollow
   response:
     body:
-      string: '{"name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1739404800","accounts":"0","uses":"0"},{"day":"1739318400","accounts":"0","uses":"0"},{"day":"1739232000","accounts":"0","uses":"0"},{"day":"1739145600","accounts":"0","uses":"0"},{"day":"1739059200","accounts":"0","uses":"0"},{"day":"1738972800","accounts":"0","uses":"0"},{"day":"1738886400","accounts":"0","uses":"0"}],"following":false}'
+      string: '{"id":"3","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1755388800","accounts":"0","uses":"0"},{"day":"1755302400","accounts":"0","uses":"0"},{"day":"1755216000","accounts":"0","uses":"0"},{"day":"1755129600","accounts":"0","uses":"0"},{"day":"1755043200","accounts":"0","uses":"0"},{"day":"1754956800","accounts":"0","uses":"0"},{"day":"1754870400","accounts":"0","uses":"0"}],"following":false,"featuring":false}'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
-      - '416'
-      Content-Security-Policy:
+      - '443'
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
-      - W/"18b17474207470ef5337b71ad0baf4c4"
-      Referrer-Policy:
+      etag:
+      - W/"9460a88fb3e00e7df992236807d8e581"
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=11.97, cache_generate.active_support;dur=1.77,
-        cache_write.active_support;dur=0.11, instantiation.active_record;dur=0.35,
-        start_processing.action_controller;dur=0.00, transaction.active_record;dur=3.19,
-        render.active_model_serializers;dur=1.85, process_action.action_controller;dur=31.22
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.891485Z'
-      X-Request-Id:
-      - c27029eb-475a-4a80-884e-4d4cf83395f1
-      X-Runtime:
-      - '0.056924'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=6.92, cache_generate.active_support;dur=1.25,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=2.25,
+        start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
+        transaction.active_record;dur=4.47, render.active_model_serializers;dur=4.02,
+        process_action.action_controller;dur=40.40
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.836989Z'
+      x-request-id:
+      - 558a4688-a927-4a19-91b6-5c783d6f77a8
+      x-runtime:
+      - '0.059771'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -308,7 +310,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -319,45 +321,45 @@ interactions:
     uri: http://localhost:3000/api/v1/tags/heeho
   response:
     body:
-      string: '{"name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1739404800","accounts":"0","uses":"0"},{"day":"1739318400","accounts":"0","uses":"0"},{"day":"1739232000","accounts":"0","uses":"0"},{"day":"1739145600","accounts":"0","uses":"0"},{"day":"1739059200","accounts":"0","uses":"0"},{"day":"1738972800","accounts":"0","uses":"0"},{"day":"1738886400","accounts":"0","uses":"0"}],"following":false}'
+      string: '{"id":"3","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1755388800","accounts":"0","uses":"0"},{"day":"1755302400","accounts":"0","uses":"0"},{"day":"1755216000","accounts":"0","uses":"0"},{"day":"1755129600","accounts":"0","uses":"0"},{"day":"1755043200","accounts":"0","uses":"0"},{"day":"1754956800","accounts":"0","uses":"0"},{"day":"1754870400","accounts":"0","uses":"0"}],"following":false,"featuring":false}'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
-      - '416'
-      Content-Security-Policy:
+      - '443'
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
-      - W/"18b17474207470ef5337b71ad0baf4c4"
-      Referrer-Policy:
+      etag:
+      - W/"9460a88fb3e00e7df992236807d8e581"
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=0.71, cache_generate.active_support;dur=0.83,
-        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.38,
-        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=1.73,
-        process_action.action_controller;dur=20.99
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.941836Z'
-      X-Request-Id:
-      - e130839f-7b69-4ad7-8009-ecb0a1911b78
-      X-Runtime:
-      - '0.035018'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=1.36, cache_generate.active_support;dur=1.59,
+        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.19,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=3.08,
+        process_action.action_controller;dur=29.74
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.907776Z'
+      x-request-id:
+      - 5269d63d-97fd-4bea-b87e-e8ad9192226c
+      x-runtime:
+      - '0.047719'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK

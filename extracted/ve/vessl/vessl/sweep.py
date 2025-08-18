@@ -1,15 +1,15 @@
 from typing import List, Tuple
 
-from openapi_client import ResponseSweepExperimentInfo
-from openapi_client.models import (
+from vessl.openapi_client import ResponseSweepExperimentInfo
+from vessl.openapi_client.models import (
     InfluxdbSweepLog,
     OrmEarlyStoppingSetting,
     OrmEarlyStoppingSpec,
     OrmHyperparameter,
 )
-from openapi_client.models import OrmParameter as SweepParameter
-from openapi_client.models import OrmSweepObjective as SweepObjective
-from openapi_client.models import (
+from vessl.openapi_client.models import OrmParameter as SweepParameter
+from vessl.openapi_client.models import OrmSweepObjective as SweepObjective
+from vessl.openapi_client.models import (
     OrmSweepSearchSpace,
     ResponseSweepInfo,
     ResponseSweepListResponse,

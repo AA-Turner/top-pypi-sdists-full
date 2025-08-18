@@ -138,7 +138,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             
             # Initialize OCR extractor if not already done
             if self.ocr_extractor is None:
-                self.ocr_extractor = EasyOCRExtractor(lang=config.language, gpu=torch.cuda.is_available())
+                self.ocr_extractor = EasyOCRExtractor(lang=config.language, gpu=torch.cuda.is_available(), verbose=False)
             
             input_format = match_results_structure(data)
             context.input_format = input_format

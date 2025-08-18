@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-sops-secrets
-Version: 2.3.1
+Version: 2.3.2
 Summary: CDK Constructs that syncs your sops secrets into AWS SecretsManager secrets.
 Home-page: https://constructs.dev/packages/cdk-sops-secrets
 Author: Markus Siebert<markus.siebert@deutschebahn.com>

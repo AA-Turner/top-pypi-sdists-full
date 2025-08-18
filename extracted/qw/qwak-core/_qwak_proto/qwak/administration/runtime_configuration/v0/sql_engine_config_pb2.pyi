@@ -19,19 +19,23 @@ class SqlEngineConfiguration(google.protobuf.message.Message):
 
     ATHENA_SQL_ENGINE_CONFIGURATION_FIELD_NUMBER: builtins.int
     BIG_QUERY_SQL_ENGINE_CONFIGURATION_FIELD_NUMBER: builtins.int
+    DATABRICKS_SQL_ENGINE_CONFIGURATION_FIELD_NUMBER: builtins.int
     @property
     def athena_sql_engine_configuration(self) -> global___AthenaSqlEngineConfig: ...
     @property
     def big_query_sql_engine_configuration(self) -> global___BigQuerySqlEngineConfig: ...
+    @property
+    def databricks_sql_engine_configuration(self) -> global___DatabricksSqlEngineConfiguration: ...
     def __init__(
         self,
         *,
         athena_sql_engine_configuration: global___AthenaSqlEngineConfig | None = ...,
         big_query_sql_engine_configuration: global___BigQuerySqlEngineConfig | None = ...,
+        databricks_sql_engine_configuration: global___DatabricksSqlEngineConfiguration | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["athena_sql_engine_configuration", b"athena_sql_engine_configuration", "big_query_sql_engine_configuration", b"big_query_sql_engine_configuration", "type", b"type"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["athena_sql_engine_configuration", b"athena_sql_engine_configuration", "big_query_sql_engine_configuration", b"big_query_sql_engine_configuration", "type", b"type"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["athena_sql_engine_configuration", "big_query_sql_engine_configuration"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["athena_sql_engine_configuration", b"athena_sql_engine_configuration", "big_query_sql_engine_configuration", b"big_query_sql_engine_configuration", "databricks_sql_engine_configuration", b"databricks_sql_engine_configuration", "type", b"type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["athena_sql_engine_configuration", b"athena_sql_engine_configuration", "big_query_sql_engine_configuration", b"big_query_sql_engine_configuration", "databricks_sql_engine_configuration", b"databricks_sql_engine_configuration", "type", b"type"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["athena_sql_engine_configuration", "big_query_sql_engine_configuration", "databricks_sql_engine_configuration"] | None: ...
 
 global___SqlEngineConfiguration = SqlEngineConfiguration
 
@@ -60,3 +64,20 @@ class BigQuerySqlEngineConfig(google.protobuf.message.Message):
     ) -> None: ...
 
 global___BigQuerySqlEngineConfig = BigQuerySqlEngineConfig
+
+class DatabricksSqlEngineConfiguration(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    WORKSPACE_URL_FIELD_NUMBER: builtins.int
+    WAREHOUSE_ID_FIELD_NUMBER: builtins.int
+    workspace_url: builtins.str
+    warehouse_id: builtins.str
+    def __init__(
+        self,
+        *,
+        workspace_url: builtins.str = ...,
+        warehouse_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["warehouse_id", b"warehouse_id", "workspace_url", b"workspace_url"]) -> None: ...
+
+global___DatabricksSqlEngineConfiguration = DatabricksSqlEngineConfiguration

@@ -9,7 +9,7 @@ from setuptools.command.build_ext import build_ext
 from distutils.errors import CompileError
 
 GDAL_VERSION = open('GDAL_VERSION', 'r').read().strip()
-PKG_VERSION = '12'
+PKG_VERSION = '11'
 
 ENV_GDALHOME = 'GDALHOME'
 
@@ -203,7 +203,7 @@ maintainer_email = "me@dezhin.net"
 description = "Virtualenv and setuptools friendly " \
     + "version of standard GDAL python bindings"
 
-long_description = str(open('README.md', 'r').read())
+long_description = str(open('README.rst', 'rb').read())
 
 url = "https://github.com/nextgis/pygdal"
 
@@ -240,7 +240,7 @@ setup(
 
     description=description,
     long_description=long_description,
-    long_description_content_type='text/markdown',
+    long_description_content_type='text/x-rst',
     url=url,
 
     license=license,

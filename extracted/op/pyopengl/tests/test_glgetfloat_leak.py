@@ -23,7 +23,7 @@ def main():
                 mem = psutil.Process(os.getpid()).memory_percent()
             if i > 400:
                 new_mem = psutil.Process(os.getpid()).memory_percent()
-                assert new_mem == mem
+                assert new_mem == mem, (new_mem, mem)
                 break
 
             modelview_matrix = glGetFloatv(GL_MODELVIEW_MATRIX)

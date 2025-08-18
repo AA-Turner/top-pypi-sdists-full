@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: atproto
-Version: 0.0.61
+Version: 0.0.62
 Summary: The AT Protocol SDK
 Home-page: https://github.com/MarshalX/atproto
 License: MIT

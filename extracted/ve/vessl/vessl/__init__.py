@@ -153,9 +153,9 @@ import vessl.storage
 # Expose others
 from vessl.util.image import Image  # isort:skip
 from vessl.util.audio import Audio  # isort:skip
-from openapi_client.models import OrmSweepObjective as SweepObjective  # isort:skip
-from openapi_client.models import OrmParameter as SweepParameter  # isort:skip
-from openapi_client.models import OrmRange as SweepParameterRange  # isort:skip
+from vessl.openapi_client.models import OrmSweepObjective as SweepObjective  # isort:skip
+from vessl.openapi_client.models import OrmParameter as SweepParameter  # isort:skip
+from vessl.openapi_client.models import OrmRange as SweepParameterRange  # isort:skip
 
 
 # Suppress package deprecation warnings if prod env

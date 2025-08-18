@@ -1,4 +1,5 @@
 """Tests for epydoc-style docstring routines."""
+
 import typing as T
 
 import pytest
@@ -10,6 +11,7 @@ from docstring_parser.epydoc import compose, parse
 @pytest.mark.parametrize(
     "source, expected",
     [
+        pytest.param(None, None, id="No __doc__"),
         ("", None),
         ("\n", None),
         ("Short description", "Short description"),
@@ -17,7 +19,9 @@ from docstring_parser.epydoc import compose, parse
         ("\n   Short description\n", "Short description"),
     ],
 )
-def test_short_description(source: str, expected: str) -> None:
+def test_short_description(
+    source: T.Optional[str], expected: T.Optional[str]
+) -> None:
     """Test parsing short description."""
     docstring = parse(source)
     assert docstring.short_description == expected

@@ -1,26 +1,26 @@
 Metadata-Version: 2.1
 Name: zstandard
-Version: 0.23.0
+Version: 0.24.0
 Summary: Zstandard bindings for Python
-Home-page: https://github.com/indygreg/python-zstandard
-Author: Gregory Szorc
-Author-email: gregory.szorc@gmail.com
+Author-email: Gregory Szorc <gregory.szorc@gmail.com>
 License: BSD
+Project-URL: Homepage, https://github.com/indygreg/python-zstandard
+Project-URL: Documentation, https://python-zstandard.readthedocs.io/en/latest/
 Keywords: zstandard,zstd,compression
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: C
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 Provides-Extra: cffi
-License-File: LICENSE
+Requires-Dist: cffi>=1.17; (python_version >= "3.13" and platform_python_implementation != "PyPy") and extra == "cffi"
 
 ================
 python-zstandard
@@ -59,5 +59,3 @@ For usage documentation, see https://python-zstandard.readthedocs.org/.
 
 .. |ci-sphinx| image:: https://github.com/indygreg/python-zstandard/workflows/.github/workflows/sphinx.yml/badge.svg
      :target: https://github.com/indygreg/python-zstandard/blob/main/.github/workflows/sphinx.yml
-
-

@@ -4,7 +4,7 @@ import vessl.llm.connection as connection
 import vessl.llm.document as document
 import vessl.llm.workflow as workflow
 
-from openapi_client import LlmLLMWorkflowWorkloadReadConfigurationResponse, ProtoLLMWorkflowRevision, \
+from vessl.openapi_client import LlmLLMWorkflowWorkloadReadConfigurationResponse, ProtoLLMWorkflowRevision, \
     V1WorkflowRevisionSpec, V1WorkflowNodeStruct, \
     ProtoLLMModelConnection, ProtoLLMVectorDBConnConfig, \
     ProtoLLMWorkloadConnectionConfiguration, V1VariableValue, LlmLLMKnowledgeIngestionConfigReadResponse, \

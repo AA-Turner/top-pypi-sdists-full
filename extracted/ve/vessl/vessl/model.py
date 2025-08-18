@@ -2,13 +2,13 @@ import json
 import os
 from typing import List, Literal
 
-from openapi_client import (
+from vessl.openapi_client import (
     ModelRepositoryCreateAPIInput,
     ModelRepositoryUpdateAPIInput,
     ResponseModelRepositoryDetail,
     StorageFile,
 )
-from openapi_client.models import (
+from vessl.openapi_client.models import (
     ModelCreateAPIInput,
     ModelUpdateAPIInput,
     ResponseModelDetail,

@@ -1,0 +1,378 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      User-Agent:
+      - tests/v311
+    method: GET
+    uri: http://localhost:3000/.well-known/oauth-authorization-server
+  response:
+    body:
+      string: '{"issuer":"http://localhost:3000/","authorization_endpoint":"http://localhost:3000/oauth/authorize","token_endpoint":"http://localhost:3000/oauth/token","revocation_endpoint":"http://localhost:3000/oauth/revoke","scopes_supported":["read","profile","write","write:accounts","write:blocks","write:bookmarks","write:conversations","write:favourites","write:filters","write:follows","write:lists","write:media","write:mutes","write:notifications","write:reports","write:statuses","read:accounts","read:blocks","read:bookmarks","read:favourites","read:filters","read:follows","read:lists","read:mutes","read:notifications","read:search","read:statuses","follow","push","admin:read","admin:read:accounts","admin:read:reports","admin:read:domain_allows","admin:read:domain_blocks","admin:read:ip_blocks","admin:read:email_domain_blocks","admin:read:canonical_email_blocks","admin:write","admin:write:accounts","admin:write:reports","admin:write:domain_allows","admin:write:domain_blocks","admin:write:ip_blocks","admin:write:email_domain_blocks","admin:write:canonical_email_blocks"],"response_types_supported":["code"],"response_modes_supported":["query","fragment","form_post"],"grant_types_supported":["authorization_code","password","client_credentials"],"token_endpoint_auth_methods_supported":["client_secret_basic","client_secret_post"],"code_challenge_methods_supported":["S256"],"service_documentation":"https://docs.joinmastodon.org/","app_registration_endpoint":"http://localhost:3000/api/v1/apps"}'
+    headers:
+      Cache-Control:
+      - max-age=0, private, must-revalidate
+      Content-Length:
+      - '1503'
+      Content-Security-Policy:
+      - 'base-uri ''none''; default-src ''none''; frame-ancestors ''none''; font-src
+        ''self'' http://localhost:3000; img-src ''self'' data: blob: http://localhost:3000;
+        style-src ''self'' http://localhost:3000 ''nonce-4u3dcbzN10SNJFP2acIuJQ=='';
+        media-src ''self'' data: http://localhost:3000; manifest-src ''self'' http://localhost:3000;
+        form-action ''self''; child-src ''self'' blob: http://localhost:3000; worker-src
+        ''self'' blob: http://localhost:3000; connect-src ''self'' data: blob: http://localhost:3000
+        ws://localhost:4000 ws://localhost:3035 http://localhost:3035; script-src
+        ''self'' ''unsafe-inline'' ''unsafe-eval'' http://localhost:3000; frame-src
+        ''self'' https: http:'
+      Content-Type:
+      - application/json; charset=utf-8
+      ETag:
+      - W/"af6a0b2cfc0c377eff2294e0b2f9c31c"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Server-Timing:
+      - cache_read.active_support;dur=0.07, sql.active_record;dur=0.22, cache_generate.active_support;dur=1.38,
+        cache_write.active_support;dur=0.39, start_processing.action_controller;dur=0.00,
+        render.active_model_serializers;dur=1.14, process_action.action_controller;dur=23.98
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Permitted-Cross-Domain-Policies:
+      - none
+      X-Request-Id:
+      - 2948b62c-cae6-4c52-ae83-3ffde2c25d21
+      X-Runtime:
+      - '0.051354'
+      X-XSS-Protection:
+      - '0'
+      vary:
+      - Origin
+    status:
+      code: 200
+      message: OK
+- request:
+    body: username=mastodonpy_test_2%40localhost&password=5fc638e0e53eafd9c4145b6bb852667d&redirect_uri=urn%3Aietf%3Awg%3Aoauth%3A2.0%3Aoob&oauth_info=issuer&oauth_info=authorization_endpoint&oauth_info=token_endpoint&oauth_info=revocation_endpoint&oauth_info=userinfo_endpoint&oauth_info=scopes_supported&oauth_info=response_types_supported&oauth_info=response_modes_supported&oauth_info=grant_types_supported&oauth_info=token_endpoint_auth_methods_supported&oauth_info=code_challenge_methods_supported&oauth_info=service_documentation&oauth_info=app_registration_endpoint&grant_type=password&client_id=__MASTODON_PY_TEST_CLIENT_ID&client_secret=__MASTODON_PY_TEST_CLIENT_SECRET&scope=read+write+follow+push
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '698'
+      Content-Type:
+      - application/x-www-form-urlencoded
+      User-Agent:
+      - tests/v311
+    method: POST
+    uri: http://localhost:3000/oauth/token
+  response:
+    body:
+      string: '{"access_token":"__MASTODON_PY_TEST_ACCESS_TOKEN_3","token_type":"Bearer","scope":"read
+        write follow push","created_at":1755362087}'
+    headers:
+      Cache-Control:
+      - no-store
+      Content-Length:
+      - '131'
+      Content-Security-Policy:
+      - 'base-uri ''none''; default-src ''none''; frame-ancestors ''none''; font-src
+        ''self'' http://localhost:3000; img-src ''self'' data: blob: http://localhost:3000;
+        style-src ''self'' http://localhost:3000 ''nonce-KTsZcf2rCF6GMWjtYZjpSw=='';
+        media-src ''self'' data: http://localhost:3000; manifest-src ''self'' http://localhost:3000;
+        form-action ''self''; child-src ''self'' blob: http://localhost:3000; worker-src
+        ''self'' blob: http://localhost:3000; connect-src ''self'' data: blob: http://localhost:3000
+        ws://localhost:4000 ws://localhost:3035 http://localhost:3035; script-src
+        ''self'' ''unsafe-inline'' ''unsafe-eval'' http://localhost:3000; frame-src
+        ''self'' https: http:'
+      Content-Type:
+      - application/json; charset=utf-8
+      ETag:
+      - W/"1bfc3ceb3d512286c81b38292f785002"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Server-Timing:
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=1.58, cache_generate.active_support;dur=1.25,
+        cache_write.active_support;dur=0.04, start_processing.action_controller;dur=0.00,
+        instantiation.active_record;dur=0.17, render.active_model_serializers;dur=0.03,
+        process_action.action_controller;dur=40.14
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Permitted-Cross-Domain-Policies:
+      - none
+      X-Request-Id:
+      - bed7a875-9443-4698-bdb5-a7f52da830cd
+      X-Runtime:
+      - '0.061152'
+      X-XSS-Protection:
+      - '0'
+      vary:
+      - Accept, Origin
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Authorization:
+      - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN_3
+      Connection:
+      - keep-alive
+      User-Agent:
+      - tests/v311
+    method: GET
+    uri: http://localhost:3000/.well-known/oauth-authorization-server
+  response:
+    body:
+      string: '{"issuer":"http://localhost:3000/","authorization_endpoint":"http://localhost:3000/oauth/authorize","token_endpoint":"http://localhost:3000/oauth/token","revocation_endpoint":"http://localhost:3000/oauth/revoke","scopes_supported":["read","profile","write","write:accounts","write:blocks","write:bookmarks","write:conversations","write:favourites","write:filters","write:follows","write:lists","write:media","write:mutes","write:notifications","write:reports","write:statuses","read:accounts","read:blocks","read:bookmarks","read:favourites","read:filters","read:follows","read:lists","read:mutes","read:notifications","read:search","read:statuses","follow","push","admin:read","admin:read:accounts","admin:read:reports","admin:read:domain_allows","admin:read:domain_blocks","admin:read:ip_blocks","admin:read:email_domain_blocks","admin:read:canonical_email_blocks","admin:write","admin:write:accounts","admin:write:reports","admin:write:domain_allows","admin:write:domain_blocks","admin:write:ip_blocks","admin:write:email_domain_blocks","admin:write:canonical_email_blocks"],"response_types_supported":["code"],"response_modes_supported":["query","fragment","form_post"],"grant_types_supported":["authorization_code","password","client_credentials"],"token_endpoint_auth_methods_supported":["client_secret_basic","client_secret_post"],"code_challenge_methods_supported":["S256"],"service_documentation":"https://docs.joinmastodon.org/","app_registration_endpoint":"http://localhost:3000/api/v1/apps"}'
+    headers:
+      Cache-Control:
+      - max-age=0, private, must-revalidate
+      Content-Length:
+      - '1503'
+      Content-Security-Policy:
+      - 'base-uri ''none''; default-src ''none''; frame-ancestors ''none''; font-src
+        ''self'' http://localhost:3000; img-src ''self'' data: blob: http://localhost:3000;
+        style-src ''self'' http://localhost:3000 ''nonce-bK0CoACe9zU2Q7XEHbZ1rQ=='';
+        media-src ''self'' data: http://localhost:3000; manifest-src ''self'' http://localhost:3000;
+        form-action ''self''; child-src ''self'' blob: http://localhost:3000; worker-src
+        ''self'' blob: http://localhost:3000; connect-src ''self'' data: blob: http://localhost:3000
+        ws://localhost:4000 ws://localhost:3035 http://localhost:3035; script-src
+        ''self'' ''unsafe-inline'' ''unsafe-eval'' http://localhost:3000; frame-src
+        ''self'' https: http:'
+      Content-Type:
+      - application/json; charset=utf-8
+      ETag:
+      - W/"af6a0b2cfc0c377eff2294e0b2f9c31c"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Server-Timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=0.18, cache_generate.active_support;dur=1.05,
+        cache_write.active_support;dur=0.23, start_processing.action_controller;dur=0.00,
+        render.active_model_serializers;dur=0.35, process_action.action_controller;dur=19.43
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Permitted-Cross-Domain-Policies:
+      - none
+      X-Request-Id:
+      - e11ef398-28ef-4547-ab06-03279fe993f2
+      X-Runtime:
+      - '0.051748'
+      X-XSS-Protection:
+      - '0'
+      vary:
+      - Origin
+    status:
+      code: 200
+      message: OK
+- request:
+    body: client_id=__MASTODON_PY_TEST_CLIENT_ID&client_secret=__MASTODON_PY_TEST_CLIENT_SECRET&token=__MASTODON_PY_TEST_ACCESS_TOKEN_3
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Authorization:
+      - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN_3
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '125'
+      Content-Type:
+      - application/x-www-form-urlencoded
+      User-Agent:
+      - tests/v311
+    method: POST
+    uri: http://localhost:3000/oauth/revoke
+  response:
+    body:
+      string: '{}'
+    headers:
+      Cache-Control:
+      - max-age=0, private, must-revalidate
+      Content-Length:
+      - '2'
+      Content-Security-Policy:
+      - 'base-uri ''none''; default-src ''none''; frame-ancestors ''none''; font-src
+        ''self'' http://localhost:3000; img-src ''self'' data: blob: http://localhost:3000;
+        style-src ''self'' http://localhost:3000 ''nonce-6X7nmBSY3ocq1IvDKx9dMw=='';
+        media-src ''self'' data: http://localhost:3000; manifest-src ''self'' http://localhost:3000;
+        form-action ''self''; child-src ''self'' blob: http://localhost:3000; worker-src
+        ''self'' blob: http://localhost:3000; connect-src ''self'' data: blob: http://localhost:3000
+        ws://localhost:4000 ws://localhost:3035 http://localhost:3035; script-src
+        ''self'' ''unsafe-inline'' ''unsafe-eval'' http://localhost:3000; frame-src
+        ''self'' https: http:'
+      Content-Type:
+      - application/json; charset=utf-8
+      ETag:
+      - W/"44136fa355b3678a1146ad16f7e8649e"
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Server-Timing:
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=7.08, cache_generate.active_support;dur=1.11,
+        cache_write.active_support;dur=0.04, start_processing.action_controller;dur=0.00,
+        instantiation.active_record;dur=0.16, transaction.active_record;dur=6.89,
+        render.active_model_serializers;dur=0.02, process_action.action_controller;dur=12.72
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Permitted-Cross-Domain-Policies:
+      - none
+      X-Request-Id:
+      - f9b960fa-c837-4871-a00c-c20ef5916845
+      X-Runtime:
+      - '0.032475'
+      X-XSS-Protection:
+      - '0'
+      vary:
+      - Accept, Origin
+    status:
+      code: 200
+      message: OK
+- request:
+    body: status=illegal+access+detected
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '30'
+      Content-Type:
+      - application/x-www-form-urlencoded
+      User-Agent:
+      - tests/v311
+    method: POST
+    uri: http://localhost:3000/api/v1/statuses
+  response:
+    body:
+      string: '{"error":"The access token is invalid"}'
+    headers:
+      Cache-Control:
+      - private, no-store
+      Content-Length:
+      - '39'
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'; form-action 'none'
+      Content-Type:
+      - application/json; charset=utf-8
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Server-Timing:
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=0.12, cache_generate.active_support;dur=0.97,
+        cache_write.active_support;dur=0.07, start_processing.action_controller;dur=0.00,
+        render.active_model_serializers;dur=0.04, halted_callback.action_controller;dur=0.00,
+        process_action.action_controller;dur=772.03
+      WWW-Authenticate:
+      - Bearer realm="Doorkeeper", error="invalid_token", error_description="The access
+        token is invalid"
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Permitted-Cross-Domain-Policies:
+      - none
+      X-RateLimit-Limit:
+      - '300'
+      X-RateLimit-Remaining:
+      - '299'
+      X-RateLimit-Reset:
+      - '2025-08-16T20:40:00.301088Z'
+      X-Request-Id:
+      - c2b7ff76-05c4-438f-a21c-98d98f9dc07b
+      X-Runtime:
+      - '0.793204'
+      X-XSS-Protection:
+      - '0'
+      vary:
+      - Authorization, Origin
+    status:
+      code: 401
+      message: Unauthorized
+- request:
+    body: status=illegal+access+detected
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Authorization:
+      - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN_3
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '30'
+      Content-Type:
+      - application/x-www-form-urlencoded
+      User-Agent:
+      - mastodonpy
+    method: POST
+    uri: http://localhost:3000/api/v1/statuses
+  response:
+    body:
+      string: "{\"error\":\"\u30A2\u30AF\u30BB\u30B9\u30C8\u30FC\u30AF\u30F3\u306F\
+        \u53D6\u308A\u6D88\u3055\u308C\u3066\u3044\u307E\u3059\"}"
+    headers:
+      Cache-Control:
+      - private, no-store
+      Content-Length:
+      - '66'
+      Content-Security-Policy:
+      - default-src 'none'; frame-ancestors 'none'; form-action 'none'
+      Content-Type:
+      - application/json; charset=utf-8
+      Referrer-Policy:
+      - strict-origin-when-cross-origin
+      Server-Timing:
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=0.90, cache_generate.active_support;dur=1.11,
+        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.27,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.03,
+        halted_callback.action_controller;dur=0.00, process_action.action_controller;dur=34.25
+      WWW-Authenticate:
+      - "Bearer realm=\"Doorkeeper\", error=\"invalid_token\", error_description=\"\
+        \xE3\x82\xA2\xE3\x82\xAF\xE3\x82\xBB\xE3\x82\xB9\xE3\x83\x88\xE3\x83\xBC\xE3\
+        \x82\xAF\xE3\x83\xB3\xE3\x81\xAF\xE5\x8F\x96\xE3\x82\x8A\xE6\xB6\x88\xE3\x81\
+        \x95\xE3\x82\x8C\xE3\x81\xA6\xE3\x81\x84\xE3\x81\xBE\xE3\x81\x99\""
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-Permitted-Cross-Domain-Policies:
+      - none
+      X-RateLimit-Limit:
+      - '300'
+      X-RateLimit-Remaining:
+      - '299'
+      X-RateLimit-Reset:
+      - '2025-08-16T20:40:00.112917Z'
+      X-Request-Id:
+      - d175ab97-53cb-414f-9f7d-ca8b16a46b40
+      X-Runtime:
+      - '0.054463'
+      X-XSS-Protection:
+      - '0'
+      vary:
+      - Authorization, Origin
+    status:
+      code: 401
+      message: Unauthorized
+version: 1

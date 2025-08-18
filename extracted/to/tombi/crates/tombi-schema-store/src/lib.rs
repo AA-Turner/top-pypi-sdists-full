@@ -12,24 +12,23 @@ mod x_taplo;
 pub use accessor::{Accessor, Accessors};
 pub use error::Error;
 pub use http_client::*;
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 pub use options::Options;
 pub use schema::*;
 pub use store::SchemaStore;
 use tombi_ast::{algo::ancestors_at_position, AstNode};
 use tombi_document_tree::TryIntoDocumentTree;
-use url::Url;
 pub use value_type::ValueType;
 
 pub use crate::accessor::{AccessorContext, AccessorKeyKind, KeyContext};
 
-pub fn get_schema_name(schema_url: &Url) -> Option<&str> {
-    if let Some(path) = schema_url.path().split('/').next_back() {
+pub fn get_schema_name(schema_uri: &tombi_uri::Uri) -> Option<&str> {
+    if let Some(path) = schema_uri.path().split('/').next_back() {
         if !path.is_empty() {
             return Some(path);
         }
     }
-    schema_url.host_str()
+    schema_uri.host_str()
 }
 
 pub fn get_accessors(
@@ -112,13 +111,13 @@ pub fn dig_accessors<'a>(
     Some((current_accessor, value))
 }
 
-pub fn get_tombi_schemastore_content(schema_url: &url::Url) -> Option<&'static str> {
-    if schema_url.scheme() != "tombi" {
+pub fn get_tombi_schemastore_content(schema_uri: &tombi_uri::Uri) -> Option<&'static str> {
+    if schema_uri.scheme() != "tombi" {
         return None;
     }
 
-    match schema_url.host_str() {
-        Some("json.schemastore.org") => match schema_url.path() {
+    match schema_uri.host_str() {
+        Some("json.schemastore.org") => match schema_uri.path() {
             "/api/json/catalog.json" => Some(include_str!(
                 "../../../json.schemastore.org/api/json/catalog.json"
             )),
@@ -127,7 +126,7 @@ pub fn get_tombi_schemastore_content(schema_url: &url::Url) -> Option<&'static s
             "/tombi.json" => Some(include_str!("../../../json.schemastore.org/tombi.json")),
             _ => None,
         },
-        Some("json.tombi.dev") => match schema_url.path() {
+        Some("json.tombi.dev") => match schema_uri.path() {
             "/api/json/catalog.json" => Some(include_str!(
                 "../../../json.tombi.dev/api/json/catalog.json"
             )),
@@ -137,8 +136,8 @@ pub fn get_tombi_schemastore_content(schema_url: &url::Url) -> Option<&'static s
             _ => None,
         },
 
-        // TODO: Remove this deprecated url after v1.0.0 release.
-        None => match schema_url.path() {
+        // TODO: Remove this deprecated uri after v1.0.0 release.
+        None => match schema_uri.path() {
             "/json/catalog.json" => Some(include_str!(
                 "../../../json.schemastore.org/api/json/catalog.json"
             )),
@@ -245,4 +244,33 @@ pub fn build_accessor_contexts(
             Accessor::Index(_) => Some(AccessorContext::Index),
         })
         .collect_vec()
+}
+
+pub async fn lint_source_schema_from_ast(
+    root: &tombi_ast::Root,
+    source_uri_or_path: Option<Either<&tombi_uri::Uri, &std::path::Path>>,
+    schema_store: &SchemaStore,
+) -> (
+    Option<SourceSchema>,
+    Option<(crate::Error, tombi_text::Range)>,
+) {
+    match schema_store
+        .resolve_source_schema_from_ast(&root, source_uri_or_path)
+        .await
+    {
+        Ok(Some(schema)) => (Some(schema), None),
+        Ok(None) => (None, None),
+        Err(error_with_range) => {
+            let source_schema = if let Some(source_uri_or_path) = source_uri_or_path {
+                schema_store
+                    .resolve_source_schema(source_uri_or_path)
+                    .await
+                    .ok()
+                    .flatten()
+            } else {
+                None
+            };
+            (source_schema, Some(error_with_range))
+        }
+    }
 }

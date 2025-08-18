@@ -6,8 +6,10 @@ more likely` found in `test_bundle_various.py``.
 
 
 import os
-from nose.tools import assert_raises
+
+from pytest import raises as assert_raises
 import pytest
+
 from webassets import Bundle
 from webassets.cache import MemoryCache
 from webassets.exceptions import BuildError, BundleError
@@ -145,7 +147,7 @@ class TestBuildVarious(TempEnvironmentHelper):
 
     def test_with_custom_output(self):
         """build() method can write to a custom file object."""
-        from webassets.six import StringIO
+        from io import StringIO
         buffer = StringIO()
         self.mkbundle('in1', 'in2', output='out').build(output=buffer)
         assert buffer.getvalue() == 'A\nB'
@@ -471,8 +473,8 @@ class TestAutoBuild(TempEnvironmentHelper):
     generally everything involving the updater (as used by the build() method).
     """
 
-    def setup(self):
-        TempEnvironmentHelper.setup(self)
+    def setup_method(self):
+        super().setup_method()
 
         class CustomUpdater(BaseUpdater):
             allow = True

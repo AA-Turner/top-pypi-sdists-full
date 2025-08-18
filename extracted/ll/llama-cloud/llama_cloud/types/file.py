@@ -25,7 +25,7 @@ class File(pydantic.BaseModel):
     created_at: typing.Optional[dt.datetime]
     updated_at: typing.Optional[dt.datetime]
     name: str
-    external_file_id: str = pydantic.Field(description="The ID of the file in the external system")
+    external_file_id: typing.Optional[str]
     file_size: typing.Optional[int]
     file_type: typing.Optional[str]
     project_id: str = pydantic.Field(description="The ID of the project that the file belongs to")

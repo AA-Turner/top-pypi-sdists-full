@@ -1,6 +1,7 @@
 import textwrap
 from typing import List, Tuple
 
+from approval_utilities.utilities.multiline_string_utils import remove_indentation_from
 from approvaltests.scrubbers import create_regex_scrubber
 from approvaltests.scrubbers.scrubbers import Scrubber
 
@@ -9,7 +10,7 @@ _custom_scrubbers = []
 
 class DateScrubber:
     @staticmethod
-    def add_scrubber(example: str, regex: str) -> None:
+    def add_scrubber(example: str, regex: str, *, display_message: bool = True) -> None:
         import re
 
         try:
@@ -18,6 +19,17 @@ class DateScrubber:
         except re.error as e:
             raise Exception(f"Invalid regex pattern '{regex}': {e}")
         _custom_scrubbers.append((regex, [example]))
+
+        if display_message:
+            message = remove_indentation_from(
+                f"""
+                You are using a custom date scrubber. If you think the format you want to scrub would be useful for others, please add it to https://github.com/approvals/ApprovalTests.Python/issues/124.
+
+                To suppress this message, use
+                    DateScrubber.add_scrubber("{example}", "{regex}", display_message=False)
+                """
+            )
+            print(message)
 
     @staticmethod
     def _clear_custom_scrubbers() -> None:

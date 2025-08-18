@@ -207,6 +207,8 @@ pub struct ZstdCompressionParameters {
     pub(crate) params: *mut zstd_sys::ZSTD_CCtx_params,
 }
 
+unsafe impl Sync for ZstdCompressionParameters {}
+
 impl Drop for ZstdCompressionParameters {
     fn drop(&mut self) {
         unsafe {
@@ -402,7 +404,7 @@ impl ZstdCompressionParameters {
         let kwargs = if let Some(v) = kwargs {
             v.copy()?
         } else {
-            PyDict::new_bound(py)
+            PyDict::new(py)
         };
 
         let level = args.get_item(0)?.extract::<i32>()?;
@@ -446,7 +448,7 @@ impl ZstdCompressionParameters {
             kwargs.set_item("strategy", compression_params.strategy as u32)?;
         }
 
-        Self::new(py, &PyTuple::empty_bound(py), Some(&kwargs))
+        Self::new(py, &PyTuple::empty(py), Some(&kwargs))
     }
 
     #[new]
@@ -466,7 +468,7 @@ impl ZstdCompressionParameters {
         let kwargs = if let Some(v) = kwargs {
             v.copy()?
         } else {
-            PyDict::new_bound(py)
+            PyDict::new(py)
         };
 
         instance.set_parameters(&kwargs)?;

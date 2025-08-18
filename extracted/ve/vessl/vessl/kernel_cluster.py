@@ -8,12 +8,12 @@ from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import click
 
-from openapi_client.models import (
+from vessl.openapi_client.models import (
     ClusterUpdateAPIInput,
     ResponseKernelClusterInfo,
     ResponseKernelClusterNodeInfo,
 )
-from openapi_client.models.response_kernel_resource_spec import (
+from vessl.openapi_client.models.response_kernel_resource_spec import (
     ResponseKernelResourceSpec,
 )
 from vessl import vessl_api

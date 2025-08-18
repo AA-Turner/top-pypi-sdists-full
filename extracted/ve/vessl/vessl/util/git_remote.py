@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 from typing import List
 
-from openapi_client import ResponseCodeRefsV2, ResponseGitHubCodeRef
+from vessl.openapi_client import ResponseCodeRefsV2, ResponseGitHubCodeRef
 from vessl import logger
 from vessl.util.common import safe_cast
 from vessl.util.downloader import Downloader

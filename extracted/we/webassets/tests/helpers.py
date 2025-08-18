@@ -1,11 +1,11 @@
-from __future__ import with_statement
 import re
+import os
 
 from webassets.test import TempDirHelper, TempEnvironmentHelper
 
 
 __all__ = ('TempDirHelper', 'TempEnvironmentHelper', 'noop',
-           'assert_raises_regexp', 'check_warnings')
+           'assert_raises_regex', 'check_warnings', 'normalize_paths')
 
 
 # Define a noop filter; occasionally in tests we need to define
@@ -13,28 +13,18 @@ __all__ = ('TempDirHelper', 'TempEnvironmentHelper', 'noop',
 noop = lambda _in, out: out.write(_in.read())
 
 
-try:
-    # Python 3
-    from nose.tools import assert_raises_regex
-except ImportError:
-    try:
-        # Python >= 2.7
-        from nose.tools import assert_raises_regexp as assert_raises_regex
-    except:
-        # Python < 2.7
-        def assert_raises_regex(expected, regexp, callable, *a, **kw):
-            try:
-                callable(*a, **kw)
-            except expected as e:
-                if isinstance(regexp, basestring):
-                    regexp = re.compile(regexp)
-                if not regexp.search(str(e.message)):
-                    raise self.failureException('"%s" does not match "%s"' %
-                             (regexp.pattern, str(e.message)))
-            else:
-                if hasattr(expected,'__name__'): excName = expected.__name__
-                else: excName = str(expected)
-                raise AssertionError("%s not raised" % excName)
+def normalize_paths(paths):
+    """Normalize paths for cross-platform compatibility.
+    
+    This function normalizes file paths to handle differences between
+    platforms (e.g., backslashes on Windows vs forward slashes on Unix).
+    """
+    return set(os.path.normpath(p) for p in paths)
+
+
+from pytest import raises
+def assert_raises_regex(expected, regexp, callable, *a, **kw):
+    raises(expected, callable, *a, **kw).match(regexp)
 
 
 try:

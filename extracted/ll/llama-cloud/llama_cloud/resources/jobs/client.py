@@ -24,7 +24,7 @@ class JobsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def get_jobs_api_v_1_jobs_get(
+    def get_jobs(
         self,
         *,
         job_name: typing.Optional[str] = None,
@@ -62,7 +62,7 @@ class JobsClient:
         client = LlamaCloud(
             token="YOUR_TOKEN",
         )
-        client.jobs.get_jobs_api_v_1_jobs_get()
+        client.jobs.get_jobs()
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
@@ -96,7 +96,7 @@ class AsyncJobsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def get_jobs_api_v_1_jobs_get(
+    async def get_jobs(
         self,
         *,
         job_name: typing.Optional[str] = None,
@@ -134,7 +134,7 @@ class AsyncJobsClient:
         client = AsyncLlamaCloud(
             token="YOUR_TOKEN",
         )
-        await client.jobs.get_jobs_api_v_1_jobs_get()
+        await client.jobs.get_jobs()
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",

@@ -2237,7 +2237,7 @@ reactions_ = ['👍', '👎', '❤', '🔥', '🥰', '👏', '😁', '🤔', '�
               '🥴', '😍', '🐳', '❤\u200d🔥', '🌚', '💯', '🤣', '⚡', '🍌', '🏆', '💔', '🤨', '😐', '🍓', '🍾', '💋', '😈', '😴', '😭', '🤓',
               '👻', '👨\u200d💻', '👀', '🎃', '🙈', '😇', '😨', '🤝', '✍', '🤗', '\U0001fae1', '🎅', '🎄', '☃', '💅', '🤪', '🗿', '🆒',
               '💘', '🙉', '🦄', '😘', '💊', '🙊', '😎', '👾', '🤷\u200d♂', '🤷', '🤷\u200d♀', '😡', '😂']
-emojis_ = ['🙂', '😶‍🌫️', '🫥', '🎃', '😻', '🫶🏽', '🙌🏽', '👍🏽', '🤌🏾', '🫳🏽', '👉🏼', '☝🏽', '👋🏽', '✍🏽', '🙏🏼', '👣', '🫀', '👤', '👥',
+emojis_ = ['😶‍🌫️', '🫥', '🎃', '😻', '🫶🏽', '🙌🏽', '👍🏽', '🤌🏾', '🫳🏽', '👉🏼', '☝🏽', '👋🏽', '✍🏽', '🙏🏼', '👣', '🫀', '👤', '👥',
            '👮🏽', '👩🏽‍💻', '🥷🏽', '💁🏽‍♂️', '🤷🏽‍♂️', '👕', '🧢', '🎓', '👓', '🐳', '🐋', '🌱', '🌿', '☘️', '🍀', '🍃', '🍂', '🍁', '🌚',
            '🌗', '🌏', '⭐️', '⚡️', '🔥', '☀️', '🌤️', '❄️', '🫧', '🌬️', '🧊', '🥏', '🎗️', '🧩', '🚀', '🗽', '🗿', '⛰️', '🏔️', '🗻',
            '🏠', '🏙️', '💻', '🎥', '🧭', '⏳', '🔋', '💡', '💵', '💰', '💳', '⚒️', '🛡️', '📍', '🪬', '🛋️', '🎉', '✉️', '📬', '📜', '📄',
@@ -5567,8 +5567,8 @@ async def outsource_generate(lst, path='link_path'):
                                         else:
                                             model_ = "gpt-4o-mini"
 
-                                        res = await client.chat.completions.create(model=model_,
-                                                                                   messages=item['prompt'],
+                                        res = await client.chat.completions.create(messages=item['prompt'],
+                                                                                   model=model_,
                                                                                    max_tokens=1200, stream=False)
                                         r_a = res.choices[0].message.content
                                         r_a = str(r_a).lstrip('`').rstrip('`').strip()
@@ -11647,13 +11647,13 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, P
                 figure_html = ''
                 telegraph_ = Telegraph()
                 await telegraph_.create_account(short_name=short_name, author_name=ENT_USERNAME, author_url=ENT_LINK)
-                print(f"16022б {POST_MEDIA=}")
+                # print(f"16022б {POST_MEDIA=}")
 
                 for item in POST_MEDIA:
-                    print(f"16025 {item=}")
+                    # print(f"16025 {item=}")
                     if not isinstance(item, dict): continue
 
-                    print(f"ffkfkfkf  {item=}")
+                    # print(f"ffkfkfkf  {item=}")
                     tgph_ph = str(item['file_link']).replace('https://telegra.ph', '')
                     if str(item['file_type']) in ['video', 'video_note']:
                         figure_html = f'{figure_html}<figure><video src="{tgph_ph}" preload="auto" autoplay="autoplay" loop="loop" muted="muted"></video><figcaption>Video: {ENT_LINK}</figcaption></figure>'
@@ -14758,7 +14758,9 @@ async def bots_by_inline(chat_id, message, BASE_P):
 async def get_buttons_main(lz, bot_un, BASE_P):
     result = []
     try:
-        result = [types.InlineKeyboardButton(text="👩🏽‍💼", url=f"tg://user?id={my_tid}"),
+        result = [
+            # types.InlineKeyboardButton(text="👩🏽‍💼", url=f"tg://user?id={my_tid}"),
+            types.InlineKeyboardButton(text="👩🏽‍💼", url=f"https://t.me/FereySupportBot?profile"),
                   types.InlineKeyboardButton(text="🔗",
                                              url=f'https://t.me/share/url?url=https%3A%2F%2Ft.me%2F{bot_un}&text=%40{bot_un}'),
                   types.InlineKeyboardButton(text=f"♥️{(await read_likes(BASE_P))}", callback_data=f"like"),

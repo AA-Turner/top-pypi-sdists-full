@@ -1,4 +1,5 @@
 """Tests for Google-style docstring routines."""
+
 import typing as T
 
 import pytest
@@ -27,6 +28,28 @@ def test_google_parser_unknown_section() -> None:
     assert docstring.short_description == "Unknown:"
     assert docstring.long_description == "spam: a"
     assert len(docstring.meta) == 0
+
+
+def test_google_parser_multi_line_parameter_type() -> None:
+    """Test parsing a multi-line parameter type with default GoogleParser"""
+    parser = GoogleParser()
+    docstring = parser.parse(
+        """Description of the function.
+
+        Args:
+            output_type (Literal["searchResults", "sourcedAnswer",
+                "structured"]): The type of output.
+                This can be one of the following:
+                - "searchResults": Represents the search results.
+                - "sourcedAnswer": Represents a sourced answer.
+                - "structured": Represents a structured output format.
+
+        Returns:
+            bool: Indicates success or failure.
+
+        """
+    )
+    assert docstring.params[0].arg_name == "output_type"
 
 
 def test_google_parser_custom_sections() -> None:
@@ -121,6 +144,7 @@ def test_google_parser_custom_sections_after() -> None:
 @pytest.mark.parametrize(
     "source, expected",
     [
+        pytest.param(None, None, id="No __doc__"),
         ("", None),
         ("\n", None),
         ("Short description", "Short description"),
@@ -128,7 +152,9 @@ def test_google_parser_custom_sections_after() -> None:
         ("\n   Short description\n", "Short description"),
     ],
 )
-def test_short_description(source: str, expected: str) -> None:
+def test_short_description(
+    source: T.Optional[str], expected: T.Optional[str]
+) -> None:
     """Test parsing short description."""
     docstring = parse(source)
     assert docstring.short_description == expected
@@ -1126,13 +1152,13 @@ def test_compose_expanded(source: str, expected: str) -> None:
 @pytest.mark.parametrize(
     "src, expected_size",
     [
-        ('', 0),
-        ('Some text', 1),
-        ('Some text\nSome more text', 2),
-        ('Some text\n\nSome more text', 2),
-        ('Some text\n\nSome more text\n\nEven more text', 2),
+        ("", 0),
+        ("Some text", 1),
+        ("Some text\nSome more text", 2),
+        ("Some text\n\nSome more text", 2),
+        ("Some text\n\nSome more text\n\nEven more text", 2),
         (
-                """
+            """
                 Short description.
     
                 This is a longer description.
@@ -1163,10 +1189,10 @@ def test_compose_expanded(source: str, expected: str) -> None:
                 IOError
                     If something else goes wrong.
                 """,
-                2,  # because Google style parser can't parse other styles
+            2,  # because Google style parser can't parse other styles
         ),
         (
-                """
+            """
                 Parameters
                 ----------
                 a: int
@@ -1193,10 +1219,10 @@ def test_compose_expanded(source: str, expected: str) -> None:
                 IOError
                     If something else goes wrong.
                 """,
-                2,  # because the beginning is parsed into long/short description
+            2,  # because the beginning is parsed into long/short description
         ),
         (
-                """
+            """
                 Short description.
 
                 This is a longer description.
@@ -1216,10 +1242,10 @@ def test_compose_expanded(source: str, expected: str) -> None:
                     TypeError: If something else goes wrong.
                     IOError: If something else goes wrong.
                 """,
-                72,
+            72,
         ),
         (
-                """
+            """
                 Args:
                     a (int): description
                     b (int): description
@@ -1235,10 +1261,10 @@ def test_compose_expanded(source: str, expected: str) -> None:
                     TypeError: If something else goes wrong.
                     IOError: If something else goes wrong.
                 """,
-                70,
+            70,
         ),
         (
-                """
+            """
                 Short description.
 
                 This is a longer description.
@@ -1255,10 +1281,10 @@ def test_compose_expanded(source: str, expected: str) -> None:
                 :raises TypeError: If something else goes wrong.
                 :raises IOError: If something else goes wrong.
                 """,
-                2,  # because numpy style parser can't parse other styles
+            2,  # because numpy style parser can't parse other styles
         ),
         (
-                """
+            """
                 :param a: description
                 :type a: int
                 :param b: description
@@ -1271,10 +1297,11 @@ def test_compose_expanded(source: str, expected: str) -> None:
                 :raises TypeError: If something else goes wrong.
                 :raises IOError: If something else goes wrong.
                 """,
-                2,  # because the beginning is parsed into long/short description
+            2,  # because the beginning is parsed into long/short description
         ),
     ],
 )
 def test_docstring_size(src: str, expected_size: int) -> None:
+    """Test that docstring size is calculated correctly."""
     docstring = parse(src)
     assert docstring.size == expected_size

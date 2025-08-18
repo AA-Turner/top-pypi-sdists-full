@@ -11,7 +11,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN_2
       Connection:
@@ -29,43 +29,43 @@ interactions:
       string: '[{"key":"active_users","unit":null,"total":"0","previous_total":"0","data":[{"date":"2020-10-04T00:00:00Z","value":"0"},{"date":"2020-10-05T00:00:00Z","value":"0"},{"date":"2020-10-06T00:00:00Z","value":"0"},{"date":"2020-10-07T00:00:00Z","value":"0"},{"date":"2020-10-08T00:00:00Z","value":"0"},{"date":"2020-10-09T00:00:00Z","value":"0"}]},{"key":"new_users","unit":null,"total":"0","previous_total":"0","data":[{"date":"2020-10-04","value":"0"},{"date":"2020-10-05","value":"0"},{"date":"2020-10-06","value":"0"},{"date":"2020-10-07","value":"0"},{"date":"2020-10-08","value":"0"},{"date":"2020-10-09","value":"0"}]},{"key":"opened_reports","unit":null,"total":"0","previous_total":"0","data":[{"date":"2020-10-04","value":"0"},{"date":"2020-10-05","value":"0"},{"date":"2020-10-06","value":"0"},{"date":"2020-10-07","value":"0"},{"date":"2020-10-08","value":"0"},{"date":"2020-10-09","value":"0"}]},{"key":"resolved_reports","unit":null,"total":"0","previous_total":"0","data":[{"date":"2020-10-04","value":"0"},{"date":"2020-10-05","value":"0"},{"date":"2020-10-06","value":"0"},{"date":"2020-10-07","value":"0"},{"date":"2020-10-08","value":"0"},{"date":"2020-10-09","value":"0"}]},{"key":"instance_accounts","unit":null,"total":"0","data":[{"date":"2020-10-04","value":"0"},{"date":"2020-10-05","value":"0"},{"date":"2020-10-06","value":"0"},{"date":"2020-10-07","value":"0"},{"date":"2020-10-08","value":"0"},{"date":"2020-10-09","value":"0"}]},{"key":"instance_media_attachments","unit":"bytes","total":"0","human_value":"0
         Bytes","data":[{"date":"2020-10-04","value":"0"},{"date":"2020-10-05","value":"0"},{"date":"2020-10-06","value":"0"},{"date":"2020-10-07","value":"0"},{"date":"2020-10-08","value":"0"},{"date":"2020-10-09","value":"0"}]},{"key":"instance_reports","unit":null,"total":"0","data":[{"date":"2020-10-04","value":"0"},{"date":"2020-10-05","value":"0"},{"date":"2020-10-06","value":"0"},{"date":"2020-10-07","value":"0"},{"date":"2020-10-08","value":"0"},{"date":"2020-10-09","value":"0"}]},{"key":"instance_statuses","unit":null,"total":"0","data":[{"date":"2020-10-04","value":"0"},{"date":"2020-10-05","value":"0"},{"date":"2020-10-06","value":"0"},{"date":"2020-10-07","value":"0"},{"date":"2020-10-08","value":"0"},{"date":"2020-10-09","value":"0"}]},{"key":"instance_follows","unit":null,"total":"0","data":[{"date":"2020-10-04","value":"0"},{"date":"2020-10-05","value":"0"},{"date":"2020-10-06","value":"0"},{"date":"2020-10-07","value":"0"},{"date":"2020-10-08","value":"0"},{"date":"2020-10-09","value":"0"}]},{"key":"instance_followers","unit":null,"total":"0","data":[{"date":"2020-10-04","value":"0"},{"date":"2020-10-05","value":"0"},{"date":"2020-10-06","value":"0"},{"date":"2020-10-07","value":"0"},{"date":"2020-10-08","value":"0"},{"date":"2020-10-09","value":"0"}]}]'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
       - '2813'
-      Content-Security-Policy:
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
+      etag:
       - W/"3c9ce68e4b4c4897fd6a2cc93f5c30f3"
-      Referrer-Policy:
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.12, sql.active_record;dur=5.98, cache_generate.active_support;dur=15.91,
-        cache_write.active_support;dur=0.43, instantiation.active_record;dur=0.44,
-        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=19.56,
-        process_action.action_controller;dur=48.58
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.610198Z'
-      X-Request-Id:
-      - 9a726a08-c736-4e7e-81ac-a851111afdfd
-      X-Runtime:
-      - '0.067377'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.14, sql.active_record;dur=6.02, cache_generate.active_support;dur=16.50,
+        cache_write.active_support;dur=0.58, instantiation.active_record;dur=0.31,
+        start_processing.action_controller;dur=0.01, render.active_model_serializers;dur=21.08,
+        process_action.action_controller;dur=68.44
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.210460Z'
+      x-request-id:
+      - 07ec7960-8a21-4637-893b-c2aa51cf4e53
+      x-runtime:
+      - '0.103782'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -78,7 +78,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN_2
       Connection:
@@ -93,48 +93,48 @@ interactions:
     uri: http://localhost:3000/api/v1/admin/dimensions
   response:
     body:
-      string: '[{"key":"languages","data":[]},{"key":"sources","data":[]},{"key":"servers","data":[]},{"key":"space_usage","data":[{"key":"postgresql","human_key":"PostgreSQL","value":"18063875","unit":"bytes","human_value":"17.2
-        MB"},{"key":"redis","human_key":"Redis","value":"1332608","unit":"bytes","human_value":"1.27
-        MB"},{"key":"media","human_key":"Media storage","value":"215938","unit":"bytes","human_value":"211
+      string: '[{"key":"languages","data":[]},{"key":"sources","data":[]},{"key":"servers","data":[]},{"key":"space_usage","data":[{"key":"postgresql","human_key":"PostgreSQL","value":"19551023","unit":"bytes","human_value":"18.6
+        MB"},{"key":"redis","human_key":"Redis","value":"2754144","unit":"bytes","human_value":"2.63
+        MB"},{"key":"media","human_key":"Media storage","value":"936745","unit":"bytes","human_value":"915
         KB"}]},{"key":"instance_accounts","data":[]},{"key":"instance_languages","data":[]}]'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
       - '491'
-      Content-Security-Policy:
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
-      - W/"23fcb8a99e96dca66bc99de370229644"
-      Referrer-Policy:
+      etag:
+      - W/"9119f9def8636f9ceed13c915aa431ea"
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.09, sql.active_record;dur=10.53, cache_generate.active_support;dur=29.18,
-        cache_write.active_support;dur=0.27, instantiation.active_record;dur=0.46,
-        start_processing.action_controller;dur=0.01, render.active_model_serializers;dur=29.80,
-        process_action.action_controller;dur=57.87
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.701325Z'
-      X-Request-Id:
-      - 4d8ada5f-95fd-47a6-8b38-f035934c36e9
-      X-Runtime:
-      - '0.085862'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.13, sql.active_record;dur=13.06, cache_generate.active_support;dur=36.95,
+        cache_write.active_support;dur=0.27, instantiation.active_record;dur=0.27,
+        start_processing.action_controller;dur=0.01, render.active_model_serializers;dur=37.42,
+        process_action.action_controller;dur=87.33
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.359544Z'
+      x-request-id:
+      - 5454705f-f052-48c7-8dcd-0ffb998548d7
+      x-runtime:
+      - '0.145201'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -144,7 +144,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN_2
       Connection:
@@ -161,43 +161,43 @@ interactions:
     body:
       string: '[{"period":"2020-09-29T00:00:00+00:00","frequency":"day","data":[{"date":"2020-09-29T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-09-30T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-01T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-02T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-03T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-04T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-05T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-06T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-07T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-08T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-09T00:00:00+00:00","rate":0.0,"value":"0"}]},{"period":"2020-09-30T00:00:00+00:00","frequency":"day","data":[{"date":"2020-09-30T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-01T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-02T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-03T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-04T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-05T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-06T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-07T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-08T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-09T00:00:00+00:00","rate":0.0,"value":"0"}]},{"period":"2020-10-01T00:00:00+00:00","frequency":"day","data":[{"date":"2020-10-01T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-02T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-03T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-04T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-05T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-06T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-07T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-08T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-09T00:00:00+00:00","rate":0.0,"value":"0"}]},{"period":"2020-10-02T00:00:00+00:00","frequency":"day","data":[{"date":"2020-10-02T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-03T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-04T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-05T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-06T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-07T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-08T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-09T00:00:00+00:00","rate":0.0,"value":"0"}]},{"period":"2020-10-03T00:00:00+00:00","frequency":"day","data":[{"date":"2020-10-03T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-04T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-05T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-06T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-07T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-08T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-09T00:00:00+00:00","rate":0.0,"value":"0"}]},{"period":"2020-10-04T00:00:00+00:00","frequency":"day","data":[{"date":"2020-10-04T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-05T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-06T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-07T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-08T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-09T00:00:00+00:00","rate":0.0,"value":"0"}]},{"period":"2020-10-05T00:00:00+00:00","frequency":"day","data":[{"date":"2020-10-05T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-06T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-07T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-08T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-09T00:00:00+00:00","rate":0.0,"value":"0"}]},{"period":"2020-10-06T00:00:00+00:00","frequency":"day","data":[{"date":"2020-10-06T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-07T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-08T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-09T00:00:00+00:00","rate":0.0,"value":"0"}]},{"period":"2020-10-07T00:00:00+00:00","frequency":"day","data":[{"date":"2020-10-07T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-08T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-09T00:00:00+00:00","rate":0.0,"value":"0"}]},{"period":"2020-10-08T00:00:00+00:00","frequency":"day","data":[{"date":"2020-10-08T00:00:00+00:00","rate":0.0,"value":"0"},{"date":"2020-10-09T00:00:00+00:00","rate":0.0,"value":"0"}]},{"period":"2020-10-09T00:00:00+00:00","frequency":"day","data":[{"date":"2020-10-09T00:00:00+00:00","rate":0.0,"value":"0"}]}]'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
       - '4687'
-      Content-Security-Policy:
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
+      etag:
       - W/"7c0b9d5d1e0b7ed4fc44340469c598c1"
-      Referrer-Policy:
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.04, sql.active_record;dur=111.91, cache_generate.active_support;dur=113.29,
-        cache_write.active_support;dur=0.54, instantiation.active_record;dur=0.47,
-        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=3.20,
-        process_action.action_controller;dur=139.28
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.796232Z'
-      X-Request-Id:
-      - 2eec9219-5f3a-4387-81ed-ee9b58a303c0
-      X-Runtime:
-      - '0.158638'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.05, sql.active_record;dur=249.05, cache_generate.active_support;dur=250.20,
+        cache_write.active_support;dur=0.57, instantiation.active_record;dur=0.28,
+        start_processing.action_controller;dur=0.01, render.active_model_serializers;dur=3.86,
+        process_action.action_controller;dur=285.43
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.477190Z'
+      x-request-id:
+      - 051d27c8-8214-41db-b27c-d697a0aca5e1
+      x-runtime:
+      - '0.306028'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK

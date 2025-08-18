@@ -3,7 +3,7 @@ from concurrent.futures import Future
 
 from requests_futures.sessions import FuturesSession
 
-from openapi_client import StorageFile
+from vessl.openapi_client import StorageFile
 from vessl.util.common import remove_prefix
 from vessl.util.file_transmission import (
     FileTransmissionHandler,

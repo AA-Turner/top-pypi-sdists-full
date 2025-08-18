@@ -1,6 +1,6 @@
 from typing import Optional, Literal, Any
 
-from openapi_client import V1WorkflowNodeStruct, V1WorkflowNodeInlineCode, V1BaseWorkflowNode, V1WorkflowNodeLLMQuery, \
+from vessl.openapi_client import V1WorkflowNodeStruct, V1WorkflowNodeInlineCode, V1BaseWorkflowNode, V1WorkflowNodeLLMQuery, \
     V1WorkflowNodeLLMQueryRequest, V1WorkflowNodeVectorSearch, V1WorkflowNodeVectorSearchRequest, V1SingleWorkflowEdge, \
     V1WorkflowNodeInput, V1SingleLLMQueryMessage, V1SingleWorkflowNodeOutput, V1WorkflowRevisionInput, \
     V1VariableValueInput, V1SingleWorkflowEdgeInput

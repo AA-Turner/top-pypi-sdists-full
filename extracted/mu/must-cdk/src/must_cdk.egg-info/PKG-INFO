@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: must-cdk
-Version: 0.0.96
+Version: 0.0.97
 Summary: must-cdk
 Home-page: https://github.com/globalmsq/must-cdk.git
 Author: Must Admin<admin-mufin@users.noreply.github.com>
@@ -78,6 +78,11 @@ must-cdk amplify init -d /path/to/project
 * Load balanced service deployments
 * Auto-scaling configurations
 * Health check implementations
+* Environment variables support
+* Secrets management integration
+* Custom container names
+* Enhanced container configuration
+* Container access after creation
 
 ### 🌐 CloudFront Patterns
 

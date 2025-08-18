@@ -3,7 +3,8 @@
 import hashlib
 
 import os
-from nose.tools import assert_raises
+
+import pytest
 
 from webassets.env import Environment
 from webassets.merge import MemoryHunk
@@ -26,13 +27,14 @@ def test_builtin_manifest_accessors():
     env = Environment('', '')
     assert get_manifest('cache', env).__class__ == CacheManifest
     assert get_manifest('file', env).__class__ == FileManifest
-    assert get_manifest('file:/tmp/foo', env).filename == '/tmp/foo'
+    manifest_filename = get_manifest('file:/tmp/foo', env).filename
+    assert os.path.normpath(manifest_filename).endswith(os.path.normpath('/tmp/foo'))
 
 
 class TestTimestampVersion(TempEnvironmentHelper):
 
-    def setup(self):
-        super(TestTimestampVersion, self).setup()
+    def setup_method(self):
+        super().setup_method()
         self.v = TimestampVersion()
 
         # Create a bunch of files with known mtimes
@@ -60,7 +62,7 @@ class TestTimestampVersion(TempEnvironmentHelper):
 
         # What if the output file does not exist? (this should not happen, right?)
         self.unlink('out')
-        assert_raises(OSError, self.v.determine_version,
+        pytest.raises(OSError, self.v.determine_version,
             self.bundle, self.env, None)
 
     def test_with_placeholder(self):
@@ -71,7 +73,7 @@ class TestTimestampVersion(TempEnvironmentHelper):
 
         # If any source file is missing, the updater cannot do its job.
         self.unlink('dep')
-        assert_raises(VersionIndeterminableError, self.v.determine_version,
+        pytest.raises(VersionIndeterminableError, self.v.determine_version,
             self.bundle, self.env, None)
 
     def test_outputfile_timestamp(self):
@@ -94,8 +96,8 @@ class TestTimestampVersion(TempEnvironmentHelper):
 
 class TestHashVersion(TempEnvironmentHelper):
 
-    def setup(self):
-        super(TestHashVersion, self).setup()
+    def setup_method(self):
+        super().setup_method()
         self.v = HashVersion()
 
         # Create a bunch of files with known content
@@ -127,20 +129,20 @@ class TestHashVersion(TempEnvironmentHelper):
 
         # What if the output file does not exist? (this should not happen, right?)
         self.unlink('out')
-        assert_raises(IOError, self.v.determine_version,
+        pytest.raises(IOError, self.v.determine_version,
             self.bundle, self.env, None)
 
     def test_with_placeholder(self):
         # The HashVersion cannot function in this case.
         self.bundle.output = 'out-%(version)s'
-        assert_raises(VersionIndeterminableError, self.v.determine_version,
+        pytest.raises(VersionIndeterminableError, self.v.determine_version,
             self.bundle, self.env, None)
 
 
 class TestFileManifest(TempEnvironmentHelper):
 
-    def setup(self):
-        super(TestFileManifest, self).setup()
+    def setup_method(self):
+        super().setup_method()
         self.bundle = self.mkbundle(output='foo')
 
     def test_repl(self):
@@ -176,8 +178,8 @@ class TestFileManifest(TempEnvironmentHelper):
 
 class TestJsonManifest(TempEnvironmentHelper):
 
-    def setup(self):
-        super(TestJsonManifest, self).setup()
+    def setup_method(self):
+        super().setup_method()
         self.bundle = self.mkbundle(output='foo')
 
     def test_repl(self):
@@ -199,8 +201,8 @@ class TestJsonManifest(TempEnvironmentHelper):
 
 class TestCacheManifest(TempEnvironmentHelper):
 
-    def setup(self):
-        super(TestCacheManifest, self).setup()
+    def setup_method(self):
+        super().setup_method()
         self.bundle = self.mkbundle(output='foo')
 
     def test_repl(self):
@@ -221,7 +223,7 @@ class TestCacheManifest(TempEnvironmentHelper):
 
         # If no cache is enabled, an error is raised
         self.env.cache = False
-        assert_raises(EnvironmentError,
+        pytest.raises(EnvironmentError,
             manifest.remember, self.bundle, self.env, 'the-version')
-        assert_raises(EnvironmentError,
+        pytest.raises(EnvironmentError,
             manifest.query, self.bundle, self.env)

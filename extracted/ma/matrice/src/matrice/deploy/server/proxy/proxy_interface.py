@@ -6,6 +6,7 @@ import threading
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Optional
+import asyncio
 import httpx
 import uvicorn
 
@@ -52,6 +53,9 @@ class MatriceProxyInterface:
         self.logger = None
         self.auth_key_validator = None
         self.inference_interface = inference_interface
+        self._shutdown_event = threading.Event()
+        self._server = None
+        self._server_thread = None
         self._register_event_handlers()
         self._register_routes()
 
@@ -161,6 +165,13 @@ class MatriceProxyInterface:
             extra_params: Optional[str] = Form(None),
             apply_post_processing: Optional[str] = Form("false"),
         ):
+            # Check if server is shutting down
+            if self._shutdown_event.is_set():
+                raise HTTPException(
+                    status_code=503,
+                    detail="Server is shutting down",
+                )
+            
             auth_key = auth_key or authKey
             # if not self.validate_auth_key(auth_key):
             #     raise HTTPException(
@@ -172,9 +183,34 @@ class MatriceProxyInterface:
             input2_data = await input2.read() if input2 else None
             input_url_value = input_url or inputUrl
             if input_url_value:
-                async with httpx.AsyncClient() as client:
-                    response = await client.get(input_url_value)
-                    input1 = response.content
+                try:
+                    # Use timeout and error handling for URL downloads
+                    timeout = httpx.Timeout(60.0)  # 10 second timeout
+                    async with httpx.AsyncClient(timeout=timeout) as client:
+                        response = await client.get(input_url_value)
+                        response.raise_for_status()  # Raise exception for HTTP errors
+                        input1 = response.content
+                except asyncio.CancelledError:
+                    # Handle shutdown during request
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Request cancelled due to server shutdown",
+                    )
+                except httpx.TimeoutException:
+                    raise HTTPException(
+                        status_code=408,
+                        detail="Timeout fetching input URL",
+                    )
+                except httpx.HTTPStatusError as e:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"HTTP error fetching input URL: {e.response.status_code}",
+                    )
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Error fetching input URL: {str(e)}",
+                    )
             if not input1:
                 raise HTTPException(
                     status_code=400,
@@ -187,6 +223,13 @@ class MatriceProxyInterface:
                 apply_post_processing_flag = apply_post_processing.lower() in ("true", "1", "yes")
             
             try:
+                # Check shutdown again before inference
+                if self._shutdown_event.is_set():
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Server is shutting down",
+                    )
+                
                 result, post_processing_result = await self.inference(
                     input1, input2_data, extra_params, apply_post_processing_flag
                 )
@@ -208,6 +251,13 @@ class MatriceProxyInterface:
                 return JSONResponse(
                     content=jsonable_encoder(response_data)
                 )
+            except asyncio.CancelledError:
+                # Handle shutdown during inference
+                logging.info("Request cancelled during inference due to shutdown")
+                raise HTTPException(
+                    status_code=503,
+                    detail="Request cancelled due to server shutdown",
+                )
             except Exception as exc:
                 logging.error("Proxy error: %s", str(exc))
                 raise HTTPException(
@@ -224,23 +274,60 @@ class MatriceProxyInterface:
                     "Starting proxy server on port %d",
                     self.external_port,
                 )
-                server = uvicorn.Server(
-                    uvicorn.Config(
-                        app=self.app,
-                        host="0.0.0.0",
-                        port=self.external_port,
-                        log_level="info",
-                    )
+                config = uvicorn.Config(
+                    app=self.app,
+                    host="0.0.0.0",
+                    port=self.external_port,
+                    log_level="info",
                 )
-                server.run()
+                self._server = uvicorn.Server(config)
+                self._server.run()
+
             except Exception as exc:
-                logging.error(
-                    "Failed to start proxy server: %s",
-                    str(exc),
-                )
-                raise
+                if not self._shutdown_event.is_set():
+                    logging.error(
+                        "Failed to start proxy server: %s",
+                        str(exc),
+                    )
+                else:
+                    logging.info("Proxy server stopped during shutdown")
         
         # Start the server in a background thread
-        server_thread = threading.Thread(target=run_server, daemon=False, name="ProxyServer")
-        server_thread.start()
+        self._server_thread = threading.Thread(target=run_server, daemon=False, name="ProxyServer")
+        self._server_thread.start()
+        
+        # Wait a moment for the server to start
+        time.sleep(0.5)
         logging.info("Proxy server thread started successfully")
+
+    def stop(self):
+        """Stop the proxy server gracefully."""
+        try:
+            logging.info("Stopping proxy server...")
+            
+            # Signal shutdown to prevent new requests
+            self._shutdown_event.set()
+            
+            # Stop the uvicorn server if it exists
+            if self._server:
+                try:
+                    # Force shutdown the server
+                    if hasattr(self._server, 'should_exit'):
+                        self._server.should_exit = True
+                    if hasattr(self._server, 'force_exit'):
+                        self._server.force_exit = True
+                except Exception as exc:
+                    logging.warning("Error stopping uvicorn server: %s", str(exc))
+            
+            # Wait for the server thread to finish
+            if self._server_thread and self._server_thread.is_alive():
+                logging.info("Waiting for proxy server thread to stop...")
+                self._server_thread.join(timeout=5.0)
+                if self._server_thread.is_alive():
+                    logging.warning("Proxy server thread did not stop within timeout")
+                else:
+                    logging.info("Proxy server thread stopped successfully")
+            
+            logging.info("Proxy server stopped")
+        except Exception as exc:
+            logging.error("Error stopping proxy server: %s", str(exc))

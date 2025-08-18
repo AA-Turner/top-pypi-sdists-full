@@ -1,6 +1,6 @@
 [package]
 name = "python-zstandard"
-version = "0.23.0"
+version = "0.24.0"
 authors = ["Gregory Szorc <gregory.szorc@gmail.com>"]
 edition = "2021"
 license = "BSD-3-Clause"
@@ -26,5 +26,5 @@ version = "2.0.10+zstd.1.5.6"
 features = ["experimental", "legacy", "zstdmt"]
 
 [dependencies.pyo3]
-version = "0.21.2"
+version = "0.24.2"
 features = ["extension-module"]

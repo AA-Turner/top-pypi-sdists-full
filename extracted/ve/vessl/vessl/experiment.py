@@ -1,8 +1,8 @@
 import os
 from typing import List, Optional
 
-from openapi_client import DistributedExperimentCreateAPIInput
-from openapi_client.models import (
+from vessl.openapi_client import DistributedExperimentCreateAPIInput
+from vessl.openapi_client.models import (
     ExperimentCreateAPIInput,
     InfluxdbWorkloadLog,
     OrmHyperparameter,

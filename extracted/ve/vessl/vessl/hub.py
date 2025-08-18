@@ -2,10 +2,10 @@
 
 from typing import List
 
-from openapi_client.models.response_hub_model_task_list_response import (
+from vessl.openapi_client.models.response_hub_model_task_list_response import (
     ResponseHubModelTaskListResponse,
 )
-from openapi_client.models.v1_hub_model_task_spec import V1HubModelTaskSpec
+from vessl.openapi_client.models.v1_hub_model_task_spec import V1HubModelTaskSpec
 from vessl import __version__, vessl_api
 
 

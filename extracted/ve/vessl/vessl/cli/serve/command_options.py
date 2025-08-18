@@ -8,7 +8,7 @@ from typing import Optional
 import click
 import inquirer
 
-from openapi_client import (
+from vessl.openapi_client import (
     ResponseModelServiceInfo,
     ModelserviceModelServiceListResponse,
     ModelserviceModelServiceRevisionListResponse,

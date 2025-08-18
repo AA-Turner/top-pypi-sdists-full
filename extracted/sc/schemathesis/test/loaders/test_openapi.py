@@ -2,12 +2,15 @@
 
 import io
 import json
+import platform
 
 import pytest
+import yaml
 from flask import Flask, Response
 
 import schemathesis
 from schemathesis.core.errors import LoaderError
+from test.utils import make_schema
 
 
 def test_openapi_asgi_loader(fastapi_app, run_test):
@@ -78,7 +81,10 @@ def test_unsupported_type():
         schemathesis.openapi.from_dict({})
 
 
-JSON_ERROR = ["Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"]
+if platform.python_implementation() == "PyPy":
+    JSON_ERROR = ["Key name must be string at char: line 1 column 2 (char 1)"]
+else:
+    JSON_ERROR = ["Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"]
 YAML_ERROR = [
     "unacceptable character #x0080: control characters are not allowed",
     '  in "<unicode string>", position 2',
@@ -104,6 +110,21 @@ def test_parsing_errors_uri(schema_url, content_type, payload, expected, app_run
     with pytest.raises(LoaderError) as exc:
         schemathesis.openapi.from_url(f"http://127.0.0.1:{port}/{schema_url}")
     assert exc.value.extras == expected
+
+
+def test_unknown_content_type_retry_yaml(app_runner):
+    payload = make_schema("simple_openapi.yaml")
+    payload = yaml.safe_dump(payload)
+
+    app = Flask("test_app")
+
+    @app.route("/schema")
+    def schema():
+        return Response(payload, content_type="application/vnd.oai.openapi; charset=utf-8")
+
+    port = app_runner.run_flask_app(app)
+
+    schemathesis.openapi.from_url(f"http://127.0.0.1:{port}/schema")
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,7 @@
 from typing import List
 
-from openapi_client import ResponseOrganizationCredentialsInfo
-from openapi_client.models import (
+from vessl.openapi_client import ResponseOrganizationCredentialsInfo
+from vessl.openapi_client.models import (
     OrganizationCreateAPIInput,
     ResponseOrganization,
     ResponseOrganizationInfo,

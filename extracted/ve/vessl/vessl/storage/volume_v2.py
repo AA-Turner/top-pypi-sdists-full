@@ -3,7 +3,7 @@ import os
 import time
 from typing import Optional
 
-from openapi_client import (
+from vessl.openapi_client import (
     ProtoTag,
     ResponseVolumeV2FederateInfo,
     ResponseVolumeV2Info,

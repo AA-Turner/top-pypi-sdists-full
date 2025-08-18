@@ -3,6 +3,7 @@
 from . import (
     admin,
     agent_deployments,
+    alpha,
     beta,
     chat_apps,
     classifier,
@@ -98,6 +99,7 @@ __all__ = [
     "UpdateReportPlanApiV1ReportsReportIdPlanPatchRequestAction",
     "admin",
     "agent_deployments",
+    "alpha",
     "beta",
     "chat_apps",
     "classifier",

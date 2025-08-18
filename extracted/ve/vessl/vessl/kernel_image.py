@@ -3,7 +3,7 @@ import urllib.request
 from sys import version
 from typing import List
 
-from openapi_client.models import OrmKernelImage, ResponseKernelImage
+from vessl.openapi_client.models import OrmKernelImage, ResponseKernelImage
 from vessl import vessl_api
 from vessl.organization import _get_organization_name
 

@@ -1,7 +1,7 @@
 import os
 from typing import Dict, List, Optional, SupportsFloat, Union
 
-from openapi_client.models import ResponseExperimentInfo
+from vessl.openapi_client.models import ResponseExperimentInfo
 from vessl import vessl_api
 from vessl.experiment import read_experiment_by_id
 from vessl.util.image import Image

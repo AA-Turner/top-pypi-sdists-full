@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nHqwak/administration/runtime_configuration/v0/object_storage_config.proto\x12\x42qwak.administration.runtime_configuration.v0.object_storage_config\"\xea\x01\n\x1aObjectStorageConfiguration\x12\x61\n\x02s3\x18\x01 \x01(\x0b\x32S.qwak.administration.runtime_configuration.v0.object_storage_config.S3ConfigurationH\x00\x12\x61\n\x02gs\x18\x02 \x01(\x0b\x32S.qwak.administration.runtime_configuration.v0.object_storage_config.GSConfigurationH\x00\x42\x06\n\x04type\"!\n\x0fS3Configuration\x12\x0e\n\x06\x62ucket\x18\x01 \x01(\t\"!\n\x0fGSConfiguration\x12\x0e\n\x06\x62ucket\x18\x01 \x01(\tB\xe2\x01\n;com.jfrog.ml.runtime_configuration.v0.object_storage_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nHqwak/administration/runtime_configuration/v0/object_storage_config.proto\x12\x42qwak.administration.runtime_configuration.v0.object_storage_config\"\xe4\x02\n\x1aObjectStorageConfiguration\x12\x61\n\x02s3\x18\x01 \x01(\x0b\x32S.qwak.administration.runtime_configuration.v0.object_storage_config.S3ConfigurationH\x00\x12\x61\n\x02gs\x18\x02 \x01(\x0b\x32S.qwak.administration.runtime_configuration.v0.object_storage_config.GSConfigurationH\x00\x12x\n\x12\x61zure_blob_storage\x18\x03 \x01(\x0b\x32Z.qwak.administration.runtime_configuration.v0.object_storage_config.AzureBlobConfigurationH\x00\x42\x06\n\x04type\"!\n\x0fS3Configuration\x12\x0e\n\x06\x62ucket\x18\x01 \x01(\t\"!\n\x0fGSConfiguration\x12\x0e\n\x06\x62ucket\x18\x01 \x01(\t\"V\n\x16\x41zureBlobConfiguration\x12\x1c\n\x14storage_account_name\x18\x01 \x01(\t\x12\x1e\n\x16storage_container_name\x18\x02 \x01(\tB\xe2\x01\n;com.jfrog.ml.runtime_configuration.v0.object_storage_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -23,9 +23,11 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n;com.jfrog.ml.runtime_configuration.v0.object_storage_configP\001Z\240\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0'
   _globals['_OBJECTSTORAGECONFIGURATION']._serialized_start=145
-  _globals['_OBJECTSTORAGECONFIGURATION']._serialized_end=379
-  _globals['_S3CONFIGURATION']._serialized_start=381
-  _globals['_S3CONFIGURATION']._serialized_end=414
-  _globals['_GSCONFIGURATION']._serialized_start=416
-  _globals['_GSCONFIGURATION']._serialized_end=449
+  _globals['_OBJECTSTORAGECONFIGURATION']._serialized_end=501
+  _globals['_S3CONFIGURATION']._serialized_start=503
+  _globals['_S3CONFIGURATION']._serialized_end=536
+  _globals['_GSCONFIGURATION']._serialized_start=538
+  _globals['_GSCONFIGURATION']._serialized_end=571
+  _globals['_AZUREBLOBCONFIGURATION']._serialized_start=573
+  _globals['_AZUREBLOBCONFIGURATION']._serialized_end=659
 # @@protoc_insertion_point(module_scope)

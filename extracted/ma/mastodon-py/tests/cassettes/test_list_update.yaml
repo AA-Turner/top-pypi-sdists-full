@@ -1,17 +1,17 @@
 interactions:
 - request:
-    body: title=ham+burglars
+    body: title=ham+burglars&replies_policy=list&exclusive=0
     headers:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
       - keep-alive
       Content-Length:
-      - '18'
+      - '50'
       Content-Type:
       - application/x-www-form-urlencoded
       User-Agent:
@@ -22,59 +22,60 @@ interactions:
     body:
       string: '{"id":"2","title":"ham burglars","replies_policy":"list","exclusive":false}'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
       - '75'
-      Content-Security-Policy:
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
+      etag:
       - W/"6173699f970a28218a9895af23ab8e33"
-      Referrer-Policy:
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=3.64, cache_generate.active_support;dur=1.03,
-        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.31,
-        start_processing.action_controller;dur=0.00, transaction.active_record;dur=3.76,
-        render.active_model_serializers;dur=0.16, process_action.action_controller;dur=24.50
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.220248Z'
-      X-Request-Id:
-      - dc6a2073-77d5-4847-9cef-e0467ef978d3
-      X-Runtime:
-      - '0.039653'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=5.32, cache_generate.active_support;dur=0.96,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.24,
+        start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
+        transaction.active_record;dur=5.78, render.active_model_serializers;dur=0.17,
+        process_action.action_controller;dur=35.45
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.159657Z'
+      x-request-id:
+      - 459fcbfe-672e-4905-899d-16b51758d59d
+      x-runtime:
+      - '0.052846'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
 - request:
-    body: title=fry+kids
+    body: title=fry+kids&replies_policy=list&exclusive=0
     headers:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
       - keep-alive
       Content-Length:
-      - '14'
+      - '46'
       Content-Type:
       - application/x-www-form-urlencoded
       User-Agent:
@@ -85,44 +86,44 @@ interactions:
     body:
       string: '{"id":"2","title":"fry kids","replies_policy":"list","exclusive":false}'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
       - '71'
-      Content-Security-Policy:
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
+      etag:
       - W/"0193e06384157087600459b0873eabee"
-      Referrer-Policy:
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=3.82, cache_generate.active_support;dur=1.00,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.34,
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=4.68, cache_generate.active_support;dur=0.97,
+        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.28,
         start_processing.action_controller;dur=0.00, unpermitted_parameters.action_controller;dur=0.00,
-        transaction.active_record;dur=3.18, render.active_model_serializers;dur=0.18,
-        process_action.action_controller;dur=25.52
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.264017Z'
-      X-Request-Id:
-      - 1d2befd5-1ef9-403d-89de-1269fec0eb51
-      X-Runtime:
-      - '0.040515'
-      X-XSS-Protection:
-      - '0'
+        start_transaction.active_record;dur=0.00, transaction.active_record;dur=3.77,
+        render.active_model_serializers;dur=0.14, process_action.action_controller;dur=32.96
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.216942Z'
+      x-request-id:
+      - 977931f0-7032-4d1c-ad71-ca87ea1a91e0
+      x-runtime:
+      - '0.049707'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -132,7 +133,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -145,43 +146,43 @@ interactions:
     body:
       string: '[{"id":"2","title":"fry kids","replies_policy":"list","exclusive":false}]'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
       - '73'
-      Content-Security-Policy:
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
+      etag:
       - W/"15986ef4523f6d95169e64f12d6c0691"
-      Referrer-Policy:
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=0.65, cache_generate.active_support;dur=0.95,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.23,
+      server-timing:
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=1.44, cache_generate.active_support;dur=0.75,
+        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.16,
         start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.16,
-        process_action.action_controller;dur=19.44
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.307875Z'
-      X-Request-Id:
-      - 2357b834-bb8b-4c08-b494-1dde15e03e39
-      X-Runtime:
-      - '0.034039'
-      X-XSS-Protection:
-      - '0'
+        process_action.action_controller;dur=26.55
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.275931Z'
+      x-request-id:
+      - 2d133dc5-5087-4c59-9d65-29fa8990bb1c
+      x-runtime:
+      - '0.043046'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -191,7 +192,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -204,43 +205,43 @@ interactions:
     body:
       string: '[{"id":"2","title":"fry kids","replies_policy":"list","exclusive":false}]'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
       - '73'
-      Content-Security-Policy:
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
+      etag:
       - W/"15986ef4523f6d95169e64f12d6c0691"
-      Referrer-Policy:
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=0.61, cache_generate.active_support;dur=0.81,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.21,
-        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.17,
-        process_action.action_controller;dur=18.99
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.344576Z'
-      X-Request-Id:
-      - b8d662c3-cc42-45f2-9bf7-1aa7875a5528
-      X-Runtime:
-      - '0.032736'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=0.89, cache_generate.active_support;dur=1.06,
+        cache_write.active_support;dur=0.09, instantiation.active_record;dur=0.26,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.16,
+        process_action.action_controller;dur=26.95
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.329053Z'
+      x-request-id:
+      - 4cac53d8-99f8-4264-ada5-133cc58adfb7
+      x-runtime:
+      - '0.044182'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -250,7 +251,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -263,43 +264,43 @@ interactions:
     body:
       string: '{"id":"2","title":"fry kids","replies_policy":"list","exclusive":false}'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
       - '71'
-      Content-Security-Policy:
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
+      etag:
       - W/"0193e06384157087600459b0873eabee"
-      Referrer-Policy:
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=1.50, cache_generate.active_support;dur=0.97,
-        cache_write.active_support;dur=0.10, instantiation.active_record;dur=0.31,
-        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.17,
-        process_action.action_controller;dur=25.93
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.392781Z'
-      X-Request-Id:
-      - 1a2de50c-e933-4d59-a417-75d99893dc54
-      X-Runtime:
-      - '0.048424'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=0.74, cache_generate.active_support;dur=0.89,
+        cache_write.active_support;dur=0.15, instantiation.active_record;dur=0.19,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.14,
+        process_action.action_controller;dur=26.63
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.381863Z'
+      x-request-id:
+      - ad39f4e5-cd12-4592-a3f2-581fb52b3ea1
+      x-runtime:
+      - '0.043527'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -309,7 +310,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -324,43 +325,44 @@ interactions:
     body:
       string: '{}'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
       - '2'
-      Content-Security-Policy:
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
+      etag:
       - W/"44136fa355b3678a1146ad16f7e8649e"
-      Referrer-Policy:
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=3.67, cache_generate.active_support;dur=0.90,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.39,
-        start_processing.action_controller;dur=0.00, transaction.active_record;dur=4.01,
-        render.active_model_serializers;dur=0.02, process_action.action_controller;dur=25.03
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:00:00.444197Z'
-      X-Request-Id:
-      - 43b9b473-e99a-4f1e-8d9e-9774b31f1028
-      X-Runtime:
-      - '0.045962'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=5.99, cache_generate.active_support;dur=1.18,
+        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.28,
+        start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
+        transaction.active_record;dur=5.80, render.active_model_serializers;dur=0.02,
+        process_action.action_controller;dur=35.46
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T18:45:00.437070Z'
+      x-request-id:
+      - 0f9f605b-350d-4432-8185-1445c655cb5c
+      x-runtime:
+      - '0.053283'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK

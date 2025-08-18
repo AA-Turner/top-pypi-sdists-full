@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ipynbname
-Version: 2024.1.0.0
+Version: 2025.8.0.0
 Summary: Simply returns either notebook filename or the full path to the notebook when run from Jupyter notebook in browser.
 Home-page: https://github.com/msm1089/ipynbname
 Author: Mark McPherson
@@ -12,10 +12,22 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Jupyter
 Classifier: Topic :: Utilities
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.4, <4
+Requires-Python: >=3.4
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ipykernel
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # ipynbname
 

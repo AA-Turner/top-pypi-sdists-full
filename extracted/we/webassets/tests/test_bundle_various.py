@@ -3,24 +3,17 @@
 specific features/aspects, like "globbing" or "versions".
 """
 
-from __future__ import with_statement
-
 import copy
+from io import StringIO
+import os
 from os import path
 import uuid
-try:
-    from urllib.request import \
-        HTTPHandler, build_opener, install_opener, addinfourl
-except ImportError: # Py2
-    from urllib2 import HTTPHandler, build_opener, install_opener, addinfourl
-from webassets.six import StringIO
-from webassets.six.moves import filter
+from urllib.request import \
+     HTTPHandler, build_opener, install_opener, addinfourl
 
-from nose.tools import assert_raises, assert_equal
-from nose import SkipTest
+import pytest
 
 from webassets import Bundle
-from webassets.utils import set
 from webassets.bundle import get_all_bundle_files
 from webassets.env import Environment
 from webassets.exceptions import BundleError, BuildError
@@ -29,7 +22,7 @@ from webassets.updater import TimestampUpdater, SKIP_CACHE
 from webassets.version import Manifest, Version, VersionIndeterminableError
 
 from .helpers import (
-    TempEnvironmentHelper, assert_raises_regex)
+    TempEnvironmentHelper, assert_raises_regex, normalize_paths)
 
 
 class TestBundleConfig(TempEnvironmentHelper):
@@ -94,7 +87,7 @@ class TestBundleConfig(TempEnvironmentHelper):
         b = self.mkbundle(filters=['jsmin', 'cssutils'])
         _assert(b.filters, 2)
         # Strings inside a list may not be further comma separated
-        assert_raises(ValueError, self.mkbundle, filters=['jsmin,cssutils'])
+        pytest.raises(ValueError, self.mkbundle, filters=['jsmin,cssutils'])
 
         # A single or multiple classes may be given
         b = self.mkbundle(filters=TestFilter)
@@ -113,8 +106,8 @@ class TestBundleConfig(TempEnvironmentHelper):
         _assert(b.filters, 2)
 
         # If something is wrong, an error is raised right away.
-        assert_raises(ValueError, self.mkbundle, filters='notreallyafilter')
-        assert_raises(ValueError, self.mkbundle, filters=object())
+        pytest.raises(ValueError, self.mkbundle, filters='notreallyafilter')
+        pytest.raises(ValueError, self.mkbundle, filters=object())
 
         # [bug] Specifically test that we can assign ``None``.
         self.mkbundle().filters = None
@@ -177,8 +170,8 @@ class TestVersionFeatures(TempEnvironmentHelper):
 
     default_files = {'in': 'foo'}
 
-    def setup(self):
-        super(TestVersionFeatures, self).setup()
+    def setup_method(self):
+        super().setup_method()
         self.env.manifest = DummyManifest()
         self.env.versions = DummyVersion()
 
@@ -272,7 +265,7 @@ class TestVersionFeatures(TempEnvironmentHelper):
         assert bundle.version == 'foo'
         self.env.manifest.version = None
         self.env.versions.version = None
-        assert_raises(BundleError, bundle.get_version, refresh=True)
+        pytest.raises(BundleError, bundle.get_version, refresh=True)
 
     def test_url_expire(self):
         """Test the url_expire option.
@@ -371,8 +364,8 @@ class TestLoadPath(TempEnvironmentHelper):
     an optional feature.
     """
 
-    def setup(self):
-        TempEnvironmentHelper.setup(self)
+    def setup_method(self):
+        super().setup_method()
         self.env.updater = False
         self.env.directory = self.path('dir')
         self.env.debug = True
@@ -399,7 +392,7 @@ class TestLoadPath(TempEnvironmentHelper):
         assert self.get('dir/out') == 'a'
 
         # Error because the file from directory is not found
-        assert_raises(BundleError, self.mkbundle('bar', output='out').build)
+        pytest.raises(BundleError, self.mkbundle('bar', output='out').build)
 
     def test_globbing(self):
         """When used with globbing."""
@@ -411,9 +404,11 @@ class TestLoadPath(TempEnvironmentHelper):
         # Returns all files, even duplicate relative filenames in
         # multiple load paths (foo in this case).
         bundle = self.mkbundle('*', output='out')
-        assert set(get_all_bundle_files(bundle)) == set([
+        result = get_all_bundle_files(bundle)
+        expected = [
             self.path('a/foo'), self.path('b/foo'), self.path('b/bar')
-        ])
+        ]
+        assert normalize_paths(result) == normalize_paths(expected)
 
     def test_url_mapping(self):
         """Test mapping the load paths to urls works."""
@@ -454,15 +449,19 @@ class TestLoadPath(TempEnvironmentHelper):
 
         # With a non-globbed reference
         bundle = self.mkbundle('foo', output='out')
-        assert set(get_all_bundle_files(bundle)) == set([
+        result = get_all_bundle_files(bundle)
+        expected = [
             self.path('a/foo'), self.path('b/foo')
-        ])
+        ]
+        assert normalize_paths(result) == normalize_paths(expected)
 
         # With a globbed reference
         bundle = self.mkbundle('???', output='out')
-        assert set(get_all_bundle_files(bundle)) == set([
+        result = get_all_bundle_files(bundle)
+        expected = [
             self.path('a/foo'), self.path('b/foo'), self.path('dir/bar')
-        ])
+        ]
+        assert normalize_paths(result) == normalize_paths(expected)
 
 
 class TestGlobbing(TempEnvironmentHelper):
@@ -488,7 +487,7 @@ class TestGlobbing(TempEnvironmentHelper):
         self.env.debug = True
         urls = self.mkbundle('*.js', output='out').urls()
         urls.sort()
-        assert_equal(urls, ['/file1.js', '/file2.js'])
+        assert urls == ['/file1.js', '/file2.js']
 
     def test_empty_pattern(self):
         bundle = self.mkbundle('*.xyz', output='out')
@@ -496,7 +495,7 @@ class TestGlobbing(TempEnvironmentHelper):
         bundle.resolve_contents()
 
     def test_non_pattern_missing_files(self):
-        """Ensure that if we specify a non-existant file, it will still
+        """Ensure that if we specify a non-existent file, it will still
         be returned in the debug urls(), and build() will raise the IOError
         rather than the globbing failing and the bundle being empty
         """
@@ -508,10 +507,7 @@ class TestGlobbing(TempEnvironmentHelper):
     def test_recursive_globbing(self):
         """Test recursive globbing using python-glob2.
         """
-        try:
-            import glob2
-        except ImportError:
-            raise SkipTest()
+        glob2 = pytest.importorskip("glob2")
 
         self.create_files({'sub/file.js': 'sub',})
         self.mkbundle('**/*.js', output='out').build()
@@ -606,8 +602,8 @@ class TestUrlContents(TempEnvironmentHelper):
     """Test bundles containing a URL.
     """
 
-    def setup(self):
-        TempEnvironmentHelper.setup(self)
+    def setup_method(self):
+        super().setup_method()
         mock_opener = build_opener(MockHTTPHandler({
             'http://foo': u'function() {}'}))
         install_opener(mock_opener)
@@ -619,7 +615,7 @@ class TestUrlContents(TempEnvironmentHelper):
     def test_invalid_url(self):
         """If a bundle contains an invalid url, building will raise an error.
         """
-        assert_raises(BuildError,
+        pytest.raises(BuildError,
                       self.mkbundle('http://bar', output='out').build)
 
     def test_autorebuild_updaters(self):
@@ -631,6 +627,7 @@ class TestUrlContents(TempEnvironmentHelper):
         bundle = self.mkbundle('http://foo', output='out')
         TimestampUpdater().needs_rebuild(bundle, bundle.env)
 
+    @pytest.mark.skipif(os.name == 'nt', reason="Colons not allowed in Windows filenames")
     def test_pyramid_asset_specs(self):
         """Make sure that pyramid asset specs (in the form of
         package:path) do not pass the url check."""

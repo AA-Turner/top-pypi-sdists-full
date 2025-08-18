@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: darts
-Version: 0.36.0
+Version: 0.37.0
 Summary: A python library for easy manipulation and forecasting of time series.
 Home-page: https://unit8co.github.io/darts/
 Maintainer: Unit8 SA
@@ -37,7 +37,7 @@ Requires-Dist: pandas>=1.0.5
 Requires-Dist: pyod>=0.9.5
 Requires-Dist: requests>=2.22.0
 Requires-Dist: scikit-learn>=1.6.0
-Requires-Dist: scipy<1.16.0,>=1.3.2
+Requires-Dist: scipy>=1.3.2
 Requires-Dist: shap>=0.40.0
 Requires-Dist: statsforecast>=1.4
 Requires-Dist: statsmodels>=0.14.0
@@ -45,7 +45,7 @@ Requires-Dist: tqdm>=4.60.0
 Requires-Dist: typing-extensions
 Requires-Dist: xarray>=0.17.0
 Requires-Dist: xgboost>=2.1.4
-Requires-Dist: pytorch-lightning>=1.5.0
+Requires-Dist: pytorch-lightning<2.5.3,>=1.5.0
 Requires-Dist: tensorboardX>=2.1
 Requires-Dist: torch>=1.8.0
 Dynamic: classifier

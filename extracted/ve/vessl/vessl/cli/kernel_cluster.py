@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple
 
 import click
 
-from openapi_client.models import ResponseKernelClusterInfo
+from vessl.openapi_client.models import ResponseKernelClusterInfo
 from vessl.cli._base import VesslGroup, vessl_argument, vessl_option
 from vessl.cli._util import (
     print_data,

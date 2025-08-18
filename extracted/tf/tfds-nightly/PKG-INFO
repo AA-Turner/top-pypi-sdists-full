@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tfds-nightly
-Version: 4.9.9.dev202508170045
+Version: 4.9.9.dev202508180045
 Summary: tensorflow/datasets is a library of datasets ready to use with TensorFlow.
 Home-page: https://github.com/tensorflow/datasets
 Download-URL: https://github.com/tensorflow/datasets/tags
@@ -62,11 +62,6 @@ Requires-Dist: scipy; extra == "tests-all"
 Requires-Dist: apache-beam<2.65.0; extra == "tests-all"
 Requires-Dist: gcsfs; extra == "tests-all"
 Requires-Dist: zarr<3.0.0; extra == "tests-all"
-Requires-Dist: apache-beam<2.65.0; extra == "tests-all"
-Requires-Dist: gcld3; extra == "tests-all"
-Requires-Dist: langdetect; extra == "tests-all"
-Requires-Dist: nltk==3.8.1; extra == "tests-all"
-Requires-Dist: tldextract; extra == "tests-all"
 Requires-Dist: apache-beam<2.65.0; extra == "tests-all"
 Requires-Dist: matplotlib; extra == "tests-all"
 Requires-Dist: Pillow; extra == "tests-all"
@@ -132,10 +127,6 @@ Requires-Dist: pyyaml; extra == "huggingface"
 Requires-Dist: scipy; extra == "huggingface"
 Requires-Dist: gcsfs; extra == "huggingface"
 Requires-Dist: zarr<3.0.0; extra == "huggingface"
-Requires-Dist: gcld3; extra == "huggingface"
-Requires-Dist: langdetect; extra == "huggingface"
-Requires-Dist: nltk==3.8.1; extra == "huggingface"
-Requires-Dist: tldextract; extra == "huggingface"
 Requires-Dist: matplotlib; extra == "huggingface"
 Requires-Dist: Pillow; extra == "huggingface"
 Requires-Dist: pydub; extra == "huggingface"
@@ -182,6 +173,7 @@ Requires-Dist: gcld3; extra == "c4"
 Requires-Dist: langdetect; extra == "c4"
 Requires-Dist: nltk==3.8.1; extra == "c4"
 Requires-Dist: tldextract; extra == "c4"
+Requires-Dist: tensorflow<2.20.0; extra == "c4"
 Provides-Extra: c4-wsrs
 Requires-Dist: apache-beam<2.65.0; extra == "c4-wsrs"
 Provides-Extra: cats-vs-dogs
@@ -210,9 +202,9 @@ Requires-Dist: pydub; extra == "librispeech"
 Provides-Extra: lsun
 Requires-Dist: tensorflow-io[tensorflow]; extra == "lsun"
 Provides-Extra: nsynth
-Requires-Dist: crepe>=0.0.11; extra == "nsynth"
+Requires-Dist: crepe; extra == "nsynth"
 Requires-Dist: librosa; extra == "nsynth"
-Requires-Dist: scikit-learn==0.20.3; extra == "nsynth"
+Requires-Dist: tensorflow<2.20.0; extra == "nsynth"
 Provides-Extra: ogbg-molpcba
 Requires-Dist: pandas; extra == "ogbg-molpcba"
 Requires-Dist: networkx; extra == "ogbg-molpcba"

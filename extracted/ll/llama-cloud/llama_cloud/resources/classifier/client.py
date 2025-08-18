@@ -12,9 +12,9 @@ from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.classifier_rule import ClassifierRule
 from ...types.classify_job import ClassifyJob
 from ...types.classify_job_results import ClassifyJobResults
-from ...types.classify_job_with_status import ClassifyJobWithStatus
 from ...types.classify_parsing_configuration import ClassifyParsingConfiguration
 from ...types.http_validation_error import HttpValidationError
+from ...types.paginated_response_classify_job import PaginatedResponseClassifyJob
 
 try:
     import pydantic
@@ -31,6 +31,58 @@ OMIT = typing.cast(typing.Any, ...)
 class ClassifierClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
+
+    def list_classify_jobs(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        page_size: typing.Optional[int] = None,
+        page_token: typing.Optional[str] = None,
+    ) -> PaginatedResponseClassifyJob:
+        """
+        List classify jobs.
+        Experimental: This endpoint is not yet ready for production use and is subject to change at any time.
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - page_size: typing.Optional[int].
+
+            - page_token: typing.Optional[str].
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.classifier.list_classify_jobs()
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/classifier/jobs"),
+            params=remove_none_from_dict(
+                {
+                    "project_id": project_id,
+                    "organization_id": organization_id,
+                    "page_size": page_size,
+                    "page_token": page_token,
+                }
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(PaginatedResponseClassifyJob, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def create_classify_job(
         self,
@@ -97,7 +149,7 @@ class ClassifierClient:
         *,
         project_id: typing.Optional[str] = None,
         organization_id: typing.Optional[str] = None,
-    ) -> ClassifyJobWithStatus:
+    ) -> ClassifyJob:
         """
         Get a classify job.
         Experimental: This endpoint is not yet ready for production use and is subject to change at any time.
@@ -128,7 +180,7 @@ class ClassifierClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(ClassifyJobWithStatus, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(ClassifyJob, _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:
@@ -187,6 +239,58 @@ class ClassifierClient:
 class AsyncClassifierClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
+
+    async def list_classify_jobs(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        page_size: typing.Optional[int] = None,
+        page_token: typing.Optional[str] = None,
+    ) -> PaginatedResponseClassifyJob:
+        """
+        List classify jobs.
+        Experimental: This endpoint is not yet ready for production use and is subject to change at any time.
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - page_size: typing.Optional[int].
+
+            - page_token: typing.Optional[str].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.classifier.list_classify_jobs()
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "GET",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/classifier/jobs"),
+            params=remove_none_from_dict(
+                {
+                    "project_id": project_id,
+                    "organization_id": organization_id,
+                    "page_size": page_size,
+                    "page_token": page_token,
+                }
+            ),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(PaginatedResponseClassifyJob, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def create_classify_job(
         self,
@@ -253,7 +357,7 @@ class AsyncClassifierClient:
         *,
         project_id: typing.Optional[str] = None,
         organization_id: typing.Optional[str] = None,
-    ) -> ClassifyJobWithStatus:
+    ) -> ClassifyJob:
         """
         Get a classify job.
         Experimental: This endpoint is not yet ready for production use and is subject to change at any time.
@@ -284,7 +388,7 @@ class AsyncClassifierClient:
             timeout=60,
         )
         if 200 <= _response.status_code < 300:
-            return pydantic.parse_obj_as(ClassifyJobWithStatus, _response.json())  # type: ignore
+            return pydantic.parse_obj_as(ClassifyJob, _response.json())  # type: ignore
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:

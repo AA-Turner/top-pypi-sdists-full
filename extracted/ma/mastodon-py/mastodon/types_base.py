@@ -1,4 +1,5 @@
 from __future__ import annotations # python < 3.9 compat
+import typing
 from typing import List, Union, Optional, Dict, Any, Tuple, Callable, get_type_hints, TypeVar, IO, Generic, ForwardRef
 from datetime import datetime, timezone
 import dateutil
@@ -74,13 +75,24 @@ def _str_to_type(mastopy_type):
     from mastodon.return_types import ENTITY_NAME_MAP
     full_type = None
     if sub_type is not None:
-        sub_type = ENTITY_NAME_MAP.get(sub_type, None)
-        full_type = {
-            "PaginatableList": PaginatableList[sub_type], 
-            "NonPaginatableList": NonPaginatableList[sub_type],
-            "typing.Optional": Optional[sub_type],
-            "typing.Union": Union[sub_type],
-        }[mastopy_type]
+        if not mastopy_type == "typing.Union":
+            sub_type = ENTITY_NAME_MAP.get(sub_type, None)
+        else:
+            sub_type_list = []
+            for sub_type_part in sub_type.split(","):
+                sub_type_part = sub_type_part.strip()
+                if sub_type_part:
+                    sub_type_part_type = ENTITY_NAME_MAP.get(sub_type_part, None)
+                    if sub_type_part_type is not None:
+                        sub_type_list.append(sub_type_part_type)
+        if mastopy_type == "PaginatableList":
+            full_type = PaginatableList[sub_type]
+        elif mastopy_type == "NonPaginatableList":
+            full_type = NonPaginatableList[sub_type]
+        elif mastopy_type == "typing.Optional":
+            full_type = Optional[sub_type]
+        elif mastopy_type == "typing.Union":
+            full_type = Union.__getitem__(tuple(sub_type_list))
     else:
         full_type = ENTITY_NAME_MAP.get(mastopy_type, None)
     if full_type is None:
@@ -179,24 +191,25 @@ if sys.version_info < (3, 9):
         # I'm sorry about this, but I cannot think of another way to make this work properly in versions below 3.9 that
         # cannot resolve forward references in a sane way
         from mastodon.return_types import Account, AccountField, Role, CredentialAccountSource, \
-            Status, StatusEdit, FilterResult, StatusMention, ScheduledStatus, ScheduledStatusParams, \
-            Poll, PollOption, Conversation, Tag, TagHistory, CustomEmoji, \
-            Application, Relationship, Filter, FilterV2, Notification, Context, \
-            UserList, MediaAttachment, MediaAttachmentMetadataContainer, MediaAttachmentImageMetadata, MediaAttachmentVideoMetadata, MediaAttachmentAudioMetadata, \
-            MediaAttachmentFocusPoint, MediaAttachmentColors, PreviewCard, PreviewCardAuthor, Search, SearchV2, \
-            Instance, InstanceConfiguration, InstanceURLs, InstanceV2, InstanceIcon, InstanceConfigurationV2, \
-            InstanceVapidKey, InstanceURLsV2, InstanceThumbnail, InstanceThumbnailVersions, InstanceStatistics, InstanceUsage, \
-            InstanceUsageUsers, Rule, InstanceRegistrations, InstanceContact, InstanceAccountConfiguration, InstanceStatusConfiguration, \
-            InstanceTranslationConfiguration, InstanceMediaConfiguration, InstancePollConfiguration, Nodeinfo, NodeinfoSoftware, NodeinfoServices, \
-            NodeinfoUsage, NodeinfoUsageUsers, NodeinfoMetadata, Activity, Report, AdminReport, \
-            WebPushSubscription, WebPushSubscriptionAlerts, PushNotification, Preferences, FeaturedTag, Marker, \
-            Announcement, Reaction, StreamReaction, FamiliarFollowers, AdminAccount, AdminIp, \
-            AdminMeasure, AdminMeasureData, AdminDimension, AdminDimensionData, AdminRetention, AdminCohort, \
-            AdminDomainBlock, AdminCanonicalEmailBlock, AdminDomainAllow, AdminEmailDomainBlock, AdminEmailDomainBlockHistory, AdminIpBlock, \
-            DomainBlock, ExtendedDescription, FilterKeyword, FilterStatus, IdentityProof, StatusSource, \
-            Suggestion, Translation, AccountCreationError, AccountCreationErrorDetails, AccountCreationErrorDetailsField, NotificationPolicy, \
-            NotificationPolicySummary, RelationshipSeveranceEvent, GroupedNotificationsResults, PartialAccountWithAvatar, NotificationGroup, AccountWarning, \
-            UnreadNotificationsCount, Appeal, TrendingLinkHistory, NotificationRequest, SupportedLocale
+            Status, Quote, ShallowQuote, StatusEdit, FilterResult, StatusMention, \
+            ScheduledStatus, ScheduledStatusParams, Poll, PollOption, Conversation, Tag, \
+            TagHistory, CustomEmoji, Application, Relationship, Filter, FilterV2, \
+            Notification, Context, UserList, MediaAttachment, MediaAttachmentMetadataContainer, MediaAttachmentImageMetadata, \
+            MediaAttachmentVideoMetadata, MediaAttachmentAudioMetadata, MediaAttachmentFocusPoint, MediaAttachmentColors, PreviewCard, TrendingLinkHistory, \
+            PreviewCardAuthor, Search, SearchV2, Instance, InstanceConfiguration, InstanceURLs, \
+            InstanceV2, InstanceIcon, InstanceConfigurationV2, InstanceVapidKey, InstanceURLsV2, InstanceThumbnail, \
+            InstanceThumbnailVersions, InstanceStatistics, InstanceUsage, InstanceUsageUsers, RuleTranslation, Rule, \
+            InstanceRegistrations, InstanceContact, InstanceAccountConfiguration, InstanceStatusConfiguration, InstanceTranslationConfiguration, InstanceMediaConfiguration, \
+            InstancePollConfiguration, Nodeinfo, NodeinfoSoftware, NodeinfoServices, NodeinfoUsage, NodeinfoUsageUsers, \
+            NodeinfoMetadata, Activity, Report, AdminReport, WebPushSubscription, WebPushSubscriptionAlerts, \
+            PushNotification, Preferences, FeaturedTag, Marker, Announcement, Reaction, \
+            StreamReaction, FamiliarFollowers, AdminAccount, AdminIp, AdminMeasure, AdminMeasureData, \
+            AdminDimension, AdminDimensionData, AdminRetention, AdminCohort, AdminDomainBlock, AdminCanonicalEmailBlock, \
+            AdminDomainAllow, AdminEmailDomainBlock, AdminEmailDomainBlockHistory, AdminIpBlock, DomainBlock, ExtendedDescription, \
+            FilterKeyword, FilterStatus, IdentityProof, StatusSource, Suggestion, Translation, \
+            AccountCreationError, AccountCreationErrorDetails, AccountCreationErrorDetailsField, NotificationPolicy, NotificationPolicySummary, RelationshipSeveranceEvent, \
+            GroupedNotificationsResults, PartialAccountWithAvatar, NotificationGroup, AccountWarning, UnreadNotificationsCount, Appeal, \
+            NotificationRequest, SupportedLocale, OAuthServerInfo, OAuthUserInfo, TermsOfService
         if isinstance(t, ForwardRef):
             try:
                 t = t._evaluate(globals(), locals(), frozenset())
@@ -206,6 +219,34 @@ if sys.version_info < (3, 9):
 else:
     def resolve_type(t):
         return t
+
+# Type to string that is more robust than repr
+def stringify_type(tp):
+    try:
+        origin = typing.get_origin(tp)
+        args = typing.get_args(tp)
+        if origin is not None:
+            origin_module = origin.__module__
+            origin_name = origin.__qualname__
+            if origin in [list, EntityList, PaginatableList, NonPaginatableList]:
+                if origin_module in ("mastodon.return_types", "mastodon.types_base"):
+                    type_str = origin_name
+                else:
+                    type_str = f"{origin_module}.{origin_name}"
+                if args:
+                    arg_strs = [stringify_type(arg) for arg in args]
+                    type_str += f"[{', '.join(arg_strs)}]"
+            elif origin in [Union, Optional]:
+                type_str = stringify_type(args[0])
+            return type_str
+        else:
+            module = getattr(tp, "__module__", "")
+            qualname = getattr(tp, "__qualname__", str(tp))
+            if module in ("mastodon.return_types", "mastodon.types_base"):
+                return qualname
+            return f"{module}.{qualname}"
+    except Exception:
+        return str(tp)
 
 # Function that gets a type class but doesn't break in lower python versions as much
 def get_type_class(typ):
@@ -255,6 +296,14 @@ def try_cast(t, value, retry = True, union_specializer = None):
             if union_specializer is not None:
                 value["__union_specializer"] = union_specializer
             value = t(**value)
+
+            # Did we have type arguments on the dict? If so, we need to try to cast the values
+            # This will not work in 3.7 and 3.8, which is unfortunate, but them's the breaks of using
+            # very old versions.
+            if hasattr(t, '__args__') and len(t.__args__) > 1:
+                value_cast_type = t.__args__[1]
+                for key, val in value.items():
+                    value[key] = try_cast_recurse(value_cast_type, val, union_specializer)
         elif real_issubclass(t, bool):
             if isinstance(value, str):
                 if value.lower() == 'true':
@@ -303,6 +352,9 @@ def try_cast(t, value, retry = True, union_specializer = None):
             else:
                 value = t(value)
     except Exception as e:
+        # Failures are silently ignored, usually.
+        # import traceback
+        # traceback.print_exc()
         if retry and isinstance(value, dict):
             value = try_cast(AttribAccessDict, value, False, union_specializer)
     return value
@@ -312,6 +364,7 @@ def try_cast_recurse(t, value, union_specializer=None):
     Non-dict compound type casting function. Handles:
     * Casting to list, tuple, EntityList or (Non)PaginatableList, converting all elements to the correct type recursively
     * Casting to Union, use union_specializer to special case the union type to the correct one
+    * Casting to Union, special case out Quote vs ShallowQuote by the presence of "quoted_status" or "quoted_status_id" in the value
     * Casting to Union, trying all types in the union until one works
     Gives up and returns as-is if none of the above work.
     """
@@ -344,6 +397,12 @@ def try_cast_recurse(t, value, union_specializer=None):
                         "audio": MediaAttachmentAudioMetadata,
                         "gifv": MediaAttachmentVideoMetadata,
                     }.get(union_specializer, None)
+                if isinstance(value, dict) and "quoted_status_id" in value:
+                    from mastodon.return_types import ShallowQuote
+                    real_type = ShallowQuote
+                elif isinstance(value, dict) and "quoted_status" in value:
+                    from mastodon.return_types import Quote
+                    real_type = Quote
                 if real_type in t.__args__:
                     value = try_cast_recurse(real_type, value, union_specializer)
                     use_real_type = True
@@ -365,6 +424,8 @@ def try_cast_recurse(t, value, union_specializer=None):
             value = try_cast(t, value, True, union_specializer)
     except Exception as e:
         # Failures are silently ignored. We care about maximum not breaking here.
+        # import traceback
+        # traceback.print_exc()
         pass
 
     if real_issubclass(value.__class__, AttribAccessDict) or real_issubclass(value.__class__, PaginatableList) or real_issubclass(value.__class__, NonPaginatableList) or real_issubclass(value.__class__, MaybeSnowflakeIdType):
@@ -372,13 +433,17 @@ def try_cast_recurse(t, value, union_specializer=None):
         if real_type is not None and use_real_type:
             save_type = real_type
         try:
-            # Unsure how robust this is - to be evaluated
-            value._mastopy_type = repr(save_type).replace("mastodon.return_types.", "").replace("mastodon.types_base.", "")
-            if value._mastopy_type.startswith("<class '") and value._mastopy_type.endswith("'>"):
-                value._mastopy_type = value._mastopy_type[8:-2]
+            value._mastopy_type = stringify_type(save_type)
         except Exception as e:
-            # Failures are silently ignored. We care about maximum not breaking here.
-            pass
+            try:
+                # If the new robust method doesn't work, try the old and less robust method
+                value._mastopy_type = repr(save_type)
+            except:
+                # Failures are silently ignored. We care about maximum not breaking here.
+                pass
+        value._mastopy_type = value._mastopy_type.replace("mastodon.return_types.", "").replace("mastodon.types_base.", "")
+        if value._mastopy_type.startswith("<class '") and value._mastopy_type.endswith("'>"):
+            value._mastopy_type = value._mastopy_type[8:-2]
     return value
 
 class Entity():
@@ -629,8 +694,16 @@ class AttribAccessDict(OrderedStrDict, Entity):
         # If we're already an AttribAccessDict subclass, skip all the casting
         if not isinstance(val, AttribAccessDict):
             # Collate type hints that we may have
-            type_hints = get_type_hints(self.__class__)
-            init_hints = get_type_hints(self.__class__.__init__)
+            type_hints = {}
+            try:
+                type_hints = get_type_hints(self.__class__)
+            except:
+                pass
+            init_hints = {}
+            try:
+                init_hints = get_type_hints(self.__class__.__init__)
+            except:
+                pass
             type_hints.update(init_hints)
 
             # Ugly hack: We have to specialize unions by hand because you can't just guess by content generally

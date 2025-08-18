@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: b2sdk
-Version: 2.9.4
+Version: 2.10.0
 Summary: Backblaze B2 SDK
 Keywords: backblaze,b2,cloud,storage
 Author-Email: Backblaze Inc <support@backblaze.com>
@@ -10,14 +10,13 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Project-URL: Homepage, https://github.com/Backblaze/b2-sdk-python
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: annotated_types>=0.5.0
 Requires-Dist: importlib-metadata>=3.3.0; python_version < "3.8"
 Requires-Dist: logfury<2.0.0,>=1.0.1

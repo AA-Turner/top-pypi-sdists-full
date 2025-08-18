@@ -5,7 +5,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -20,46 +20,47 @@ interactions:
     uri: http://localhost:3000/api/v1/statuses
   response:
     body:
-      string: '{"id":"5","scheduled_at":"4000-01-01T14:33:14.000Z","params":{"text":"please
-        ensure adequate headroom","media_ids":null,"sensitive":null,"spoiler_text":null,"visibility":null,"language":null,"scheduled_at":null,"poll":null,"allowed_mentions":null,"idempotency":null,"with_rate_limit":false,"in_reply_to_id":null,"application_id":1234567890123456},"media_attachments":[]}'
+      string: '{"id":"1","scheduled_at":"4000-01-01T14:33:14.000Z","params":{"text":"please
+        ensure adequate headroom","media_ids":null,"sensitive":null,"spoiler_text":null,"visibility":null,"language":null,"scheduled_at":null,"poll":null,"allowed_mentions":null,"idempotency":null,"with_rate_limit":false,"in_reply_to_id":null,"application_id":1234567890123456,"quoted_status_id":null},"media_attachments":[]}'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
-      - '370'
-      Content-Security-Policy:
+      - '394'
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
-      - W/"3f09ca79147d7cf1794faa33167d5585"
-      Referrer-Policy:
+      etag:
+      - W/"6799ec97b99a3606e21f262ce19a4efa"
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=5.59, cache_generate.active_support;dur=0.98,
-        cache_write.active_support;dur=0.08, instantiation.active_record;dur=3.93,
-        start_processing.action_controller;dur=0.00, transaction.active_record;dur=5.86,
-        render.active_model_serializers;dur=3.25, process_action.action_controller;dur=35.12
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '236'
-      X-RateLimit-Reset:
-      - '2025-02-14T00:00:00.457212Z'
-      X-Request-Id:
-      - 76f4ce0d-a62a-4a2c-95f5-16601e37869c
-      X-Runtime:
-      - '0.053141'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=12.06, cache_generate.active_support;dur=1.14,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.24,
+        start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.01,
+        transaction.active_record;dur=15.61, render.active_model_serializers;dur=0.23,
+        process_action.action_controller;dur=58.55
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '290'
+      x-ratelimit-reset:
+      - '2025-08-17T21:00:00.763460Z'
+      x-request-id:
+      - 8f40b199-3e78-4b70-afb2-221d0b218f89
+      x-runtime:
+      - '0.074994'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -69,7 +70,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -81,50 +82,50 @@ interactions:
       User-Agent:
       - tests/v311
     method: PUT
-    uri: http://localhost:3000/api/v1/scheduled_statuses/5
+    uri: http://localhost:3000/api/v1/scheduled_statuses/1
   response:
     body:
-      string: '{"id":"5","scheduled_at":"4000-01-01T14:23:14.000Z","params":{"poll":null,"text":"please
-        ensure adequate headroom","language":null,"media_ids":null,"sensitive":null,"visibility":null,"idempotency":null,"scheduled_at":null,"spoiler_text":null,"application_id":1234567890123456,"in_reply_to_id":null,"with_rate_limit":false,"allowed_mentions":null},"media_attachments":[]}'
+      string: '{"id":"1","scheduled_at":"4000-01-01T14:23:14.000Z","params":{"poll":null,"text":"please
+        ensure adequate headroom","language":null,"media_ids":null,"sensitive":null,"visibility":null,"idempotency":null,"scheduled_at":null,"spoiler_text":null,"application_id":1234567890123456,"in_reply_to_id":null,"with_rate_limit":false,"allowed_mentions":null,"quoted_status_id":null},"media_attachments":[]}'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
-      - '370'
-      Content-Security-Policy:
+      - '394'
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
-      - W/"0abeadd97da94726da0aef8c57dac4fa"
-      Referrer-Policy:
+      etag:
+      - W/"c176d9210f9999baac9cb282e081c9bf"
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=3.58, cache_generate.active_support;dur=1.19,
-        cache_write.active_support;dur=0.09, instantiation.active_record;dur=0.31,
-        start_processing.action_controller;dur=0.00, unpermitted_parameters.action_controller;dur=0.00,
-        transaction.active_record;dur=3.97, render.active_model_serializers;dur=0.98,
-        process_action.action_controller;dur=24.44
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:10:00.495724Z'
-      X-Request-Id:
-      - 64fb6c96-d9eb-4031-86e0-defa5d6aeeb7
-      X-Runtime:
-      - '0.039827'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=8.01, cache_generate.active_support;dur=1.04,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=1.54,
+        start_processing.action_controller;dur=0.01, unpermitted_parameters.action_controller;dur=0.00,
+        start_transaction.active_record;dur=0.00, transaction.active_record;dur=6.06,
+        render.active_model_serializers;dur=1.81, process_action.action_controller;dur=41.06
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T19:35:00.826603Z'
+      x-request-id:
+      - c541c00f-e1db-415e-883c-ace2443bdd83
+      x-runtime:
+      - '0.072068'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -134,7 +135,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -145,48 +146,48 @@ interactions:
     uri: http://localhost:3000/api/v1/scheduled_statuses
   response:
     body:
-      string: '[{"id":"5","scheduled_at":"4000-01-01T14:23:14.000Z","params":{"poll":null,"text":"please
-        ensure adequate headroom","language":null,"media_ids":null,"sensitive":null,"visibility":null,"idempotency":null,"scheduled_at":null,"spoiler_text":null,"application_id":1234567890123456,"in_reply_to_id":null,"with_rate_limit":false,"allowed_mentions":null},"media_attachments":[]}]'
+      string: '[{"id":"1","scheduled_at":"4000-01-01T14:23:14.000Z","params":{"poll":null,"text":"please
+        ensure adequate headroom","language":null,"media_ids":null,"sensitive":null,"visibility":null,"idempotency":null,"scheduled_at":null,"spoiler_text":null,"application_id":1234567890123456,"in_reply_to_id":null,"with_rate_limit":false,"allowed_mentions":null,"quoted_status_id":null},"media_attachments":[]}]'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
-      - '372'
-      Content-Security-Policy:
+      - '396'
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
-      - W/"55623a180e05a6e4fa30a21926c853f5"
-      Link:
-      - <http://localhost:3000/api/v1/scheduled_statuses?min_id=5>; rel="prev"
-      Referrer-Policy:
+      etag:
+      - W/"44e545067c55e67791deb86ab94d5dfa"
+      link:
+      - <http://localhost:3000/api/v1/scheduled_statuses?min_id=1>; rel="prev"
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=0.66, cache_generate.active_support;dur=0.84,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.25,
-        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.93,
-        process_action.action_controller;dur=24.14
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:10:00.545942Z'
-      X-Request-Id:
-      - af45f25a-6f2f-453d-addc-b6a7b9d33e52
-      X-Runtime:
-      - '0.038313'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=1.07, cache_generate.active_support;dur=0.80,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.20,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=1.16,
+        process_action.action_controller;dur=27.13
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T19:35:00.896077Z'
+      x-request-id:
+      - 0347b8ef-0b75-4110-8424-3243266e3260
+      x-runtime:
+      - '0.042958'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -196,7 +197,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -204,49 +205,49 @@ interactions:
       User-Agent:
       - tests/v311
     method: GET
-    uri: http://localhost:3000/api/v1/scheduled_statuses/5
+    uri: http://localhost:3000/api/v1/scheduled_statuses/1
   response:
     body:
-      string: '{"id":"5","scheduled_at":"4000-01-01T14:23:14.000Z","params":{"poll":null,"text":"please
-        ensure adequate headroom","language":null,"media_ids":null,"sensitive":null,"visibility":null,"idempotency":null,"scheduled_at":null,"spoiler_text":null,"application_id":1234567890123456,"in_reply_to_id":null,"with_rate_limit":false,"allowed_mentions":null},"media_attachments":[]}'
+      string: '{"id":"1","scheduled_at":"4000-01-01T14:23:14.000Z","params":{"poll":null,"text":"please
+        ensure adequate headroom","language":null,"media_ids":null,"sensitive":null,"visibility":null,"idempotency":null,"scheduled_at":null,"spoiler_text":null,"application_id":1234567890123456,"in_reply_to_id":null,"with_rate_limit":false,"allowed_mentions":null,"quoted_status_id":null},"media_attachments":[]}'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
-      - '370'
-      Content-Security-Policy:
+      - '394'
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
-      - W/"0abeadd97da94726da0aef8c57dac4fa"
-      Referrer-Policy:
+      etag:
+      - W/"c176d9210f9999baac9cb282e081c9bf"
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=0.66, cache_generate.active_support;dur=0.95,
-        cache_write.active_support;dur=0.09, instantiation.active_record;dur=0.25,
-        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.96,
-        process_action.action_controller;dur=19.47
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:10:00.586619Z'
-      X-Request-Id:
-      - 0d6e1ce6-a6df-4c9c-b3c1-2fd5fda2fc87
-      X-Runtime:
-      - '0.034366'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=1.09, cache_generate.active_support;dur=0.96,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.21,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=1.69,
+        process_action.action_controller;dur=27.46
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T19:35:00.955084Z'
+      x-request-id:
+      - a61b80d7-f56d-4f9a-b0ff-24a03cfaee2e
+      x-runtime:
+      - '0.046226'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -256,7 +257,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -266,48 +267,49 @@ interactions:
       User-Agent:
       - tests/v311
     method: DELETE
-    uri: http://localhost:3000/api/v1/scheduled_statuses/5
+    uri: http://localhost:3000/api/v1/scheduled_statuses/1
   response:
     body:
       string: '{}'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
       - '2'
-      Content-Security-Policy:
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
+      etag:
       - W/"44136fa355b3678a1146ad16f7e8649e"
-      Referrer-Policy:
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.01, sql.active_record;dur=3.95, cache_generate.active_support;dur=0.58,
-        cache_write.active_support;dur=0.06, instantiation.active_record;dur=0.29,
-        start_processing.action_controller;dur=0.00, transaction.active_record;dur=3.71,
-        render.active_model_serializers;dur=0.02, process_action.action_controller;dur=23.36
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:10:00.625880Z'
-      X-Request-Id:
-      - 94b7c103-c21b-4461-b4a2-7f0afa0c4ee9
-      X-Runtime:
-      - '0.037128'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=5.04, cache_generate.active_support;dur=0.80,
+        cache_write.active_support;dur=0.06, instantiation.active_record;dur=0.24,
+        start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
+        transaction.active_record;dur=4.62, render.active_model_serializers;dur=0.02,
+        process_action.action_controller;dur=32.54
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T19:35:00.011015Z'
+      x-request-id:
+      - 6ae07a65-bc1b-4892-873c-29240c506e6c
+      x-runtime:
+      - '0.048370'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
@@ -317,7 +319,7 @@ interactions:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -330,53 +332,53 @@ interactions:
     body:
       string: '[]'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
       - '2'
-      Content-Security-Policy:
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
+      etag:
       - W/"4f53cda18c2baa0c0354bb5f9a3ecbe5"
-      Referrer-Policy:
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=0.54, cache_generate.active_support;dur=0.86,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.18,
-        start_processing.action_controller;dur=0.01, render.active_model_serializers;dur=0.04,
-        process_action.action_controller;dur=18.24
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '299'
-      X-RateLimit-Reset:
-      - '2025-02-13T22:10:00.666652Z'
-      X-Request-Id:
-      - e0948e49-bacb-4c92-88fa-39bb678358f0
-      X-Runtime:
-      - '0.032534'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=1.00, cache_generate.active_support;dur=0.88,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.14,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.04,
+        process_action.action_controller;dur=31.97
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '299'
+      x-ratelimit-reset:
+      - '2025-08-17T19:35:00.074030Z'
+      x-request-id:
+      - 0387fc8c-424f-4206-a679-7c6cae66813e
+      x-runtime:
+      - '0.047948'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK
 - request:
-    body: status=please+ensure+adequate+headroom&scheduled_at=2025-02-13T22%3A14%3A55%2B00%3A00
+    body: status=please+ensure+adequate+headroom&scheduled_at=2025-08-17T19%3A37%3A20%2B00%3A00
     headers:
       Accept:
       - '*/*'
       Accept-Encoding:
-      - gzip, deflate
+      - gzip, deflate, br
       Authorization:
       - Bearer __MASTODON_PY_TEST_ACCESS_TOKEN
       Connection:
@@ -391,46 +393,47 @@ interactions:
     uri: http://localhost:3000/api/v1/statuses
   response:
     body:
-      string: '{"id":"6","scheduled_at":"2025-02-13T22:14:55.000Z","params":{"text":"please
-        ensure adequate headroom","media_ids":null,"sensitive":null,"spoiler_text":null,"visibility":null,"language":null,"scheduled_at":null,"poll":null,"allowed_mentions":null,"idempotency":null,"with_rate_limit":false,"in_reply_to_id":null,"application_id":1234567890123456},"media_attachments":[]}'
+      string: '{"id":"2","scheduled_at":"2025-08-17T19:37:20.000Z","params":{"text":"please
+        ensure adequate headroom","media_ids":null,"sensitive":null,"spoiler_text":null,"visibility":null,"language":null,"scheduled_at":null,"poll":null,"allowed_mentions":null,"idempotency":null,"with_rate_limit":false,"in_reply_to_id":null,"application_id":1234567890123456,"quoted_status_id":null},"media_attachments":[]}'
     headers:
-      Cache-Control:
-      - private, no-store
       Content-Length:
-      - '370'
-      Content-Security-Policy:
+      - '394'
+      cache-control:
+      - private, no-store
+      content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
-      Content-Type:
+      content-type:
       - application/json; charset=utf-8
-      ETag:
-      - W/"469615fcffcedf39e62826ed5c44751c"
-      Referrer-Policy:
+      etag:
+      - W/"3e159851a111a6a9b325407d07524517"
+      referrer-policy:
       - strict-origin-when-cross-origin
-      Server-Timing:
-      - cache_read.active_support;dur=0.01, sql.active_record;dur=4.16, cache_generate.active_support;dur=0.71,
-        cache_write.active_support;dur=0.06, instantiation.active_record;dur=0.40,
-        start_processing.action_controller;dur=0.00, transaction.active_record;dur=4.88,
-        render.active_model_serializers;dur=0.29, process_action.action_controller;dur=27.52
-      X-Content-Type-Options:
-      - nosniff
-      X-Frame-Options:
-      - SAMEORIGIN
-      X-Permitted-Cross-Domain-Policies:
-      - none
-      X-RateLimit-Limit:
-      - '300'
-      X-RateLimit-Remaining:
-      - '236'
-      X-RateLimit-Reset:
-      - '2025-02-14T00:00:00.713184Z'
-      X-Request-Id:
-      - db1104f6-6243-4cd8-b47b-3cd62c46ace7
-      X-Runtime:
-      - '0.041614'
-      X-XSS-Protection:
-      - '0'
+      server-timing:
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=4.99, cache_generate.active_support;dur=0.77,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.24,
+        start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
+        transaction.active_record;dur=5.48, render.active_model_serializers;dur=0.24,
+        process_action.action_controller;dur=35.60
       vary:
       - Authorization, Origin
+      x-content-type-options:
+      - nosniff
+      x-frame-options:
+      - SAMEORIGIN
+      x-permitted-cross-domain-policies:
+      - none
+      x-ratelimit-limit:
+      - '300'
+      x-ratelimit-remaining:
+      - '290'
+      x-ratelimit-reset:
+      - '2025-08-17T21:00:00.137947Z'
+      x-request-id:
+      - cdeeb177-916e-44d3-9864-e79f019f632d
+      x-runtime:
+      - '0.052556'
+      x-xss-protection:
+      - '0'
     status:
       code: 200
       message: OK

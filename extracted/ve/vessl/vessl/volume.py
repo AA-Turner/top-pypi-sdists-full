@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
-from openapi_client import OrmVolumeMountRequestSourceModelVolume
-from openapi_client.models import (
+from vessl.openapi_client import OrmVolumeMountRequestSourceModelVolume
+from vessl.openapi_client.models import (
     OrmVolumeMountRequest,
     OrmVolumeMountRequests,
     OrmVolumeMountRequestSourceArchiveFile,

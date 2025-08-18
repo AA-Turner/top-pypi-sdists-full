@@ -2,7 +2,7 @@ import inspect
 
 from urllib3.exceptions import MaxRetryError
 
-from openapi_client import (
+from vessl.openapi_client import (
     ExperimentUpdateHyperparametersAPIInput,
     ResponseExperimentInfo,
 )

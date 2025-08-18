@@ -1,4 +1,5 @@
 """Tests for ReST-style docstring routines."""
+
 import typing as T
 
 import pytest
@@ -10,6 +11,7 @@ from docstring_parser.rest import compose, parse
 @pytest.mark.parametrize(
     "source, expected",
     [
+        pytest.param(None, None, id="No __doc__"),
         ("", None),
         ("\n", None),
         ("Short description", "Short description"),
@@ -17,7 +19,9 @@ from docstring_parser.rest import compose, parse
         ("\n   Short description\n", "Short description"),
     ],
 )
-def test_short_description(source: str, expected: str) -> None:
+def test_short_description(
+    source: T.Optional[str], expected: T.Optional[str]
+) -> None:
     """Test parsing short description."""
     docstring = parse(source)
     assert docstring.short_description == expected
@@ -545,13 +549,13 @@ def test_short_rtype() -> None:
 @pytest.mark.parametrize(
     "src, expected_size",
     [
-        ('', 0),
-        ('Some text', 1),
-        ('Some text\nSome more text', 2),
-        ('Some text\n\nSome more text', 2),
-        ('Some text\n\nSome more text\n\nEven more text', 2),
+        ("", 0),
+        ("Some text", 1),
+        ("Some text\nSome more text", 2),
+        ("Some text\n\nSome more text", 2),
+        ("Some text\n\nSome more text\n\nEven more text", 2),
         (
-                """
+            """
                 Short description.
 
                 This is a longer description.
@@ -582,10 +586,10 @@ def test_short_rtype() -> None:
                 IOError
                     If something else goes wrong.
                 """,
-                2,  # because Google style parser can't parse other styles
+            2,  # because Google style parser can't parse other styles
         ),
         (
-                """
+            """
                 Parameters
                 ----------
                 a: int
@@ -612,10 +616,10 @@ def test_short_rtype() -> None:
                 IOError
                     If something else goes wrong.
                 """,
-                2,  # because the beginning is parsed into short/long description
+            2,  # because the beginning is parsed into short/long description
         ),
         (
-                """
+            """
                 Short description.
 
                 This is a longer description.
@@ -635,10 +639,10 @@ def test_short_rtype() -> None:
                     TypeError: If something else goes wrong.
                     IOError: If something else goes wrong.
                 """,
-                2,  # because ReST style parser can't parse other styles
+            2,  # because ReST style parser can't parse other styles
         ),
         (
-                """
+            """
                 Args:
                     a (int): description
                     b (int): description
@@ -654,10 +658,10 @@ def test_short_rtype() -> None:
                     TypeError: If something else goes wrong.
                     IOError: If something else goes wrong.
                 """,
-                2,  # because the beginning is parsed into short/long description
+            2,  # because the beginning is parsed into short/long description
         ),
         (
-                """
+            """
                 Short description.
 
                 This is a longer description.
@@ -674,10 +678,10 @@ def test_short_rtype() -> None:
                 :raises TypeError: If something else goes wrong.
                 :raises IOError: If something else goes wrong.
                 """,
-                72,
+            72,
         ),
         (
-                """
+            """
                 :param a: description
                 :type a: int
                 :param b: description
@@ -690,10 +694,11 @@ def test_short_rtype() -> None:
                 :raises TypeError: If something else goes wrong.
                 :raises IOError: If something else goes wrong.
                 """,
-                70,
+            70,
         ),
     ],
 )
 def test_docstring_size(src: str, expected_size: int) -> None:
+    """Test that docstring size is calculated correctly."""
     docstring = parse(src)
     assert docstring.size == expected_size

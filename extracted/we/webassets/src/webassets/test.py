@@ -3,7 +3,6 @@
 This is included in the webassets package because it is useful for testing
 external libraries that use webassets (like the flask-assets wrapper).
 """
-from __future__ import print_function
 
 import tempfile
 import shutil
@@ -12,8 +11,6 @@ from os import path
 import time
 
 from webassets import Environment, Bundle
-from webassets.six.moves import map
-from webassets.six.moves import zip
 
 
 __all__ = ('TempDirHelper', 'TempEnvironmentHelper',)
@@ -27,19 +24,19 @@ class TempDirHelper(object):
 
     default_files = {}
 
-    def setup(self):
+    def setup_method(self):
         self._tempdir_created = tempfile.mkdtemp()
         self.create_files(self.default_files)
 
-    def teardown(self):
+    def teardown_method(self):
         shutil.rmtree(self._tempdir_created)
 
     def __enter__(self):
-        self.setup()
+        self.setup_method()
         return self
 
     def __exit__(self, type, value, traceback):
-        self.teardown()
+        self.teardown_method()
 
     @property
     def tempdir(self):
@@ -136,8 +133,8 @@ class TempEnvironmentHelper(TempDirHelper):
 
     default_files = {'in1': 'A', 'in2': 'B', 'in3': 'C', 'in4': 'D'}
 
-    def setup(self):
-        TempDirHelper.setup(self)
+    def setup_method(self):
+        TempDirHelper.setup_method(self)
 
         self.env = self._create_environment()
         # Unless we explicitly test it, we don't want to use the cache

@@ -5,6 +5,8 @@ import pytest
 from functools import wraps
 from OpenGL.GLUT import glutInit
 
+WAYLAND = os.environ.get('XDG_SESSION_TYPE') == 'wayland'
+
 try:
     import numpy
 except ImportError:
@@ -16,18 +18,31 @@ log = logging.getLogger(__name__)
 def glx_only(func):
     @wraps(func)
     def glx_only_test(*args, **named):
+        if WAYLAND:
+            pytest.skip('GLX is not wayland compatible generally')
         if not sys.platform in ('linux', 'linux2'):
-            pytest.skip("Linux-only")
+            pytest.skip('Linux-only')
         return func(*args, **named)
 
     return glx_only_test
+
+def xlib_only(func):
+    @wraps(func)
+    def xlib_only_test(*args, **named):
+        if WAYLAND:
+            pytest.skip('Raw XLIB operations do not work on wayland')
+        return func(*args, **named)
+
+    return xlib_only_test
 
 
 def glut_only(func):
     @wraps(func)
     def glut_only_test(*args, **named):
+        if WAYLAND:
+            pytest.skip('GLUT has poor wayland support')
         if not glutInit:
-            pytest.skip("No GLUT installed")
+            pytest.skip('No GLUT installed')
         return func(*args, **named)
 
     return glut_only_test
@@ -37,7 +52,7 @@ def numpy_only(func):
     @wraps(func)
     def glut_only_test(*args, **named):
         if not numpy:
-            pytest.skip("No GLUT installed")
+            pytest.skip('No GLUT installed')
         return func(*args, **named)
 
     return glut_only_test
@@ -49,7 +64,7 @@ def check_test(func):
 
     @wraps(func)
     def test_x():
-        log.info("Starting test: %s", filename)
+        log.info('Starting test: %s', filename)
         pipe = subprocess.Popen(
             [
                 sys.executable,
@@ -61,31 +76,34 @@ def check_test(func):
         try:
             stdout, stderr = pipe.communicate()
         except subprocess.TimeoutExpired:
-            log.warning("TIMEOUT on %s", filename)
+            log.warning('TIMEOUT on %s', filename)
             pipe.kill()
             raise
         except subprocess.CalledProcessError as err:
-            log.warning("ERROR reported by process: %s", err)
+            log.warning('ERROR reported by process: %s', err)
             raise
         output = stdout.decode('utf-8', errors='ignore')
         lines = [x.strip() for x in output.strip().splitlines()]
         if not lines:
             log.error(
-                "Test did not produce output: %s",
+                'Test did not produce output: %s',
                 stderr.decode('utf-8', errors='ignore'),
             )
-            raise RuntimeError('Test script failure')
+            raise RuntimeError('Test script failure on %s' % (func.__name__))
         if 'SKIP' in lines:
-            raise pytest.skip("Skipped by executable")
+            raise pytest.skip('Skipped by executable on %s' % (func.__name__))
         elif 'OK' in lines:
             return
         else:
             log.error(
-                "Failing check script output: %s",
+                'Failing check script stderr: %s',
                 stderr.decode('utf-8', errors='ignore'),
             )
-            print(output)
-            raise RuntimeError("Test Failed")
+            log.error(
+                'Failing check script stdout: %s',
+                output,
+            )
+            raise RuntimeError('Test Failed')
 
     return test_x
 
@@ -97,23 +115,27 @@ def test_check_crash_on_glutinit():
 
 
 @numpy_only
+@xlib_only
 @check_test
 def test_check_egl_es1():
     """Checks egl with es1 under pygame"""
 
 
 @numpy_only
+@xlib_only
 @check_test
 def test_check_egl_es2():
     """Checks egl with es2 under pygame"""
 
 
 @numpy_only
+@xlib_only
 @check_test
 def test_check_egl_opengl():
     """Checks egl with opengl under pygame"""
 
 
+@xlib_only
 @check_test
 def test_check_egl_platform_ext():
     """Checks egl display platform directly from render devices"""
@@ -237,6 +259,10 @@ def test_test_glgetactiveuniform():
     """Test use of gldouble array in ctypes"""
 
 
+@pytest.mark.xfail(
+    condition=sys.version_info[:2] > (3, 11),
+    reason='Python 3.12+ JIT consumes RAM during this test which the crude memory bookkeeping cannot track',
+)
 @check_test
 def test_test_glgetfloat_leak():
     """Test use of gldouble array in ctypes"""

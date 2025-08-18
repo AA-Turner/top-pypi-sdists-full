@@ -3,12 +3,12 @@ from __future__ import print_function
 # import OpenGL
 # OpenGL.USE_ACCELERATE=False
 from OpenGL.GL import *
-import sys
+import sys, os
 
-if not sys.platform.startswith('linux'):
+if (not sys.platform.startswith('linux')) or os.environ.get('XDG_SESSION_TYPE') == 'wayland':
     import pytest
 
-    pytest.skip("Skipping GLX tests on non-linux platforms", allow_module_level=True)
+    pytest.skip("Skipping GLX tests on non-GLX platforms", allow_module_level=True)
 from OpenGL.GLX import *
 from OpenGL.GLX.EXT.texture_from_pixmap import *
 

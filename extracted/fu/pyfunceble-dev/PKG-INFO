@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: PyFunceble-dev
-Version: 4.2.29
+Version: 4.3.0
 Summary: The tool to check the availability or syntax of domain, IP or URL.
 Home-page: https://github.com/funilrys/PyFunceble
 Author: funilrys
@@ -19,94 +19,194 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved
-Requires-Python: >=3.8, <4
+Requires-Python: >=3.9, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: domain2idna~=1.12.0
-Requires-Dist: dnspython[DOH]~=2.6.0
-Requires-Dist: requests[socks]<3
-Requires-Dist: PyYAML
-Requires-Dist: inflection
-Requires-Dist: python-dotenv
-Requires-Dist: shtab
-Requires-Dist: SQLAlchemy[postgresql-psycopg2binary]~=2.0
-Requires-Dist: python-box[all]~=6.0.0
-Requires-Dist: setuptools>=65.5.1
-Requires-Dist: cryptography~=42.0
-Requires-Dist: PyMySQL
-Requires-Dist: packaging
 Requires-Dist: alembic
+Requires-Dist: PyMySQL
+Requires-Dist: requests[socks]<3
+Requires-Dist: setuptools>=65.5.1
+Requires-Dist: dnspython[DOH]~=2.7.0
+Requires-Dist: python-dotenv
 Requires-Dist: colorama
+Requires-Dist: PyYAML
+Requires-Dist: python-box[all]~=7.3.2
+Requires-Dist: SQLAlchemy~=2.0
+Requires-Dist: inflection
+Requires-Dist: pyfunceble-process-manager==1.0.10
+Requires-Dist: shtab
+Requires-Dist: packaging
 Provides-Extra: docs
-Requires-Dist: zipp>=3.19.1; extra == "docs"
-Requires-Dist: mkdocstrings[python]~=0.26; extra == "docs"
-Requires-Dist: mkdocs-gen-files~=0.5; extra == "docs"
-Requires-Dist: mkdocs-literate-nav~=0.6; extra == "docs"
-Requires-Dist: mkdocs-section-index~=0.3; extra == "docs"
-Requires-Dist: mkdocs-git-authors-plugin~=0.9; extra == "docs"
-Requires-Dist: mkdocs-git-revision-date-localized-plugin~=1.2; extra == "docs"
-Requires-Dist: mkdocs~=1.5; extra == "docs"
 Requires-Dist: mkdocs-material~=9.5; extra == "docs"
-Requires-Dist: mkdocs-macros-plugin~=1.2; extra == "docs"
+Requires-Dist: mkdocs-section-index~=0.3; extra == "docs"
 Requires-Dist: pymdown-extensions~=10.9; extra == "docs"
+Requires-Dist: zipp>=3.19.1; extra == "docs"
+Requires-Dist: mkdocs-git-revision-date-localized-plugin~=1.2; extra == "docs"
+Requires-Dist: mkdocs-literate-nav~=0.6; extra == "docs"
+Requires-Dist: mkdocs-gen-files~=0.5; extra == "docs"
+Requires-Dist: mkdocs~=1.5; extra == "docs"
+Requires-Dist: mkdocs-macros-plugin~=1.2; extra == "docs"
+Requires-Dist: mkdocstrings[python]~=0.26; extra == "docs"
+Requires-Dist: mkdocs-git-authors-plugin~=0.9; extra == "docs"
 Provides-Extra: dev
-Requires-Dist: black; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
 Requires-Dist: pylint; extra == "dev"
 Requires-Dist: isort; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
+Requires-Dist: black; extra == "dev"
 Provides-Extra: test
-Requires-Dist: coverage; extra == "test"
 Requires-Dist: tox; extra == "test"
+Requires-Dist: coverage; extra == "test"
 Provides-Extra: psql
 Requires-Dist: domain2idna~=1.12.0; extra == "psql"
-Requires-Dist: dnspython[DOH]~=2.6.0; extra == "psql"
-Requires-Dist: requests[socks]<3; extra == "psql"
-Requires-Dist: PyYAML; extra == "psql"
-Requires-Dist: inflection; extra == "psql"
-Requires-Dist: python-dotenv; extra == "psql"
-Requires-Dist: shtab; extra == "psql"
-Requires-Dist: SQLAlchemy[postgresql-psycopg2binary]~=2.0; extra == "psql"
-Requires-Dist: python-box[all]~=6.0.0; extra == "psql"
-Requires-Dist: setuptools>=65.5.1; extra == "psql"
-Requires-Dist: cryptography~=42.0; extra == "psql"
-Requires-Dist: PyMySQL; extra == "psql"
-Requires-Dist: psycopg2; extra == "psql"
-Requires-Dist: packaging; extra == "psql"
 Requires-Dist: alembic; extra == "psql"
+Requires-Dist: PyMySQL; extra == "psql"
+Requires-Dist: requests[socks]<3; extra == "psql"
+Requires-Dist: setuptools>=65.5.1; extra == "psql"
+Requires-Dist: dnspython[DOH]~=2.7.0; extra == "psql"
+Requires-Dist: psycopg2; extra == "psql"
+Requires-Dist: python-dotenv; extra == "psql"
 Requires-Dist: colorama; extra == "psql"
+Requires-Dist: PyYAML; extra == "psql"
+Requires-Dist: python-box[all]~=7.3.2; extra == "psql"
+Requires-Dist: SQLAlchemy~=2.0; extra == "psql"
+Requires-Dist: inflection; extra == "psql"
+Requires-Dist: pyfunceble-process-manager==1.0.10; extra == "psql"
+Requires-Dist: shtab; extra == "psql"
+Requires-Dist: packaging; extra == "psql"
+Provides-Extra: psql-binary
+Requires-Dist: domain2idna~=1.12.0; extra == "psql-binary"
+Requires-Dist: alembic; extra == "psql-binary"
+Requires-Dist: PyMySQL; extra == "psql-binary"
+Requires-Dist: requests[socks]<3; extra == "psql-binary"
+Requires-Dist: setuptools>=65.5.1; extra == "psql-binary"
+Requires-Dist: dnspython[DOH]~=2.7.0; extra == "psql-binary"
+Requires-Dist: python-dotenv; extra == "psql-binary"
+Requires-Dist: colorama; extra == "psql-binary"
+Requires-Dist: psycopg2-binary; extra == "psql-binary"
+Requires-Dist: PyYAML; extra == "psql-binary"
+Requires-Dist: python-box[all]~=7.3.2; extra == "psql-binary"
+Requires-Dist: SQLAlchemy~=2.0; extra == "psql-binary"
+Requires-Dist: inflection; extra == "psql-binary"
+Requires-Dist: pyfunceble-process-manager==1.0.10; extra == "psql-binary"
+Requires-Dist: shtab; extra == "psql-binary"
+Requires-Dist: packaging; extra == "psql-binary"
+Provides-Extra: postgresql
+Requires-Dist: domain2idna~=1.12.0; extra == "postgresql"
+Requires-Dist: alembic; extra == "postgresql"
+Requires-Dist: PyMySQL; extra == "postgresql"
+Requires-Dist: requests[socks]<3; extra == "postgresql"
+Requires-Dist: setuptools>=65.5.1; extra == "postgresql"
+Requires-Dist: dnspython[DOH]~=2.7.0; extra == "postgresql"
+Requires-Dist: psycopg2; extra == "postgresql"
+Requires-Dist: python-dotenv; extra == "postgresql"
+Requires-Dist: colorama; extra == "postgresql"
+Requires-Dist: PyYAML; extra == "postgresql"
+Requires-Dist: python-box[all]~=7.3.2; extra == "postgresql"
+Requires-Dist: SQLAlchemy~=2.0; extra == "postgresql"
+Requires-Dist: inflection; extra == "postgresql"
+Requires-Dist: pyfunceble-process-manager==1.0.10; extra == "postgresql"
+Requires-Dist: shtab; extra == "postgresql"
+Requires-Dist: packaging; extra == "postgresql"
+Provides-Extra: postgresql-binary
+Requires-Dist: domain2idna~=1.12.0; extra == "postgresql-binary"
+Requires-Dist: alembic; extra == "postgresql-binary"
+Requires-Dist: PyMySQL; extra == "postgresql-binary"
+Requires-Dist: requests[socks]<3; extra == "postgresql-binary"
+Requires-Dist: setuptools>=65.5.1; extra == "postgresql-binary"
+Requires-Dist: dnspython[DOH]~=2.7.0; extra == "postgresql-binary"
+Requires-Dist: python-dotenv; extra == "postgresql-binary"
+Requires-Dist: colorama; extra == "postgresql-binary"
+Requires-Dist: psycopg2-binary; extra == "postgresql-binary"
+Requires-Dist: PyYAML; extra == "postgresql-binary"
+Requires-Dist: python-box[all]~=7.3.2; extra == "postgresql-binary"
+Requires-Dist: SQLAlchemy~=2.0; extra == "postgresql-binary"
+Requires-Dist: inflection; extra == "postgresql-binary"
+Requires-Dist: pyfunceble-process-manager==1.0.10; extra == "postgresql-binary"
+Requires-Dist: shtab; extra == "postgresql-binary"
+Requires-Dist: packaging; extra == "postgresql-binary"
 Provides-Extra: full
-Requires-Dist: zipp>=3.19.1; extra == "full"
-Requires-Dist: domain2idna~=1.12.0; extra == "full"
-Requires-Dist: dnspython[DOH]~=2.6.0; extra == "full"
-Requires-Dist: requests[socks]<3; extra == "full"
-Requires-Dist: inflection; extra == "full"
-Requires-Dist: python-dotenv; extra == "full"
-Requires-Dist: pylint; extra == "full"
-Requires-Dist: mkdocs-macros-plugin~=1.2; extra == "full"
-Requires-Dist: PyYAML; extra == "full"
-Requires-Dist: mkdocs-gen-files~=0.5; extra == "full"
-Requires-Dist: coverage; extra == "full"
-Requires-Dist: shtab; extra == "full"
-Requires-Dist: setuptools>=65.5.1; extra == "full"
-Requires-Dist: cryptography~=42.0; extra == "full"
-Requires-Dist: colorama; extra == "full"
-Requires-Dist: flake8; extra == "full"
-Requires-Dist: tox; extra == "full"
-Requires-Dist: mkdocstrings[python]~=0.26; extra == "full"
-Requires-Dist: mkdocs-literate-nav~=0.6; extra == "full"
-Requires-Dist: mkdocs-git-revision-date-localized-plugin~=1.2; extra == "full"
-Requires-Dist: isort; extra == "full"
-Requires-Dist: pymdown-extensions~=10.9; extra == "full"
-Requires-Dist: packaging; extra == "full"
-Requires-Dist: alembic; extra == "full"
-Requires-Dist: mkdocs-section-index~=0.3; extra == "full"
-Requires-Dist: mkdocs-git-authors-plugin~=0.9; extra == "full"
-Requires-Dist: SQLAlchemy[postgresql-psycopg2binary]~=2.0; extra == "full"
-Requires-Dist: mkdocs~=1.5; extra == "full"
-Requires-Dist: python-box[all]~=6.0.0; extra == "full"
-Requires-Dist: PyMySQL; extra == "full"
 Requires-Dist: mkdocs-material~=9.5; extra == "full"
+Requires-Dist: domain2idna~=1.12.0; extra == "full"
+Requires-Dist: PyMySQL; extra == "full"
+Requires-Dist: setuptools>=65.5.1; extra == "full"
+Requires-Dist: PyYAML; extra == "full"
+Requires-Dist: coverage; extra == "full"
+Requires-Dist: pylint; extra == "full"
 Requires-Dist: black; extra == "full"
+Requires-Dist: SQLAlchemy~=2.0; extra == "full"
+Requires-Dist: mkdocstrings[python]~=0.26; extra == "full"
+Requires-Dist: shtab; extra == "full"
+Requires-Dist: flake8; extra == "full"
+Requires-Dist: isort; extra == "full"
+Requires-Dist: alembic; extra == "full"
+Requires-Dist: dnspython[DOH]~=2.7.0; extra == "full"
+Requires-Dist: colorama; extra == "full"
+Requires-Dist: zipp>=3.19.1; extra == "full"
+Requires-Dist: mkdocs-gen-files~=0.5; extra == "full"
+Requires-Dist: python-box[all]~=7.3.2; extra == "full"
+Requires-Dist: mkdocs-macros-plugin~=1.2; extra == "full"
+Requires-Dist: requests[socks]<3; extra == "full"
+Requires-Dist: tox; extra == "full"
+Requires-Dist: mkdocs-git-authors-plugin~=0.9; extra == "full"
+Requires-Dist: mkdocs-section-index~=0.3; extra == "full"
+Requires-Dist: pymdown-extensions~=10.9; extra == "full"
+Requires-Dist: mkdocs~=1.5; extra == "full"
+Requires-Dist: pyfunceble-process-manager==1.0.10; extra == "full"
+Requires-Dist: python-dotenv; extra == "full"
+Requires-Dist: mkdocs-git-revision-date-localized-plugin~=1.2; extra == "full"
+Requires-Dist: mkdocs-literate-nav~=0.6; extra == "full"
+Requires-Dist: inflection; extra == "full"
+Requires-Dist: packaging; extra == "full"
+Provides-Extra: all
+Requires-Dist: mkdocs-material~=9.5; extra == "all"
+Requires-Dist: domain2idna~=1.12.0; extra == "all"
+Requires-Dist: PyMySQL; extra == "all"
+Requires-Dist: setuptools>=65.5.1; extra == "all"
+Requires-Dist: PyYAML; extra == "all"
+Requires-Dist: coverage; extra == "all"
+Requires-Dist: pylint; extra == "all"
+Requires-Dist: black; extra == "all"
+Requires-Dist: SQLAlchemy~=2.0; extra == "all"
+Requires-Dist: mkdocstrings[python]~=0.26; extra == "all"
+Requires-Dist: shtab; extra == "all"
+Requires-Dist: flake8; extra == "all"
+Requires-Dist: isort; extra == "all"
+Requires-Dist: alembic; extra == "all"
+Requires-Dist: dnspython[DOH]~=2.7.0; extra == "all"
+Requires-Dist: colorama; extra == "all"
+Requires-Dist: psycopg2-binary; extra == "all"
+Requires-Dist: zipp>=3.19.1; extra == "all"
+Requires-Dist: mkdocs-gen-files~=0.5; extra == "all"
+Requires-Dist: python-box[all]~=7.3.2; extra == "all"
+Requires-Dist: mkdocs-macros-plugin~=1.2; extra == "all"
+Requires-Dist: requests[socks]<3; extra == "all"
+Requires-Dist: tox; extra == "all"
+Requires-Dist: mkdocs-git-authors-plugin~=0.9; extra == "all"
+Requires-Dist: mkdocs-section-index~=0.3; extra == "all"
+Requires-Dist: pymdown-extensions~=10.9; extra == "all"
+Requires-Dist: mkdocs~=1.5; extra == "all"
+Requires-Dist: pyfunceble-process-manager==1.0.10; extra == "all"
+Requires-Dist: python-dotenv; extra == "all"
+Requires-Dist: mkdocs-git-revision-date-localized-plugin~=1.2; extra == "all"
+Requires-Dist: mkdocs-literate-nav~=0.6; extra == "all"
+Requires-Dist: inflection; extra == "all"
+Requires-Dist: packaging; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ![image](https://raw.githubusercontent.com/PyFunceble/logo/dev/Green/HD/RM.png)
 
@@ -115,6 +215,7 @@ Requires-Dist: black; extra == "full"
 [![image](https://img.shields.io/badge/code%20style-black-000000.png)](https://github.com/ambv/black)
 [![image](https://coveralls.io/repos/github/funilrys/PyFunceble/badge.png?branch=dev)](https://coveralls.io/github/funilrys/PyFunceble?branch=dev)
 [![image](https://img.shields.io/github/license/funilrys/PyFunceble.png)](https://github.com/funilrys/PyFunceble/blob/dev/LICENSE)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ffunilrys%2FPyFunceble.svg?type=shield&issueType=license)](https://app.fossa.com/projects/git%2Bgithub.com%2Ffunilrys%2FPyFunceble?ref=badge_shield&issueType=license)
 [![image](https://img.shields.io/pypi/v/pyfunceble-dev.png)](https://pypi.org/project/pyfunceble-dev)
 [![image](https://img.shields.io/github/issues/funilrys/PyFunceble.png)](https://github.com/funilrys/PyFunceble/issues)
 
@@ -153,11 +254,10 @@ Happy testing with PyFunceble!
 
 # Table of Content
 
-- [The tool to check the availability or syntax of domain, IP or URL](#the-tool-to-check-the-availability-or-syntax-of-domain-ip-or-url)
-- [Table of Content](#table-of-content)
 - [Installation](#installation)
   - [Packages \& Versioning](#packages--versioning)
   - [PyPi - Python Package Index](#pypi---python-package-index)
+    - [Optional Dependencies](#optional-dependencies)
     - [pyfunceble](#pyfunceble)
     - [pyfunceble-dev](#pyfunceble-dev)
   - [Container Image Registry](#container-image-registry)
@@ -221,9 +321,35 @@ the OS specific packages _(see below)_.
 Here is an overview of the packages and where they are hosted.
 
 | Package        | PyPi Link                                |
-|----------------|------------------------------------------|
+| -------------- | ---------------------------------------- |
 | pyfunceble     | https://pypi.org/project/PyFunceble      |
 | pyfunceble-dev | https://pypi.org/project/PyFunceblee-dev |
+
+### Optional Dependencies
+
+The following dependencies are optional and can be installed if you need them.
+
+| Dependency                         | Description                                                                                                                                                            |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `all`                              | Install all functional dependencies. Basically all but `dev`, `test` and `docs`. _When a binary and non binary version is available, the binary version is installed._ |
+| `full`                             | Install all dependencies listed below. _When a binary and non binary version is available, the binary version is installed._                                           |
+| `psql`, `postgresql`               | **Build** and install the dependencies required to interact with PostgreSQL.                                                                                           |
+| `psql-binary`, `postgresql-binary` | **Install** the dependencies required to interact with PostgreSQL - from binary.                                                                                       |
+| `docs`                             | Install the dependencies required to build the documentation.                                                                                                          |
+| `test`                             | Install the dependencies required to run the tests.                                                                                                                    |
+| `dev`                              | Install the dependencies required to develop PyFunceble.                                                                                                               |
+
+They are intended to be installed through the following syntax:
+
+```shell
+pip3 install --user {pkg}[{dependency}]
+```
+
+As an example if you want to install the `docs` and `test` dependencies, you should run:
+
+```shell
+pip3 install --user pyfunceble[docs,test]
+```
 
 ### pyfunceble
 
@@ -257,7 +383,7 @@ is available. :smile:
 Here is an overview of the packages and where they are hosted.
 
 | Host       | Package        | Link                                                                                                     |
-|------------|----------------|----------------------------------------------------------------------------------------------------------|
+| ---------- | -------------- | -------------------------------------------------------------------------------------------------------- |
 | Docker Hub | pyfunceble     | [https://hub.docker.com/r/pyfunceble/pyfunceble](https://hub.docker.com/r/pyfunceble/pyfunceble)         |
 | Docker Hub | pyfunceble-dev | [https://hub.docker.com/r/pyfunceble/pyfunceble-dev](https://hub.docker.com/r/pyfunceble/pyfunceble-dev) |
 
@@ -307,7 +433,7 @@ this is probably for you.
 Here is an overview of the packages and where they are hosted.
 
 | Host   | Package        | Repository                                                              |
-|--------|----------------|-------------------------------------------------------------------------|
+| ------ | -------------- | ----------------------------------------------------------------------- |
 | GitHub | pyfunceble     | `git+https://github.com/funilrys/PyFunceble.git@master#egg=PyFunceble`  |
 | GitHub | pyfunceble-dev | `git+https://github.com/funilrys/PyFunceble.git@dev#egg=PyFunceble-dev` |
 | GitLab | pyfunceble     | `git+https://gitlab.com/funilrys/PyFunceble.git@master#egg=PyFunceble`  |
@@ -476,7 +602,7 @@ From source:
 
 ```shell
 # Install dependencies.
-pip install --user -r requirements.docs.txt
+pip install --user .[docs]
 # Serve documentation locally.
 mkdocs serve
 # Open Documentation with browser.
@@ -507,6 +633,7 @@ contribution(s) and or issue report which made or make
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
+
 <table>
   <tbody>
     <tr>
@@ -524,34 +651,35 @@ contribution(s) and or issue report which made or make
       <td align="center" valign="top" width="20%"><a href="https://github.com/ybreza"><img src="https://avatars.githubusercontent.com/u/35470865?v=4?s=100" width="100px;" alt="Reza Rizqullah"/><br /><sub><b>Reza Rizqullah</b></sub></a><br /><a href="#design-ybreza" title="Design">🎨</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=ybreza" title="Code">💻</a></td>
     </tr>
     <tr>
+      <td align="center" valign="top" width="20%"><a href="https://github.com/techdragon"><img src="https://avatars.githubusercontent.com/u/2115079?v=4?s=100" width="100px;" alt="Samuel Bishop"/><br /><sub><b>Samuel Bishop</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Atechdragon" title="Bug reports">🐛</a> <a href="#ideas-techdragon" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="20%"><a href="https://scripttiger.github.io/"><img src="https://avatars.githubusercontent.com/u/29940916?v=4?s=100" width="100px;" alt="ScriptTiger"/><br /><sub><b>ScriptTiger</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3AScriptTiger" title="Bug reports">🐛</a> <a href="#ideas-ScriptTiger" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=ScriptTiger" title="Tests">⚠️</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/sjhgvr"><img src="https://avatars.githubusercontent.com/u/51121527?v=4?s=100" width="100px;" alt="Stephan van Ruth"/><br /><sub><b>Stephan van Ruth</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Asjhgvr" title="Bug reports">🐛</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=sjhgvr" title="Tests">⚠️</a></td>
       <td align="center" valign="top" width="20%"><a href="http://stevenblack.com/"><img src="https://avatars.githubusercontent.com/u/80144?v=4?s=100" width="100px;" alt="Steven Black"/><br /><sub><b>Steven Black</b></sub></a><br /><a href="#ideas-StevenBlack" title="Ideas, Planning, & Feedback">🤔</a> <a href="#financial-StevenBlack" title="Financial">💵</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/T145"><img src="https://avatars.githubusercontent.com/u/1214129?v=4?s=100" width="100px;" alt="T145"/><br /><sub><b>T145</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3AT145" title="Bug reports">🐛</a> <a href="#ideas-T145" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="20%"><a href="https://infosec.exchange/@wally3k"><img src="https://avatars.githubusercontent.com/u/3049142?v=4?s=100" width="100px;" alt="WaLLy3K"/><br /><sub><b>WaLLy3K</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3AWaLLy3K" title="Bug reports">🐛</a> <a href="#ideas-WaLLy3K" title="Ideas, Planning, & Feedback">🤔</a></td>
     </tr>
     <tr>
+      <td align="center" valign="top" width="20%"><a href="https://infosec.exchange/@wally3k"><img src="https://avatars.githubusercontent.com/u/3049142?v=4?s=100" width="100px;" alt="WaLLy3K"/><br /><sub><b>WaLLy3K</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3AWaLLy3K" title="Bug reports">🐛</a> <a href="#ideas-WaLLy3K" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/Yuki2718"><img src="https://avatars.githubusercontent.com/u/58900598?v=4?s=100" width="100px;" alt="Yuki2718"/><br /><sub><b>Yuki2718</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3AYuki2718" title="Bug reports">🐛</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=Yuki2718" title="Tests">⚠️</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/Zachinquarantine"><img src="https://avatars.githubusercontent.com/u/69423184?v=4?s=100" width="100px;" alt="Zachinquarantine"/><br /><sub><b>Zachinquarantine</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/commits?author=Zachinquarantine" title="Code">💻</a></td>
       <td align="center" valign="top" width="20%"><a href="http://bit.ly/cBWeb"><img src="https://avatars.githubusercontent.com/u/28985171?v=4?s=100" width="100px;" alt="ZeroDot1"/><br /><sub><b>ZeroDot1</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3AZeroDot1" title="Bug reports">🐛</a> <a href="#ideas-ZeroDot1" title="Ideas, Planning, & Feedback">🤔</a> <a href="#question-ZeroDot1" title="Answering Questions">💬</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=ZeroDot1" title="Tests">⚠️</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=ZeroDot1" title="Code">💻</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/avatartw"><img src="https://avatars.githubusercontent.com/u/69660730?v=4?s=100" width="100px;" alt="avatartw"/><br /><sub><b>avatartw</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Aavatartw" title="Bug reports">🐛</a></td>
-      <td align="center" valign="top" width="20%"><a href="https://github.com/dnmTX"><img src="https://avatars.githubusercontent.com/u/34774426?v=4?s=100" width="100px;" alt="dnmTX"/><br /><sub><b>dnmTX</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3AdnmTX" title="Bug reports">🐛</a> <a href="#ideas-dnmTX" title="Ideas, Planning, & Feedback">🤔</a> <a href="#question-dnmTX" title="Answering Questions">💬</a> <a href="https://github.com/funilrys/PyFunceble/pulls?q=is%3Apr+reviewed-by%3AdnmTX" title="Reviewed Pull Requests">👀</a> <a href="#data-dnmTX" title="Data">🔣</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=dnmTX" title="Tests">⚠️</a></td>
     </tr>
     <tr>
+      <td align="center" valign="top" width="20%"><a href="https://github.com/dnmTX"><img src="https://avatars.githubusercontent.com/u/34774426?v=4?s=100" width="100px;" alt="dnmTX"/><br /><sub><b>dnmTX</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3AdnmTX" title="Bug reports">🐛</a> <a href="#ideas-dnmTX" title="Ideas, Planning, & Feedback">🤔</a> <a href="#question-dnmTX" title="Answering Questions">💬</a> <a href="https://github.com/funilrys/PyFunceble/pulls?q=is%3Apr+reviewed-by%3AdnmTX" title="Reviewed Pull Requests">👀</a> <a href="#data-dnmTX" title="Data">🔣</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=dnmTX" title="Tests">⚠️</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/gwarser"><img src="https://avatars.githubusercontent.com/u/886325?v=4?s=100" width="100px;" alt="gwarser"/><br /><sub><b>gwarser</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Agwarser" title="Bug reports">🐛</a> <a href="#data-gwarser" title="Data">🔣</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=gwarser" title="Tests">⚠️</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/hawkeye116477"><img src="https://avatars.githubusercontent.com/u/19818572?v=4?s=100" width="100px;" alt="hawkeye116477"/><br /><sub><b>hawkeye116477</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Ahawkeye116477" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/jawz101"><img src="https://avatars.githubusercontent.com/u/14151703?v=4?s=100" width="100px;" alt="jawz101"/><br /><sub><b>jawz101</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Ajawz101" title="Bug reports">🐛</a> <a href="#ideas-jawz101" title="Ideas, Planning, & Feedback">🤔</a> <a href="#question-jawz101" title="Answering Questions">💬</a> <a href="#data-jawz101" title="Data">🔣</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/keczuppp"><img src="https://avatars.githubusercontent.com/u/74409207?v=4?s=100" width="100px;" alt="keczuppp"/><br /><sub><b>keczuppp</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Akeczuppp" title="Bug reports">🐛</a> <a href="#ideas-keczuppp" title="Ideas, Planning, & Feedback">🤔</a> <a href="#question-keczuppp" title="Answering Questions">💬</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=keczuppp" title="Tests">⚠️</a> <a href="#data-keczuppp" title="Data">🔣</a></td>
-      <td align="center" valign="top" width="20%"><a href="https://github.com/opav"><img src="https://avatars.githubusercontent.com/u/6770347?v=4?s=100" width="100px;" alt="opav"/><br /><sub><b>opav</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Aopav" title="Bug reports">🐛</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=opav" title="Tests">⚠️</a></td>
     </tr>
     <tr>
+      <td align="center" valign="top" width="20%"><a href="https://github.com/opav"><img src="https://avatars.githubusercontent.com/u/6770347?v=4?s=100" width="100px;" alt="opav"/><br /><sub><b>opav</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Aopav" title="Bug reports">🐛</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=opav" title="Tests">⚠️</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/rusty-snake"><img src="https://avatars.githubusercontent.com/u/41237666?v=4?s=100" width="100px;" alt="rusty-snake"/><br /><sub><b>rusty-snake</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Arusty-snake" title="Bug reports">🐛</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=rusty-snake" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/smed79"><img src="https://avatars.githubusercontent.com/u/1873139?v=4?s=100" width="100px;" alt="smed79"/><br /><sub><b>smed79</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Asmed79" title="Bug reports">🐛</a> <a href="#ideas-smed79" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=smed79" title="Code">💻</a> <a href="#question-smed79" title="Answering Questions">💬</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=smed79" title="Tests">⚠️</a></td>
       <td align="center" valign="top" width="20%"><a href="https://speedmann.de/"><img src="https://avatars.githubusercontent.com/u/424659?v=4?s=100" width="100px;" alt="speedmann"/><br /><sub><b>speedmann</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Aspeedmann" title="Bug reports">🐛</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=speedmann" title="Tests">⚠️</a></td>
       <td align="center" valign="top" width="20%"><a href="https://www.mypdns.org/"><img src="https://avatars.githubusercontent.com/u/44526987?v=4?s=100" width="100px;" alt="spirillen"/><br /><sub><b>spirillen</b></sub></a><br /><a href="#a11y-spirillen" title="Accessibility">️️️️♿️</a> <a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Aspirillen" title="Bug reports">🐛</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=spirillen" title="Code">💻</a> <a href="#content-spirillen" title="Content">🖋</a> <a href="#data-spirillen" title="Data">🔣</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=spirillen" title="Documentation">📖</a> <a href="#example-spirillen" title="Examples">💡</a> <a href="#ideas-spirillen" title="Ideas, Planning, & Feedback">🤔</a> <a href="#maintenance-spirillen" title="Maintenance">🚧</a> <a href="#mentoring-spirillen" title="Mentoring">🧑‍🏫</a> <a href="#promotion-spirillen" title="Promotion">📣</a> <a href="#question-spirillen" title="Answering Questions">💬</a> <a href="https://github.com/funilrys/PyFunceble/pulls?q=is%3Apr+reviewed-by%3Aspirillen" title="Reviewed Pull Requests">👀</a> <a href="#tool-spirillen" title="Tools">🔧</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=spirillen" title="Tests">⚠️</a> <a href="#tutorial-spirillen" title="Tutorials">✅</a> <a href="#talk-spirillen" title="Talks">📢</a> <a href="#userTesting-spirillen" title="User Testing">📓</a></td>
-      <td align="center" valign="top" width="20%"><a href="https://github.com/NeolithEra"><img src="https://avatars.githubusercontent.com/u/52778917?v=4?s=100" width="100px;" alt="watchman-pypi"/><br /><sub><b>watchman-pypi</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3ANeolithEra" title="Bug reports">🐛</a></td>
     </tr>
     <tr>
+      <td align="center" valign="top" width="20%"><a href="https://github.com/NeolithEra"><img src="https://avatars.githubusercontent.com/u/52778917?v=4?s=100" width="100px;" alt="watchman-pypi"/><br /><sub><b>watchman-pypi</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3ANeolithEra" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/xxcriticxx"><img src="https://avatars.githubusercontent.com/u/15007183?v=4?s=100" width="100px;" alt="xxcriticxx"/><br /><sub><b>xxcriticxx</b></sub></a><br /><a href="https://github.com/funilrys/PyFunceble/issues?q=author%3Axxcriticxx" title="Bug reports">🐛</a> <a href="#ideas-xxcriticxx" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/funilrys/PyFunceble/commits?author=xxcriticxx" title="Tests">⚠️</a></td>
     </tr>
   </tbody>
@@ -615,7 +743,7 @@ which helped and/or still help me build, test and or make
 
 # License
 
-    Copyright 2017, 2018, 2019, 2020, 2022, 2023, 2024 Nissar Chababy
+    Copyright 2017, 2018, 2019, 2020, 2022, 2023, 2024, 2025 Nissar Chababy
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.

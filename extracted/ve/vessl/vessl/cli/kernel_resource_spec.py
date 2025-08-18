@@ -1,6 +1,6 @@
 import click
 
-from openapi_client import ResponseKernelResourceSpec
+from vessl.openapi_client import ResponseKernelResourceSpec
 from vessl.cli._base import VesslGroup, vessl_argument, vessl_option
 from vessl.cli._util import print_data, print_table
 from vessl.util.fmt import format_bool

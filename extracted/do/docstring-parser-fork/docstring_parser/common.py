@@ -1,4 +1,5 @@
 """Common methods for parsing."""
+
 import enum
 import pprint
 import typing as T

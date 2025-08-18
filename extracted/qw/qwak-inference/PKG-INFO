@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: qwak-inference
-Version: 0.1.23
+Version: 0.1.24
 Summary: Qwak Inference is a Python library for running predictions again Qwak Models.
 License: Apache-2.0
 Keywords: mlops,ml,deployment,serving,model

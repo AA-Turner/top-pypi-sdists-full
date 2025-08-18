@@ -129,10 +129,13 @@ def test_account_update_credentials(api):
         fields = [
             ("bread", "toasty."),
             ("lasagna", "no!!!"),
+        ],
+        attribution_domains=[
+            "example.com",
+            "another-example.com"
         ]
     )
     
-    print(type(account.fields))
     assert account
     assert account.id
     assert account["display_name"] == 'John Lennon'
@@ -141,6 +144,8 @@ def test_account_update_credentials(api):
     assert account["fields"][0].value == "toasty."
     assert account["fields"][1].name == "lasagna"
     assert account["fields"][1].value == "no!!!"
+    assert "example.com" in account.source["attribution_domains"]
+    assert "another-example.com" in account.source["attribution_domains"]
 
     api.account_delete_avatar()
     api.account_delete_header()
@@ -259,6 +264,37 @@ def test_account_pin_unpin(api, api2):
         assert not any(x["id"] == user["id"] for x in endorsed2)
 
 @pytest.mark.vcr()
+def test_account_endorse_unendorse(api, api2):
+    user = api2.account_verify_credentials()
+    
+    # Make sure we are in the correct state
+    try:
+        api.account_follow(user)
+    except:
+        pass
+    
+    try:
+        api.account_unendorse(user)
+    except:
+        pass
+
+    relationship = api.account_endorse(user)
+    endorsed = api.endorsements()
+        
+    try:
+        assert relationship
+        assert relationship['endorsed']
+        assert any(x["id"] == user["id"] for x in endorsed)
+    finally:
+        relationship = api.account_unendorse(user)
+        endorsed2 = api.endorsements()
+        api.account_unfollow(user)        
+        assert relationship
+        assert not relationship['endorsed']
+        assert not any(x["id"] == user["id"] for x in endorsed2)
+
+
+@pytest.mark.vcr()
 def test_preferences(api):
     prefs = api.preferences()
     assert prefs
@@ -301,6 +337,38 @@ def test_featured_tags(api):
             api.featured_tag_delete(featured_tag)
         if featured_tag_2 is not None:            
             api.featured_tag_delete(featured_tag_2)
+
+@pytest.mark.vcr()
+def test_featured_tags_2(api):
+    featured_tag = None
+    featured_tag_2 = None
+    try:
+        featured_tag = api.tag_feature("ringtones")
+        assert featured_tag
+        assert featured_tag.name == "ringtones"
+        assert featured_tag.featuring == True
+        
+        with pytest.raises(MastodonIllegalArgumentError):
+            api.tag_feature("#daddycool")
+
+        featured_tag_2 = api.tag_feature("coolfree")
+        assert featured_tag_2
+        assert featured_tag_2.name == "coolfree"
+        assert featured_tag_2.featuring == True
+
+        unfeatured_tag = api.tag_unfeature(featured_tag)
+        assert unfeatured_tag.featuring == False
+        featured_tag = None
+
+        featured_tag_list = api.account_featured_tags(api.account_verify_credentials())
+        assert len(featured_tag_list) == 1
+        assert featured_tag_list[0].name == "coolfree"
+        assert "url" in featured_tag_list[0]
+    finally:
+        if featured_tag is not None:
+            api.tag_unfeature(featured_tag)
+        if featured_tag_2 is not None:            
+            api.tag_unfeature(featured_tag_2)
 
 @pytest.mark.vcr()
 def test_followed_hashtags(api):

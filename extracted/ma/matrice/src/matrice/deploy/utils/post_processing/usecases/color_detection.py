@@ -564,12 +564,15 @@ class ColorDetectionUseCase(BaseProcessor):
             cat = rec.get('category')
             color = rec.get('main_color')
             track_id = rec.get('track_id')
+            color_conf = rec.get('major_colors')[0][2]
             if track_id is None:
                 track_id = rec.get('detection_id')
             if cat and track_id is not None:
                 # Update the color_det_dict with the actual color
+                # if color_conf > self.color_det_dict[track_id][1] and track_id in self.color_det_dict:
+                #     self.color_det_dict[track_id] = [color,color_conf]
                 if color and track_id not in self.color_det_dict:
-                    self.color_det_dict[track_id] = color
+                    self.color_det_dict[track_id] = [color,color_conf]
                     key = f"{cat}:{color}" if color else cat
                     self._color_total_track_ids[key].add(track_id)
                     # Also update current frame tracking
@@ -1101,8 +1104,6 @@ class ColorDetectionUseCase(BaseProcessor):
         for detection in counting_summary.get("detections", []):
             bbox = detection.get("bounding_box", {})
             category = detection.get("category", "person")
-            if category == "Point d-eau":
-                category = "Water Body" 
             # Include segmentation if available (like in eg.json)
             if detection.get("masks"):
                 segmentation= detection.get("masks", [])

@@ -35,6 +35,34 @@ def _add_mapping_connections(connects_to, arg_names, node_mapping_type, name):
 
 
 
+def integration_test():
+    def decorating_function(integration_test_function: Callable):
+        leap_binder.integration_test_func = integration_test_function
+
+
+        def inner(*args, **kwargs):
+            ret = integration_test_function(*args, **kwargs)
+
+            try:
+                os.environ[mapping_runtime_mode_env_var_mame] = 'True'
+                integration_test_function(None, None)
+            except Exception as e:
+                print(f'Error during integration test: Make sure to disable any non tensorleap decorators '
+                      f'functions before pushing a new TL version')
+            finally:
+                if mapping_runtime_mode_env_var_mame in os.environ:
+                    del os.environ[mapping_runtime_mode_env_var_mame]
+
+
+        return inner
+
+    return decorating_function
+
+
+
+
+
+
 
 def tensorleap_load_model(prediction_types: Optional[List[PredictionTypeHandler]] = None):
     for i, prediction_type in enumerate(prediction_types):

@@ -7,9 +7,10 @@
 
 from __future__ import print_function
 
-import platform
 import os
+import platform
 import sys
+
 from setuptools import setup
 
 # Python 3.12 dropped distutils from the stdlib. Try to access it via
@@ -19,19 +20,39 @@ try:
 except ImportError:
     from distutils.version import LooseVersion
 
-if sys.version_info[0:2] < (3, 8):
-    print("Python 3.8+ is required", file=sys.stderr)
+if sys.version_info[0:2] < (3, 9):
+    print("Python 3.9+ is required", file=sys.stderr)
     sys.exit(1)
 
 # Need change in 1.10 for ffi.from_buffer() to handle all buffer types
 # (like memoryview).
 # Need feature in 1.11 for ffi.gc() to declare size of objects so we avoid
 # garbage collection pitfalls.
-MINIMUM_CFFI_VERSION = "1.11"
+# Require 1.17 everywhere so we don't have to think about supporting older
+# versions.
+MINIMUM_CFFI_VERSION = "1.17"
 
-# Need 1.17+ on 3.13 to avoid deprecated and removed APIs.
-if sys.version_info[0:2] >= (3, 13):
-    MINIMUM_CFFI_VERSION = "1.17"
+ext_suffix = os.environ.get("SETUPTOOLS_EXT_SUFFIX")
+if ext_suffix:
+    import sysconfig
+
+    # setuptools._distutils.command.build_ext doesn't use
+    # SETUPTOOLS_EXT_SUFFIX like setuptools.command.build_ext does.
+    # Work around the issue so that cross-compilation can work
+    # properly.
+    sysconfig.get_config_vars()["EXT_SUFFIX"] = ext_suffix
+    try:
+        # Older versions of python didn't have EXT_SUFFIX, and setuptools
+        # sets its own value, but since we've already set one, we don't
+        # want setuptools to overwrite it.
+        import setuptools._distutils.compat.py39 as py39compat
+    except ImportError:
+        try:
+            import setuptools._distutils.py39compat as py39compat
+        except ImportError:
+            pass
+    if py39compat:
+        py39compat.add_ext_suffix = lambda vars: None
 
 try:
     import cffi
@@ -52,7 +73,7 @@ except ImportError:
 
 sys.path.insert(0, ".")
 
-import setup_zstd
+import setup_zstd  # noqa: E402
 
 SUPPORT_LEGACY = False
 SYSTEM_ZSTD = False
@@ -131,38 +152,10 @@ if not version:
 setup(
     name="zstandard",
     version=version,
-    description="Zstandard bindings for Python",
-    long_description=open("README.rst", "r").read(),
-    url="https://github.com/indygreg/python-zstandard",
-    author="Gregory Szorc",
-    author_email="gregory.szorc@gmail.com",
-    license="BSD",
-    python_requires=">=3.8",
-    classifiers=[
-        "Development Status :: 5 - Production/Stable",
-        "Intended Audience :: Developers",
-        "License :: OSI Approved :: BSD License",
-        "Programming Language :: C",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
-    ],
-    keywords=["zstandard", "zstd", "compression"],
     packages=["zstandard"],
     package_data={"zstandard": ["__init__.pyi", "py.typed"]},
     ext_modules=extensions,
     cmdclass={"build_ext": setup_zstd.RustBuildExt},
     test_suite="tests",
-    install_requires=[
-        # cffi is required on PyPy.
-        "cffi>=%s; platform_python_implementation == 'PyPy'"
-        % MINIMUM_CFFI_VERSION
-    ],
-    extras_require={
-        "cffi": ["cffi>=%s" % MINIMUM_CFFI_VERSION],
-    },
     tests_require=["hypothesis"],
 )

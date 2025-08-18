@@ -115,6 +115,12 @@ class GoogleParser:
 
         # Split spec and description
         before, desc = text.split(":", 1)
+
+        if before and "\n" in before:
+            # If there is a newline in the first line, clean it up
+            first_line, rest = before.split("\n", 1)
+            before = first_line + inspect.cleandoc(rest)
+
         if desc:
             desc = desc[1:] if desc[0] == " " else desc
             if "\n" in desc:
@@ -218,7 +224,7 @@ class GoogleParser:
         self.sections[section.title] = section
         self._setup()
 
-    def parse(self, text: str) -> Docstring:
+    def parse(self, text: T.Optional[str]) -> Docstring:
         """Parse the Google-style docstring into its components.
 
         :returns: parsed docstring
@@ -309,7 +315,7 @@ class GoogleParser:
         return ret
 
 
-def parse(text: str) -> Docstring:
+def parse(text: T.Optional[str]) -> Docstring:
     """Parse the Google-style docstring into its components.
 
     :returns: parsed docstring
@@ -331,7 +337,7 @@ def compose(
     """
 
     def process_one(
-        one: T.Union[DocstringParam, DocstringReturns, DocstringRaises]
+        one: T.Union[DocstringParam, DocstringReturns, DocstringRaises],
     ):
         head = ""
 

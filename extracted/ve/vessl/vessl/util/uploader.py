@@ -2,7 +2,7 @@ import os
 import zlib
 from typing import List
 
-from openapi_client.models import StorageFile
+from vessl.openapi_client.models import StorageFile
 from vessl.util.file_object import UploadableS3Object
 
 

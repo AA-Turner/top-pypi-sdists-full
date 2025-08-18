@@ -22,6 +22,7 @@ from .summarizer import Summarizer
 from .extra import Extra
 
 from pygpt_net.utils import trans
+from ...core.types import MODE_ASSISTANT
 
 
 class Ctx:
@@ -293,7 +294,7 @@ class Ctx:
 
         mode = self.window.core.ctx.get_mode()
         assistant_id = None
-        if mode == 'assistant':
+        if mode == MODE_ASSISTANT:
             assistant_id = self.window.core.config.get('assistant')
             self.window.controller.assistant.files.update()  # always update assistant files
 
@@ -334,17 +335,20 @@ class Ctx:
         if id is not None:
             self.select(id)
 
-    def update_list(self, reload: bool = False):
+    def update_list(self, reload: bool = False, restore_scroll: bool = False):
         """
         Reload current ctx list
 
         :param reload: reload ctx list items
+        :param restore_scroll: restore scroll position
         """
         self.window.ui.contexts.ctx_list.update(
             'ctx.list',
             self.window.core.ctx.get_meta(reload),
             expand=False,
         )
+        if restore_scroll:
+            self.window.ui.nodes['ctx.list'].restore_scroll_position()
 
     def refresh(self, restore_model: bool = True):
         """
@@ -459,7 +463,7 @@ class Ctx:
                 ctrl.presets.set(mode, preset)
                 ctrl.presets.refresh()
 
-            if mode == 'assistant':
+            if mode == MODE_ASSISTANT:
                 if assistant_id is not None:
                     ctrl.assistant.select_by_id(assistant_id)
                 else:
@@ -477,7 +481,7 @@ class Ctx:
         id = None
         if self.window.core.ctx.is_allowed_for_mode(mode, False):
             self.window.core.ctx.update()
-            if mode == 'assistant':
+            if mode == MODE_ASSISTANT:
                 if self.window.core.ctx.get_assistant() is not None:
                     id = self.window.core.ctx.get_assistant()
                 else:
@@ -520,7 +524,7 @@ class Ctx:
             self.window.core.ctx.clear_current()
             event = RenderEvent(RenderEvent.CLEAR_OUTPUT)
             self.window.dispatch(event)
-        self.update(no_scroll=True)
+        self.update_and_restore()
 
         self.window.controller.ui.tabs.update_title_current("...")
 
@@ -557,9 +561,12 @@ class Ctx:
                 msg=trans('ctx.delete.item.confirm'),
             )
             return
+        item = self.window.core.ctx.get_item_by_id(id)
+        event = RenderEvent(RenderEvent.ITEM_DELETE_ID, {
+            "ctx": item,
+        })
         self.window.core.ctx.remove_item(id)
-        self.refresh()
-        self.update(no_scroll=True)
+        self.window.dispatch(event)
 
     def delete_history(self, force: bool = False):
         """
@@ -653,8 +660,7 @@ class Ctx:
         if meta is not None:
             meta.important = value
             self.window.core.ctx.save(id)
-            self.update(no_scroll=True)
-            self.select_by_current()
+            self.update_and_restore()
 
     def is_important(self, idx: int) -> bool:
         """
@@ -686,8 +692,14 @@ class Ctx:
             self.window.core.ctx.save(id)
             QTimer.singleShot(
                 10,
-                lambda: self.update(no_scroll=True)
+                lambda: self.update_and_restore()
             )
+
+    def update_and_restore(self):
+        """Update ctx and restore scroll position"""
+        self.window.ui.nodes['ctx.list'].store_scroll_position()
+        self.update()
+        self.window.ui.nodes['ctx.list'].restore_scroll_position()
 
     def update_name(
             self,
@@ -713,7 +725,7 @@ class Ctx:
             self.window.ui.dialog['rename'].close()
 
         if refresh:
-            self.update(no_scroll=True)
+            self.update_and_restore()
         else:
             self.update(reload=True, all=False, no_scroll=True)
 
@@ -964,7 +976,7 @@ class Ctx:
         if update:
             QTimer.singleShot(
                 10,
-                lambda: self.update()
+                lambda: self.update_and_restore()
             )
 
     def remove_from_group(self, meta_id):
@@ -977,7 +989,7 @@ class Ctx:
         self.group_id = None
         QTimer.singleShot(
             10,
-            lambda: self.update(no_scroll=True)
+            lambda: self.update_and_restore()
         )
 
     def new_group(
@@ -1063,13 +1075,7 @@ class Ctx:
             self.window.core.ctx.update_group(group)
             if close:
                 self.window.ui.dialog['rename'].close()
-            self.update(
-                reload=True,
-                all=False,
-                select=False,
-                no_scroll=True
-            )
-            self.select_group(id)
+            self.update_and_restore()
 
     def get_group_name(self, id: int) -> str:
         """
@@ -1119,7 +1125,7 @@ class Ctx:
             self.window.core.ctx.remove_group(group, all=False)
             if self.group_id == id:
                 self.group_id = None
-            self.update(no_scroll=True)
+            self.update_and_restore()
 
     def delete_group_all(
             self,
@@ -1144,7 +1150,7 @@ class Ctx:
             self.window.core.ctx.remove_group(group, all=True)
             if self.group_id == id:
                 self.group_id = None
-            self.update()
+            self.update_and_restore()
 
     def reload(self):
         """Reload ctx"""

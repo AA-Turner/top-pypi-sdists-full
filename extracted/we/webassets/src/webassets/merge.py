@@ -1,18 +1,11 @@
 """Contains the core functionality that manages merging of assets.
 """
-from __future__ import with_statement
 import contextlib
 
-try:
-    from urllib.request import Request as URLRequest, urlopen
-    from urllib.error import HTTPError
-except ImportError:
-    from urllib2 import Request as URLRequest, urlopen
-    from urllib2 import HTTPError
 import logging
 from io import open
-from webassets import six
-from webassets.six.moves import filter
+from urllib.request import Request as URLRequest, urlopen
+from urllib.error import HTTPError
 
 from .utils import cmp_debug_levels, StringIO, hash_func
 
@@ -121,7 +114,7 @@ class UrlHunk(BaseHunk):
             else:
                 with contextlib.closing(response):
                     data = response.read()
-                if isinstance(data, six.binary_type):
+                if isinstance(data, bytes):
                     data = data.decode('utf-8')
                 self._data = data
 

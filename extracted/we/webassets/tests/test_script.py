@@ -4,18 +4,14 @@ TODO: Looking at how we need to make the MockBundle write to``output``,
 I wonder whether I shouldn't just do full-stack tests here instead of mocking.
 """
 
-from __future__ import with_statement
-
 import logging
 from threading import Thread, Event
-from nose.tools import assert_raises
-from nose import SkipTest
+
+import pytest
+
 import time
 
-try:
-    import argparse
-except ImportError:
-    raise SkipTest()
+argparse = pytest.importorskip("argparse")
 
 from webassets import Bundle
 from webassets.exceptions import BuildError
@@ -40,8 +36,8 @@ class MockBundle(Bundle):
 
 class TestCLI(TempEnvironmentHelper):
 
-    def setup(self):
-        super(TestCLI, self).setup()
+    def setup_method(self):
+        super().setup_method()
         self.assets_env = self.env
         self.cmd_env = CommandLineEnvironment(self.assets_env, logging)
 
@@ -96,7 +92,7 @@ class TestBuildCommand(TestCLI):
 
         # Building to a non-existing path would fail, directories
         # are not auto-created here.
-        assert_raises(IOError, self.cmd_env.build,
+        pytest.raises(IOError, self.cmd_env.build,
             output=[('a', self.path('new/custom'))])
 
     def test_custom_directory(self):
@@ -119,7 +115,7 @@ class TestBuildCommand(TestCLI):
         b2 = MockBundle(output='b2')
         b = MockBundle(b1, b2)
         self.assets_env.add(b)
-        assert_raises(CommandError, self.cmd_env.build,
+        pytest.raises(CommandError, self.cmd_env.build,
             directory=self.path('some/path'))
 
     def test_no_cache(self):
@@ -192,7 +188,7 @@ class TestWatchMixin(object):
 
     def stop_watching(self):
         """Stop the watch command thread."""
-        assert self.t.isAlive() # If it has already ended, something is wrong
+        assert self.t.is_alive() # If it has already ended, something is wrong
         self.stopped = True
         self.t.join(1)
 
@@ -212,8 +208,8 @@ class TestWatchCommand(TestWatchMixin, TestCLI):
 
     default_files = {'in': 'foo', 'out': 'bar'}
 
-    def setup(self):
-        super(TestWatchCommand, self).setup()
+    def setup_method(self):
+        super().setup_method()
 
         # Pay particular attention that the watch command works with auto_build
         # disabled (since normally this implies no use of the updater, but
@@ -313,15 +309,12 @@ class TestArgparseImpl(TestWatchMixin, TempEnvironmentHelper):
         the commandline, we fail with a clean error.
         """
         impl = GenericArgparseImplementation(env=None)
-        assert_raises(CommandError, impl.run_with_argv, ['build'])
+        pytest.raises(CommandError, impl.run_with_argv, ['build'])
 
     def test_watch_config_file(self):
         """The watch command has an eye on the config file. This is an
         extension to the base watch command."""
-        try:
-            import yaml
-        except ImportError:
-            raise SkipTest()
+        yaml = pytest.importorskip("yaml")
 
         self.cmd_env = CommandLineEnvironment(self.env, logging)
         self.cmd_env.commands['watch'] = \

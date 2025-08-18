@@ -53,7 +53,7 @@ class KafkaProducerWorker:
             f"{deployment_id}-producer-{worker_id}",  # Not used for producer
             f"{deployment_instance_id}-producer-{worker_id}",
         )
-        self.kafka_deployment._ensure_async_producer()
+        # Note: async producer setup moved to start() method
 
         # Worker state
         self.is_running = False
@@ -76,9 +76,31 @@ class KafkaProducerWorker:
             self.logger.warning(f"Producer worker {self.worker_id} is already running")
             return
         
+        # Check if event loop is available before starting
+        try:
+            loop = asyncio.get_running_loop()
+            if loop.is_closed():
+                raise RuntimeError("Event loop is closed, cannot start producer worker")
+        except RuntimeError as exc:
+            if "no running event loop" in str(exc).lower():
+                raise RuntimeError("No event loop available for producer worker startup")
+            raise
+        
         self.is_running = True
         self.is_active = True
         self._stop_event.clear()
+        
+        # Set up async producer now that we have a valid event loop
+        try:
+            producer_setup_success = await self.kafka_deployment._ensure_async_producer()
+            if not producer_setup_success:
+                raise RuntimeError("Failed to set up async Kafka producer")
+            self.logger.debug(f"Async producer set up successfully for worker {self.worker_id}")
+        except Exception as exc:
+            self.is_running = False
+            self.is_active = False
+            self.logger.error(f"Failed to set up async producer for worker {self.worker_id}: {str(exc)}")
+            raise RuntimeError(f"Failed to set up async producer: {str(exc)}")
         
         # Start the processing loop
         self._processing_task = asyncio.create_task(self._processing_loop())
@@ -106,11 +128,23 @@ class KafkaProducerWorker:
             except Exception as exc:
                 self.logger.error(f"Error stopping producer worker {self.worker_id}: {str(exc)}")
         
-        # Close Kafka connections
+        # Close Kafka connections gracefully
         if self.kafka_deployment:
             try:
+                # Check if event loop is still running before attempting async cleanup
+                try:
+                    loop = asyncio.get_running_loop()
+                    if loop.is_closed():
+                        self.logger.warning(f"Event loop is closed, skipping async Kafka cleanup for worker {self.worker_id}")
+                        return
+                except RuntimeError:
+                    self.logger.warning(f"No running event loop, skipping async Kafka cleanup for worker {self.worker_id}")
+                    return
+                
                 await self.kafka_deployment.close()
+                self.logger.debug(f"Kafka connections closed for worker {self.worker_id}")
             except Exception as exc:
+                # Log but don't raise - we want to complete the shutdown
                 self.logger.error(f"Error closing Kafka for producer worker {self.worker_id}: {str(exc)}")
         
         self.logger.info(f"Stopped KafkaProducerWorker: {self.worker_id}")
@@ -120,12 +154,26 @@ class KafkaProducerWorker:
         retry_delay = 1.0
         max_retry_delay = 30.0
         consecutive_errors = 0
+        loop_count = 0
         
         while self.is_running and not self._stop_event.is_set():
             try:
+                loop_count += 1
+                # Log every 100 loops to show producer is active
+                if loop_count % 100 == 1:
+                    self.logger.debug(
+                        f"Producer {self.worker_id} active (loop #{loop_count}) - queue size: {self.output_queue.qsize()}"
+                    )
+                
                 # Single-message produce
-                message = await self.output_queue.get(timeout=0.5)
-                if not message:
+                try:
+                    message = await self.output_queue.get()
+                except asyncio.TimeoutError:
+                    # Log periodically when queue is empty
+                    if loop_count % 50 == 1:
+                        self.logger.debug(
+                            f"Producer {self.worker_id} waiting - no messages in output queue (size: {self.output_queue.qsize()})"
+                        )
                     await asyncio.sleep(0.1)
                     continue
                 try:
@@ -167,13 +215,13 @@ class KafkaProducerWorker:
                             "event loop is closed", "no event loop available", 
                             "event loop is shutting down", "cannot schedule new futures after shutdown"
                         ]):
-                            self.logger.warning(
+                            self.logger.error(
                                 f"Producer worker {self.worker_id} cannot produce due to event loop state: {error_msg}. "
                                 "This may indicate shutdown is in progress."
                             )
                             # Don't count this as a failed message since it's likely due to shutdown
-                            await asyncio.sleep(1.0)  # Brief pause before retrying
-                            continue
+                            # Break instead of continue to stop processing gracefully
+                            break
                         else:
                             self.logger.error(f"Runtime error producing message in producer worker {self.worker_id}: {error_msg}")
                             self.messages_failed += 1

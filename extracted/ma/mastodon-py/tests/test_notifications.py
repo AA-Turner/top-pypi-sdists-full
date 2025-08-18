@@ -17,6 +17,9 @@ def test_notifications(api, mention):
     assert notifications[0].status.id == mention.id
     assert api.notifications_unread_count().count > 0
 
+    notification_single_id = api.notifications(notifications[0])
+    assert notification_single_id.id == notifications[0].id
+
 @pytest.mark.vcr()
 def test_notifications_mentions_only(api, mention):
     time.sleep(3)
@@ -61,16 +64,22 @@ def test_notifications_dismiss(api, mention):
     notifications = api.notifications()
     api.notifications_dismiss(notifications[0])
     
+# skip these entirely now, 2.9.2 was a long time ago and we can't regenerate them.
+@pytest.mark.skip("Skipping pre-2.9.2 tests")
 def test_notifications_dismiss_pre_2_9_2(api, api2):
     if sys.version_info > (3, 9): # 3.10 and up will not load the json data and regenerating it would require a 2.9.2 instance
         pytest.skip("Test skipped for 3.10 and up")
     else:
+        api._Mastodon__version_check_worked = True
+        api._Mastodon__version_check_tried = True
+        api2._Mastodon__version_check_worked = True
+        api2._Mastodon__version_check_tried = True
         with vcr.use_cassette('test_notifications_dismiss.yaml', cassette_library_dir='tests/cassettes_pre_2_9_2', record_mode='none'):
             status = None
             try:
                 status = api2.status_post('@mastodonpy_test hello!')
                 notifications = api.notifications()
-                api.verify_minimum_version("2.9.2", cached=False)
+                api.verify_minimum_version("2.9.2", cached=True)
                 api.notifications_dismiss(notifications[0])
             finally:
                 if status is not None:
@@ -99,14 +108,24 @@ def test_notifications_policy(api2):
 @pytest.mark.vcr()
 def test_notification_requests_accept(api, api2):
     """Test fetching, accepting, and dismissing notification requests."""
-    temp = api
-    api = api2
-    api2 = temp
+    
+    # Ensure that our two users do not follow each other
+    api2.account_unfollow(api.account_verify_credentials().id)
+    api.account_unfollow(api2.account_verify_credentials().id)
+    time.sleep(5)
 
-    # Generate some request
+    # Set the notification policy such that requests should be generated
     posted = []
     api2.update_notifications_policy(for_not_following="filter", for_not_followers="filter", for_new_accounts="filter", for_limited_accounts="filter", for_private_mentions="filter")
-    time.sleep(1)
+    time.sleep(5)
+
+    # validate that our policy is set correctly
+    policy = api2.notifications_policy()
+    assert policy.for_not_following == "filter"
+    assert policy.for_not_followers == "filter"
+    assert policy.for_new_accounts == "filter"
+    assert policy.for_limited_accounts == "filter"
+    assert policy.for_private_mentions == "filter"
 
     while not api2.notifications_merged():
         time.sleep(1)
@@ -116,12 +135,15 @@ def test_notification_requests_accept(api, api2):
     try:
         reply_name = api2.account_verify_credentials().username
         for i in range(5):
-            posted.append(api.status_post(f"@{reply_name} please follow me - {i+200}!", visibility="public"))
+            posted.append(api.status_post(f"@{reply_name} please follow me - {i+600}!", visibility="direct"))
 
         time.sleep(3)
 
         # Fetch notification requests
         requests = api2.notification_requests()
+        print(posted)
+        print(api2.notifications())
+        print(requests)
         assert requests is not None
         assert len(requests) > 0
 

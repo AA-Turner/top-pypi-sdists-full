@@ -26,6 +26,13 @@ class TestIssuesV2Api(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
+    def test_get_action_history_by_issue_id(self) -> None:
+        """Test case for get_action_history_by_issue_id
+
+        Get the action history of a single issue by its id
+        """
+        pass
+
     def test_get_additional_data_by_issue_by_id(self) -> None:
         """Test case for get_additional_data_by_issue_by_id
 

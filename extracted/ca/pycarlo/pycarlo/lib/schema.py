@@ -57010,6 +57010,10 @@ class Query(sgqlc.types.Type):
                     "search_full_table_id",
                     sgqlc.types.Arg(String, graphql_name="searchFullTableId", default=None),
                 ),
+                (
+                    "is_monitored",
+                    sgqlc.types.Arg(Boolean, graphql_name="isMonitored", default=None),
+                ),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=100)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=0)),
             )
@@ -57029,6 +57033,8 @@ class Query(sgqlc.types.Type):
     * `domain_restrictions` (`[UUID!]`)None
     * `search` (`String`)None
     * `search_full_table_id` (`String`)None
+    * `is_monitored` (`Boolean`): Filter by monitored status if
+      provided
     * `limit` (`Int`)None (default: `100`)
     * `offset` (`Int`)None (default: `0`)
     """

@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nDqwak/administration/runtime_configuration/v0/sql_engine_config.proto\x12>qwak.administration.runtime_configuration.v0.sql_engine_config\"\xab\x02\n\x16SqlEngineConfiguration\x12\x80\x01\n\x1f\x61thena_sql_engine_configuration\x18\x01 \x01(\x0b\x32U.qwak.administration.runtime_configuration.v0.sql_engine_config.AthenaSqlEngineConfigH\x00\x12\x85\x01\n\"big_query_sql_engine_configuration\x18\x02 \x01(\x0b\x32W.qwak.administration.runtime_configuration.v0.sql_engine_config.BigQuerySqlEngineConfigH\x00\x42\x06\n\x04type\"?\n\x15\x41thenaSqlEngineConfig\x12\x13\n\x0b\x65xternal_id\x18\x01 \x01(\t\x12\x11\n\tworkgroup\x18\x02 \x01(\t\"\x19\n\x17\x42igQuerySqlEngineConfigB\xde\x01\n7com.jfrog.ml.runtime_configuration.v0.sql_engine_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nDqwak/administration/runtime_configuration/v0/sql_engine_config.proto\x12>qwak.administration.runtime_configuration.v0.sql_engine_config\"\xbd\x03\n\x16SqlEngineConfiguration\x12\x80\x01\n\x1f\x61thena_sql_engine_configuration\x18\x01 \x01(\x0b\x32U.qwak.administration.runtime_configuration.v0.sql_engine_config.AthenaSqlEngineConfigH\x00\x12\x85\x01\n\"big_query_sql_engine_configuration\x18\x02 \x01(\x0b\x32W.qwak.administration.runtime_configuration.v0.sql_engine_config.BigQuerySqlEngineConfigH\x00\x12\x8f\x01\n#databricks_sql_engine_configuration\x18\x03 \x01(\x0b\x32`.qwak.administration.runtime_configuration.v0.sql_engine_config.DatabricksSqlEngineConfigurationH\x00\x42\x06\n\x04type\"?\n\x15\x41thenaSqlEngineConfig\x12\x13\n\x0b\x65xternal_id\x18\x01 \x01(\t\x12\x11\n\tworkgroup\x18\x02 \x01(\t\"\x19\n\x17\x42igQuerySqlEngineConfig\"O\n DatabricksSqlEngineConfiguration\x12\x15\n\rworkspace_url\x18\x01 \x01(\t\x12\x14\n\x0cwarehouse_id\x18\x02 \x01(\tB\xde\x01\n7com.jfrog.ml.runtime_configuration.v0.sql_engine_configP\x01Z\xa0\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -23,9 +23,11 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n7com.jfrog.ml.runtime_configuration.v0.sql_engine_configP\001Z\240\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0;runtime_configuration_v0'
   _globals['_SQLENGINECONFIGURATION']._serialized_start=137
-  _globals['_SQLENGINECONFIGURATION']._serialized_end=436
-  _globals['_ATHENASQLENGINECONFIG']._serialized_start=438
-  _globals['_ATHENASQLENGINECONFIG']._serialized_end=501
-  _globals['_BIGQUERYSQLENGINECONFIG']._serialized_start=503
-  _globals['_BIGQUERYSQLENGINECONFIG']._serialized_end=528
+  _globals['_SQLENGINECONFIGURATION']._serialized_end=582
+  _globals['_ATHENASQLENGINECONFIG']._serialized_start=584
+  _globals['_ATHENASQLENGINECONFIG']._serialized_end=647
+  _globals['_BIGQUERYSQLENGINECONFIG']._serialized_start=649
+  _globals['_BIGQUERYSQLENGINECONFIG']._serialized_end=674
+  _globals['_DATABRICKSSQLENGINECONFIGURATION']._serialized_start=676
+  _globals['_DATABRICKSSQLENGINECONFIGURATION']._serialized_end=755
 # @@protoc_insertion_point(module_scope)

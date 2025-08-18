@@ -4,9 +4,9 @@ import os
 import time
 from typing import Optional
 
-from openapi_client import ApiClient, APIV1Api, Configuration, ExecAPIV1Api
-from openapi_client.exceptions import ApiException
-from openapi_client.models import (
+from vessl.openapi_client import ApiClient, APIV1Api, Configuration, ExecAPIV1Api
+from vessl.openapi_client.exceptions import ApiException
+from vessl.openapi_client.models import (
     ResponseMyUser,
     ResponseOrganization,
     ResponseProjectInfo,

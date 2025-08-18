@@ -6,7 +6,7 @@ long_description = (here / 'README.md').read_text()
 
 setuptools.setup(
     name='ipynbname',
-    version='2024.1.0.0',
+    version='2025.8.0.0',
     author='Mark McPherson',
     author_email='msm1089@yahoo.co.uk',
     description='Simply returns either notebook filename or the full path to the notebook when run from Jupyter notebook in browser.',
@@ -18,7 +18,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     package_data={},
     install_requires=['ipykernel'],
-    python_requires='>=3.4, <4',
+    python_requires='>=3.4',
     classifiers=[
         'Operating System :: OS Independent',
         'Development Status :: 4 - Beta',

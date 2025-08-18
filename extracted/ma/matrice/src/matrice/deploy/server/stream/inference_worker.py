@@ -132,11 +132,27 @@ class InferenceWorker:
         retry_delay = 1.0
         max_retry_delay = 10.0
         consecutive_errors = 0
+        loop_count = 0
         
         while self.is_running and not self._stop_event.is_set():
             try:
-                message = await self.input_queue.get(timeout=0.5)
-                if not message:
+                loop_count += 1
+                # Log worker state periodically
+                if loop_count % 100 == 1:
+                    self.logger.debug(
+                        f"Inference worker {self.worker_id} active (loop #{loop_count}) - "
+                        f"in_q: {self.input_queue.qsize()}, out_q: {self.output_queue.qsize()}, "
+                        f"processed: {self.messages_processed}, errors: {consecutive_errors}"
+                    )
+                
+                try:
+                    message = await self.input_queue.get()
+                except asyncio.TimeoutError:
+                    # Log periodically when no messages available
+                    if loop_count % 50 == 1:
+                        self.logger.debug(
+                            f"Inference worker {self.worker_id} waiting - no messages in input queue (size: {self.input_queue.qsize()})"
+                        )
                     await asyncio.sleep(0.05)
                     continue
                 try:
@@ -249,15 +265,18 @@ class InferenceWorker:
             )
             
             # Add to output queue
-            success = await self.output_queue.put(result_message, timeout=1.0)
-            if success:
+            try:
+                await self.output_queue.put(result_message)
                 self.messages_output += 1
                 self.logger.debug(
                     f"Emitted cached result for key={message.get('message_key')} post_proc={'yes' if post_processing_result else 'no'} out_q={self.output_queue.qsize()}"
                 )
-            else:
+            except asyncio.QueueFull:
                 self.messages_dropped_output += 1
-                self.logger.warning(f"Dropped cached result from inference worker {self.worker_id}")
+                self.logger.warning(f"Dropped cached result from inference worker {self.worker_id} - output queue full")
+            except Exception as put_exc:
+                self.messages_dropped_output += 1
+                self.logger.error(f"Failed to put cached result to output queue in worker {self.worker_id}: {str(put_exc)}")
             
             self.messages_processed += 1
             
@@ -322,15 +341,18 @@ class InferenceWorker:
             )
             
             # Add to output queue
-            success = await self.output_queue.put(result_message, timeout=1.0)
-            if success:
+            try:
+                await self.output_queue.put(result_message)
                 self.messages_output += 1
                 self.logger.debug(
                     f"Emitted inference result for key={message_key} out_q={self.output_queue.qsize()}"
                 )
-            else:
+            except asyncio.QueueFull:
                 self.messages_dropped_output += 1
-                self.logger.warning(f"Dropped output message from inference worker {self.worker_id}")
+                self.logger.warning(f"Dropped output message from inference worker {self.worker_id} - output queue full")
+            except Exception as put_exc:
+                self.messages_dropped_output += 1
+                self.logger.error(f"Failed to put output message to queue in worker {self.worker_id}: {str(put_exc)}")
             
             # Update metrics
             inference_time = asyncio.get_event_loop().time() - start_time
@@ -579,16 +601,19 @@ class InferenceWorker:
             )
             
             # Add to output queue
-            success = await self.output_queue.put(result_message, timeout=1.0)
-            if success:
+            try:
+                await self.output_queue.put(result_message)
                 self.messages_output += 1
                 self.video_chunks_processed += 1
                 self.logger.debug(
                     f"Emitted video-chunk result key={original_message.get('message_key')} out_q={self.output_queue.qsize()}"
                 )
-            else:
+            except asyncio.QueueFull:
                 self.messages_dropped_output += 1
-                self.logger.warning(f"Dropped video chunk output from inference worker {self.worker_id}")
+                self.logger.warning(f"Dropped video chunk output from inference worker {self.worker_id} - output queue full")
+            except Exception as put_exc:
+                self.messages_dropped_output += 1
+                self.logger.error(f"Failed to put video chunk output to queue in worker {self.worker_id}: {str(put_exc)}")
             
             # Update metrics
             inference_time = asyncio.get_event_loop().time() - start_time

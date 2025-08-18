@@ -1,18 +1,15 @@
 import datetime
 import time
-from typing import List, Optional, TextIO
+from typing import List, TextIO
 
 import yaml
 
-from openapi_client import (
-    ExperimentYamlImportAPIInput,
+from vessl.openapi_client import (
     InfluxdbWorkloadLog,
     ResponseRunExecutionInfo,
     ResponseRunExecutionListResponse,
-    WorkspaceYamlImportAPIInput,
 )
-from openapi_client.models import ResponseExperimentInfo
-from vessl import __version__, vessl_api
+from vessl import vessl_api
 from vessl.experiment import list_experiment_logs, read_experiment_by_id
 from vessl.kernel_cluster import list_clusters
 from vessl.organization import _get_organization_name
@@ -389,79 +386,6 @@ def verify_yaml(yaml_str):
     return is_interactive, out_str, yaml_obj
 
 
-# Get yaml, verify yaml
-def run_from_yaml(
-    yaml_file: TextIO,
-    yaml_body: str,
-    yaml_file_name: str,
-    **kwargs,
-) -> ResponseRunExecutionInfo:
-    if yaml_body == "":
-        body = yaml_file.read()
-    else:
-        body = yaml_body
-    yaml_file_name = yaml_file_name.split("/")[-1]
-
-    wrap_str(" Launch VESSL Run 👟", "green")
-    organization = _get_organization_name(**kwargs)
-    project = _get_project_name(**kwargs)
-    wrap_str(f"   > Organization: {organization}", "cyan")
-    wrap_str(f"   > Project: {project}", "cyan")
-
-    interactive, out_str, yaml_obj = verify_yaml(body)
-    if yaml_obj == False:
-        wrap_str(" YAML verification failed!", "red", quiet=True)
-        return
-    else:
-        wrap_str(" YAML definition verified!", "green", quiet=True)
-    print(out_str)
-    wrap_str(f" Running: {yaml_file_name} ➡️", "green")
-    yaml_obj["run"][0]["command"] = yaml_obj["run"][0]["command"].strip()
-    clean_yaml_str = yaml.dump(yaml_obj)
-    msg_box(clean_yaml_str)
-
-    # workspace run
-    if interactive:
-        run_interactive_from_yaml(organization, body)
-    else:
-        run_batch_from_yaml(organization, project, body)
-    return
-
-
-# Applies yaml to cluster
-def apply_yaml(organization, body, project=None, is_workspace=True):
-    if is_workspace:
-        workload = "workspace"
-    else:
-        workload = "experiment"
-    wrap_str(f"Submitting Run definition to cluster ..", "cyan")
-    if is_workspace:
-        response = vessl_api.workspace_yaml_import_api(
-            organization_name=organization,
-            workspace_yaml_import_api_input=WorkspaceYamlImportAPIInput(
-                data=body,
-            ),
-        )
-    else:
-        response = vessl_api.experiment_yaml_import_api(
-            organization_name=organization,
-            project_name=project,
-            experiment_yaml_import_api_input=ExperimentYamlImportAPIInput(
-                data=body,
-            ),
-        )
-    wrap_str(" Your Run is submitted to the cluster.", "green", quiet=True)
-    if is_workspace:
-        link = f"{WEB_HOST}/{response.organization.name}/workspaces/{response.id}"
-    else:
-        link = f"{WEB_HOST}/{response.organization.name}/{response.project.name}/experiments/{response.number}"
-    wrap_str(
-        f" Check your Run at: {link}",
-        "cyan",
-    )
-    return response
-
-
 def check_run_exec_started(response, quiet=True):
     run_id = response.run_execution.id
 
@@ -494,99 +418,3 @@ def check_run_exec_started(response, quiet=True):
         print(LOGO)
         wrap_str(f" VESSL Run has succesfully launched! 🚀", "green", quiet=True)
     return True
-
-
-# Check if workload have started
-def check_started(response, is_workspace=True):
-    if is_workspace:
-        workload = "Workspace"
-        workspace_id = response.id
-    else:
-        workload = "Experiment"
-        experiment_id = response.id
-
-    not_started = True
-    terminated = False
-    while not_started and (not terminated):
-        if is_workspace:
-            status = read_workspace(workspace_id=workspace_id).status
-        else:
-            status = read_experiment_by_id(experiment_id).status
-        if status != "pending":
-            not_started = False
-        if status in ["failed", "stopped"]:
-            terminated = True
-
-    if terminated:
-        wrap_str(f" {workload} terminated!", "green", quiet=True)
-        return False
-    wrap_str(f"> Your Run is assigned to the cluster.", "green", quiet=True)
-
-    not_started = True
-    while not_started and (not terminated):
-        if is_workspace:
-            status = read_workspace(workspace_id=workspace_id).status
-        else:
-            status = read_experiment_by_id(experiment_id).status
-        if status == "running":
-            not_started = False
-        if status in ["failed", "stopped"]:
-            terminated = True
-    if terminated:
-        wrap_str(f" {workload} terminated!", "green", quiet=True)
-        return False
-    wrap_str(f"> Run has started!", "green", quiet=True)
-
-    print(LOGO)
-    wrap_str(f" VESSL Run has succesfully launched! 🚀", "green")
-    return True
-
-
-def run_interactive_from_yaml(organization, body):
-    response = apply_yaml(organization, body, is_workspace=True)
-    started = check_started(response, is_workspace=True)
-    if not started:
-        return
-    endpoints = response.endpoints.manually_defined_endpoints
-    for endpoint in endpoints:
-        wrap_str(f"📍 Endpoint {endpoint.name}: {endpoint.endpoint}")
-
-
-def run_batch_from_yaml(organization, project, body):
-    response = apply_yaml(organization, body, project, is_workspace=False)
-    experiment_id = response.id
-    experiment_number = response.number
-    started = check_started(response, is_workspace=False)
-    if not started:
-        return
-    wrap_str(f" Showing experiment logs from now !", "green")
-
-    # fetch pod outputs
-    experiment_finished_dt = None
-    after = 0
-    first_log = True
-    while True:
-        if (
-            read_experiment_by_id(experiment_id).status not in ["pending", "running"]
-            and experiment_finished_dt is None
-        ):
-            experiment_finished_dt = time.time()
-
-        if experiment_finished_dt is not None and (time.time() - experiment_finished_dt) > 5:
-            break
-
-        # worker number: 0 since we do not handle distributed exps
-        logs = list_experiment_logs(
-            experiment_number=experiment_number,
-            before=int(time.time() - 5),
-            after=after,
-            worker_numer=0,
-        )
-        # do not print first log - generated while cluster was pending.
-        if not first_log:
-            print_logs(logs)
-        else:
-            first_log = False
-        if len(logs) > 0:
-            after = logs[-1].timestamp + 0.000001
-        time.sleep(3)

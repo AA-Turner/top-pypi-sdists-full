@@ -40,6 +40,8 @@ class LeapLoader(LeapLoaderBase):
         try:
             os.environ[mapping_runtime_mode_env_var_mame] = 'TRUE'
             self.evaluate_module()
+            if global_leap_binder.integration_test_func is not None:
+                global_leap_binder.integration_test_func(None, None)
         except TypeError as e:
             import traceback
             if "leap_binder.set_metadata(" in traceback.format_exc(5):

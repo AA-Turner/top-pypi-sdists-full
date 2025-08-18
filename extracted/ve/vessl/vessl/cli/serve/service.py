@@ -6,8 +6,8 @@ from typing import List, Optional, TextIO, Tuple
 
 import yaml
 
-from openapi_client import ModelServiceLinkSecretAPIInput
-from openapi_client.models import (
+from vessl.openapi_client import ModelServiceLinkSecretAPIInput
+from vessl.openapi_client.models import (
     ModelServiceCreateAPIInput,
     ModelserviceModelServiceListResponse,
     ModelserviceModelServiceReadResponse,
@@ -16,16 +16,16 @@ from openapi_client.models import (
     ResponseSecret,
     V1HubModelTaskSpec,
 )
-from openapi_client.models.v1_autoscaling import V1Autoscaling
-from openapi_client.models.v1_auxiliary_form import V1AuxiliaryForm
-from openapi_client.models.v1_command import V1Command
-from openapi_client.models.v1_env_form import V1EnvForm
-from openapi_client.models.v1_run_argument import V1RunArgument
-from openapi_client.models.v1_import_form import V1ImportForm
-from openapi_client.models.v1_model_ref_form import V1ModelRefForm
-from openapi_client.models.v1_port_path import V1PortPath
-from openapi_client.models.v1_resources_form import V1ResourcesForm
-from openapi_client.models.v1_serve_revision_service_form import (
+from vessl.openapi_client.models.v1_autoscaling import V1Autoscaling
+from vessl.openapi_client.models.v1_auxiliary_form import V1AuxiliaryForm
+from vessl.openapi_client.models.v1_command import V1Command
+from vessl.openapi_client.models.v1_env_form import V1EnvForm
+from vessl.openapi_client.models.v1_run_argument import V1RunArgument
+from vessl.openapi_client.models.v1_import_form import V1ImportForm
+from vessl.openapi_client.models.v1_model_ref_form import V1ModelRefForm
+from vessl.openapi_client.models.v1_port_path import V1PortPath
+from vessl.openapi_client.models.v1_resources_form import V1ResourcesForm
+from vessl.openapi_client.models.v1_serve_revision_service_form import (
     V1ServeRevisionServiceForm,
 )
 from vessl import vessl_api

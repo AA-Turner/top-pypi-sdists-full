@@ -22,6 +22,8 @@ pub struct ZstdDecompressorIterator {
     finished_output: bool,
 }
 
+unsafe impl Sync for ZstdDecompressorIterator {}
+
 #[pymethods]
 impl ZstdDecompressorIterator {
     // PyIterProtocol.
@@ -57,7 +59,7 @@ impl ZstdDecompressorIterator {
             // Emit chunk if output buffer has data.
             if !dest_buffer.is_empty() {
                 // TODO avoid buffer copy.
-                let chunk = PyBytes::new_bound(py, &dest_buffer);
+                let chunk = PyBytes::new(py, &dest_buffer);
                 return Ok(Some(chunk.into_py(py)));
             }
 
@@ -68,7 +70,7 @@ impl ZstdDecompressorIterator {
         // Input is exhausted. Emit what we have or finish.
         if !dest_buffer.is_empty() {
             // TODO avoid buffer copy.
-            let chunk = PyBytes::new_bound(py, &dest_buffer);
+            let chunk = PyBytes::new(py, &dest_buffer);
             Ok(Some(chunk.into_py(py)))
         } else {
             Ok(None)

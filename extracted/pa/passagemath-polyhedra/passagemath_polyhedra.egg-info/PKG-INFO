@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-polyhedra
-Version: 10.6.4
+Version: 10.6.5
 Summary: passagemath: Convex polyhedra in arbitrary dimension, mixed integer linear optimization
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -33,10 +33,10 @@ Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: passagemath-ppl
 Requires-Dist: memory_allocator
-Requires-Dist: passagemath-conf~=10.6.4.0; sys_platform != "win32"
-Requires-Dist: passagemath-environment~=10.6.4.0
-Requires-Dist: passagemath-glpk~=10.6.4.0
-Requires-Dist: passagemath-modules~=10.6.4.0
+Requires-Dist: passagemath-conf~=10.6.5.0; sys_platform != "win32"
+Requires-Dist: passagemath-environment~=10.6.5.0
+Requires-Dist: passagemath-glpk~=10.6.5.0
+Requires-Dist: passagemath-modules~=10.6.5.0
 Provides-Extra: conf
 Requires-Dist: passagemath-conf; extra == "conf"
 Provides-Extra: test
@@ -93,6 +93,8 @@ Provides-Extra: gurobi-sage
 Requires-Dist: passagemath-gurobi; extra == "gurobi-sage"
 Provides-Extra: scip
 Requires-Dist: PySCIPOpt; extra == "scip"
+Provides-Extra: polytopes-db-4d
+Requires-Dist: passagemath-polytopes-db-4d; extra == "polytopes-db-4d"
 Provides-Extra: qq
 Provides-Extra: zz
 Provides-Extra: rdf
@@ -100,6 +102,7 @@ Requires-Dist: passagemath-polyhedra[cddlib]; extra == "rdf"
 Provides-Extra: numberfield
 Requires-Dist: passagemath-polyhedra[flint]; extra == "numberfield"
 Provides-Extra: databases
+Requires-Dist: passagemath-polyhedra[polytopes-db-4d]; extra == "databases"
 Provides-Extra: graphs
 Requires-Dist: passagemath-graphs; extra == "graphs"
 Provides-Extra: groups
@@ -107,7 +110,7 @@ Requires-Dist: passagemath-groups; extra == "groups"
 Provides-Extra: plot
 Requires-Dist: passagemath-plot; extra == "plot"
 Provides-Extra: standard
-Requires-Dist: passagemath-polyhedra[RDF,databases,flint,fpylll,glpk,graphs,groups,linbox,pari]; extra == "standard"
+Requires-Dist: passagemath-polyhedra[RDF,flint,fpylll,glpk,graphs,groups,linbox,pari]; extra == "standard"
 Requires-Dist: passagemath-plot[tachyon]; extra == "standard"
 
 ====================================================================================================================

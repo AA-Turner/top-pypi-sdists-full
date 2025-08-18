@@ -4,6 +4,10 @@ import ctypes, weakref
 from OpenGL_accelerate.formathandler cimport FormatHandler
 from OpenGL import error
 from OpenGL._bytes import bytes,unicode
+try:
+    long = long
+except NameError as err:
+    long = int
 
 cdef extern from "Python.h":
     cdef void Py_XINCREF( object )

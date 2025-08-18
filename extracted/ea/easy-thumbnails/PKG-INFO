@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: easy-thumbnails
-Version: 2.10
+Version: 2.10.1
 Summary: Easy thumbnails for Django
 Home-page: http://github.com/SmileyChris/easy-thumbnails
 Author: Chris Beaven
@@ -10,8 +10,8 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
@@ -30,6 +31,17 @@ Requires-Dist: pillow
 Provides-Extra: svg
 Requires-Dist: svglib; extra == "svg"
 Requires-Dist: reportlab; extra == "svg"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ===============
 Easy Thumbnails
@@ -43,7 +55,7 @@ Easy Thumbnails
     :target: https://github.com/SmileyChris/easy-thumbnails/actions/workflows/python.yml
 
 
-A powerful, yet easy to implement thumbnailing application for Django 2.2+
+A powerful, yet easy to implement thumbnailing application for Django 4.2+
 
 Below is a quick summary of usage. For more comprehensive information, view the
 `full documentation`__ online or the peruse the project's ``docs`` directory.
@@ -231,6 +243,10 @@ __ http://easy-thumbnails.readthedocs.org/en/latest/ref/processors/
 
 Changes
 =======
+
+2.10.1 (2025-08-17)
+-------------------
+* Add support for Django-5.2.
 
 2.10 (2024-09-11)
 -----------------

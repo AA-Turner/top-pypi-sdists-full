@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: check-jsonschema
-Version: 0.33.2
+Version: 0.33.3
 Summary: A jsonschema CLI and pre-commit hook
 Author-email: Stephen Rosen <sirosen0@gmail.com>
 Project-URL: Homepage, https://github.com/python-jsonschema/check-jsonschema
@@ -27,7 +27,7 @@ Requires-Dist: responses==0.25.7; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx<9; extra == "docs"
 Requires-Dist: sphinx-issues<6; extra == "docs"
-Requires-Dist: furo==2024.8.6; extra == "docs"
+Requires-Dist: furo==2025.7.19; extra == "docs"
 Dynamic: license-file
 
 [![pypi version](https://img.shields.io/pypi/v/check-jsonschema.svg)](https://pypi.org/project/check-jsonschema/)
@@ -55,7 +55,7 @@ files.
 
 ```yaml
 - repo: https://github.com/python-jsonschema/check-jsonschema
-  rev: 0.33.2
+  rev: 0.33.3
   hooks:
     - id: check-github-workflows
       args: ["--verbose"]

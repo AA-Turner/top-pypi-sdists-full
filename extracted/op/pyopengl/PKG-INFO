@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: PyOpenGL
-Version: 3.1.9
+Version: 3.1.10
 Summary: Standard OpenGL bindings for Python
 Author-email: "Mike C. Fletcher" <mcfletch@vrplumber.com>
 Project-URL: Homepage, https://mcfletch.github.io/pyopengl/

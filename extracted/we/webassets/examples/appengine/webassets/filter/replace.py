@@ -6,7 +6,7 @@ from webassets.filter import (
 
 
 class ReplaceFilter(Filter):
-    """
+    r"""
         A filter that allows arbitrary search/replace of strings using a source
         regex and a replacement string. Unlike cssrewrite this works on strings
         which are not paths and can be used as an output filter.
@@ -14,7 +14,7 @@ class ReplaceFilter(Filter):
         Usage:
 
             replace_static_urls = ReplaceFilter(
-                pattern=r'\s*{{\s*STATIC_URL\s*}}\s*',
+                pattern=r'\\s*{{\\s*STATIC_URL\\s*}}\\s*',
                 repl=settings.STATIC_URL,
             )
     """

@@ -173,17 +173,17 @@ class AttrSection(ParamSection):
     """
 
     def _parse_item(self, key: str, value: str) -> DocstringAttr:
-        docstringParam: DocstringParam = super()._parse_item(
+        docstring_param: DocstringParam = super()._parse_item(
             key=key,
             value=value,
         )
         return DocstringAttr(
-            args=docstringParam.args,
-            description=docstringParam.description,
-            arg_name=docstringParam.arg_name,
-            type_name=docstringParam.type_name,
-            is_optional=docstringParam.is_optional,
-            default=docstringParam.default,
+            args=docstring_param.args,
+            description=docstring_param.description,
+            arg_name=docstring_param.arg_name,
+            type_name=docstring_param.type_name,
+            is_optional=docstring_param.is_optional,
+            default=docstring_param.default,
         )
 
 
@@ -370,7 +370,7 @@ class NumpydocParser:
         self.sections[section.title] = section
         self._setup()
 
-    def parse(self, text: str) -> Docstring:
+    def parse(self, text: T.Optional[str]) -> Docstring:
         """Parse the numpy-style docstring into its components.
 
         :returns: parsed docstring
@@ -424,7 +424,7 @@ class NumpydocParser:
         return ret
 
 
-def parse(text: str) -> Docstring:
+def parse(text: T.Optional[str]) -> Docstring:
     """Parse the numpy-style docstring into its components.
 
     :returns: parsed docstring
@@ -447,7 +447,7 @@ def compose(
     """
 
     def process_one(
-        one: T.Union[DocstringParam, DocstringReturns, DocstringRaises]
+        one: T.Union[DocstringParam, DocstringReturns, DocstringRaises],
     ):
         if isinstance(one, DocstringParam):
             head = one.arg_name
