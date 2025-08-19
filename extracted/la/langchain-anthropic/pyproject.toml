@@ -8,13 +8,13 @@ build-backend = "pdm.backend"
 authors = []
 requires-python = ">=3.9"
 dependencies = [
-    "anthropic<1,>=0.60.0",
-    "langchain-core<1.0.0,>=0.3.72",
+    "anthropic<1,>=0.64.0",
+    "langchain-core<1.0.0,>=0.3.74",
     "pydantic<3.0.0,>=2.7.4",
 ]
 name = "langchain-anthropic"
-version = "0.3.18"
-description = "An integration package connecting AnthropicMessages and LangChain"
+version = "0.3.19"
+description = "An integration package connecting Anthropic and LangChain"
 readme = "README.md"
 
 [project.license]
@@ -45,7 +45,7 @@ codespell = [
     "codespell<3.0.0,>=2.2.0",
 ]
 lint = [
-    "ruff<0.13,>=0.12.2",
+    "ruff<0.13,>=0.12.9",
 ]
 dev = [
     "langchain-core",
@@ -55,7 +55,7 @@ test_integration = [
     "langchain-core",
 ]
 typing = [
-    "mypy<2.0,>=1.10",
+    "mypy<2.0,>=1.17.1",
     "types-requests>=2.31.0",
     "langchain-core",
 ]
@@ -123,6 +123,8 @@ ignore = [
     "D105",
     "D107",
     "D407",
+    "D203",
+    "D213",
     "D214",
     "COM812",
     "ISC001",

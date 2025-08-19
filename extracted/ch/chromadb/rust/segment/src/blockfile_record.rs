@@ -62,6 +62,18 @@ pub enum RecordSegmentWriterCreationError {
     InvalidPrefixPath,
 }
 
+impl chroma_error::ChromaError for RecordSegmentWriterCreationError {
+    fn code(&self) -> chroma_error::ErrorCodes {
+        use chroma_error::ErrorCodes;
+        match self {
+            Self::InvalidSegmentType | Self::IncorrectNumberOfFiles => ErrorCodes::InvalidArgument,
+            Self::BlockfileCreateError(e) => e.code(),
+            Self::BlockfileOpenError(e) => e.code(),
+            _ => ErrorCodes::Internal,
+        }
+    }
+}
+
 impl RecordSegmentWriter {
     async fn construct_and_set_data_record(
         &self,
@@ -850,12 +862,13 @@ impl RecordSegmentReader<'_> {
     }
 
     /// Returns all data in the record segment, sorted by their offset ids
-    pub async fn get_all_data(&self) -> Result<Vec<(u32, DataRecord)>, Box<dyn ChromaError>> {
-        self.id_to_data.get_range(""..="", ..).await.map(|vec| {
-            vec.into_iter()
-                .map(|(_, offset, data)| (offset, data))
-                .collect()
-        })
+    pub async fn get_all_data(
+        &self,
+    ) -> Result<impl Iterator<Item = (u32, DataRecord)> + '_, Box<dyn ChromaError>> {
+        self.id_to_data
+            .get_range(""..="", ..)
+            .await
+            .map(|iter| iter.map(|(_, offset, data)| (offset, data)))
     }
 
     pub async fn get_data_stream<'me>(

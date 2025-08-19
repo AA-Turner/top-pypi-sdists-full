@@ -47,10 +47,7 @@ class BaseMergeNodeDisplay(BaseNodeDisplay[_MergeNodeType], Generic[_MergeNodeTy
                 "target_handles": [{"id": str(target_handle_id)} for target_handle_id in target_handle_ids],
                 "source_handle_id": str(self.get_source_handle_id(display_context.port_displays)),
             },
-            "display_data": self.get_display_data().dict(),
-            "base": self.get_base().dict(),
-            "definition": self.get_definition().dict(),
-            "ports": self.serialize_ports(display_context),
+            **self.serialize_generic_fields(display_context),
         }
 
     def get_target_handle_ids(self) -> Optional[List[UUID]]:

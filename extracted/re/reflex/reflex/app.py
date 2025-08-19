@@ -67,10 +67,6 @@ from reflex.components.core.banner import (
     connection_toaster,
 )
 from reflex.components.core.breakpoints import set_breakpoints
-from reflex.components.core.client_side_routing import (
-    default_404_page,
-    wait_for_client_redirect,
-)
 from reflex.components.core.sticky import sticky
 from reflex.components.core.upload import Upload, get_upload_dir
 from reflex.components.radix import themes
@@ -109,6 +105,8 @@ from reflex.utils import (
     console,
     exceptions,
     format,
+    frontend_skeleton,
+    js_runtimes,
     path_ops,
     prerequisites,
     types,
@@ -598,10 +596,6 @@ class App(MiddlewareMixin, LifespanMixin):
         """
         from reflex.vars.base import GLOBAL_CACHE
 
-        # For py3.9 compatibility when redis is used, we MUST add any decorator pages
-        # before compiling the app in a thread to avoid event loop error (REF-2172).
-        self._apply_decorated_pages()
-
         self._compile(prerender_routes=is_prod_mode())
 
         config = get_config()
@@ -777,8 +771,10 @@ class App(MiddlewareMixin, LifespanMixin):
 
         if route == constants.Page404.SLUG:
             if component is None:
-                component = default_404_page
-            component = wait_for_client_redirect(self._generate_component(component))
+                from reflex.components.el.elements import span
+
+                component = span("404: Page not found")
+            component = self._generate_component(component)
             title = title or constants.Page404.TITLE
             description = description or constants.Page404.DESCRIPTION
             image = image or constants.Page404.IMAGE
@@ -866,7 +862,7 @@ class App(MiddlewareMixin, LifespanMixin):
         """
         from reflex.route import get_router
 
-        return get_router(list(self._unevaluated_pages))
+        return get_router(list(dict.fromkeys([*self._unevaluated_pages, *self._pages])))
 
     def get_load_events(self, path: str) -> list[IndividualEventType[()]]:
         """Get the load events for a route.
@@ -992,7 +988,7 @@ class App(MiddlewareMixin, LifespanMixin):
                 continue
             _frontend_packages.append(package)
         page_imports.update(_frontend_packages)
-        prerequisites.install_frontend_packages(page_imports, get_config())
+        js_runtimes.install_frontend_packages(page_imports, get_config())
 
     def _app_root(self, app_wrappers: dict[tuple[int, str], Component]) -> Component:
         for component in tuple(app_wrappers.values()):
@@ -1065,16 +1061,8 @@ class App(MiddlewareMixin, LifespanMixin):
         self.app_wraps[(0, "StickyBadge")] = lambda _: memoized_badge()
 
     def _apply_decorated_pages(self):
-        """Add @rx.page decorated pages to the app.
-
-        This has to be done in the MainThread for py38 and py39 compatibility, so the
-        decorated pages are added to the app before the app is compiled (in a thread)
-        to workaround REF-2172.
-
-        This can move back into `compile_` when py39 support is dropped.
-        """
+        """Add @rx.page decorated pages to the app."""
         app_name = get_config().app_name
-        # Add the @rx.page decorated pages to collect on_load events.
         for render, kwargs in DECORATED_PAGES[app_name]:
             self.add_page(render, **kwargs)
 
@@ -1123,6 +1111,8 @@ class App(MiddlewareMixin, LifespanMixin):
             FileNotFoundError: When a plugin requires a file that does not exist.
         """
         from reflex.utils.exceptions import ReflexRuntimeError
+
+        self._apply_decorated_pages()
 
         self._pages = {}
 
@@ -1320,7 +1310,9 @@ class App(MiddlewareMixin, LifespanMixin):
                 self.head_components,
                 html_lang=self.html_lang,
                 html_custom_attrs=(
-                    {**self.html_custom_attrs} if self.html_custom_attrs else {}
+                    {"suppressHydrationWarning": "true", **self.html_custom_attrs}
+                    if self.html_custom_attrs
+                    else {"suppressHydrationWarning": "true"}
                 ),
             )
         )
@@ -1440,7 +1432,7 @@ class App(MiddlewareMixin, LifespanMixin):
             self._get_frontend_packages(all_imports)
 
         # Setup the react-router.config.js
-        prerequisites.update_react_router_config(
+        frontend_skeleton.update_react_router_config(
             prerender_routes=prerender_routes,
         )
 

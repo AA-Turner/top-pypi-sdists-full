@@ -75,8 +75,8 @@ def convert_trino_timestamp_to_spark_timestamp(
         LogicalEnumTemporal.Timestamp,
     ]:
         return time_or_timestamp
-    time_or_timestamp.root.bits = 64
-    time_or_timestamp.root.unit = Unit.millisecond
+    time_or_timestamp.root.bits = 64  # type: ignore
+    time_or_timestamp.root.unit = Unit.millisecond  # type: ignore
     return time_or_timestamp
 
 

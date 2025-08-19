@@ -211,11 +211,12 @@ Pair(y="foo")  # E: Missing argument `x` in function `Pair.__new__`
 );
 
 testcase!(
-    test_named_tuple_default,
+    test_named_tuple_defaults,
     r#"
 from collections import namedtuple
 x = 2
 Tup = namedtuple("Tup", ["a", "b"], defaults=(None, x))
+Tup2 = namedtuple("Tup2", ["a", "b"], defaults=[None, x])
 "#,
 );
 
@@ -345,4 +346,18 @@ class B(A):
     def __init__(self, x: int, y: str) -> None:
         return super().__init__(x, y)
 "#,
+);
+
+testcase!(
+    bug = "The asserted type is wrong",
+    test_custom_iter,
+    r#"
+from typing import assert_type, Iterator, NamedTuple
+class NT(NamedTuple):
+    x: int
+    def __iter__(self) -> Iterator[str]: ...
+nt = NT(0)
+for x in nt:
+    assert_type(x, str)  # E: assert_type(int, str)
+    "#,
 );

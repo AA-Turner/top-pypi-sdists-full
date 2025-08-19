@@ -4514,3 +4514,4 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
             status=RpaHistoricoStatusEnum.Falha,
             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
         )
+    

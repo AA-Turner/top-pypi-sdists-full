@@ -9,11 +9,13 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from datetime import datetime
 
 from setuptools import find_packages, setup
 
-from common_setup import common_setup_kwargs, DESCRIPTION_TEMPLATE, version
+from common_setup import DESCRIPTION_TEMPLATE, common_setup_kwargs, version
 
 # We presently version the `datarobot` package with a version number that
 # may contain either a 'b' or 'rc' in it. For the purposes of the

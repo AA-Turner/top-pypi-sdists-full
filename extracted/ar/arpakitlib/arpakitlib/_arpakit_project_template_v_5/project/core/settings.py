@@ -26,6 +26,12 @@ class Settings(SimpleSettings):
 
     project_name: str | None = "project"
 
+    common_project_name: str | None = project_name
+
+    project_title: str | None = project_name
+
+    common_project_title: str | None = project_name
+
     sqlalchemy_db_user: str | None = project_name
 
     sqlalchemy_db_password: str | None = project_name

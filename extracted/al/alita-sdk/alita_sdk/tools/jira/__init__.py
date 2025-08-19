@@ -6,7 +6,6 @@ from pydantic import create_model, BaseModel, ConfigDict, Field
 import requests
 
 from ..utils import clean_string, TOOLKIT_SPLITTER, get_max_toolkit_length, parse_list, check_connection_response
-from ...configurations.embedding import EmbeddingConfiguration
 from ...configurations.jira import JiraConfiguration
 from ...configurations.pgvector import PgVectorConfiguration
 
@@ -27,8 +26,8 @@ def get_tools(tool):
         llm=tool['settings'].get('llm', None),
         alita=tool['settings'].get('alita', None),
         pgvector_configuration=tool['settings'].get('pgvector_configuration', {}),
-        embedding_configuration=tool['settings'].get('embedding_configuration', {}),
         collection_name=str(tool['toolkit_name']),
+        embedding_model=tool['settings'].get('embedding_model'),
         vectorstore_type="PGVector",
         toolkit_name=tool.get('toolkit_name')
     ).get_tools()
@@ -77,11 +76,10 @@ class JiraToolkit(BaseToolkit):
             verify_ssl=(bool, Field(description="Verify SSL", default=True)),
             additional_fields=(Optional[str], Field(description="Additional fields", default="")),
             jira_configuration=(Optional[JiraConfiguration], Field(description="Jira Configuration", json_schema_extra={'configuration_types': ['jira']})),
-            pgvector_configuration=(Optional[PgVectorConfiguration], Field(description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
+            pgvector_configuration=(Optional[PgVectorConfiguration], Field(default=None,
+                                                                           description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
             # embedder settings
-            embedding_configuration=(Optional[EmbeddingConfiguration], Field(default=None, description="Embedding configuration.",
-                                                                             json_schema_extra={'configuration_types': [
-                                                                                 'embedding']})),
+            embedding_model=(Optional[str], Field(default=None, description="Embedding configuration.", json_schema_extra={'configuration_model': 'embedding'})),
 
             selected_tools=(List[Literal[tuple(selected_tools)]], Field(default=[], json_schema_extra={'args_schemas': selected_tools})),
             __config__=ConfigDict(json_schema_extra={
@@ -105,7 +103,6 @@ class JiraToolkit(BaseToolkit):
             # TODO use jira_configuration fields
             **kwargs['jira_configuration'],
             **(kwargs.get('pgvector_configuration') or {}),
-            **(kwargs.get('embedding_configuration') or {}),
         }
         jira_api_wrapper = JiraApiWrapper(**wrapper_payload)
         prefix = clean_string(toolkit_name, cls.toolkit_max_length) + TOOLKIT_SPLITTER if toolkit_name else ''

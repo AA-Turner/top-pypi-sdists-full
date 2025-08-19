@@ -15,7 +15,7 @@ from __future__ import annotations
 import collections
 from datetime import datetime
 import json
-from typing import Any, cast, Dict, List, Optional, Tuple, Type, TYPE_CHECKING, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast
 import warnings
 
 from pandas import DataFrame
@@ -24,19 +24,19 @@ import trafaret as t
 from datarobot._compat import Int, String
 from datarobot.enums import (
     AUTOPILOT_MODE,
-    CredentialTypes,
     CV_METHOD,
     DEFAULT_MAX_WAIT,
     DEFAULT_TIMEOUT,
     LEADERBOARD_SORT_KEY,
     MONOTONICITY_FEATURELIST_DEFAULT,
-    NonPersistableProjectOptions,
     PROJECT_STAGE,
     QUEUE_STATUS,
     TARGET_TYPE,
-    UnsupervisedTypeEnum,
     VARIABLE_TYPE_TRANSFORM,
     VERBOSITY_LEVEL,
+    CredentialTypes,
+    NonPersistableProjectOptions,
+    UnsupervisedTypeEnum,
 )
 from datarobot.errors import (
     AppPlatformError,
@@ -55,8 +55,8 @@ from datarobot.helpers.eligibility_result import EligibilityResult
 from datarobot.helpers.partitioning_methods import (
     BasePartitioningMethod,
     DatetimePartitioningSpecification,
+    PartitioningMethod,
 )
-from datarobot.helpers.partitioning_methods import PartitioningMethod
 from datarobot.helpers.partitioning_methods import get_class as get_partition_class
 from datarobot.mixins.browser_mixin import BrowserMixin
 from datarobot.models.api_object import APIObject
@@ -90,7 +90,7 @@ from datarobot.models.restore_discarded_features import (
 )
 from datarobot.models.segmentation import SegmentationTask
 from datarobot.models.sharing import SharingAccess
-from datarobot.models.use_cases.utils import add_to_use_case, resolve_use_cases, UseCaseLike
+from datarobot.models.use_cases.utils import UseCaseLike, add_to_use_case, resolve_use_cases
 from datarobot.utils import (
     assert_single_or_zero_parameter,
     camelize,

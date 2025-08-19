@@ -45,7 +45,7 @@ def parse_prices(xml_text):
     return series
 
 
-def parse_netpositions(xml_text, resolution):
+def parse_netpositions(xml_text):
     """
 
     Parameters
@@ -58,7 +58,7 @@ def parse_netpositions(xml_text, resolution):
     """
     series_all = []
     for soup in _extract_timeseries(xml_text):
-        series = _parse_timeseries_generic(soup)[resolution]
+        series = _parse_timeseries_generic(soup, merge_series=True)
         if series is None:
             continue
         if 'REGION' in soup.find('out_domain.mrid').text:
@@ -645,7 +645,8 @@ def _parse_imbalance_volumes_timeseries(soup, include_resolution) -> pd.DataFram
         # time series uses flow direction codes
         flow_direction_factor = {
             'A01': 1, # in
-            'A02': -1 # out
+            'A02': -1, # out
+            'A03': 1,  # symmetric / in-balance
         }[flow_direction.text]
     else:
         # time series uses positive and negative values
@@ -660,8 +661,9 @@ def _parse_imbalance_volumes_timeseries(soup, include_resolution) -> pd.DataFram
         tx = pd.date_range(start=start, end=end, freq=resolution, inclusive='left')
         points = period.find_all('point')
 
-        for dt, point in zip(tx, points):
-            df.loc[dt, 'Imbalance Volume'] = \
+        for point in points:
+            position = int(point.find('position').text)
+            df.loc[tx[position-1], 'Imbalance Volume'] = \
                 float(point.find('quantity').text) * flow_direction_factor
         if include_resolution:
             df["Resolution"] = resolution

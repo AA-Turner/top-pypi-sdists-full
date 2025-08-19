@@ -23,7 +23,7 @@ class NullHandler(logging.Handler):
 
 logging.getLogger('cassandra').addHandler(NullHandler())
 
-__version_info__ = (3, 29, 3)
+__version_info__ = (3, 29, 4)
 __version__ = '.'.join(map(str, __version_info__))
 
 
@@ -135,16 +135,6 @@ class ProtocolVersion(object):
     """
     Defines native protocol versions supported by this driver.
     """
-    V1 = 1
-    """
-    v1, supported in Cassandra 1.2-->2.2
-    """
-
-    V2 = 2
-    """
-    v2, supported in Cassandra 2.0-->2.2;
-    added support for lightweight transactions, batch operations, and automatic query paging.
-    """
 
     V3 = 3
     """
@@ -180,9 +170,9 @@ class ProtocolVersion(object):
     DSE private protocol v2, supported in DSE 6.0+
     """
 
-    SUPPORTED_VERSIONS = (DSE_V2, DSE_V1, V6, V5, V4, V3, V2, V1)
+    SUPPORTED_VERSIONS = (V5, V4, V3)
     """
-    A tuple of all supported protocol versions
+    A tuple of all supported protocol versions for ScyllaDB, including future v5 version.
     """
 
     BETA_VERSIONS = (V6,)
@@ -232,14 +222,6 @@ class ProtocolVersion(object):
     @classmethod
     def uses_keyspace_flag(cls, version):
         return version >= cls.V5 and version != cls.DSE_V1
-
-    @classmethod
-    def has_continuous_paging_support(cls, version):
-        return version >= cls.DSE_V1
-
-    @classmethod
-    def has_continuous_paging_next_pages(cls, version):
-        return version >= cls.DSE_V2
 
     @classmethod
     def has_checksumming_support(cls, version):

@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import trafaret as t
 
@@ -27,21 +27,21 @@ from datarobot._compat import Int, String
 from datarobot.enums import (
     AUTOPILOT_MODE,
     CV_METHOD,
-    DocumentTextExtractionMethod,
     TARGET_TYPE,
     TIME_UNITS,
     TREAT_AS_EXPONENTIAL,
     VALIDATION_TYPE,
+    DocumentTextExtractionMethod,
 )
 from datarobot.helpers import (
-    _class_mapping_aggregation_settings_converter,
     AdvancedOptions,
     ClassMappingAggregationSettings,
+    _class_mapping_aggregation_settings_converter,
 )
 from datarobot.helpers.partitioning_methods import (
-    _feature_settings_converter,
     BacktestSpecification,
     FeatureSettings,
+    _feature_settings_converter,
 )
 from datarobot.models.api_object import APIObject
 from datarobot.models.feature import Feature

@@ -13,6 +13,11 @@ opt-level = "s"
 debug = false
 lto = true
 
+[profile.profiling]
+opt-level = 3
+inherits = "release"
+debug = true
+
 [profile.dev.package.miniz_oxide]
 opt-level = 3
 

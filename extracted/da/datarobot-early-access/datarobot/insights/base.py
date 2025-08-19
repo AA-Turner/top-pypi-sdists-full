@@ -9,8 +9,10 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from io import StringIO
-from typing import Any, cast, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 import pandas as pd
 import trafaret as t

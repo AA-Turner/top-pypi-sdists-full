@@ -14,8 +14,14 @@ AssistantVersionsSearchRequest = jsonschema_rs.validator_for(
 AssistantSearchRequest = jsonschema_rs.validator_for(
     openapi["components"]["schemas"]["AssistantSearchRequest"]
 )
+AssistantCountRequest = jsonschema_rs.validator_for(
+    openapi["components"]["schemas"]["AssistantCountRequest"]
+)
 ThreadSearchRequest = jsonschema_rs.validator_for(
     openapi["components"]["schemas"]["ThreadSearchRequest"]
+)
+ThreadCountRequest = jsonschema_rs.validator_for(
+    openapi["components"]["schemas"]["ThreadCountRequest"]
 )
 AssistantCreate = jsonschema_rs.validator_for(
     openapi["components"]["schemas"]["AssistantCreate"]
@@ -116,6 +122,9 @@ RunCreateStateful = jsonschema_rs.validator_for(
 RunsCancel = jsonschema_rs.validator_for(openapi["components"]["schemas"]["RunsCancel"])
 CronCreate = jsonschema_rs.validator_for(openapi["components"]["schemas"]["CronCreate"])
 CronSearch = jsonschema_rs.validator_for(openapi["components"]["schemas"]["CronSearch"])
+CronCountRequest = jsonschema_rs.validator_for(
+    openapi["components"]["schemas"]["CronCountRequest"]
+)
 
 
 # Stuff around storage/BaseStore API

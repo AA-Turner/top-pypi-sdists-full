@@ -298,6 +298,7 @@ class ApiGatewayToLambda(
         *,
         api_name: builtins.str,
         lambda_function: _aws_cdk_aws_lambda_ceddda9d.IFunction,
+        binary_media_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         create_usage_plan: typing.Optional[builtins.bool] = None,
         custom_domain_name: typing.Optional[builtins.str] = None,
         custom_routes: typing.Optional[typing.Sequence[typing.Union["CustomRoute", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -315,6 +316,7 @@ class ApiGatewayToLambda(
         :param id: -
         :param api_name: API configuration.
         :param lambda_function: Primary Lambda function for the API.
+        :param binary_media_types: Binary media types for the API This setting will be applied regardless of whether LambdaRestApi or RestApi is used.
         :param create_usage_plan: Whether to create a Usage Plan.
         :param custom_domain_name: Optional custom domain name for API Gateway.
         :param custom_routes: Custom routes for manual API setup (when proxy is false) If provided, will use RestApi instead of LambdaRestApi.
@@ -334,6 +336,7 @@ class ApiGatewayToLambda(
         props = ApiGatewayToLambdaProps(
             api_name=api_name,
             lambda_function=lambda_function,
+            binary_media_types=binary_media_types,
             create_usage_plan=create_usage_plan,
             custom_domain_name=custom_domain_name,
             custom_routes=custom_routes,
@@ -2805,6 +2808,7 @@ class AmplifyAppProps(TaggableProps):
         "tags": "tags",
         "api_name": "apiName",
         "lambda_function": "lambdaFunction",
+        "binary_media_types": "binaryMediaTypes",
         "create_usage_plan": "createUsagePlan",
         "custom_domain_name": "customDomainName",
         "custom_routes": "customRoutes",
@@ -2824,6 +2828,7 @@ class ApiGatewayToLambdaProps(TaggableProps):
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         api_name: builtins.str,
         lambda_function: _aws_cdk_aws_lambda_ceddda9d.IFunction,
+        binary_media_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         create_usage_plan: typing.Optional[builtins.bool] = None,
         custom_domain_name: typing.Optional[builtins.str] = None,
         custom_routes: typing.Optional[typing.Sequence[typing.Union[CustomRoute, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2839,6 +2844,7 @@ class ApiGatewayToLambdaProps(TaggableProps):
         :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable format: TAGS=key1=value1,key2=value2
         :param api_name: API configuration.
         :param lambda_function: Primary Lambda function for the API.
+        :param binary_media_types: Binary media types for the API This setting will be applied regardless of whether LambdaRestApi or RestApi is used.
         :param create_usage_plan: Whether to create a Usage Plan.
         :param custom_domain_name: Optional custom domain name for API Gateway.
         :param custom_routes: Custom routes for manual API setup (when proxy is false) If provided, will use RestApi instead of LambdaRestApi.
@@ -2861,6 +2867,7 @@ class ApiGatewayToLambdaProps(TaggableProps):
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument api_name", value=api_name, expected_type=type_hints["api_name"])
             check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
+            check_type(argname="argument binary_media_types", value=binary_media_types, expected_type=type_hints["binary_media_types"])
             check_type(argname="argument create_usage_plan", value=create_usage_plan, expected_type=type_hints["create_usage_plan"])
             check_type(argname="argument custom_domain_name", value=custom_domain_name, expected_type=type_hints["custom_domain_name"])
             check_type(argname="argument custom_routes", value=custom_routes, expected_type=type_hints["custom_routes"])
@@ -2877,6 +2884,8 @@ class ApiGatewayToLambdaProps(TaggableProps):
         }
         if tags is not None:
             self._values["tags"] = tags
+        if binary_media_types is not None:
+            self._values["binary_media_types"] = binary_media_types
         if create_usage_plan is not None:
             self._values["create_usage_plan"] = create_usage_plan
         if custom_domain_name is not None:
@@ -2920,6 +2929,12 @@ class ApiGatewayToLambdaProps(TaggableProps):
         result = self._values.get("lambda_function")
         assert result is not None, "Required property 'lambda_function' is missing"
         return typing.cast(_aws_cdk_aws_lambda_ceddda9d.IFunction, result)
+
+    @builtins.property
+    def binary_media_types(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Binary media types for the API This setting will be applied regardless of whether LambdaRestApi or RestApi is used.'''
+        result = self._values.get("binary_media_types")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def create_usage_plan(self) -> typing.Optional[builtins.bool]:
@@ -3626,6 +3641,7 @@ def _typecheckingstub__88385340a9ac0a3d345bb5f8b9e0334655a117a97d92f90c383b720f4
     *,
     api_name: builtins.str,
     lambda_function: _aws_cdk_aws_lambda_ceddda9d.IFunction,
+    binary_media_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     create_usage_plan: typing.Optional[builtins.bool] = None,
     custom_domain_name: typing.Optional[builtins.str] = None,
     custom_routes: typing.Optional[typing.Sequence[typing.Union[CustomRoute, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3942,6 +3958,7 @@ def _typecheckingstub__7c51143b7da8fc50ffd3240aae88642c332f9ccc1136e275abf9d1065
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     api_name: builtins.str,
     lambda_function: _aws_cdk_aws_lambda_ceddda9d.IFunction,
+    binary_media_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     create_usage_plan: typing.Optional[builtins.bool] = None,
     custom_domain_name: typing.Optional[builtins.str] = None,
     custom_routes: typing.Optional[typing.Sequence[typing.Union[CustomRoute, typing.Dict[builtins.str, typing.Any]]]] = None,

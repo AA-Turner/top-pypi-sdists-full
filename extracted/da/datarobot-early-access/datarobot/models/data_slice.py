@@ -13,12 +13,12 @@ from __future__ import annotations
 
 import enum
 import inspect
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import trafaret as t
 
 from datarobot._compat import Int, String, TypedDict
-from datarobot.enums import enum_to_list, INSIGHTS_SOURCES
+from datarobot.enums import INSIGHTS_SOURCES, enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.models.status_check_job import StatusCheckJob
 from datarobot.utils.pagination import unpaginate

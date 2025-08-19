@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyodide-build
-Version: 0.30.6
+Version: 0.30.7
 Summary: "Tools for building Pyodide"
 Project-URL: Homepage, https://github.com/pyodide/pyodide-build
 Project-URL: Bug Tracker, https://github.com/pyodide/pyodide-build/issues
@@ -12,13 +12,13 @@ Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.12
-Requires-Dist: auditwheel-emscripten==0.1.0
+Requires-Dist: auditwheel-emscripten~=0.2.0
 Requires-Dist: build~=1.2.0
 Requires-Dist: packaging
 Requires-Dist: platformdirs
 Requires-Dist: pydantic<3,>=2
-Requires-Dist: pyodide-cli!=0.2.1,>=0.3.0
-Requires-Dist: pyodide-lock==0.1.0a7
+Requires-Dist: pyodide-cli>=0.3.0
+Requires-Dist: pyodide-lock~=0.1.0
 Requires-Dist: requests
 Requires-Dist: resolvelib
 Requires-Dist: rich

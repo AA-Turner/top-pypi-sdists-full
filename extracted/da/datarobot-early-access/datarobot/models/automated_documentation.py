@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import cast, List, Optional, Tuple
+from typing import List, Optional, Tuple, cast
 
 from requests import Response
 import trafaret as t

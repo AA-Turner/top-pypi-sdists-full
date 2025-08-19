@@ -58,19 +58,19 @@ pub enum CallStyle<'a> {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum CallTarget {
     /// A typing.Callable.
-    Callable(Callable),
+    Callable(TargetWithTParams<Callable>),
     /// A function.
-    Function(FunctionTarget),
+    Function(TargetWithTParams<Function>),
     /// Method of a class. The `Type` is the self/cls argument.
-    BoundMethod(Type, FunctionTarget),
+    BoundMethod(Type, TargetWithTParams<Function>),
     /// A class object.
     Class(ClassType),
     /// A TypedDict.
     TypedDict(TypedDict),
     /// An overloaded function.
-    FunctionOverload(Vec1<FunctionTarget>, FuncMetadata),
+    FunctionOverload(Vec1<TargetWithTParams<Function>>, FuncMetadata),
     /// An overloaded method.
-    BoundMethodOverload(Type, Vec1<FunctionTarget>, FuncMetadata),
+    BoundMethodOverload(Type, Vec1<TargetWithTParams<Function>>, FuncMetadata),
     /// A union of call targets.
     Union(Vec<CallTarget>),
     /// Any, as a call target.
@@ -78,7 +78,7 @@ pub enum CallTarget {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FunctionTarget(pub Option<Arc<TParams>>, pub Function);
+pub struct TargetWithTParams<T>(pub Option<Arc<TParams>>, pub T);
 
 impl CallTarget {
     fn function_metadata(&self) -> Option<&FuncMetadata> {
@@ -113,13 +113,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Return a pair of the quantified variables I had to instantiate, and the resulting call target.
     pub fn as_call_target(&self, ty: Type) -> Option<CallTarget> {
         match ty {
-            Type::Callable(c) => Some(CallTarget::Callable(*c)),
-            Type::Function(func) => Some(CallTarget::Function(FunctionTarget(None, *func))),
+            Type::Callable(c) => Some(CallTarget::Callable(TargetWithTParams(None, *c))),
+            Type::Function(func) => Some(CallTarget::Function(TargetWithTParams(None, *func))),
             Type::Overload(overload) => {
                 let funcs = overload.signatures.mapped(|ty| match ty {
-                    OverloadType::Function(function) => FunctionTarget(None, function),
+                    OverloadType::Function(function) => TargetWithTParams(None, function),
                     OverloadType::Forall(forall) => {
-                        FunctionTarget(Some(forall.tparams), forall.body)
+                        TargetWithTParams(Some(forall.tparams), forall.body)
                     }
                 });
                 Some(CallTarget::FunctionOverload(funcs, *overload.metadata))
@@ -149,17 +149,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(CallTarget::Class(self.erase_tuple_type(tuple)))
             }
             Type::Type(box Type::Quantified(quantified)) => {
-                Some(CallTarget::Callable(Callable {
-                    // TODO: use upper bound to determine input parameters
-                    params: Params::Ellipsis,
-                    ret: Type::Quantified(quantified),
-                }))
+                Some(CallTarget::Callable(TargetWithTParams(
+                    None,
+                    Callable {
+                        // TODO: use upper bound to determine input parameters
+                        params: Params::Ellipsis,
+                        ret: Type::Quantified(quantified),
+                    },
+                )))
             }
             Type::Type(box Type::Any(style)) => Some(CallTarget::Any(style)),
             Type::Forall(forall) => {
                 let mut target = self.as_call_target(forall.body.as_type());
-                if let Some(CallTarget::Function(x)) = &mut target {
-                    x.0 = Some(forall.tparams);
+                match &mut target {
+                    Some(
+                        CallTarget::Callable(TargetWithTParams(x, _))
+                        | CallTarget::Function(TargetWithTParams(x, _)),
+                    ) => {
+                        *x = Some(forall.tparams);
+                    }
+                    _ => {}
                 }
                 target
             }
@@ -421,12 +430,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // If the class overrides `object.__new__` but not `object.__init__`, the `__init__` call
         // always succeeds at runtime, so we skip analyzing it.
-        // If we have Any as a base class, we shouldn't fall back to `object.__init__`.
-        let get_object_init = !overrides_new
-            && !self
-                .get_metadata_for_class(cls.class_object())
-                .has_base_any();
-
+        let get_object_init = !overrides_new;
         if let Some(init_method) = self.get_dunder_init(&cls, get_object_init) {
             let dunder_init_errors = self.error_collector();
             self.call_infer(
@@ -473,7 +477,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<HintRef>,
     ) -> Type {
-        // We know `__init__` exists because we synthesize it.
         if let Some(hint) = hint {
             self.solver()
                 .freshen_class_targs(typed_dict.targs_mut(), self.uniques);
@@ -482,6 +485,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.solver().generalize_class_targs(typed_dict.targs_mut());
         }
         let hint = None; // discard hint
+        // We know `__init__` exists because we synthesize it.
         let init_method = self.get_typed_dict_dunder_init(&typed_dict).unwrap();
         self.call_infer(
             self.as_call_target_or_error(
@@ -582,7 +586,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             CallTarget::BoundMethod(
                 obj,
-                FunctionTarget(
+                TargetWithTParams(
                     tparams,
                     Function {
                         signature,
@@ -603,11 +607,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 hint,
                 ctor_targs,
             ),
-            CallTarget::Callable(callable) => self.callable_infer(
-                callable, None, None, None, args, keywords, range, errors, errors, context, hint,
+            CallTarget::Callable(TargetWithTParams(tparams, callable)) => self.callable_infer(
+                callable,
+                None,
+                tparams.as_deref(),
+                None,
+                args,
+                keywords,
+                range,
+                errors,
+                errors,
+                context,
+                hint,
                 ctor_targs,
             ),
-            CallTarget::Function(FunctionTarget(
+            CallTarget::Function(TargetWithTParams(
                 tparams,
                 Function {
                     signature: mut callable,
@@ -734,7 +748,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Calls an overloaded function, returning the return type and the closest matching overload signature.
     pub fn call_overloads(
         &self,
-        overloads: Vec1<FunctionTarget>,
+        overloads: Vec1<TargetWithTParams<Function>>,
         metadata: FuncMetadata,
         self_obj: Option<Type>,
         args: &[CallArg],
@@ -746,11 +760,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ctor_targs: Option<&mut TArgs>,
     ) -> (Type, Callable) {
         // There may be Expr values in args and keywords.
-        // If we infer them for each overload, we may end up infering them multiple times.
+        // If we infer them for each overload, we may end up inferring them multiple times.
         // If those overloads contain nested overloads, then we can easily end up with O(2^n) perf.
         // Therefore, flatten all TypeOrExpr's into Type before we start
         let call = CallWithTypes::new();
-        let method_name = metadata.kind.as_func_id().func;
         let args = call.vec_call_arg(args, self, errors);
         let keywords = call.vec_call_keyword(keywords, self, errors);
 
@@ -796,7 +809,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // An overload is chosen, we should record it to power IDE services.
                 self.record_overload_trace(
                     range,
-                    overloads.map(|FunctionTarget(_, Function { signature, .. })| signature),
+                    overloads.map(|TargetWithTParams(_, Function { signature, .. })| signature),
                     &callable.1.signature,
                     true,
                 );
@@ -807,7 +820,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         errors,
                         range,
                         ErrorInfo::new(ErrorKind::Deprecated, context),
-                        format!("Call to deprecated overload `{method_name}`"),
+                        format!(
+                            "Call to deprecated overload `{}`",
+                            callable
+                                .1
+                                .metadata
+                                .kind
+                                .as_func_id()
+                                .format(self.module().name())
+                        ),
                     );
                 }
                 if let Some(targs) = ctor_targs {
@@ -831,7 +852,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let closest_overload = closest_overload.unwrap();
         self.record_overload_trace(
             range,
-            overloads.map(|FunctionTarget(_, Function { signature, .. })| signature),
+            overloads.map(|TargetWithTParams(_, Function { signature, .. })| signature),
             &closest_overload.signature,
             false,
         );

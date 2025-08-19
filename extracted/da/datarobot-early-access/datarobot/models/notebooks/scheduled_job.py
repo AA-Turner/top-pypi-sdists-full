@@ -20,13 +20,13 @@ from datarobot.models.api_object import APIObject
 from datarobot.models.notebooks.enums import (
     NotebookType,
     RunType,
-    ScheduledRunStatus,
     ScheduleStatus,
+    ScheduledRunStatus,
 )
 from datarobot.models.notebooks.scheduled_run import (
     NotebookScheduledRun,
-    scheduled_job_payload_trafaret,
     ScheduledJobPayload,
+    scheduled_job_payload_trafaret,
 )
 from datarobot.utils.pagination import unpaginate
 

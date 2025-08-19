@@ -84,8 +84,8 @@ class FileTypeMetadata:
         self.format: FileFormat = format
 
     # nice for debugging / logging
-    def __repr__(self) -> tuple[str, FileTypeMetadata]:  # pragma: no cover
-        return f"FileTypeMetadata(wrapper={self.wrapper}, " f"format={self.format})"
+    def __repr__(self) -> tuple[str, FileTypeMetadata]:  # type: ignore
+        return f"FileTypeMetadata(wrapper={self.wrapper}, " f"format={self.format})"  # type: ignore
 
 
 # ───────────────────────── Detection helpers ──────────────────────────

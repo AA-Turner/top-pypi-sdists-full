@@ -16013,6 +16013,120 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_lb_resource_api_v2_clouds_with_cloud_resource_router_cloud_id_get_lb_resource_post(self, cloud_id, **kwargs):  # noqa: E501
+        """Get Lb Resource  # noqa: E501
+
+        Get lb resources for the cloud.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_lb_resource_api_v2_clouds_with_cloud_resource_router_cloud_id_get_lb_resource_post(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: LbresourceResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_lb_resource_api_v2_clouds_with_cloud_resource_router_cloud_id_get_lb_resource_post_with_http_info(cloud_id, **kwargs)  # noqa: E501
+
+    def get_lb_resource_api_v2_clouds_with_cloud_resource_router_cloud_id_get_lb_resource_post_with_http_info(self, cloud_id, **kwargs):  # noqa: E501
+        """Get Lb Resource  # noqa: E501
+
+        Get lb resources for the cloud.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_lb_resource_api_v2_clouds_with_cloud_resource_router_cloud_id_get_lb_resource_post_with_http_info(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(LbresourceResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_lb_resource_api_v2_clouds_with_cloud_resource_router_cloud_id_get_lb_resource_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `get_lb_resource_api_v2_clouds_with_cloud_resource_router_cloud_id_get_lb_resource_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds_with_cloud_resource_router/{cloud_id}/get_lb_resource', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='LbresourceResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_log_files_api_v2_logs_get_log_files_post(self, **kwargs):  # noqa: E501
         """Get Log Files  # noqa: E501
 
@@ -28205,6 +28319,181 @@ class DefaultApi(object):
 
         return self.api_client.call_api(
             '/api/v2/logs/query_aggregated_logs', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='LogitembatchResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def query_api_v2_logs_query_get(self, logql_query, start, end, source_type, **kwargs):  # noqa: E501
+        """Query  # noqa: E501
+
+        Fetching logs using LogQL queries.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.query_api_v2_logs_query_get(logql_query, start, end, source_type, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str logql_query: LogQL query string to execute against the logs. This should be a valid Loki LogQL expression. (required)
+        :param float start: The start time for the query as a nanosecond Unix epoch. (required)
+        :param float end: The end time for the query as a nanosecond Unix epoch. (required)
+        :param str source_type: The type of logs to query. Must be one of \"application\" or \"system\". (required)
+        :param str cluster_id: The cluster id used to fetch logs. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str workspace_id: The workspace id used to fetch logs. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str ha_job_id: The production job id used to fetch logs. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str service_id: The service id used to fetch logs. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param int page_size: Number of chunks to fetch. Defaults to 400. Max of 1000.
+        :param bool reverse_sort: Whether the result should be sorted by descending timestamp. Also determines the query direction. When false, it will start to query from the start and return results until it reaches the page_size or the end. When true, it will start to query from the end and return results until it reaches the page_size or the start. Default to false.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: LogitembatchResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.query_api_v2_logs_query_get_with_http_info(logql_query, start, end, source_type, **kwargs)  # noqa: E501
+
+    def query_api_v2_logs_query_get_with_http_info(self, logql_query, start, end, source_type, **kwargs):  # noqa: E501
+        """Query  # noqa: E501
+
+        Fetching logs using LogQL queries.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.query_api_v2_logs_query_get_with_http_info(logql_query, start, end, source_type, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str logql_query: LogQL query string to execute against the logs. This should be a valid Loki LogQL expression. (required)
+        :param float start: The start time for the query as a nanosecond Unix epoch. (required)
+        :param float end: The end time for the query as a nanosecond Unix epoch. (required)
+        :param str source_type: The type of logs to query. Must be one of \"application\" or \"system\". (required)
+        :param str cluster_id: The cluster id used to fetch logs. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str workspace_id: The workspace id used to fetch logs. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str ha_job_id: The production job id used to fetch logs. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str service_id: The service id used to fetch logs. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param int page_size: Number of chunks to fetch. Defaults to 400. Max of 1000.
+        :param bool reverse_sort: Whether the result should be sorted by descending timestamp. Also determines the query direction. When false, it will start to query from the start and return results until it reaches the page_size or the end. When true, it will start to query from the end and return results until it reaches the page_size or the start. Default to false.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(LogitembatchResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'logql_query',
+            'start',
+            'end',
+            'source_type',
+            'cluster_id',
+            'workspace_id',
+            'ha_job_id',
+            'service_id',
+            'page_size',
+            'reverse_sort'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method query_api_v2_logs_query_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'logql_query' is set
+        if self.api_client.client_side_validation and ('logql_query' not in local_var_params or  # noqa: E501
+                                                        local_var_params['logql_query'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `logql_query` when calling `query_api_v2_logs_query_get`")  # noqa: E501
+        # verify the required parameter 'start' is set
+        if self.api_client.client_side_validation and ('start' not in local_var_params or  # noqa: E501
+                                                        local_var_params['start'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `start` when calling `query_api_v2_logs_query_get`")  # noqa: E501
+        # verify the required parameter 'end' is set
+        if self.api_client.client_side_validation and ('end' not in local_var_params or  # noqa: E501
+                                                        local_var_params['end'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `end` when calling `query_api_v2_logs_query_get`")  # noqa: E501
+        # verify the required parameter 'source_type' is set
+        if self.api_client.client_side_validation and ('source_type' not in local_var_params or  # noqa: E501
+                                                        local_var_params['source_type'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `source_type` when calling `query_api_v2_logs_query_get`")  # noqa: E501
+
+        if self.api_client.client_side_validation and 'source_type' in local_var_params and not re.search(r'^(application|system)$', local_var_params['source_type']):  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `source_type` when calling `query_api_v2_logs_query_get`, must conform to the pattern `/^(application|system)$/`")  # noqa: E501
+        if self.api_client.client_side_validation and 'page_size' in local_var_params and local_var_params['page_size'] > 1000:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `page_size` when calling `query_api_v2_logs_query_get`, must be a value less than or equal to `1000`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'logql_query' in local_var_params and local_var_params['logql_query'] is not None:  # noqa: E501
+            query_params.append(('logql_query', local_var_params['logql_query']))  # noqa: E501
+        if 'start' in local_var_params and local_var_params['start'] is not None:  # noqa: E501
+            query_params.append(('start', local_var_params['start']))  # noqa: E501
+        if 'end' in local_var_params and local_var_params['end'] is not None:  # noqa: E501
+            query_params.append(('end', local_var_params['end']))  # noqa: E501
+        if 'source_type' in local_var_params and local_var_params['source_type'] is not None:  # noqa: E501
+            query_params.append(('source_type', local_var_params['source_type']))  # noqa: E501
+        if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
+            query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'workspace_id' in local_var_params and local_var_params['workspace_id'] is not None:  # noqa: E501
+            query_params.append(('workspace_id', local_var_params['workspace_id']))  # noqa: E501
+        if 'ha_job_id' in local_var_params and local_var_params['ha_job_id'] is not None:  # noqa: E501
+            query_params.append(('ha_job_id', local_var_params['ha_job_id']))  # noqa: E501
+        if 'service_id' in local_var_params and local_var_params['service_id'] is not None:  # noqa: E501
+            query_params.append(('service_id', local_var_params['service_id']))  # noqa: E501
+        if 'page_size' in local_var_params and local_var_params['page_size'] is not None:  # noqa: E501
+            query_params.append(('page_size', local_var_params['page_size']))  # noqa: E501
+        if 'reverse_sort' in local_var_params and local_var_params['reverse_sort'] is not None:  # noqa: E501
+            query_params.append(('reverse_sort', local_var_params['reverse_sort']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/logs/query', 'GET',
             path_params,
             query_params,
             header_params,

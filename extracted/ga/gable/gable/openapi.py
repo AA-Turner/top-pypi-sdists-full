@@ -3101,6 +3101,9 @@ class StaticAnalysisTabularLineageFieldMapping(BaseModel):
         default=None,
         description="The field data flow path that represents this mapping",
     )
+    transformation_summary: Optional[str] = Field(
+        default=None, description="An AI-generated summary of the field transformation."
+    )
 
 
 class GableSchemaField(
@@ -4187,6 +4190,9 @@ class StaticAnalysisDataFlowPathEnds(BaseModel):
         description="The code anchor that represents the ingress/egress point in the codebase. This should be the same as the first (for ingress) or last (for egress) code anchor in the flow path.",
     )
     schema_: GableSchemaStruct = Field(..., alias="schema")
+    description: Optional[str] = Field(
+        default=None, description="An AI-generated summary of the ingress/egress point."
+    )
 
 
 class StaticAnalysisDataFlowPath(BaseModel):
@@ -4199,6 +4205,14 @@ class StaticAnalysisDataFlowPath(BaseModel):
     field_mappings: Optional[List[StaticAnalysisTabularLineageFieldMapping]] = Field(
         default=None,
         description="List of identified field mappings between schema at ingress and egress.",
+    )
+    transformation_summary: Optional[str] = Field(
+        default=None,
+        description="An AI-generated summary of the data transformation that occurs along this path.",
+    )
+    transformation_summary_detailed: Optional[str] = Field(
+        default=None,
+        description="A detailed, AI-generated summary of the data transformation that occurs along this path.",
     )
 
 
@@ -4242,4 +4256,4 @@ DataAssetFieldProfile.model_rebuild()
 FullComponent.model_rebuild()
 
 # OpenAPI schema version used to generate this file
-OPENAPI_SCHEMA_VERSION = "0.2.8"
+OPENAPI_SCHEMA_VERSION = "0.2.9"

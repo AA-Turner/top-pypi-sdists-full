@@ -5,9 +5,16 @@ from starlette.responses import Response
 from starlette.routing import BaseRoute
 
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
+from langgraph_api.schema import THREAD_FIELDS
 from langgraph_api.state import state_snapshot_to_thread_state
-from langgraph_api.utils import fetchone, get_pagination_headers, validate_uuid
+from langgraph_api.utils import (
+    fetchone,
+    get_pagination_headers,
+    validate_select_columns,
+    validate_uuid,
+)
 from langgraph_api.validation import (
+    ThreadCountRequest,
     ThreadCreate,
     ThreadPatch,
     ThreadSearchRequest,
@@ -58,6 +65,7 @@ async def search_threads(
 ):
     """List threads."""
     payload = await request.json(ThreadSearchRequest)
+    select = validate_select_columns(payload.get("select") or None, THREAD_FIELDS)
     limit = int(payload.get("limit") or 10)
     offset = int(payload.get("offset") or 0)
     async with connect() as conn:
@@ -70,11 +78,28 @@ async def search_threads(
             offset=offset,
             sort_by=payload.get("sort_by"),
             sort_order=payload.get("sort_order"),
+            select=select,
         )
     threads, response_headers = await get_pagination_headers(
         threads_iter, next_offset, offset
     )
     return ApiResponse(threads, headers=response_headers)
+
+
+@retry_db
+async def count_threads(
+    request: ApiRequest,
+):
+    """Count threads."""
+    payload = await request.json(ThreadCountRequest)
+    async with connect() as conn:
+        count = await Threads.count(
+            conn,
+            status=payload.get("status"),
+            values=payload.get("values"),
+            metadata=payload.get("metadata"),
+        )
+    return ApiResponse(count)
 
 
 @retry_db
@@ -260,6 +285,7 @@ async def copy_thread(request: ApiRequest):
 threads_routes: list[BaseRoute] = [
     ApiRoute("/threads", endpoint=create_thread, methods=["POST"]),
     ApiRoute("/threads/search", endpoint=search_threads, methods=["POST"]),
+    ApiRoute("/threads/count", endpoint=count_threads, methods=["POST"]),
     ApiRoute("/threads/{thread_id}", endpoint=get_thread, methods=["GET"]),
     ApiRoute("/threads/{thread_id}", endpoint=patch_thread, methods=["PATCH"]),
     ApiRoute("/threads/{thread_id}", endpoint=delete_thread, methods=["DELETE"]),

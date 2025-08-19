@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "imscore"
-version = "0.0.9"
+version = "0.0.11"
 description = "A small example package"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -19,6 +19,7 @@ classifiers = [
 dependencies = [
     "torch>=2.0.0",
     "torchvision",
+    "transformers>=4.53.0",
     "einops",
     "open-clip-torch",
     "tqdm",

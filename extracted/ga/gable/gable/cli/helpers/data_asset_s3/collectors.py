@@ -184,7 +184,7 @@ class LatestObjectsCollector(MetadataCollector):
         metadata: Dict[str, Dict[str, Any]],
         prefixes: List[str],
         exclude_prefixes: Optional[List[str]] = None,
-        t: tqdm = None,
+        t: Optional[tqdm] = None,
     ) -> Dict[str, List[Dict[str, Any]]]:
         """Process a batch of prefixes in parallel"""
         results = {}
@@ -271,7 +271,7 @@ class LatestObjectsCollector(MetadataCollector):
                     self.logger.error(f"Error processing prefix {prefix}: {str(e)}")
                 finally:
                     if t:
-                        t.update()
+                        t.update()  # type: ignore
 
         return results
 

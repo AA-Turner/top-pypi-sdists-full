@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import abc
 from datetime import datetime
-from typing import Any, cast, Dict, List, NoReturn, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, NoReturn, Optional, cast
 
 import pandas as pd
 import trafaret as t
@@ -102,7 +102,7 @@ def get_class(
         )
 
 
-class PartitioningMethod(object, metaclass=abc.ABCMeta):  # pylint: disable=missing-class-docstring
+class PartitioningMethod(metaclass=abc.ABCMeta):  # pylint: disable=missing-class-docstring
     @abc.abstractmethod
     def collect_payload(self) -> Dict[str, Any]:
         """Set up the dict that should be sent to the server when setting the target

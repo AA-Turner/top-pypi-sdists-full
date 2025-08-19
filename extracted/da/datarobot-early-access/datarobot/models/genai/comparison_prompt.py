@@ -19,14 +19,14 @@ from typing_extensions import TypedDict
 from datarobot.models.api_object import APIObject
 from datarobot.models.genai.chat_prompt import (
     Citation,
-    citation_trafaret,
-    confidence_scores_trafaret,
     ConfidenceScores,
-    feedback_metadata_trafaret,
     FeedbackMetadata,
     FeedbackMetadataDict,
-    result_metadata_trafaret,
     ResultMetadata,
+    citation_trafaret,
+    confidence_scores_trafaret,
+    feedback_metadata_trafaret,
+    result_metadata_trafaret,
 )
 from datarobot.models.genai.comparison_chat import ComparisonChat
 from datarobot.models.genai.llm_blueprint import LLMBlueprint

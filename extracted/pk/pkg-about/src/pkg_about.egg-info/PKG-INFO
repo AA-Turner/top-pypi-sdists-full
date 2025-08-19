@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pkg_about
-Version: 1.3.7
+Version: 1.4.0
 Summary: Shares Python package metadata at runtime.
 Author: Adam Karpierz
 Author-email: adam@karpierz.net
@@ -46,8 +46,8 @@ Requires-Dist: sphinx-lint>=1.0.0; extra == "doc"
 Requires-Dist: restructuredtext-lint>=1.4.0; extra == "doc"
 Requires-Dist: nbsphinx>=0.9.7; extra == "doc"
 Provides-Extra: test
-Requires-Dist: deepdiff>=8.5.0; extra == "test"
-Requires-Dist: rich>=14.0.0; extra == "test"
+Requires-Dist: deepdiff>=8.6.0; extra == "test"
+Requires-Dist: rich>=14.1.0; extra == "test"
 Dynamic: license-file
 
 pkg_about
@@ -143,6 +143,13 @@ Authors
 
 Changelog
 =========
+
+1.4.0 (2025-08-15)
+------------------
+- | Now about_from_setup() returns an instance of the 'about' class
+  | (but backward compatibility is preserved).
+- Making the package typed.
+- Setup (dependencies) update.
 
 1.3.7 (2025-07-07)
 ------------------

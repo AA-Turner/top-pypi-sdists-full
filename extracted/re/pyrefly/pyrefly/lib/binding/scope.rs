@@ -43,7 +43,7 @@ use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyConsistentOverrideCheck;
-use crate::binding::binding::KeyFunction;
+use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::binding::KeyVariance;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
@@ -247,7 +247,7 @@ pub enum FlowStyle {
     ImportAs(ModuleName),
     /// Am I a function definition? Used to chain overload definitions.
     /// If so, does my return type have an explicit annotation?
-    FunctionDef(Idx<KeyFunction>, bool),
+    FunctionDef(Idx<KeyDecoratedFunction>, bool),
     /// The name is possibly uninitialized (perhaps due to merging branches)
     PossiblyUninitialized,
     /// The name was in an annotated declaration like `x: int` but not initialized
@@ -354,7 +354,7 @@ impl FlowInfo {
     }
 }
 
-/// Because of compliciations related both to recursion in the binding graph and to
+/// Because of complications related both to recursion in the binding graph and to
 /// the need for efficient representations, Pyrefly relies on multiple different integer
 /// indexes used to refer to classes and retrieve different kinds of binding information.
 ///
@@ -485,11 +485,13 @@ pub struct ScopeMethod {
     pub self_name: Option<Identifier>,
     pub instance_attributes: SmallMap<Name, InstanceAttribute>,
     pub yields_and_returns: YieldsAndReturns,
+    pub is_async: bool,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct ScopeFunction {
     pub yields_and_returns: YieldsAndReturns,
+    pub is_async: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -570,11 +572,18 @@ impl Scope {
         Self::new(range, false, ScopeKind::Comprehension)
     }
 
-    pub fn function(range: TextRange) -> Self {
-        Self::new(range, true, ScopeKind::Function(Default::default()))
+    pub fn function(range: TextRange, is_async: bool) -> Self {
+        Self::new(
+            range,
+            true,
+            ScopeKind::Function(ScopeFunction {
+                yields_and_returns: Default::default(),
+                is_async,
+            }),
+        )
     }
 
-    pub fn method(range: TextRange, name: Identifier) -> Self {
+    pub fn method(range: TextRange, name: Identifier, is_async: bool) -> Self {
         Self::new(
             range,
             true,
@@ -583,6 +592,7 @@ impl Scope {
                 self_name: None,
                 instance_attributes: SmallMap::new(),
                 yields_and_returns: Default::default(),
+                is_async,
             }),
         )
     }
@@ -681,10 +691,11 @@ impl Scopes {
         }
     }
 
-    pub fn current_class_and_metadata_keys(
-        &self,
+    // Is this scope a class scope? If so, return the keys for the class and its metadata.
+    pub fn get_class_and_metadata_keys(
+        scope: &Scope,
     ) -> Option<(Idx<KeyClass>, Idx<KeyClassMetadata>)> {
-        match &self.current().kind {
+        match &scope.kind {
             ScopeKind::Class(class_scope) => Some((
                 class_scope.indices.class_idx,
                 class_scope.indices.metadata_idx,
@@ -693,10 +704,39 @@ impl Scopes {
         }
     }
 
+    // Are we anywhere inside a class? If so, return the keys for the class and its metadata.
+    // This function looks at enclosing scopes, unlike `current_class_and_metadata_keys`.
+    pub fn enclosing_class_and_metadata_keys(
+        &self,
+    ) -> Option<(Idx<KeyClass>, Idx<KeyClassMetadata>)> {
+        for scope in self.iter_rev() {
+            if let Some(class_and_metadata) = Self::get_class_and_metadata_keys(scope) {
+                return Some(class_and_metadata);
+            }
+        }
+        None
+    }
+
+    // Are we inside an async function or method?
+    pub fn is_in_async_def(&self) -> bool {
+        for scope in self.iter_rev() {
+            match &scope.kind {
+                ScopeKind::Function(function_scope) => {
+                    return function_scope.is_async;
+                }
+                ScopeKind::Method(method_scope) => {
+                    return method_scope.is_async;
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+
     pub fn function_predecessor_indices(
         &self,
         name: &Name,
-    ) -> Option<(Idx<Key>, Idx<KeyFunction>)> {
+    ) -> Option<(Idx<Key>, Idx<KeyDecoratedFunction>)> {
         if let Some(flow) = self.current().flow.info.get(name)
             && let FlowStyle::FunctionDef(fidx, _) = flow.style
         {
@@ -738,11 +778,17 @@ impl Scopes {
         scope
     }
 
-    pub fn push_function_scope(&mut self, range: TextRange, name: &Identifier, in_class: bool) {
+    pub fn push_function_scope(
+        &mut self,
+        range: TextRange,
+        name: &Identifier,
+        in_class: bool,
+        is_async: bool,
+    ) {
         if in_class {
-            self.push(Scope::method(range, name.clone()));
+            self.push(Scope::method(range, name.clone(), is_async));
         } else {
-            self.push(Scope::function(range));
+            self.push(Scope::function(range, is_async));
         }
     }
 
@@ -1080,7 +1126,7 @@ impl Scopes {
         }
     }
 
-    /// Insert an annotation pulled from some ancester scope for a name
+    /// Insert an annotation pulled from some ancestor scope for a name
     /// defined by a `global` or `nonlocal` declaration.
     pub fn set_annotation_for_mutable_capture(
         &mut self,

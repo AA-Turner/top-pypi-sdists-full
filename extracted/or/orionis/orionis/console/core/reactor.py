@@ -520,7 +520,7 @@ class Reactor(IReactor):
                 command_instance._args = {}
 
             # Call the handle method of the command instance
-            output =  self.__app.call(command_instance, 'handle')
+            output = self.__app.call(command_instance, 'handle')
 
             # Log the command execution completion with DONE state
             elapsed_time = round(time.perf_counter() - start_time, 2)

@@ -234,7 +234,7 @@ mod tests {
     };
     use async_trait::async_trait;
     use std::time::Duration;
-    use tokio::time::{sleep, timeout};
+    use tokio::time::sleep;
 
     #[derive(Debug)]
     struct SleepingOperator {}
@@ -275,16 +275,6 @@ mod tests {
         }
     }
 
-    impl TestOrchestrator {
-        fn new(dispatcher: ComponentHandle<Dispatcher>, num_tasks: usize) -> Self {
-            Self {
-                context: OrchestratorContext::new(dispatcher),
-                result_channel: None,
-                num_tasks,
-            }
-        }
-    }
-
     #[async_trait]
     impl Handler<TaskResult<(), TestError>> for TestOrchestrator {
         type Result = ();
@@ -294,8 +284,7 @@ mod tests {
             message: TaskResult<(), TestError>,
             _ctx: &ComponentContext<Self>,
         ) -> Self::Result {
-            // We expect these to be cancelled, so we ignore the results
-            let _ = message;
+            message.result.unwrap();
         }
     }
 
@@ -347,7 +336,6 @@ mod tests {
         type Error = TestError;
 
         async fn run(&self, _: &()) -> Result<(), Self::Error> {
-            // Sleep forever (or until cancelled)
             Ok(())
         }
     }
@@ -394,15 +382,6 @@ mod tests {
             active_io_tasks: 10,
         });
         let dispatcher_handle = system.start_component(dispatcher);
-
-        let orchestrator = TestOrchestrator::new(dispatcher_handle.clone(), 2);
-
-        // Run the orchestrator with a timeout - this should cancel all tasks
-        let res = timeout(Duration::from_secs(1), orchestrator.run(system.clone())).await;
-        match res {
-            Err(_) => {}
-            _ => panic!("Orchestrator should have timed out"),
-        }
 
         let (tx, mut rx) = tokio::sync::mpsc::channel::<TaskResult<(), TestError>>(2);
         let test_receiver: Box<dyn ReceiverForMessage<TaskResult<(), TestError>>> =

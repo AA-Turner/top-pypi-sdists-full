@@ -250,6 +250,18 @@ def test_agent__init__deeply_nested_tools(tool_decorated, tool_module, tool_impo
     assert tru_tool_names == exp_tool_names
 
 
+@pytest.mark.parametrize(
+    "agent_id",
+    [
+        "a/../b",
+        "a/b",
+    ],
+)
+def test_agent__init__invalid_id(agent_id):
+    with pytest.raises(ValueError, match=f"agent_id={agent_id} | id cannot contain path separators"):
+        Agent(agent_id=agent_id)
+
+
 def test_agent__call__(
     mock_model,
     system_prompt,
@@ -980,6 +992,14 @@ def test_agent_callback_handler_custom_handler_used():
 
 
 def test_agent_structured_output(agent, system_prompt, user, agenerator):
+    # Setup mock tracer and span
+    mock_strands_tracer = unittest.mock.MagicMock()
+    mock_otel_tracer = unittest.mock.MagicMock()
+    mock_span = unittest.mock.MagicMock()
+    mock_strands_tracer.tracer = mock_otel_tracer
+    mock_otel_tracer.start_as_current_span.return_value.__enter__.return_value = mock_span
+    agent.tracer = mock_strands_tracer
+
     agent.model.structured_output = unittest.mock.Mock(return_value=agenerator([{"output": user}]))
 
     prompt = "Jane Doe is 30 years old and her email is jane@doe.com"
@@ -999,8 +1019,34 @@ def test_agent_structured_output(agent, system_prompt, user, agenerator):
         type(user), [{"role": "user", "content": [{"text": prompt}]}], system_prompt=system_prompt
     )
 
+    mock_span.set_attributes.assert_called_once_with(
+        {
+            "gen_ai.system": "strands-agents",
+            "gen_ai.agent.name": "Strands Agents",
+            "gen_ai.agent.id": "default",
+            "gen_ai.operation.name": "execute_structured_output",
+        }
+    )
+
+    mock_span.add_event.assert_any_call(
+        "gen_ai.user.message",
+        attributes={"role": "user", "content": '[{"text": "Jane Doe is 30 years old and her email is jane@doe.com"}]'},
+    )
+
+    mock_span.add_event.assert_called_with(
+        "gen_ai.choice",
+        attributes={"message": json.dumps(user.model_dump())},
+    )
+
 
 def test_agent_structured_output_multi_modal_input(agent, system_prompt, user, agenerator):
+    # Setup mock tracer and span
+    mock_strands_tracer = unittest.mock.MagicMock()
+    mock_otel_tracer = unittest.mock.MagicMock()
+    mock_span = unittest.mock.MagicMock()
+    mock_strands_tracer.tracer = mock_otel_tracer
+    mock_otel_tracer.start_as_current_span.return_value.__enter__.return_value = mock_span
+    agent.tracer = mock_strands_tracer
     agent.model.structured_output = unittest.mock.Mock(return_value=agenerator([{"output": user}]))
 
     prompt = [
@@ -1028,6 +1074,11 @@ def test_agent_structured_output_multi_modal_input(agent, system_prompt, user, a
     # Verify the model was called with temporary messages array
     agent.model.structured_output.assert_called_once_with(
         type(user), [{"role": "user", "content": prompt}], system_prompt=system_prompt
+    )
+
+    mock_span.add_event.assert_called_with(
+        "gen_ai.choice",
+        attributes={"message": json.dumps(user.model_dump())},
     )
 
 

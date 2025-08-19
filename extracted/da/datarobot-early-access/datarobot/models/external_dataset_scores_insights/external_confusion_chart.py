@@ -9,6 +9,8 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 import trafaret as t
 
 from datarobot._compat import String

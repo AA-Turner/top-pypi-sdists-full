@@ -16,7 +16,7 @@ from datetime import datetime
 import os
 import platform
 from types import TracebackType
-from typing import Any, Mapping, Sequence, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Mapping, Sequence, Union
 from urllib.parse import urljoin
 
 import httpx

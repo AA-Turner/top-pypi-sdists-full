@@ -16,7 +16,7 @@ import copy
 import json
 import os
 import time
-from typing import Any, cast, Dict, Iterable, List, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union, cast
 
 from requests import Response
 from requests_toolbelt import MultipartEncoder

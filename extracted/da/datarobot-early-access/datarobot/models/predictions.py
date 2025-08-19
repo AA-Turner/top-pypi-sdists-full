@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from io import StringIO
-from typing import Any, cast, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Union, cast
 from urllib.parse import urlencode
 
 import pandas as pd

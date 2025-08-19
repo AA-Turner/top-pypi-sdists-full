@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mdformat_mkdocs
-Version: 4.3.0
+Version: 4.4.0
 Summary: An mdformat plugin for `mkdocs`.
 Keywords: markdown,markdown-it,mdformat,mdformat_plugin_template
 Author-email: kyleking <dev.act.kyle@gmail.com>
@@ -25,9 +25,11 @@ Requires-Dist: mdformat-tables >= 1.0.0 ; extra == "recommended"
 Requires-Dist: mdformat-web >= 0.2.0 ; extra == "recommended"
 Requires-Dist: mdformat-wikilink >= 0.2.0 ; extra == "recommended"
 Requires-Dist: setuptools ; extra == "recommended"
+Requires-Dist: beartype >= 0.21.0 ; extra == "test"
 Requires-Dist: pytest >= 8.3.4 ; extra == "test"
-Requires-Dist: pytest-cov >= 6.0.0 ; extra == "test"
-Requires-Dist: syrupy >= 4.7.2 ; extra == "test"
+Requires-Dist: pytest-beartype >= 0.2.0 ; extra == "test"
+Requires-Dist: pytest-cov >= 6.2.1 ; extra == "test"
+Requires-Dist: syrupy >= 4.9.1 ; extra == "test"
 Project-URL: Bug Tracker, https://github.com/kyleking/mdformat-mkdocs/issues
 Project-URL: Changelog, https://github.com/kyleking/mdformat-mkdocs/releases
 Project-URL: homepage, https://github.com/kyleking/mdformat-mkdocs

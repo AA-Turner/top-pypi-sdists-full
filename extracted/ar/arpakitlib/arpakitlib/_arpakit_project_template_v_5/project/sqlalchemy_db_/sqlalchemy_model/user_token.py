@@ -17,6 +17,7 @@ def generate_default_user_token_value() -> str:
     return (
         f"usertoken"
         f"{str(uuid4()).replace('-', '')}"
+        f"{str(uuid4()).replace('-', '')}"
         f"{str(now_utc_dt().timestamp()).replace('.', '')}"
     )
 

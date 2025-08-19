@@ -693,7 +693,7 @@ def is_supported_file_type(file_path: str) -> bool:
     """
     return any(
         file_path.endswith(file_type)
-        or CompressionHandler.get_original_format(file_path).extension.endswith(
+        or CompressionHandler.get_original_format(file_path).extension.endswith(  # type: ignore
             file_type
         )
         for file_type in SUPPORTED_FILE_TYPES_SET

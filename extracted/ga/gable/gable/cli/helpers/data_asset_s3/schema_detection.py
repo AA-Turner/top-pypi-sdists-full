@@ -66,10 +66,10 @@ def _relation_from_path(path: str, fmt: FileFormat, rows: int):
             with open(path, "rb") as f:
                 table = ORCFile(f).read()
                 resilient_duckdb.register("orc_table", table)
-                q = f"SELECT * FROM orc_table LIMIT {rows}"
+                q = f"SELECT * FROM orc_table LIMIT {rows}"  # type: ignore
         elif fmt == FileFormat.AVRO:
             q = f"SELECT * FROM read_avro('{path}') LIMIT {rows}"
-        elif not q:
+        elif not q:  # type: ignore
             raise ValueError(f"Unsupported format: {fmt}")
         return resilient_duckdb.query(q)
     except Exception as e:
@@ -97,7 +97,7 @@ def read_s3_files_with_schema_inference(
             continue
 
         try:
-            raw = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
+            raw = s3.get_object(Bucket=bucket, Key=key)["Body"].read()  # type: ignore
             if not raw:
                 logger.error(f"[SchemaDetect] skip {url}: empty object")
                 continue
@@ -126,7 +126,7 @@ def read_s3_files_with_schema_inference(
             # write to local tmp and let DuckDB read
             path, local_meta = handler.decompress_s3_file_to_local(
                 bucket,
-                key,
+                key,  # type: ignore
                 compression_wrapper=wrapper,
                 s3_client=s3_client,
                 file_buff=raw,

@@ -21,7 +21,7 @@ from datarobot.models.job import AbstractSpecificJob, Job
 from datarobot.utils import from_api, raw_prediction_response_to_dataframe, retry
 
 from .. import errors
-from ..enums import DEFAULT_MAX_WAIT, JOB_TYPE, PREDICT_JOB_STATUS, PREDICTION_PREFIX
+from ..enums import DEFAULT_MAX_WAIT, JOB_TYPE, PREDICTION_PREFIX, PREDICT_JOB_STATUS
 
 
 def wait_for_async_predictions(

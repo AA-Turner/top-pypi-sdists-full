@@ -1,25 +1,24 @@
 Metadata-Version: 2.1
 Name: ntc_templates
-Version: 7.9.0
+Version: 8.0.0
 Summary: TextFSM Templates for Network Devices, and Python wrapper for TextFSM's CliTable.
 Home-page: https://ntc-templates.readthedocs.io
 License: Apache-2.0
 Keywords: textfsm,network parsers
 Author: Network to Code
 Author-email: info@networktocode.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: test
-Requires-Dist: textfsm (>=1.1.0,<2.0.0)
+Requires-Dist: textfsm (>=1.1.0)
 Project-URL: Documentation, https://ntc-templates.readthedocs.io
 Project-URL: Repository, https://github.com/networktocode/ntc-templates
 Description-Content-Type: text/markdown

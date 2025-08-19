@@ -94,6 +94,7 @@ fn snapshot_test() {
     return "Hello, World!"
 
 x = 42
+"""Answer to everything"""
 y = hello_world()"#;
 
     let classes_code = r#"class Animal:
@@ -126,10 +127,34 @@ def process_files(paths: List[str]) -> int:
 greeting = hello_world()
 result = process_files(["/tmp", "/home"])"#;
 
+    let try_except_code = r#"try:
+    pass
+except Exception as ex:
+    pass"#;
+
+    let return_types = r#"from typing import Callable, Dict, List, Optional, Set, Union
+
+class FooClass:
+    pass
+
+def complex_return() -> (
+    Union[
+        Union[FooClass, Callable[[int], bool], int | str | None],
+        List[int | str],
+        Dict[str, int | str],
+        Optional[int | str],
+        Set[List[str]],
+    ]
+):
+    return None
+    "#;
+
     let files = [
         ("simple", simple_code),
         ("classes", classes_code),
         ("imports", imports_code),
+        ("try_except", try_except_code),
+        ("return_types", return_types),
     ];
     let (handles, state) = mk_multi_file_state_assert_no_errors(&files);
     let transaction = state.transaction();

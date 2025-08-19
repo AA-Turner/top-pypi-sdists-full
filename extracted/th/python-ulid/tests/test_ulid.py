@@ -61,6 +61,19 @@ def test_ulid_monotonic_sorting(tick: int) -> None:
     assert_sorted([v.bytes for v in ulids])
 
 
+@freeze_time()
+def test_same_millisecond_monotonic_sorting() -> None:
+    ulids = [ULID() for _ in range(1000)]
+    assert_sorted(ulids)
+
+
+@freeze_time()
+def test_same_millisecond_overflow() -> None:
+    ULID.provider.prev_randomness = constants.MAX_RANDOMNESS
+    with pytest.raises(ValueError, match="Randomness within same millisecond exhausted"):
+        ULID()
+
+
 def assert_sorted(seq: list) -> None:
     last = seq[0]
     for item in seq[1:]:
@@ -154,6 +167,11 @@ def test_ulid_from_timestamp() -> None:
     assert ulid1.timestamp == ulid2.timestamp
 
 
+def test_ulid_from_timestamp_overflow() -> None:
+    with pytest.raises(ValueError, match="Value exceeds maximum possible timestamp"):
+        ULID.from_timestamp(constants.MAX_TIMESTAMP + 1)
+
+
 Params = Union[bytes, str, int, float]
 
 
@@ -217,6 +235,7 @@ def test_pydantic_protocol() -> None:
     class Model(BaseModel):
         ulid: Optional[ULID] = None  # noqa: FA100
 
+    model: Model | None = None
     for value in [ulid, str(ulid), int(ulid), bytes(ulid)]:
         model = Model(ulid=value)
         assert isinstance(model.ulid, ULID)
@@ -226,6 +245,7 @@ def test_pydantic_protocol() -> None:
         with pytest.raises(ValidationError):
             Model(ulid=value)
 
+    assert model is not None
     model_dict = model.model_dump()
     ulid_from_dict = model_dict["ulid"]
     assert ulid_from_dict == ulid
@@ -243,7 +263,7 @@ def test_pydantic_protocol() -> None:
     assert {
         "maxLength": 26,
         "minLength": 26,
-        "pattern": "[A-Z0-9]{26}",
+        "pattern": "[0-7][0123456789ABCDEFGHJKMNPQRSTVWXYZ]{25}",
         "type": "string",
     } in model_json_schema["properties"]["ulid"]["anyOf"]
     assert {

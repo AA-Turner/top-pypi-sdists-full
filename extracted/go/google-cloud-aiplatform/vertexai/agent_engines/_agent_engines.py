@@ -339,13 +339,19 @@ class AgentEngine(base.VertexAiResourceNounWithFutureManager):
         ] = None,
         build_options: Optional[Dict[str, Sequence[str]]] = None,
         service_account: Optional[str] = None,
+        psc_interface_config: Optional[aip_types.PscInterfaceConfig] = None,
+        min_instances: Optional[int] = None,
+        max_instances: Optional[int] = None,
+        resource_limits: Optional[Dict[str, str]] = None,
+        container_concurrency: Optional[int] = None,
+        encryption_spec: Optional[aip_types.EncryptionSpec] = None,
     ) -> "AgentEngine":
         """Creates a new Agent Engine.
 
         The Agent Engine will be an instance of the `agent_engine` that
         was passed in, running remotely on Vertex AI.
 
-        Sample ``src_dir`` contents (e.g. ``./user_src_dir``):
+        Sample `src_dir` contents (e.g. `./user_src_dir`):
 
         .. code-block:: python
 
@@ -421,6 +427,25 @@ class AgentEngine(base.VertexAiResourceNounWithFutureManager):
                 Optional. The service account to be used for the Agent Engine.
                 If not specified, the default reasoning engine service agent
                 service account will be used.
+            psc_interface_config (aip_types.PscInterfaceConfig):
+                Optional. The Private Service Connect interface config for the
+                Agent Engine.
+            min_instances (int):
+                Optional. The minimum number of instances to be running for the
+                Agent Engine.
+            max_instances (int):
+                Optional. The maximum number of instances to be running for the
+                Agent Engine.
+            resource_limits (Dict[str, str]):
+                Optional. The resource limits for the Agent Engine.
+            container_concurrency (int):
+                Optional. The container concurrency for the Agent Engine.
+            encryption_spec (aip_types.EncryptionSpec):
+                Optional. The Cloud KMS resource identifier of the customer
+                managed encryption key used to protect the model. Has the
+                form:
+                `projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key`.
+                The key needs to be in the same region as the model.
 
         Returns:
             AgentEngine: The Agent Engine that was created.
@@ -482,6 +507,7 @@ class AgentEngine(base.VertexAiResourceNounWithFutureManager):
         reasoning_engine = aip_types.ReasoningEngine(
             display_name=display_name,
             description=description,
+            encryption_spec=encryption_spec,
         )
         if agent_engine is not None:
             # Update the package spec.
@@ -508,9 +534,21 @@ class AgentEngine(base.VertexAiResourceNounWithFutureManager):
             agent_engine_spec = aip_types.ReasoningEngineSpec(
                 package_spec=package_spec,
             )
-            if env_vars:
+            if (
+                env_vars
+                or psc_interface_config
+                or min_instances is not None
+                or max_instances is not None
+                or resource_limits
+                or container_concurrency is not None
+            ):
                 deployment_spec, _ = _generate_deployment_spec_or_raise(
                     env_vars=env_vars,
+                    psc_interface_config=psc_interface_config,
+                    min_instances=min_instances,
+                    max_instances=max_instances,
+                    resource_limits=resource_limits,
+                    container_concurrency=container_concurrency,
                 )
                 agent_engine_spec.deployment_spec = deployment_spec
             class_methods_spec = _generate_class_methods_spec_or_raise(
@@ -575,6 +613,12 @@ class AgentEngine(base.VertexAiResourceNounWithFutureManager):
         ] = None,
         build_options: Optional[Dict[str, Sequence[str]]] = None,
         service_account: Optional[str] = None,
+        psc_interface_config: Optional[aip_types.PscInterfaceConfig] = None,
+        min_instances: Optional[int] = None,
+        max_instances: Optional[int] = None,
+        resource_limits: Optional[Dict[str, str]] = None,
+        container_concurrency: Optional[int] = None,
+        encryption_spec: Optional[aip_types.EncryptionSpec] = None,
     ) -> "AgentEngine":
         """Updates an existing Agent Engine.
 
@@ -628,6 +672,25 @@ class AgentEngine(base.VertexAiResourceNounWithFutureManager):
                 Optional. The service account to be used for the Agent Engine.
                 If not specified, the default reasoning engine service agent
                 service account will be used.
+            psc_interface_config (aip_types.PscInterfaceConfig):
+                Optional. The Private Service Connect interface config for the
+                Agent Engine.
+            min_instances (int):
+                Optional. The minimum number of instances to be running for the
+                Agent Engine.
+            max_instances (int):
+                Optional. The maximum number of instances to be running for the
+                Agent Engine.
+            resource_limits (Dict[str, str]):
+                Optional. The resource limits for the Agent Engine.
+            container_concurrency (int):
+                Optional. The container concurrency for the Agent Engine.
+            encryption_spec (aip_types.EncryptionSpec):
+                Optional. The Cloud KMS resource identifier of the customer
+                managed encryption key used to protect the model. Has the
+                form:
+                `projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key`.
+                The key needs to be in the same region as the model.
 
         Returns:
             AgentEngine: The Agent Engine that was updated.
@@ -664,12 +727,21 @@ class AgentEngine(base.VertexAiResourceNounWithFutureManager):
                 env_vars,
                 build_options,
                 service_account,
+                psc_interface_config,
+                min_instances is not None,
+                max_instances is not None,
+                resource_limits,
+                container_concurrency is not None,
+                encryption_spec,
             ]
         ):
             raise ValueError(
                 "At least one of `agent_engine`, `requirements`, "
                 "`extra_packages`, `display_name`, `description`, "
-                "`env_vars`, or `build_options` must be specified."
+                "`env_vars`, `build_options`, `service_account`, "
+                "`psc_interface_config`, `min_instances`, `max_instances`, "
+                "`resource_limits`, `container_concurrency`, or "
+                "`encryption_spec` must be specified."
             )
         if requirements is not None:
             requirements = _validate_requirements_or_raise(
@@ -707,6 +779,12 @@ class AgentEngine(base.VertexAiResourceNounWithFutureManager):
             description=description,
             env_vars=env_vars,
             service_account=service_account,
+            psc_interface_config=psc_interface_config,
+            min_instances=min_instances,
+            max_instances=max_instances,
+            resource_limits=resource_limits,
+            container_concurrency=container_concurrency,
+            encryption_spec=encryption_spec,
         )
         operation_future = self.api_client.update_reasoning_engine(
             request=update_request
@@ -1150,6 +1228,11 @@ def _generate_deployment_spec_or_raise(
     env_vars: Optional[
         Union[Sequence[str], Dict[str, Union[str, aip_types.SecretRef]]]
     ] = None,
+    psc_interface_config: Optional[aip_types.PscInterfaceConfig] = None,
+    min_instances: Optional[int] = None,
+    max_instances: Optional[int] = None,
+    resource_limits: Optional[Dict[str, str]] = None,
+    container_concurrency: Optional[int] = None,
 ) -> Tuple[aip_types.ReasoningEngineSpec.DeploymentSpec, List[str]]:
     deployment_spec = aip_types.ReasoningEngineSpec.DeploymentSpec()
     update_masks = []
@@ -1174,6 +1257,21 @@ def _generate_deployment_spec_or_raise(
             update_masks.append("spec.deployment_spec.env")
         if deployment_spec.secret_env:
             update_masks.append("spec.deployment_spec.secret_env")
+    if psc_interface_config:
+        deployment_spec.psc_interface_config = psc_interface_config
+        update_masks.append("spec.deployment_spec.psc_interface_config")
+    if min_instances is not None:
+        deployment_spec.min_instances = min_instances
+        update_masks.append("spec.deployment_spec.min_instances")
+    if max_instances is not None:
+        deployment_spec.max_instances = max_instances
+        update_masks.append("spec.deployment_spec.max_instances")
+    if resource_limits:
+        deployment_spec.resource_limits = resource_limits
+        update_masks.append("spec.deployment_spec.resource_limits")
+    if container_concurrency is not None:
+        deployment_spec.container_concurrency = container_concurrency
+        update_masks.append("spec.deployment_spec.container_concurrency")
     return deployment_spec, update_masks
 
 
@@ -1203,6 +1301,12 @@ def _generate_update_request_or_raise(
         Union[Sequence[str], Dict[str, Union[str, aip_types.SecretRef]]]
     ] = None,
     service_account: Optional[str] = None,
+    psc_interface_config: Optional[aip_types.PscInterfaceConfig] = None,
+    min_instances: Optional[int] = None,
+    max_instances: Optional[int] = None,
+    resource_limits: Optional[Dict[str, str]] = None,
+    container_concurrency: Optional[int] = None,
+    encryption_spec: Optional[str] = None,
 ) -> reasoning_engine_service.UpdateReasoningEngineRequest:
     """Tries to generate the update request for the agent engine."""
     is_spec_update = False
@@ -1241,10 +1345,22 @@ def _generate_update_request_or_raise(
         update_masks.append("spec.class_methods")
         agent_engine_spec.agent_framework = _get_agent_framework(agent_engine)
         update_masks.append("spec.agent_framework")
-    if env_vars is not None:
+    if (
+        env_vars is not None
+        or psc_interface_config
+        or min_instances is not None
+        or max_instances is not None
+        or resource_limits
+        or container_concurrency is not None
+    ):
         is_spec_update = True
         deployment_spec, deployment_update_masks = _generate_deployment_spec_or_raise(
-            env_vars=env_vars
+            env_vars=env_vars,
+            psc_interface_config=psc_interface_config,
+            min_instances=min_instances,
+            max_instances=max_instances,
+            resource_limits=resource_limits,
+            container_concurrency=container_concurrency,
         )
         update_masks.extend(deployment_update_masks)
         agent_engine_spec.deployment_spec = deployment_spec
@@ -1264,10 +1380,14 @@ def _generate_update_request_or_raise(
     if description:
         agent_engine_message.description = description
         update_masks.append("description")
+    if encryption_spec:
+        agent_engine_message.encryption_spec = encryption_spec
+        update_masks.append("encryption_spec")
     if not update_masks:
         raise ValueError(
             "At least one of `agent_engine`, `requirements`, `extra_packages`, "
-            "`display_name`, `description`, or `env_vars` must be specified."
+            "`display_name`, `description`, `env_vars`, or "
+            "`encryption_spec` must be specified."
         )
     return reasoning_engine_service.UpdateReasoningEngineRequest(
         reasoning_engine=agent_engine_message,

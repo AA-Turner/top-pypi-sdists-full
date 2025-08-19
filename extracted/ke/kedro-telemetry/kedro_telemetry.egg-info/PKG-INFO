@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro-telemetry
-Version: 0.6.3
+Version: 0.6.4
 Summary: Kedro-Telemetry
 Author: Kedro
 License: Apache Software License (Apache 2.0)
@@ -9,9 +9,11 @@ Project-URL: Documentation, https://github.com/kedro-org/kedro-plugins/blob/main
 Project-URL: Tracker, https://github.com/kedro-org/kedro-plugins/issues
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Requires-Dist: kedro>=0.18.0
-Requires-Dist: requests~=2.20
 Requires-Dist: appdirs>=1.4.4
+Requires-Dist: kedro<2.0.0,>=0.18.0
+Requires-Dist: requests~=2.20
+Requires-Dist: tomli>=1.1.0; python_version < "3.11"
+Requires-Dist: tomli-w
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
@@ -25,10 +27,9 @@ Requires-Dist: black~=22.0; extra == "lint"
 Requires-Dist: detect-secrets~=1.5.0; extra == "lint"
 Requires-Dist: mypy~=1.0; extra == "lint"
 Requires-Dist: pre-commit>=2.9.2; extra == "lint"
-Requires-Dist: ruff~=0.0.290; extra == "lint"
+Requires-Dist: ruff~=0.12.1; extra == "lint"
 Requires-Dist: types-requests; extra == "lint"
 Requires-Dist: types-PyYAML; extra == "lint"
-Requires-Dist: types-toml; extra == "lint"
 
 # Kedro-Telemetry
 

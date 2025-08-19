@@ -9,10 +9,12 @@
 #
 #  The copyright notice above does not evidence any actual or intended
 #  publication of such source code.
+from __future__ import annotations
+
 from datetime import datetime
 from io import IOBase
 import os
-from typing import cast, Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Type, Union, cast
 
 import dateutil
 import trafaret as t

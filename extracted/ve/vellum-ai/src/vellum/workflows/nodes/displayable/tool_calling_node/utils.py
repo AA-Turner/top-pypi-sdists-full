@@ -505,6 +505,7 @@ def create_function_node(
         )
         return node
     elif is_workflow_class(function):
+        function.is_dynamic = True
         node = type(
             f"DynamicInlineSubworkflowNode_{function.__name__}",
             (DynamicInlineSubworkflowNode,),
@@ -574,10 +575,12 @@ def get_function_name(function: ToolBase) -> str:
         name = str(function.deployment_id or function.deployment_name)
         return name.replace("-", "")
     elif isinstance(function, ComposioToolDefinition):
-        return function.name
+        # model post init sets the name to the action if it's not set
+        return function.name  # type: ignore[return-value]
     else:
         return snake_case(function.__name__)
 
 
 def get_mcp_tool_name(tool_def: MCPToolDefinition) -> str:
-    return f"{tool_def.server.name}__{tool_def.name}"
+    server_name = snake_case(tool_def.server.name)
+    return f"{server_name}__{tool_def.name}"

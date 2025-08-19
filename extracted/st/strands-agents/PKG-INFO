@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.4.0
+Version: 1.5.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -39,18 +39,20 @@ Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'a2a'
 Requires-Dist: starlette<1.0.0,>=0.46.2; extra == 'a2a'
 Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'a2a'
 Provides-Extra: all
+Requires-Dist: a2a-sdk<0.4.0,>=0.3.0; extra == 'all'
 Requires-Dist: a2a-sdk[sql]<0.4.0,>=0.3.0; extra == 'all'
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'all'
 Requires-Dist: commitizen<5.0.0,>=4.4.0; extra == 'all'
 Requires-Dist: fastapi<1.0.0,>=0.115.12; extra == 'all'
 Requires-Dist: hatch<2.0.0,>=1.0.0; extra == 'all'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'all'
-Requires-Dist: litellm<1.73.0,>=1.72.6; extra == 'all'
+Requires-Dist: litellm<2.0.0,>=1.73.1; extra == 'all'
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'all'
 Requires-Dist: mistralai>=1.8.2; extra == 'all'
 Requires-Dist: moto<6.0.0,>=5.1.0; extra == 'all'
 Requires-Dist: mypy<2.0.0,>=1.15.0; extra == 'all'
 Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'all'
+Requires-Dist: openai<1.100.0; extra == 'all'
 Requires-Dist: openai<2.0.0,>=1.68.0; extra == 'all'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'all'
 Requires-Dist: pre-commit<4.2.0,>=3.2.0; extra == 'all'
@@ -82,7 +84,8 @@ Requires-Dist: sphinx-autodoc-typehints<2.0.0,>=1.12.0; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme<2.0.0,>=1.0.0; extra == 'docs'
 Requires-Dist: sphinx<6.0.0,>=5.0.0; extra == 'docs'
 Provides-Extra: litellm
-Requires-Dist: litellm<1.73.0,>=1.72.6; extra == 'litellm'
+Requires-Dist: litellm<2.0.0,>=1.73.1; extra == 'litellm'
+Requires-Dist: openai<1.100.0; extra == 'litellm'
 Provides-Extra: llamaapi
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'llamaapi'
 Provides-Extra: mistral
@@ -97,6 +100,7 @@ Provides-Extra: sagemaker
 Requires-Dist: boto3-stubs[sagemaker-runtime]<2.0.0,>=1.26.0; extra == 'sagemaker'
 Requires-Dist: boto3<2.0.0,>=1.26.0; extra == 'sagemaker'
 Requires-Dist: botocore<2.0.0,>=1.29.0; extra == 'sagemaker'
+Requires-Dist: openai<2.0.0,>=1.68.0; extra == 'sagemaker'
 Provides-Extra: writer
 Requires-Dist: writer-sdk<3.0.0,>=2.2.0; extra == 'writer'
 Description-Content-Type: text/markdown

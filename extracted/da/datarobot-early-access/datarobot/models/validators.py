@@ -13,6 +13,7 @@
 Trafaret validators that doesn't part of the class.
 Separated to own file to improve readability and reusability.
 """
+from __future__ import annotations
 
 import trafaret as t
 

@@ -1,22 +1,13 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: dagger-io
-Version: 0.18.14
+Version: 0.18.15
 Summary: A client package for running Dagger pipelines in Python.
-Project-URL: Homepage, https://dagger.io
-Project-URL: Documentation, https://docs.dagger.io/sdk/python
-Project-URL: Repository, https://github.com/dagger/dagger/tree/main/sdk/python
-Project-URL: Tracker, https://github.com/dagger/dagger/issues
-Project-URL: Release Notes, https://github.com/dagger/dagger/releases?q=tag%3Asdk%2Fpython%2Fv0
-Project-URL: Community, https://discord.gg/ufnyBtc8uY
-Project-URL: Twitter, https://twitter.com/dagger_io
+Author: Dagger
 Author-email: Dagger <hello@dagger.io>
-License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
 Classifier: Framework :: AnyIO
 Classifier: Framework :: Pytest
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -24,17 +15,28 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
 Requires-Dist: anyio>=3.6.2
-Requires-Dist: beartype>=0.18.2
 Requires-Dist: cattrs>=25.1.0
-Requires-Dist: gql[httpx]>=3.5.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.23.0
-Requires-Dist: opentelemetry-sdk>=1.23.0
+Requires-Dist: gql[httpx]~=3.5.0
+Requires-Dist: beartype>=0.18.2
 Requires-Dist: platformdirs>=2.6.2
-Requires-Dist: rich>=10.11.0
 Requires-Dist: typing-extensions>=4.13.0
+Requires-Dist: rich>=10.11.0
+Requires-Dist: opentelemetry-sdk>=1.23.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.23.0
+Requires-Dist: opentelemetry-instrumentation-logging>=0.54b1
+Requires-Dist: exceptiongroup>=1.3.0
+Requires-Python: >=3.10
+Project-URL: Community, https://discord.gg/ufnyBtc8uY
+Project-URL: Documentation, https://docs.dagger.io/sdk/python
+Project-URL: Homepage, https://dagger.io
+Project-URL: Release Notes, https://github.com/dagger/dagger/releases?q=tag%3Asdk%2Fpython%2Fv0
+Project-URL: Repository, https://github.com/dagger/dagger/tree/main/sdk/python
+Project-URL: Tracker, https://github.com/dagger/dagger/issues
+Project-URL: Twitter, https://twitter.com/dagger_io
 Description-Content-Type: text/markdown
 
 # Dagger Python SDK

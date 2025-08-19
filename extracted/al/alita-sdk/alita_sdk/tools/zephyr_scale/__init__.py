@@ -2,12 +2,11 @@ from typing import Optional, List, Literal
 
 from langchain_community.agent_toolkits.base import BaseToolkit
 from langchain_core.tools import BaseTool
-from pydantic import create_model, BaseModel, Field, SecretStr
+from pydantic import create_model, BaseModel, Field
 
 from .api_wrapper import ZephyrScaleApiWrapper
 from ..base.tool import BaseAction
 from ..utils import clean_string, get_max_toolkit_length, TOOLKIT_SPLITTER
-from ...configurations.embedding import EmbeddingConfiguration
 from ...configurations.pgvector import PgVectorConfiguration
 from ...configurations.zephyr import ZephyrConfiguration
 
@@ -16,11 +15,7 @@ name = "zephyr_scale"
 def get_tools(tool):
     return ZephyrScaleToolkit().get_toolkit(
         selected_tools=tool['settings'].get('selected_tools', []),
-        base_url=tool['settings'].get('base_url', None),
-        token=tool['settings'].get('token', None),
-        username=tool['settings'].get('username', None),
-        password=tool['settings'].get('password', None),
-        cookies=tool['settings'].get('cookies', None),
+        zephyr_configuration=tool['settings'].get('zephyr_configuration', {}),
         max_results=tool['settings'].get('max_results', 100),
         toolkit_name=tool.get('toolkit_name'),
         llm=tool['settings'].get('llm', None),
@@ -29,8 +24,7 @@ def get_tools(tool):
         # indexer settings
         pgvector_configuration=tool['settings'].get('pgvector_configuration', {}),
         collection_name=str(tool['toolkit_name']),
-        embedding_model="HuggingFaceEmbeddings",
-        embedding_model_params={"model_name": "sentence-transformers/all-MiniLM-L6-v2"},
+        embedding_model=tool['settings'].get('embedding_model', None),
         vectorstore_type="PGVector"
     ).get_tools()
 
@@ -46,14 +40,14 @@ class ZephyrScaleToolkit(BaseToolkit):
         return create_model(
             name,
             max_results=(int, Field(default=100, description="Results count to show")),
-            zephyr_configuration=(Optional[ZephyrConfiguration], Field(description="Zephyr Configuration", json_schema_extra={'configuration_types': ['zephyr']})),
-            pgvector_configuration=(Optional[PgVectorConfiguration], Field(description="PgVector Configuration",
+            zephyr_configuration=(Optional[ZephyrConfiguration], Field(description="Zephyr Configuration",
+                                                                       json_schema_extra={'configuration_types': ['zephyr']})),
+            pgvector_configuration=(Optional[PgVectorConfiguration], Field(default=None, description="PgVector Configuration",
                                                                            json_schema_extra={
                                                                                'configuration_types': ['pgvector']})),
             # embedder settings
-            embedding_configuration=(Optional[EmbeddingConfiguration], Field(default=None, description="Embedding configuration.",
-                                                                             json_schema_extra={'configuration_types': [
-                                                                                 'embedding']})),
+            embedding_model=(Optional[str], Field(default=None, description="Embedding configuration.",
+                                                     json_schema_extra={'configuration_model': 'embedding'})),
             selected_tools=(List[Literal[tuple(selected_tools)]],
                             Field(default=[], json_schema_extra={'args_schemas': selected_tools})),
             __config__={
@@ -63,25 +57,6 @@ class ZephyrScaleToolkit(BaseToolkit):
                         "icon_url": "zephyr.svg",
                         "categories": ["test management"],
                         "extra_categories": ["test automation", "test case management", "test planning"],
-                        "sections": {
-                            "auth": {
-                                "required": True,
-                                "subsections": [
-                                    {
-                                        "name": "Token",
-                                        "fields": ["token"]
-                                    },
-                                    {
-                                        "name": "Password",
-                                        "fields": ["username", "password"]
-                                    },
-                                    {
-                                        "name": "Cookie",
-                                        "fields": ["cookies"]
-                                    }
-                                ]
-                            }
-                        }
                     }
                 }
             }

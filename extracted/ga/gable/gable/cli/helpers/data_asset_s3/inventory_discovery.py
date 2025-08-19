@@ -59,7 +59,7 @@ def run_inventory_discovery(
                 if not key.endswith(".csv.gz") and not key.endswith(".parquet"):
                     continue
                 inventory_files.append(
-                    {"key": key, "last_modified": obj["LastModified"]}
+                    {"key": key, "last_modified": obj["LastModified"]}  # type: ignore
                 )
 
         # Sort by last modified time and take the latest one

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pystack
-Version: 1.4.1
+Version: 1.5.1
 Summary: Analysis of the stack of remote python processes
 Home-page: https://github.com/bloomberg/pystack
 Author: Pablo Galindo Salgado
@@ -18,6 +18,14 @@ Classifier: Topic :: Software Development :: Debuggers
 Requires-Python: >=3.7.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 <p align="center">
 <img src="https://user-images.githubusercontent.com/11718525/226942590-de015c9a-4d5b-4960-9c42-8c1eac0845c1.png" width="70%">

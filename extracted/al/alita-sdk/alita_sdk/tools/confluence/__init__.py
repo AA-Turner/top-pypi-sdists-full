@@ -6,7 +6,6 @@ from ..base.tool import BaseAction
 from pydantic import create_model, BaseModel, ConfigDict, Field
 from ..utils import clean_string, TOOLKIT_SPLITTER, get_max_toolkit_length, parse_list, check_connection_response
 from ...configurations.confluence import ConfluenceConfiguration
-from ...configurations.embedding import EmbeddingConfiguration
 from ...configurations.pgvector import PgVectorConfiguration
 import requests
 
@@ -30,7 +29,7 @@ def get_tools(tool):
         pgvector_configuration=tool['settings'].get('pgvector_configuration', {}),
         collection_name=str(tool['toolkit_name']),
         doctype='doc',
-        embedding_configuration=tool['settings'].get('embedding_configuration', {}),
+        embedding_model=tool['settings'].get('embedding_model'),
         vectorstore_type="PGVector"
     ).get_tools()
 
@@ -80,11 +79,11 @@ class ConfluenceToolkit(BaseToolkit):
             min_retry_seconds=(int, Field(description="Min retry, sec", default=10)),
             max_retry_seconds=(int, Field(description="Max retry, sec", default=60)),
             confluence_configuration=(Optional[ConfluenceConfiguration], Field(description="Confluence Configuration", json_schema_extra={'configuration_types': ['confluence']})),
-            pgvector_configuration=(Optional[PgVectorConfiguration], Field(description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
+            pgvector_configuration=(Optional[PgVectorConfiguration], Field(default = None,
+                                                                           description="PgVector Configuration",
+                                                                           json_schema_extra={'configuration_types': ['pgvector']})),
             # embedder settings
-            embedding_configuration=(Optional[EmbeddingConfiguration], Field(default=None, description="Embedding configuration.",
-                                                                             json_schema_extra={'configuration_types': [
-                                                                                 'embedding']})),
+            embedding_model=(Optional[str], Field(default=None, description="Embedding configuration.", json_schema_extra={'configuration_model': 'embedding'})),
 
             selected_tools=(List[Literal[tuple(selected_tools)]],
                             Field(default=[], json_schema_extra={'args_schemas': selected_tools})),
@@ -124,7 +123,6 @@ class ConfluenceToolkit(BaseToolkit):
             # TODO use confluence_configuration fields
             **kwargs['confluence_configuration'],
             **(kwargs.get('pgvector_configuration') or {}),
-            **(kwargs.get('embedding_configuration') or {}),
         }
         confluence_api_wrapper = ConfluenceAPIWrapper(**wrapper_payload)
         prefix = clean_string(toolkit_name, ConfluenceToolkit.toolkit_max_length) + TOOLKIT_SPLITTER if toolkit_name else ''

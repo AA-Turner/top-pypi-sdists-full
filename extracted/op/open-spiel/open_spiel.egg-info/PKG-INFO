@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open_spiel
-Version: 1.6
+Version: 1.6.1
 Summary: A Framework for Reinforcement Learning in Games
 Home-page: https://github.com/deepmind/open_spiel
 Author: The OpenSpiel authors
@@ -26,6 +26,12 @@ Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
+
+<!-- disableFinding(IMAGE_ALT_TEXT_INACCESSIBLE) -->
+<!-- disableFinding(HEADING_REPEAT_H1) -->
+<!-- disableFinding(SNIPPET_INVALID_LANGUAGE) -->
+<!-- disableFinding("github") -->
+<!-- disableFinding(LINK_CL_HEAD) -->
 
 # OpenSpiel: A Framework for Reinforcement Learning in Games
 

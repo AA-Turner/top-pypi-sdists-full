@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-ray
-Version: 0.0.22
+Version: 0.0.23
 Summary: Dagster integration library for Ray
 Project-URL: repository, https://github.com/danielgafni/dagster-ray
 Author-email: Daniel Gafni <danielgafni16@gmail.com>

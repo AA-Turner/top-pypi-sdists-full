@@ -5,7 +5,6 @@ from pydantic import create_model, BaseModel, Field
 
 import requests
 from ....configurations.ado import AdoConfiguration
-from ....configurations.embedding import EmbeddingConfiguration
 from ....configurations.pgvector import PgVectorConfiguration
 from ...base.tool import BaseAction
 from ...utils import clean_string, TOOLKIT_SPLITTER, get_max_toolkit_length, check_connection_response
@@ -30,11 +29,10 @@ class AzureDevOpsWikiToolkit(BaseToolkit):
                   ),
             ado_configuration=(AdoConfiguration, Field(description="Ado configuration", json_schema_extra={'configuration_types': ['ado']})),
             # indexer settings
-            pgvector_configuration=(Optional[PgVectorConfiguration], Field(description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
+            pgvector_configuration=(Optional[PgVectorConfiguration], Field(default=None,
+                                                                           description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
             # embedder settings
-            embedding_configuration=(Optional[EmbeddingConfiguration], Field(description="Embedding configuration.",
-                                                                             json_schema_extra={'configuration_types': [
-                                                                                 'embedding']})),
+            embedding_model=(Optional[str], Field(default=None, description="Embedding configuration.", json_schema_extra={'configuration_model': 'embedding'})),
             selected_tools=(List[Literal[tuple(selected_tools)]],
                             Field(default=[], json_schema_extra={'args_schemas': selected_tools})),
             __config__={
@@ -90,7 +88,6 @@ class AzureDevOpsWikiToolkit(BaseToolkit):
             # TODO use ado_configuration fields in AzureDevOpsApiWrapper
             **kwargs['ado_configuration'],
             **(kwargs.get('pgvector_configuration') or {}),
-            **(kwargs.get('embedding_configuration') or {}),
         }
         azure_devops_api_wrapper = AzureDevOpsApiWrapper(**wrapper_payload)
         available_tools = azure_devops_api_wrapper.get_available_tools()
@@ -110,4 +107,3 @@ class AzureDevOpsWikiToolkit(BaseToolkit):
 
     def get_tools(self):
         return self.tools
-

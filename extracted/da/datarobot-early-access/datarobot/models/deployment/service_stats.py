@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from datetime import datetime
-from typing import cast, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, List, Optional, Union, cast
 
 import dateutil
 import trafaret as t

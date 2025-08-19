@@ -184,6 +184,7 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
     "bcm-recommended-actions",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: taegis-sdk-python
-Version: 1.5.0
+Version: 1.5.1
 Summary: Taegis Python SDK
 Project-URL: Homepage, https://github.com/secureworks/taegis-sdk-python
 Project-URL: Bug Reports, https://github.com/secureworks/taegis-sdk-python/issues
@@ -196,7 +196,7 @@ Requires-Python: >=3.9
 Requires-Dist: aiohttp
 Requires-Dist: dataclasses-json
 Requires-Dist: filelock>=3.12.4
-Requires-Dist: gql>=3.5.0
+Requires-Dist: gql<4,>=3.5.0
 Requires-Dist: graphql-core
 Requires-Dist: oauthlib
 Requires-Dist: pyjwt>=2.8.0

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: wslink
-Version: 2.3.4
+Version: 2.4.0
 Summary: Python/JavaScript library for communicating over WebSocket
 Home-page: https://github.com/kitware/wslink
 Author: Kitware, Inc.

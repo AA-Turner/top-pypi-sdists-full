@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: ir_measures
-Version: 0.3.7
+Version: 0.4.0
 Summary: Provides a common interface to many IR measure tools
 Author-email: Sean MacAvaney <sean.macavaney@glasgow.ac.uk>
 Maintainer-email: Sean MacAvaney <sean.macavaney@glasgow.ac.uk>
@@ -22,6 +22,7 @@ Provides-Extra: trectools
 Requires-Dist: trectools>=0.0.44; extra == "trectools"
 Provides-Extra: ranx
 Requires-Dist: ranx>=0.1.11; extra == "ranx"
+Dynamic: license-file
 
 [![test](https://github.com/terrierteam/ir_measures/actions/workflows/test.yml/badge.svg)](https://github.com/terrierteam/ir_measures/actions/workflows/test.yml)
 [![style](https://github.com/terrierteam/ir_measures/actions/workflows/style.yml/badge.svg)](https://github.com/terrierteam/ir_measures/actions/workflows/style.yml)

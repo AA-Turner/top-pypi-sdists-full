@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abstra
-Version: 3.21.6
+Version: 3.22.0
 Summary: Abstra Lib
 Home-page: https://github.com/abstra-app/abstra-lib
 License: MIT
@@ -39,6 +39,7 @@ Requires-Dist: psutil
 Requires-Dist: pypdfium2==4.30.0
 Requires-Dist: watchdog==4.0.2
 Requires-Dist: mail-parser==4.1.2
+Requires-Dist: certifi
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page

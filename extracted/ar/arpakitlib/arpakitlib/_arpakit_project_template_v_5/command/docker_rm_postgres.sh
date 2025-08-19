@@ -1,3 +1,3 @@
 cd ..
 source .env
-sudo docker rm -f ${project_name}_postgres
+sudo docker rm -f ${common_project_name}_postgres

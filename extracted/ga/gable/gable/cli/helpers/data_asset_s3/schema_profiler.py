@@ -287,7 +287,7 @@ def is_boolean_type(type: Union[str, pa.DataType]) -> bool:
     if isinstance(type, pa.DataType):
         return pa.types.is_boolean(type)
     if hasattr(type, "arrow_type"):
-        type = type.arrow_type
+        type = type.arrow_type  # type: ignore
         return pa.types.is_boolean(type)
     if type == "bool" or type == "boolean":
         return True
@@ -315,7 +315,7 @@ def is_numeric_type(type: Union[str, pa.DataType]) -> bool:
 
     # If it has an arrow_type attribute, use that
     if hasattr(type, "arrow_type"):
-        type = type.arrow_type
+        type = type.arrow_type  # type: ignore
         return (
             pa.types.is_integer(type)
             or pa.types.is_floating(type)
@@ -380,7 +380,7 @@ def is_string_type(type: Union[str, pa.DataType]) -> bool:
     if isinstance(type, pa.DataType):
         return pa.types.is_string(type)
     if hasattr(type, "arrow_type"):
-        type = type.arrow_type
+        type = type.arrow_type  # type: ignore
         return pa.types.is_string(type)
 
     if type == "string":
@@ -393,7 +393,7 @@ def is_list_type(type: Union[str, pa.DataType]) -> bool:
     if isinstance(type, pa.DataType):
         return pa.types.is_list(type)
     if hasattr(type, "arrow_type"):
-        type = type.arrow_type
+        type = type.arrow_type  # type: ignore
         return pa.types.is_list(type)
     if type == "list":
         return True
@@ -405,7 +405,7 @@ def is_union_type(type: Union[str, pa.DataType]) -> bool:
     if isinstance(type, pa.DataType):
         return pa.types.is_union(type)
     if hasattr(type, "arrow_type"):
-        type = type.arrow_type
+        type = type.arrow_type  # type: ignore
         return pa.types.is_union(type)
     if type == "union":
         return True

@@ -1,12 +1,13 @@
-from setuptools import setup, find_packages
+# -*- coding: utf-8 -*-
+from setuptools import find_packages, setup
 
-with open('README.md') as f:
+with open('README.md', encoding="utf-8") as f:
     long_description = f.read()
 
 # This call to setup() does all the work
 setup(
     name="indic_numtowords",
-    version='1.0.2',
+    version='1.1.0',
     description="A module to convert numbers to words for Indian languages and English.",
     long_description=long_description,
     long_description_content_type="text/markdown",

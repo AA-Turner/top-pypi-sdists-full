@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ethyca_fides
-Version: 2.67.2
+Version: 2.68.0
 Summary: Open-source ecosystem for data privacy as code.
 Home-page: https://github.com/ethyca/fides
 Author: Ethyca, Inc.
@@ -40,7 +40,7 @@ Requires-Dist: firebase-admin==5.3.0
 Requires-Dist: flower==2.0.1
 Requires-Dist: GitPython==3.1.41
 Requires-Dist: httpx==0.23.1
-Requires-Dist: hvac==0.11.2
+Requires-Dist: onepassword-sdk==0.3.0
 Requires-Dist: iab-tcf==0.2.2
 Requires-Dist: immutables==0.20
 Requires-Dist: importlib_resources==5.12.0

@@ -9,8 +9,10 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 import base64
-from concurrent.futures import as_completed, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import multiprocessing as mp
 from os import path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -20,7 +22,7 @@ from requests.exceptions import RequestException
 
 from datarobot.enums import DEFAULT_MAX_WAIT, DEFAULT_TIMEOUT, FileLocationType
 from datarobot.errors import ContentRetrievalTerminatedError
-from datarobot.helpers.image_utils import format_image_bytes, ImageOptions
+from datarobot.helpers.image_utils import ImageOptions, format_image_bytes
 
 
 def get_bytes_for_path(

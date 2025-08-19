@@ -4341,6 +4341,7 @@ class ReportTypeEnum(sgqlc.types.Enum):
 
     * `ALERTS_REPORT`None
     * `ASSETS_REPORT`None
+    * `CONSUMPTION_REPORT`None
     * `EVENTS_REPORT`None
     * `LINEAGE_EDGES_REPORT`None
     * `MONITORS_REPORT`None
@@ -4350,6 +4351,7 @@ class ReportTypeEnum(sgqlc.types.Enum):
     __choices__ = (
         "ALERTS_REPORT",
         "ASSETS_REPORT",
+        "CONSUMPTION_REPORT",
         "EVENTS_REPORT",
         "LINEAGE_EDGES_REPORT",
         "MONITORS_REPORT",
@@ -13645,8 +13647,19 @@ class AzureInformation(sgqlc.types.Type):
 
 class BiContainer(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("id", "account", "uuid", "data_collector", "type", "name", "connections")
+    __field_names__ = (
+        "id",
+        "deleted_at",
+        "account",
+        "uuid",
+        "data_collector",
+        "type",
+        "name",
+        "connections",
+    )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
+
+    deleted_at = sgqlc.types.Field(DateTime, graphql_name="deletedAt")
 
     account = sgqlc.types.Field(sgqlc.types.non_null(Account), graphql_name="account")
 
@@ -19118,6 +19131,7 @@ class EtlContainer(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
         "id",
+        "deleted_at",
         "account",
         "uuid",
         "data_collector",
@@ -19142,6 +19156,8 @@ class EtlContainer(sgqlc.types.Type):
         "job_count",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
+
+    deleted_at = sgqlc.types.Field(DateTime, graphql_name="deletedAt")
 
     account = sgqlc.types.Field(sgqlc.types.non_null(Account), graphql_name="account")
 

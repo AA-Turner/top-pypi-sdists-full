@@ -5,7 +5,7 @@ setuptools.setup(
     name="assisted-service-client",
     description="AssistedInstall",
     setup_requires=[],
-    version="2.43.0.post33",
+    version="2.44.0.post1",
     author="RedHat",
     author_email="UNKNOWN",
     url="https://github.com/openshift/assisted-service",

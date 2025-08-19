@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dvc-data
-Version: 3.16.11
+Version: 3.16.12
 Summary: DVC's data management subsystem
 Author-email: Iterative <support@dvc.org>
 License-Expression: Apache-2.0
@@ -37,11 +37,11 @@ Requires-Dist: pytest-sugar; extra == "tests"
 Requires-Dist: pytest-cov>=4.1.0; extra == "tests"
 Requires-Dist: pytest-mock; extra == "tests"
 Requires-Dist: pytest-benchmark>=4; extra == "tests"
-Requires-Dist: pytest-servers==0.5.11; extra == "tests"
+Requires-Dist: pytest-servers==0.5.12; extra == "tests"
 Provides-Extra: dev
 Requires-Dist: dvc-data[all]; extra == "dev"
 Requires-Dist: dvc-data[tests]; extra == "dev"
-Requires-Dist: mypy==1.17.0; extra == "dev"
+Requires-Dist: mypy==1.17.1; extra == "dev"
 Requires-Dist: types-tqdm; extra == "dev"
 Dynamic: license-file
 

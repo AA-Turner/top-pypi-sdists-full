@@ -18,7 +18,9 @@ dependencies_check(
         "python-snappy",
         "pyyaml",
         "imagehash",
-        "easyocr"
+        "easyocr",
+        "torch",
+        "opencv-python"
     ]
 )
 

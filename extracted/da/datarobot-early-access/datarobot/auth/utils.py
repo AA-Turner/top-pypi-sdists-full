@@ -10,6 +10,8 @@
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
 # limitations under the License.
+from __future__ import annotations
+
 import asyncio
 import functools
 from typing import Any, Callable, Coroutine, TypeVar

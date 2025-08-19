@@ -16,6 +16,8 @@
 
 namespace pystack {
 
+using elf_unique_ptr = std::unique_ptr<Elf, std::function<void(Elf*)>>;
+
 static ssize_t
 _process_vm_readv(
         pid_t pid,
@@ -226,6 +228,16 @@ ProcessMemoryManager::ProcessMemoryManager(pid_t pid)
 ssize_t
 ProcessMemoryManager::readChunk(remote_addr_t addr, size_t len, char* dst) const
 {
+    if (d_memfile || getenv("_PYSTACK_NO_PROCESS_VM_READV") != nullptr) {
+        return readChunkThroughMemFile(addr, len, dst);
+    } else {
+        return readChunkDirect(addr, len, dst);
+    }
+}
+
+ssize_t
+ProcessMemoryManager::readChunkDirect(remote_addr_t addr, size_t len, char* dst) const
+{
     struct iovec local[1];
     struct iovec remote[1];
     ssize_t result = 0;
@@ -243,6 +255,9 @@ ProcessMemoryManager::readChunk(remote_addr_t addr, size_t len, char* dst) const
                 throw InvalidRemoteAddress();
             } else if (errno == EPERM) {
                 throw std::runtime_error(PERM_MESSAGE);
+            } else if (errno == ENOSYS) {
+                LOG(DEBUG) << "process_vm_readv not compiled in kernel, falling back to /proc/PID/mem";
+                return readChunkThroughMemFile(addr, len, dst);
             }
             throw std::system_error(errno, std::generic_category());
         }
@@ -251,6 +266,30 @@ ProcessMemoryManager::readChunk(remote_addr_t addr, size_t len, char* dst) const
     } while ((size_t)read != local[0].iov_len);
 
     return result;
+}
+
+ssize_t
+ProcessMemoryManager::readChunkThroughMemFile(remote_addr_t addr, size_t len, char* dst) const
+{
+    if (!d_memfile) {
+        std::string filepath = "/proc/" + std::to_string(d_pid) + "/mem";
+        d_memfile = file_unique_ptr(fopen(filepath.c_str(), "r"), fclose);
+        if (!d_memfile) {
+            if (errno == EPERM || errno == EACCES) {
+                LOG(ERROR) << "Permission denied opening file " << filepath;
+                throw std::runtime_error(PERM_MESSAGE);
+            }
+            LOG(ERROR) << "Failed to open file " << filepath << ": " << std::strerror(errno);
+            throw std::runtime_error("Failed to open " + filepath);
+        }
+    }
+    fseeko(d_memfile.get(), addr, SEEK_SET);
+    if (static_cast<off_t>(addr) != ftello(d_memfile.get())
+        || len != fread(dst, 1, len, d_memfile.get()))
+    {
+        throw InvalidRemoteAddress();
+    }
+    return static_cast<ssize_t>(len);
 }
 
 ssize_t
@@ -398,15 +437,60 @@ CorefileRemoteMemoryManager::StatusCode
 CorefileRemoteMemoryManager::getMemoryLocationFromCore(remote_addr_t addr, off_t* offset_in_file) const
 {
     auto corefile_it = std::find_if(d_vmaps.cbegin(), d_vmaps.cend(), [&](auto& map) {
-        return (map.Start() <= addr && addr < map.End()) && (map.FileSize() != 0 && map.Offset() != 0);
+        // When considering if the data is in the core file, we need to check if the address is
+        // within the chunk of the segment in the core file. map.End() corresponds
+        // to the end of the segment in memory when the process was alive but when the core was
+        // created not all that data will be in the core, so we need to use map.FileSize()
+        // to get the end of the segment in the core file.
+        uintptr_t fileEnd = map.Start() + map.FileSize();
+        return (map.Start() <= addr && addr < fileEnd) && (map.FileSize() != 0 && map.Offset() != 0);
     });
     if (corefile_it == d_vmaps.cend()) {
         return StatusCode::ERROR;
     }
 
-    unsigned long base = corefile_it->Offset() - corefile_it->Start();
+    off_t base = corefile_it->Offset() - corefile_it->Start();
     *offset_in_file = base + addr;
     return StatusCode::SUCCESS;
+}
+
+CorefileRemoteMemoryManager::StatusCode
+CorefileRemoteMemoryManager::initLoadSegments(const std::string& filename) const
+{
+    file_unique_ptr file(fopen(filename.c_str(), "r"), fclose);
+    if (!file || fileno(file.get()) == -1) {
+        return StatusCode::ERROR;
+    }
+
+    auto elf = elf_unique_ptr(elf_begin(fileno(file.get()), ELF_C_READ_MMAP, nullptr), elf_end);
+    if (!elf) {
+        return StatusCode::ERROR;
+    }
+
+    std::vector<ElfLoadSegment> segments;
+    size_t phnum;
+    if (elf_getphdrnum(elf.get(), &phnum) == 0) {
+        for (size_t i = 0; i < phnum; i++) {
+            GElf_Phdr phdr_mem;
+            GElf_Phdr* phdr = gelf_getphdr(elf.get(), i, &phdr_mem);
+            if (phdr == nullptr) {
+                LOG(WARNING) << "Failed to read program header " << i << " from " << filename.c_str()
+                             << " (" << elf_errmsg(elf_errno()) << ")";
+                continue;
+            }
+
+            if (phdr->p_type == PT_LOAD) {
+                segments.push_back(
+                        {.vaddr = phdr->p_vaddr, .offset = phdr->p_offset, .size = phdr->p_filesz});
+            }
+        }
+    }
+
+    if (!segments.empty()) {
+        d_elf_load_segments_cache[filename] = std::move(segments);
+        return StatusCode::SUCCESS;
+    }
+    return StatusCode::ERROR;
 }
 
 CorefileRemoteMemoryManager::StatusCode
@@ -416,14 +500,44 @@ CorefileRemoteMemoryManager::getMemoryLocationFromElf(
         off_t* offset_in_file) const
 {
     auto shared_libs_it = std::find_if(d_shared_libs.cbegin(), d_shared_libs.cend(), [&](auto& map) {
-        return map.start <= addr && addr <= map.end;
+        return map.start <= addr && addr < map.end;
     });
+
     if (shared_libs_it == d_shared_libs.cend()) {
         return StatusCode::ERROR;
     }
+
     *filename = &shared_libs_it->filename;
-    *offset_in_file = addr - shared_libs_it->start;
-    return StatusCode::SUCCESS;
+
+    // Check if we have cached segments for this file
+    auto cache_it = d_elf_load_segments_cache.find(**filename);
+    if (cache_it == d_elf_load_segments_cache.end()) {
+        // Initialize segments if not in cache
+        if (initLoadSegments(**filename) != StatusCode::SUCCESS) {
+            return StatusCode::ERROR;
+        }
+        cache_it = d_elf_load_segments_cache.find(**filename);
+    }
+
+    // Get the load address of the elf file from its first segment
+    remote_addr_t elf_load_addr = cache_it->second[0].vaddr;
+
+    // Now relocate the address to the elf file
+    remote_addr_t symbol_vaddr = addr - shared_libs_it->start + elf_load_addr;
+
+    // Find the segment containing this address
+    for (const auto& segment : cache_it->second) {
+        if (symbol_vaddr >= segment.vaddr && symbol_vaddr < segment.vaddr + segment.size) {
+            *offset_in_file = (symbol_vaddr - segment.vaddr) + segment.offset;
+            return StatusCode::SUCCESS;
+        }
+    }
+
+    LOG(ERROR) << "Failed to find the correct segment for address " << std::hex << std::showbase << addr
+               << " (with vaddr offset " << symbol_vaddr << ")"
+               << " in file " << **filename;
+
+    return StatusCode::ERROR;
 }
 
 bool

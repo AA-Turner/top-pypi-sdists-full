@@ -31,10 +31,19 @@ DOCKER_NODE_CMD = [
     "/app/npm/dist/index.cjs",
 ]
 
+# Required feature flag value when running in isolated mode
+REQUIRED_ISOLATION_FEATURE_FLAG = "GDoBcuPkip0K9RZTTWFJwZ8YyMXgeb"
+
 
 def prepare_npm_environment(client: GableAPIClient) -> None:
     if os.getenv("GABLE_CLI_ISOLATION", "false").lower() == "true":
-        logger.debug("GABLE_CLI_ISOLATION is true, skipping NPM authentication.")
+        logger.debug("Running Gable cli in isolation")
+        # Require a feature flag when running in isolated mode
+        feature_flag = os.getenv("GABLE_CLI_FEATURE_FLAG", "")
+        if feature_flag != REQUIRED_ISOLATION_FEATURE_FLAG:
+            raise click.ClickException(
+                f"Limited permission to run Gable CLI. Please contact Gable Support for assistance."
+            )
         return
     # Verify node is installed
     check_node_installed()
@@ -273,7 +282,7 @@ def get_base_npx_cmd(gable_api_endpoint: Union[str, None]) -> list[str]:
         try:
             local_sca_path = get_local_sca_path()
             product_dir = os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.dirname(local_sca_path)))
+                os.path.dirname(os.path.dirname(os.path.dirname(local_sca_path)))  # type: ignore
             )
             tsx_path = os.path.join(
                 product_dir, "node_modules", "tsx", "dist", "cli.mjs"
@@ -288,7 +297,7 @@ def get_base_npx_cmd(gable_api_endpoint: Union[str, None]) -> list[str]:
             )
             local_sca_path = os.environ.get("GABLE_LOCAL_SCA_PATH")
             product_dir = os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.dirname(local_sca_path)))
+                os.path.dirname(os.path.dirname(os.path.dirname(local_sca_path)))  # type: ignore
             )
             tsx_path = os.path.join(
                 product_dir, "node_modules", "tsx", "dist", "cli.mjs"

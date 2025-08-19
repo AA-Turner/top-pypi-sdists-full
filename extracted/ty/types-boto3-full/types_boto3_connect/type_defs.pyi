@@ -1661,10 +1661,6 @@ class CreateIntegrationAssociationRequestTypeDef(TypedDict):
     SourceType: NotRequired[SourceTypeType]
     Tags: NotRequired[Mapping[str, str]]
 
-class ParticipantDetailsToAddTypeDef(TypedDict):
-    ParticipantRole: NotRequired[ParticipantRoleType]
-    DisplayName: NotRequired[str]
-
 class ParticipantTokenCredentialsTypeDef(TypedDict):
     ParticipantToken: NotRequired[str]
     Expiry: NotRequired[str]
@@ -3613,6 +3609,11 @@ class CustomerTypeDef(TypedDict):
     DeviceInfo: NotRequired[DeviceInfoTypeDef]
     Capabilities: NotRequired[ParticipantCapabilitiesTypeDef]
 
+class ParticipantDetailsToAddTypeDef(TypedDict):
+    ParticipantRole: NotRequired[ParticipantRoleType]
+    DisplayName: NotRequired[str]
+    ParticipantCapabilities: NotRequired[ParticipantCapabilitiesTypeDef]
+
 class AgentQualityMetricsTypeDef(TypedDict):
     Audio: NotRequired[AudioQualityMetricsInfoTypeDef]
 
@@ -4092,12 +4093,6 @@ class TaskActionDefinitionTypeDef(TypedDict):
     ContactFlowId: str
     Description: NotRequired[str]
     References: NotRequired[Mapping[str, ReferenceTypeDef]]
-
-class CreateParticipantRequestTypeDef(TypedDict):
-    InstanceId: str
-    ContactId: str
-    ParticipantDetails: ParticipantDetailsToAddTypeDef
-    ClientToken: NotRequired[str]
 
 class CreateParticipantResponseTypeDef(TypedDict):
     ParticipantCredentials: ParticipantTokenCredentialsTypeDef
@@ -5014,6 +5009,12 @@ class StartWebRTCContactRequestTypeDef(TypedDict):
     RelatedContactId: NotRequired[str]
     References: NotRequired[Mapping[str, ReferenceTypeDef]]
     Description: NotRequired[str]
+
+class CreateParticipantRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactId: str
+    ParticipantDetails: ParticipantDetailsToAddTypeDef
+    ClientToken: NotRequired[str]
 
 class QualityMetricsTypeDef(TypedDict):
     Agent: NotRequired[AgentQualityMetricsTypeDef]

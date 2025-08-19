@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tuya-device-sharing-sdk
-Version: 0.2.1
+Version: 0.2.2
 Summary: A Python sdk for Tuya Open API, which provides IoT capabilities, maintained by Tuya official
 Home-page: https://github.com/tuya/tuya-device-sharing-sdk
 Author: Tuya Inc.
@@ -22,6 +22,21 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: paho-mqtt
+Requires-Dist: requests
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Tuya Device Sharing SDK
 
@@ -70,11 +85,12 @@ With diversified devices and industries, Tuya IoT Development Platform opens bas
 ## Release Note
 
 | version | Description                                            |
-| ------- | ------------------------------------------------------ |
+|---------|--------------------------------------------------------|
 | 0.1.8   | fix topic error                                        |
 | 0.1.9   | fix mq link id                                         |
 | 0.2.0   | MQTT bulk subscription                                 |
 | 0.2.1   | add updated_status_properties to SharingDeviceListener |
+| 0.2.2   | add timestamp to SharingDeviceListener                 |
 
 ## Installation
 

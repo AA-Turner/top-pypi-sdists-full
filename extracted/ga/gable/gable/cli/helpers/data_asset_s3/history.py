@@ -97,7 +97,7 @@ def get_schemas_from_files(
         skip_profiling=True,
     )
 
-    return [s3_data.schema]
+    return [s3_data.schema]  # type: ignore
 
 
 def compare_schemas(

@@ -28,7 +28,9 @@ import ssl
 import weakref
 import random
 import itertools
+from typing import Optional
 
+from cassandra.application_info import ApplicationInfoBase
 from cassandra.protocol_features import ProtocolFeatures
 
 if 'gevent.monkey' in sys.modules:
@@ -62,6 +64,7 @@ locally_supported_compressions = OrderedDict()
 try:
     import lz4
 except ImportError:
+    log.debug("lz4 package could not be imported. LZ4 Compression will not be available")
     pass
 else:
     # The compress and decompress functions we need were moved from the lz4 to
@@ -100,6 +103,7 @@ else:
 try:
     import snappy
 except ImportError:
+    log.debug("snappy package could not be imported. Snappy Compression will not be available")
     pass
 else:
     # work around apparently buggy snappy decompress
@@ -121,7 +125,6 @@ HEADER_DIRECTION_MASK = 0x80
 DEFAULT_LOCAL_PORT_LOW = 49152
 DEFAULT_LOCAL_PORT_HIGH = 65535
 
-frame_header_v1_v2 = struct.Struct('>BbBi')
 frame_header_v3 = struct.Struct('>BhBi')
 
 
@@ -442,33 +445,6 @@ class ProtocolError(Exception):
 class CrcMismatchException(ConnectionException):
     pass
 
-
-class ContinuousPagingState(object):
-    """
-     A class for specifying continuous paging state, only supported starting with DSE_V2.
-    """
-
-    num_pages_requested = None
-    """
-    How many pages we have already requested
-    """
-
-    num_pages_received = None
-    """
-    How many pages we have already received
-    """
-
-    max_queue_size = None
-    """
-    The max queue size chosen by the user via the options
-    """
-
-    def __init__(self, max_queue_size):
-        self.num_pages_requested = max_queue_size  # the initial query requests max_queue_size
-        self.num_pages_received = 0
-        self.max_queue_size = max_queue_size
-
-
 class ContinuousPagingSession(object):
     def __init__(self, stream_id, decoder, row_factory, connection, state):
         self.stream_id = stream_id
@@ -666,15 +642,29 @@ class _ConnectionIOBuffer(object):
             self.reset_io_buffer()
 
 
-class ShardawarePortGenerator:
-    @classmethod
-    def generate(cls, shard_id, total_shards):
-        start = random.randrange(DEFAULT_LOCAL_PORT_LOW, DEFAULT_LOCAL_PORT_HIGH)
-        available_ports = itertools.chain(range(start, DEFAULT_LOCAL_PORT_HIGH), range(DEFAULT_LOCAL_PORT_LOW, start))
+class ShardAwarePortGenerator:
+    def __init__(self, start_port: int, end_port: int):
+        self.start_port = start_port
+        self.end_port = end_port
+
+    @staticmethod
+    def _align(value: int, total_shards: int):
+        shift = value % total_shards
+        if shift == 0:
+            return value
+        return value + total_shards - shift
+
+    def generate(self, shard_id: int, total_shards: int):
+        start = self._align(random.randrange(self.start_port, self.end_port), total_shards) + shard_id
+        beginning = self._align(self.start_port, total_shards) + shard_id
+        available_ports = itertools.chain(range(start, self.end_port, total_shards),
+                                          range(beginning, start, total_shards))
 
         for port in available_ports:
-            if port % total_shards == shard_id:
-                yield port
+            yield port
+
+
+DefaultShardAwarePortGenerator = ShardAwarePortGenerator(DEFAULT_LOCAL_PORT_LOW, DEFAULT_LOCAL_PORT_HIGH)
 
 
 class Connection(object):
@@ -761,8 +751,8 @@ class Connection(object):
     _is_checksumming_enabled = False
 
     _on_orphaned_stream_released = None
-
     features = None
+    _application_info: Optional[ApplicationInfoBase] = None
 
     @property
     def _iobuf(self):
@@ -774,7 +764,7 @@ class Connection(object):
                  cql_version=None, protocol_version=ProtocolVersion.MAX_SUPPORTED, is_control_connection=False,
                  user_type_map=None, connect_timeout=None, allow_beta_protocol_version=False, no_compact=False,
                  ssl_context=None, owning_pool=None, shard_id=None, total_shards=None,
-                 on_orphaned_stream_released=None):
+                 on_orphaned_stream_released=None, application_info: Optional[ApplicationInfoBase] = None):
         # TODO next major rename host to endpoint and remove port kwarg.
         self.endpoint = host if isinstance(host, EndPoint) else DefaultEndPoint(host, port)
 
@@ -797,6 +787,7 @@ class Connection(object):
         self._socket_writable = True
         self.orphaned_request_ids = set()
         self._on_orphaned_stream_released = on_orphaned_stream_released
+        self._application_info = application_info
 
         if ssl_options:
             self.ssl_options.update(self.endpoint.ssl_options or {})
@@ -814,17 +805,12 @@ class Connection(object):
         if not self.ssl_context and self.ssl_options:
             self.ssl_context = self._build_ssl_context_from_options()
 
-        if protocol_version >= 3:
-            self.max_request_id = min(self.max_in_flight - 1, (2 ** 15) - 1)
-            # Don't fill the deque with 2**15 items right away. Start with some and add
-            # more if needed.
-            initial_size = min(300, self.max_in_flight)
-            self.request_ids = deque(range(initial_size))
-            self.highest_request_id = initial_size - 1
-        else:
-            self.max_request_id = min(self.max_in_flight, (2 ** 7) - 1)
-            self.request_ids = deque(range(self.max_request_id + 1))
-            self.highest_request_id = self.max_request_id
+        self.max_request_id = min(self.max_in_flight - 1, (2 ** 15) - 1)
+        # Don't fill the deque with 2**15 items right away. Start with some and add
+        # more if needed.
+        initial_size = min(300, self.max_in_flight)
+        self.request_ids = deque(range(initial_size))
+        self.highest_request_id = initial_size - 1
 
         self.lock = RLock()
         self.connected_event = Event()
@@ -931,7 +917,7 @@ class Connection(object):
 
     def _initiate_connection(self, sockaddr):
         if self.features.shard_id is not None:
-            for port in ShardawarePortGenerator.generate(self.features.shard_id, self.total_shards):
+            for port in DefaultShardAwarePortGenerator.generate(self.features.shard_id, self.total_shards):
                 try:
                     self._socket.bind(('', port))
                     break
@@ -1202,11 +1188,10 @@ class Connection(object):
             version = buf[0] & PROTOCOL_VERSION_MASK
             if version not in ProtocolVersion.SUPPORTED_VERSIONS:
                 raise ProtocolError("This version of the driver does not support protocol version %d" % version)
-            frame_header = frame_header_v3 if version >= 3 else frame_header_v1_v2
             # this frame header struct is everything after the version byte
-            header_size = frame_header.size + 1
+            header_size = frame_header_v3.size + 1
             if pos >= header_size:
-                flags, stream, op, body_len = frame_header.unpack_from(buf, 1)
+                flags, stream, op, body_len = frame_header_v3.unpack_from(buf, 1)
                 if body_len < 0:
                     raise ProtocolError("Received negative body length: %r" % body_len)
                 self._current_frame = _Frame(version, flags, stream, op, header_size, body_len + header_size)
@@ -1379,6 +1364,8 @@ class Connection(object):
         self._product_type = options_response.options.get('PRODUCT_TYPE', [None])[0]
 
         options = {}
+        if self._application_info:
+            self._application_info.add_startup_options(options)
         self.features.add_startup_options(options)
 
         if self.cql_version:
@@ -1396,7 +1383,7 @@ class Connection(object):
             overlap = (set(locally_supported_compressions.keys()) &
                        set(remote_supported_compressions))
             if len(overlap) == 0:
-                log.debug("No available compression types supported on both ends."
+                log.error("No available compression types supported on both ends."
                           " locally supported: %r. remotely supported: %r",
                           locally_supported_compressions.keys(),
                           remote_supported_compressions)

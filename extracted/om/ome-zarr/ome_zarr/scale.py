@@ -26,8 +26,8 @@ from .io import parse_url
 
 LOGGER = logging.getLogger("ome_zarr.scale")
 
-ListOfArrayLike = Union[list[da.Array], list[np.ndarray]]
-ArrayLike = Union[da.Array, np.ndarray]
+ListOfArrayLike = Union[list[da.Array], list[np.ndarray]]  # noqa: UP007  # FIXME
+ArrayLike = Union[da.Array, np.ndarray]  # noqa: UP007  # FIXME
 
 
 @dataclass
@@ -138,7 +138,7 @@ class Scaler:
 
     def __create_group(
         self, store: MutableMapping, base: np.ndarray, pyramid: list[np.ndarray]
-    ) -> zarr.hierarchy.Group:
+    ) -> zarr.Group:
         """Create group and datasets."""
         grp = zarr.group(store)
         grp.create_dataset("base", data=base)
@@ -209,7 +209,7 @@ class Scaler:
                 base,
                 downscale=self.downscale,
                 max_layer=self.max_layer,
-                multichannel=False,
+                channel_axis=None,
             )
         )
 
@@ -220,7 +220,7 @@ class Scaler:
                 base,
                 downscale=self.downscale,
                 max_layer=self.max_layer,
-                multichannel=False,
+                channel_axis=None,
             )
         )
 

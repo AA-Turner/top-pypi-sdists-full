@@ -222,7 +222,7 @@ impl<'a> BindingsBuilder<'a> {
     /// - Information about what binding it is being used in, which is used both
     ///   - to track first-use to get deterministic inference of placeholder
     ///     types like empty list
-    ///   - to determin when we are in a static typing usage
+    ///   - to determine when we are in a static typing usage
     /// - The lookup kind, which is used to distinguish between normal lookups,
     ///   which allow uses of nonlocals, versus mutable lookups that do not
     ///   (unless the nonlocal was explicitly mutably captured by a `global`
@@ -325,7 +325,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn bind_lambda(&mut self, lambda: &mut ExprLambda, usage: &mut Usage) {
-        self.scopes.push(Scope::function(lambda.range));
+        self.scopes.push(Scope::function(lambda.range, false));
         if let Some(parameters) = &lambda.parameters {
             for x in parameters {
                 self.bind_lambda_param(x.name());
@@ -673,6 +673,16 @@ impl<'a> BindingsBuilder<'a> {
             Expr::YieldFrom(x) => {
                 self.record_yield_from(x.clone());
             }
+            Expr::Await(x) => {
+                self.ensure_expr(&mut x.value, usage);
+                if !self.scopes.is_in_async_def() {
+                    self.error(
+                        x.range(),
+                        ErrorInfo::Kind(ErrorKind::InvalidSyntax),
+                        "`await` can only be used inside an async function".to_owned(),
+                    );
+                }
+            }
             _ => {
                 x.recurse_mut(&mut |x| self.ensure_expr(x, usage));
             }
@@ -755,7 +765,8 @@ impl<'a> BindingsBuilder<'a> {
     fn track_potential_typing_self(&mut self, x: &Expr) {
         match self.as_special_export(x) {
             Some(SpecialExport::SelfType) => {
-                if let Some((current_class_idx, _)) = self.scopes.current_class_and_metadata_keys()
+                if let Some((current_class_idx, _)) =
+                    self.scopes.enclosing_class_and_metadata_keys()
                 {
                     self.insert_binding(
                         Key::SelfTypeLiteral(x.range()),

@@ -109,6 +109,11 @@ TIPS FOR FOUNDATIONAL RESEARCH:
                 "items": {"type": "string"},
                 "description": "Strongly recommended: arXiv categories to focus search (e.g., ['cs.AI', 'cs.MA'] for agent research, ['cs.LG'] for ML, ['cs.CL'] for NLP, ['cs.CV'] for vision). Greatly improves relevance.",
             },
+            "sort_by": {
+                "type": "string",
+                "enum": ["relevance", "date"],
+                "description": "Sort results by 'relevance' (most relevant first, default) or 'date' (newest first). Use 'relevance' for focused searches, 'date' for recent developments.",
+            },
         },
         "required": ["query"],
     },
@@ -129,63 +134,29 @@ def _validate_categories(categories: List[str]) -> bool:
 
 
 def _optimize_query(query: str) -> str:
-    """Optimize search query for better arXiv results."""
+    """Minimal query optimization - preserve user intent while fixing obvious issues."""
+
+    # Don't modify queries with existing field specifiers (ti:, au:, abs:, cat:)
+    if any(
+        field in query
+        for field in ["ti:", "au:", "abs:", "cat:", "AND", "OR", "ANDNOT"]
+    ):
+        logger.debug("Field-specific or boolean query detected - no optimization")
+        return query
+
+    # Don't modify queries that are already quoted
+    if query.startswith('"') and query.endswith('"'):
+        logger.debug("Pre-quoted query detected - no optimization")
+        return query
+
+    # For very long queries (>10 terms), suggest user be more specific rather than auto-converting
     terms = query.split()
+    if len(terms) > 10:
+        logger.warning(
+            f"Very long query ({len(terms)} terms) - consider using quotes for phrases or field-specific searches"
+        )
 
-    # For complex queries (>4 terms), use OR logic for better recall
-    if len(terms) > 4:
-        logger.debug(f"Complex query detected with {len(terms)} terms - using OR logic")
-
-        # Group related terms with OR
-        key_phrases = [
-            "artificial intelligence",
-            "machine learning",
-            "deep learning",
-            "neural network",
-            "natural language processing",
-            "computer vision",
-            "cognitive architecture",
-            "autonomous reasoning",
-            "agent-based",
-            "reinforcement learning",
-            "large language model",
-            "multi-agent",
-        ]
-
-        # First handle key phrases
-        optimized_query = query.lower()
-        for phrase in key_phrases:
-            if phrase in optimized_query:
-                optimized_query = optimized_query.replace(phrase, f'"{phrase}"')
-                logger.debug(f"Added quotes around: {phrase}")
-
-        # For very complex queries, convert to OR logic to increase recall
-        if len(terms) > 6:
-            # Split into core terms and use OR
-            words = optimized_query.split()
-            # Keep quoted phrases together, OR the rest
-            or_terms = []
-            i = 0
-            while i < len(words):
-                if words[i].startswith('"'):
-                    # Find the end of the quoted phrase
-                    phrase_parts = [words[i]]
-                    i += 1
-                    while i < len(words) and not words[i - 1].endswith('"'):
-                        phrase_parts.append(words[i])
-                        i += 1
-                    or_terms.append(" ".join(phrase_parts))
-                else:
-                    or_terms.append(words[i])
-                    i += 1
-
-            if len(or_terms) > 3:
-                # Use OR for better recall
-                optimized_query = " OR ".join(or_terms[:5])  # Limit to 5 terms
-                logger.debug(f"Converted to OR logic: {optimized_query}")
-
-        return optimized_query
-
+    # Only optimization: preserve the original query exactly as intended
     return query
 
 
@@ -285,11 +256,19 @@ async def handle_search(arguments: Dict[str, Any]) -> List[types.TextContent]:
         # but cap it to avoid overwhelming the API
         api_max_results = min(max_results + 5, settings.MAX_RESULTS)
 
-        # Use relevance sorting for better results (not just newest papers)
+        # Determine sort method
+        sort_by_arg = arguments.get("sort_by", "relevance")
+        if sort_by_arg == "date":
+            sort_criterion = arxiv.SortCriterion.SubmittedDate
+            logger.debug("Using date sorting (newest first)")
+        else:
+            sort_criterion = arxiv.SortCriterion.Relevance
+            logger.debug("Using relevance sorting (most relevant first)")
+
         search = arxiv.Search(
             query=final_query,
             max_results=api_max_results,
-            sort_by=arxiv.SortCriterion.Relevance,  # This will prioritize most relevant papers
+            sort_by=sort_criterion,
         )
 
         # Process results with client-side date filtering

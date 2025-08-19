@@ -11,12 +11,12 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, cast, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 import trafaret as t
 
 from datarobot._compat import TypedDict
-from datarobot.enums import enum_to_list, PromptType, VectorDatabaseRetrievers
+from datarobot.enums import PromptType, VectorDatabaseRetrievers, enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.models.custom_model import CustomModelVersion
 from datarobot.models.genai.llm import LLMDefinition

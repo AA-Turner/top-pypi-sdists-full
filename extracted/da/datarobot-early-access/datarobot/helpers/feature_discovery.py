@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Dict, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from ..enums import SNAPSHOT_POLICY
 

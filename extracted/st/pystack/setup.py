@@ -33,6 +33,7 @@ COMPILER_DIRECTIVES = {
     "cdivision": True,
     "c_string_type": "unicode",
     "c_string_encoding": "utf8",
+    "freethreading_compatible": True,
 }
 
 DEFINE_MACROS = []
@@ -50,6 +51,7 @@ if TEST_BUILD:
         "infer_types": True,
         "c_string_type": "unicode",
         "c_string_encoding": "utf8",
+        "freethreading_compatible": True,
     }
     DEFINE_MACROS.extend([("CYTHON_TRACE", "1"), ("CYTHON_TRACE_NOGIL", "1")])
 
@@ -63,6 +65,11 @@ except EnvironmentError as e:
 except pkgconfig.PackageNotFoundError as e:
     print("Package Not Found", e)
     print("Falling back to static flags.")
+
+if "define_macros" not in library_flags:
+    library_flags["define_macros"] = []
+
+library_flags["define_macros"].extend(DEFINE_MACROS)
 
 PYSTACK_EXTENSION = setuptools.Extension(
     name="pystack._pystack",
@@ -83,7 +90,6 @@ PYSTACK_EXTENSION = setuptools.Extension(
     language="c++",
     extra_compile_args=["-std=c++17"],
     extra_link_args=["-std=c++17"],
-    define_macros=DEFINE_MACROS,
     **library_flags,
 )
 
@@ -127,7 +133,13 @@ setuptools.setup(
         compiler_directives=COMPILER_DIRECTIVES,
     ),
     install_requires=install_requires,
-    include_package_data=True,
+    include_package_data=False,
+    package_data={
+        "pystack": [
+            "pystack/*.pyi",
+            "pystack/*.typed",
+        ]
+    },
     entry_points={
         "console_scripts": ["pystack=pystack.__main__:main"],
     },

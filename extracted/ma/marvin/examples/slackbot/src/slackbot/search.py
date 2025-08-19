@@ -2,19 +2,16 @@ import asyncio
 import subprocess
 
 import httpx
-import turbopuffer as tpuf
 from prefect import task
-from prefect.blocks.system import Secret
 from pretty_mod import display_signature
-from pretty_mod.explorer import ModuleTreeExplorer
 from raggy.vectorstores.tpuf import multi_query_tpuf
 
-from slackbot.github import GitHubIssue, _get_token
-from slackbot.settings import settings
-from slackbot.strings import slice_tokens
+from slackbot.github import format_issues_summary, search_issues
 
 
-def explore_module_offerings(module_path: str, max_depth: int = 1) -> str:
+def explore_module_offerings(
+    module_path: str, max_depth: int = 1, with_packages: list[str] | None = None
+) -> str:
     """
     Explore and return the public API tree of a specific module and its submodules as a string.
 
@@ -24,6 +21,7 @@ def explore_module_offerings(module_path: str, max_depth: int = 1) -> str:
     Args:
         module_path: String representing the module path (e.g., 'prefect.runtime', 'json', 'pandas')
         max_depth: Maximum depth to explore in the module tree (default: 1)
+        with_packages: Optional list of packages to install for the exploration (e.g., ['prefect[aws]', 'boto3'])
 
     Returns:
         str: A formatted string representation of the module tree
@@ -35,17 +33,47 @@ def explore_module_offerings(module_path: str, max_depth: int = 1) -> str:
         # Explore Prefect's runtime module in detail
         >>> explore_module_offerings('prefect.runtime', max_depth=2)
 
-        # Quick overview of pandas structure
-        >>> explore_module_offerings('pandas', max_depth=1)
+        # Explore AWS integration modules
+        >>> explore_module_offerings('prefect_aws.ecs', max_depth=1, with_packages=['prefect[aws]'])
 
         # See what's in a specific submodule
         >>> explore_module_offerings('prefect.artifacts', max_depth=0)
     """
-    explorer = ModuleTreeExplorer(module_path, max_depth=max_depth)
-    explorer.explore()
-    summary = explorer.get_tree_string()
-    print(summary)
-    return summary
+    # Build the command
+    cmd = ["uvx"]
+    if with_packages:
+        for package in with_packages:
+            cmd.extend(["--with", package])
+    cmd.extend(["pretty-mod", "tree"])
+
+    cmd.extend([module_path, "--depth", str(max_depth)])
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        # Check if it failed due to missing module
+        if result.returncode != 0:
+            error_output = result.stderr or result.stdout
+            if "missing dependency" in error_output.lower():
+                # Extract the missing module name if possible
+                if "'" in error_output:
+                    missing = error_output.split("'")[1]
+                    return f"Module '{missing}' not found. Try specifying with_packages parameter with the required package (e.g., 'prefect[aws]', 'prefect-aws', or any PyPI package)."
+            return f"Error exploring module: {error_output}"
+
+        # Return the formatted tree output
+        return result.stdout if result.stdout else "No output from module exploration"
+
+    except subprocess.TimeoutExpired:
+        return "Module exploration timed out after 30 seconds"
+    except Exception as e:
+        return f"Error running pretty-mod: {str(e)}"
 
 
 def review_common_3x_gotchas() -> list[str]:
@@ -82,9 +110,6 @@ def search_prefect_2x_docs(queries: list[str]) -> str:
     - "retrieve run metadata dynamically"
 
     """
-    if not tpuf.api_key:
-        tpuf.api_key = Secret.load("tpuf-api-key", _sync=True).get()  # type: ignore
-
     print(f"Searching about {queries} in Prefect 2.x docs")
 
     return multi_query_tpuf(queries, namespace="prefect-2", n_results=5)
@@ -102,9 +127,6 @@ def search_prefect_3x_docs(queries: list[str]) -> str:
     - "retrieve task run id from flow run"
 
     """
-    if not tpuf.api_key:
-        tpuf.api_key = Secret.load("tpuf-api-key", _sync=True).get()  # type: ignore
-
     print(f"Searching about {queries} in Prefect 3.x docs")
 
     return multi_query_tpuf(queries, namespace="prefect-3", n_results=5)
@@ -144,60 +166,13 @@ def read_github_issues(query: str, repo: str = "prefecthq/prefect", n: int = 3) 
         - repo: prefecthq/prefect
         - query: label:bug is:open AttributeError
     """
-    github_token = Secret.load(settings.github_token_secret_name, _sync=True).get()  # type: ignore
-    return asyncio.run(
-        search_github_issues(query, repo=repo, n=n, api_token=github_token)
-    )
+    return asyncio.run(_read_github_issues_async(query, repo, n))
 
 
-async def search_github_issues(
-    query: str,
-    repo: str = "prefecthq/prefect",
-    n: int = 3,
-    api_token: str | None = None,
-) -> str:
-    """
-    Use the GitHub API to search for issues in a given repository. Do
-    not alter the default value for `n` unless specifically requested by
-    a user.
-
-    For example, to search for open issues about AttributeErrors with the
-    label "bug" in PrefectHQ/prefect:
-        - repo: prefecthq/prefect
-        - query: label:bug is:open AttributeError
-    """
-    TOKEN_LIMIT = 1500
-    headers = {"Accept": "application/vnd.github.v3+json"}
-
-    headers["Authorization"] = f"Bearer {api_token or await _get_token()}"
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://api.github.com/search/issues",
-            headers=headers,
-            params={
-                "q": query if "repo:" in query else f"repo:{repo} {query}",
-                "order": "desc",
-                "per_page": n,
-            },
-        )
-        response.raise_for_status()
-
-    issues_data = response.json()["items"]
-
-    for issue in issues_data:
-        if not issue["body"]:
-            continue
-        issue["body"] = slice_tokens(issue["body"], TOKEN_LIMIT)
-
-    issues = [GitHubIssue(**issue) for issue in issues_data]
-
-    summary = "\n\n".join(
-        f"{issue.title} ({issue.html_url}):\n{issue.body}" for issue in issues
-    )
-    if not summary.strip():
-        return "No issues found."
-    return summary
+async def _read_github_issues_async(query: str, repo: str, n: int) -> str:
+    """Async helper for reading GitHub issues."""
+    issues = await search_issues(query, repo=repo, n=n)
+    return await format_issues_summary(issues)
 
 
 def display_callable_signature(import_path: str) -> str:
@@ -240,9 +215,11 @@ def check_cli_command(command: str, args: list[str] | None = None) -> str:
     - Always check with --help first to verify command structure
     - Common commands to verify: prefect deploy, prefect work-pool, prefect worker, etc.
     - This helps prevent suggesting non-existent or incorrectly formatted commands
+    - For commands that require optional dependencies, use `uv run --with prefect[<extra>]` syntax
+      Examples: `uv run --with prefect[aws]`, `uv run --with prefect[docker]`, `uv run --with prefect[kubernetes]`
 
     Args:
-        command: The base command to run (e.g., "prefect", "prefect deploy")
+        command: The base command to run (e.g., "prefect", "prefect deploy", "uv run --with prefect[docker] prefect")
         args: Additional arguments to pass (e.g., ["--help"], ["work-pool", "create", "--help"])
 
     Returns:
@@ -257,6 +234,9 @@ def check_cli_command(command: str, args: list[str] | None = None) -> str:
 
         # Check specific subcommand help
         >>> check_cli_command("prefect", ["worker", "start", "--help"])
+
+        # Check commands that need optional extras
+        >>> check_cli_command("uv run --with prefect[docker]", ["prefect", "work-pool", "create", "--help"])
     """
     if args is None:
         args = []

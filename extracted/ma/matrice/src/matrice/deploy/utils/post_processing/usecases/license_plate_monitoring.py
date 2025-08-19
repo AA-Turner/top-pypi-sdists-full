@@ -5,9 +5,6 @@ from datetime import datetime, timezone
 import copy
 import tempfile
 import os
-import cv2
-import numpy as np
-import torch
 from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol
 from ..utils import (
     filter_by_confidence,
@@ -21,10 +18,19 @@ from ..utils import (
     BBoxSmoothingConfig,
     BBoxSmoothingTracker
 )
-from ..ocr.easyocr_extractor import EasyOCRExtractor
-from ..ocr.postprocessing import TextPostprocessor 
-from ..ocr.preprocessing import ImagePreprocessor
-from ..core.config import BaseConfig, AlertConfig, ZoneConfig
+try:
+    import cv2
+    import numpy as np
+    import torch
+    from ..ocr.easyocr_extractor import EasyOCRExtractor
+    from ..ocr.postprocessing import TextPostprocessor 
+    from ..ocr.preprocessing import ImagePreprocessor
+    from ..core.config import BaseConfig, AlertConfig, ZoneConfig
+    
+except:
+    print("test-------------------------------------------------")
+
+
 
 @dataclass
 class LicensePlateMonitorConfig(BaseConfig):
@@ -126,13 +132,13 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 return self.create_error_result("input_bytes (video/image) is required for license plate monitoring",
                                                usecase=self.name, category=self.category, context=context)
             
-            if not data:
-                return self.create_result(
-                data={"agg_summary": {}},
-                usecase=self.name,
-                category=self.category,
-                context=context
-            )
+            # if not data:
+            #     return self.create_result(
+            #     data={"agg_summary": {}},
+            #     usecase=self.name,
+            #     category=self.category,
+            #     context=context
+            # )
                 # return self.create_error_result("Detection data is required for license plate monitoring",
                 #                                usecase=self.name, category=self.category, context=context)
             
@@ -511,19 +517,18 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             plate_texts = [det.get("plate_text") for det in counting_summary.get("detections", []) if det.get("plate_text")]
             if plate_texts:
                 human_text_lines.append(f"\t- License Plates: {', '.join(plate_texts)}")
-            else:
-                human_text_lines.append(f"\t- License Plates: None")
         else:
             human_text_lines.append(f"\t- No detections")
         
         human_text_lines.append("")
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
         human_text_lines.append(f"\t- Total Detected: {cumulative_total}")
-        if total_counts:
-            for cat, count in total_counts.items():
-                if count > 0:
-                    human_text_lines.append(f"\t- {cat}: {count}")
+        # if total_counts:
+        #     for cat, count in total_counts.items():
+        #         if count > 0:
+        #             human_text_lines.append(f"\t- {cat}: {count}")
         # CHANGE: Use _tracked_plate_texts instead of _seen_plate_texts for TOTAL SINCE
+        
         if self._tracked_plate_texts:
             human_text_lines.append("\t- Unique License Plates:")
             for text in sorted(self._tracked_plate_texts.values()):
@@ -865,6 +870,8 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
     def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
         """Get formatted current timestamp based on stream type."""
+        print('STREAM INFO-------------------------------')
+        print(stream_info)
         if not stream_info:
             return "00:00:00.00"
         if precision:
@@ -874,7 +881,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 else:
                     start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
                 stream_time_str = self._format_timestamp_for_video(start_time)
-                return stream_time_str
+                print('CURRENTTTT TIME-------------------------------',stream_info.get("input_settings", {}).get("stream_time", "NA"))
+
+                return stream_info.get("input_settings", {}).get("stream_time", "NA")
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
@@ -883,8 +892,11 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
             else:
                 start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+
             stream_time_str = self._format_timestamp_for_video(start_time)
-            return stream_time_str
+            print('CURRENTTTT TIME-------------------------------',stream_info.get("input_settings", {}).get("stream_time", "NA"))
+
+            return stream_info.get("input_settings", {}).get("stream_time", "NA")
         else:
             stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
             if stream_time_str:

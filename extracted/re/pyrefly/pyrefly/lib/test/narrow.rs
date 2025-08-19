@@ -1267,7 +1267,7 @@ class B: pass
 class C(A, B): pass  # not used, but demonstrates why the narrow is not Never
 def f(x: A):
     if isinstance(x, B):
-        # In theory we could use `A & B` here; any common sublcass like `C` is possible.
+        # In theory we could use `A & B` here; any common subclass like `C` is possible.
         # Given that we don't have intersections, we follow Pyre's lead and use `B`
         assert_type(x, B)
 "#,
@@ -1625,4 +1625,21 @@ class C:
     def is_int_static(x: str) -> TypeIs[int]: # E: Return type `int` must be assignable to the first argument type `str`
         return isinstance(x, int)
 "#,
+);
+
+testcase!(
+    test_while_try_except,
+    r#"
+from typing import assert_type
+class Test:
+    x: dict[str, str] | None
+    def test(self) -> None:
+        assert self.x is not None
+        while True:
+            try:
+                assert_type(self.x, dict[str, str])
+                x = self.x.get("asdf")
+            except:
+                pass
+    "#,
 );

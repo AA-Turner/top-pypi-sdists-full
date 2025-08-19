@@ -12,13 +12,13 @@
 from __future__ import annotations
 
 from operator import itemgetter
-from typing import Any, cast, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
 import trafaret as t
 from typing_extensions import Literal, Unpack
 
 from datarobot._compat import Int, String
-from datarobot.enums import AnomalyAssessmentStatus, DATA_SUBSET, SOURCE_TYPE
+from datarobot.enums import DATA_SUBSET, SOURCE_TYPE, AnomalyAssessmentStatus
 from datarobot.models.api_object import APIObject
 from datarobot.models.types import (
     AnomalyAssessmentDataPoint,

@@ -9,6 +9,8 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from datetime import datetime
 import sys
 import types
@@ -19,7 +21,7 @@ import trafaret as t
 
 from datarobot import DataStore as BaseDataStore
 from datarobot._compat import String
-from datarobot.models.data_store import _data_store_params_converter, DataStoreParameters
+from datarobot.models.data_store import DataStoreParameters, _data_store_params_converter
 from datarobot.utils import parse_time
 
 DATABRICKS_DRIVER_CLASS = "databricks-v1"

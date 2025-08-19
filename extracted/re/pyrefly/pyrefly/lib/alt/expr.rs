@@ -55,7 +55,6 @@ use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
 use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
-use crate::graph::index::Idx;
 use crate::types::callable::Callable;
 use crate::types::callable::FunctionKind;
 use crate::types::callable::Param;
@@ -190,7 +189,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn expr_with_separate_check_errors(
         &self,
         x: &Expr,
-        check: Option<(HintRef, &dyn Fn() -> TypeCheckContext)>,
+        check: Option<(&Type, &ErrorCollector, &dyn Fn() -> TypeCheckContext)>,
         errors: &ErrorCollector,
     ) -> Type {
         self.expr_type_info_with_separate_check_errors(x, check, errors)
@@ -236,7 +235,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     x.attr.id(),
                     x.attr.range,
                 );
-                self.attr_infer(&base, &x.attr.id, x.range, errors, None)
+                let attr_type = self.attr_infer(&base, &x.attr.id, x.range, errors, None);
+                if base.ty().is_literal_string() {
+                    match attr_type.ty() {
+                        Type::BoundMethod(method) => attr_type
+                            .clone()
+                            .with_ty(method.with_bound_object(base.ty().clone()).as_type()),
+                        _ => attr_type,
+                    }
+                } else {
+                    attr_type
+                }
             }
             Expr::Subscript(x) => {
                 // TODO: We don't deal properly with hint here, we should.
@@ -266,7 +275,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> TypeInfo {
         self.expr_type_info_with_separate_check_errors(
             x,
-            check.map(|(ty, tcc)| (HintRef::new(ty, errors), tcc)),
+            check.map(|(ty, tcc)| (ty, errors, tcc)),
             errors,
         )
     }
@@ -274,13 +283,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn expr_type_info_with_separate_check_errors(
         &self,
         x: &Expr,
-        check: Option<(HintRef, &dyn Fn() -> TypeCheckContext)>,
+        check: Option<(&Type, &ErrorCollector, &dyn Fn() -> TypeCheckContext)>,
         errors: &ErrorCollector,
     ) -> TypeInfo {
         match check {
-            Some((hint, tcc)) if !hint.ty().is_any() => {
-                let got = self.expr_infer_type_info_with_hint(x, Some(hint), errors);
-                self.check_and_return_type_info(hint.ty(), got, x.range(), hint.errors(), tcc)
+            Some((hint, hint_errors, tcc)) if !hint.is_any() => {
+                let got = self.expr_infer_type_info_with_hint(
+                    x,
+                    Some(HintRef::new(hint, Some(hint_errors))),
+                    errors,
+                );
+                self.check_and_return_type_info(hint, got, x.range(), hint_errors, tcc)
             }
             _ => self.expr_infer_type_info_with_hint(x, None, errors),
         }
@@ -314,7 +327,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None => self.union(body_type, orelse_type),
                 }
             }
-            Expr::BoolOp(x) => self.boolop(&x.values, x.op, errors),
+            Expr::BoolOp(x) => self.boolop(&x.values, x.op, hint, errors),
             Expr::BinOp(x) => self.binop_infer(x, hint, errors),
             Expr::UnaryOp(x) => self.unop_infer(x, errors),
             Expr::Lambda(lambda) => {
@@ -480,7 +493,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::List(x) => {
                 let elt_hint = hint.and_then(|ty| self.decompose_list(ty));
                 if x.is_empty() {
-                    let elem_ty = self.solver().fresh_contained(self.uniques).to_type();
+                    let elem_ty = elt_hint.map_or_else(
+                        || self.solver().fresh_contained(self.uniques).to_type(),
+                        |hint| hint.to_type(),
+                    );
                     self.stdlib.list(elem_ty).to_type()
                 } else {
                     let elem_tys = self.elts_infer(&x.elts, elt_hint, errors);
@@ -659,6 +675,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             let arg_ty = self.expr_infer(&x.arguments.args[0], errors);
                             self.type_of(arg_ty)
                         }
+                        // Decorators can be applied in two ways:
+                        //   - (common, idiomatic) via `@decorator`:
+                        //     @staticmethod
+                        //     def f(): ...
+                        //   - (uncommon, mostly seen in legacy code) via a function call:
+                        //     def f(): ...
+                        //     f = staticmethod(f)
+                        // Check if this call applies a decorator with known typing effects to a function.
+                        _ if let Some(ret) = self.maybe_apply_function_decorator(ty, &args, &kws, errors) => ret,
                         _ => {
                             let callable = self.as_call_target_or_error(
                                 ty.clone(),
@@ -774,9 +799,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &check_errors,
                 &item_errors,
             );
-            // We use the TypedDict hint if it is the only one or if it is successfully matched.
-            if hints.len() == 1 || check_errors.is_empty() {
-                hint.errors().extend(check_errors);
+
+            // We use the TypedDict hint if it successfully matched or if there is only one hint, unless
+            // this is a "soft" type hint, in which case we don't want to raise any check errors.
+            if check_errors.is_empty()
+                || hints.len() == 1
+                    && hint
+                        .errors()
+                        .inspect(|errors| errors.extend(check_errors))
+                        .is_some()
+            {
                 errors.extend(item_errors);
                 return (*hint.ty()).clone();
             }
@@ -884,7 +916,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     // Helper method for inferring the type of a boolean operation over a sequence of values.
-    fn boolop(&self, values: &[Expr], op: BoolOp, errors: &ErrorCollector) -> Type {
+    fn boolop(
+        &self,
+        values: &[Expr],
+        op: BoolOp,
+        hint: Option<HintRef>,
+        errors: &ErrorCollector,
+    ) -> Type {
         let target = match op {
             BoolOp::And => false,
             BoolOp::Or => true,
@@ -893,33 +931,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             |t: &Type, r: TextRange| self.as_bool(t, r, errors) == Some(target);
         let should_discard = |t: &Type, r: TextRange| self.as_bool(t, r, errors) == Some(!target);
 
-        let mut types = Vec::new();
+        let mut t_acc = Type::never();
         let last_index = values.len() - 1;
         for (i, value) in values.iter().enumerate() {
-            let mut t = self.expr_infer(value, errors);
+            // If there isn't a hint for the overall expression, use the preceding branches as a "soft" hint
+            // for the next one. Most useful for expressions like `optional_list or []`.
+            let hint = hint.or_else(|| Some(HintRef::new(&t_acc, None)));
+            let mut t = self.expr_infer_with_hint(value, hint, errors);
             self.expand_type_mut(&mut t);
             if should_shortcircuit(&t, value.range()) {
-                types.push(t);
+                t_acc = self.union(t_acc, t);
                 break;
             }
             for t in t.into_unions() {
                 // If we reach the last value, we should always keep it.
                 if i == last_index || !should_discard(&t, value.range()) {
-                    if i != last_index && t == self.stdlib.bool().clone().to_type() {
-                        types.push(Lit::Bool(target).to_type());
+                    let t = if i != last_index && t == self.stdlib.bool().clone().to_type() {
+                        Lit::Bool(target).to_type()
                     } else if i != last_index && t == self.stdlib.int().clone().to_type() && !target
                     {
-                        types.push(Lit::Int(LitInt::new(0)).to_type());
+                        Lit::Int(LitInt::new(0)).to_type()
                     } else if i != last_index && t == self.stdlib.str().clone().to_type() && !target
                     {
-                        types.push(Lit::Str(Default::default()).to_type());
+                        Lit::Str(Default::default()).to_type()
                     } else {
-                        types.push(t);
-                    }
+                        t
+                    };
+                    t_acc = self.union(t_acc, t)
                 }
             }
         }
-        self.unions(types)
+        t_acc
     }
 
     /// Infers types for `if` clauses in the given comprehensions.
@@ -1406,8 +1448,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Apply a decorator. This effectively synthesizes a function call.
     pub fn apply_decorator(
         &self,
-        decorator: Idx<Key>,
+        decorator: Type,
         decoratee: Type,
+        range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
         if matches!(&decoratee, Type::ClassDef(cls) if cls.has_qname("typing", "TypeVar")) {
@@ -1415,14 +1458,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // itself depends on a TypeVar.
             return decoratee;
         }
-        let ty_decorator = self.get_idx(decorator).arc_clone_ty();
         if matches!(&decoratee, Type::ClassDef(_)) {
             // TODO: don't blanket ignore class decorators.
             return decoratee;
         }
-        let range = self.bindings().idx_to_key(decorator).range();
-        let call_target =
-            self.as_call_target_or_error(ty_decorator, CallStyle::FreeForm, range, errors, None);
+        let call_target = self.as_call_target_or_error(
+            decorator.clone(),
+            CallStyle::FreeForm,
+            range,
+            errors,
+            None,
+        );
         let arg = CallArg::ty(&decoratee, range);
         self.call_infer(call_target, &[arg], &[], range, errors, None, None, None)
     }

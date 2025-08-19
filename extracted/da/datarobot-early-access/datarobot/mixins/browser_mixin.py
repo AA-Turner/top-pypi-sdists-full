@@ -9,6 +9,8 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 import webbrowser
 
 from datarobot.utils.logger import get_logger

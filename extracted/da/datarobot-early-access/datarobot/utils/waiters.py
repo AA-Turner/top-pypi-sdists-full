@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
 from datarobot import errors
 

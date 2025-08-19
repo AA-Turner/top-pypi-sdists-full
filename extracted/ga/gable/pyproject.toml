@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gable"
-version = "0.37.8"
+version = "0.38.0"
 description = "Command line interface (CLI) and software development kit (SDK) to interact with Gable API"
 authors = ["Gable.ai <engineers@gable.ai>"]
 readme = "README.md"
@@ -67,7 +67,7 @@ isort = "^5.12.0"
 moto = "^5.0.5"
 poethepoet = "^0.37.0"
 pytest = "^7.3.1"
-pyright = "^1.1.374"
+pyright = "^1.1.403"
 requests-mock = "^1.12.1"
 waiting = "^1.4.1"
 tox = "^4.11.3"
@@ -130,7 +130,7 @@ shell = "bash scripts/generate_types.sh"
 script = "scripts.publish_pypi:main"
 
 [tool.poe.tasks.lint]
-shell = "pylint gable scripts tests --disable=C,R,W,E1101,E0611"
+shell = "echo 'Beginning linting...'; pylint gable scripts tests --disable=C,R,W,E1101,E0611"
 
 [tool.poe.tasks.format]
 shell = "echo 'Beginning formatting...'; black . && isort . --quiet && autoflake --recursive . --quiet --in-place; echo 'Formatting complete.'"
@@ -139,7 +139,7 @@ shell = "echo 'Beginning formatting...'; black . && isort . --quiet && autoflake
 shell = "black . --check && isort . --check-only && autoflake --recursive . --check-diff --quiet"
 
 [tool.poe.tasks.typecheck]
-shell = "pyright ."
+shell = "echo 'Beginning typechecking...'; pyright; echo 'Typechecking complete.'"
 
 [tool.poe.tasks.check_deps]
 shell = "deptry ."

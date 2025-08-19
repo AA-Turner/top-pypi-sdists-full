@@ -1,5 +1,3 @@
-"""Module providing augmentation server functionality."""
-
 import logging
 import threading
 import urllib.request
@@ -8,6 +6,7 @@ import signal
 import atexit
 import base64
 import io
+import time  # <-- Added for idle tracking
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -23,6 +22,7 @@ from matrice.utils import dependencies_check
 from matrice.data_processing.augmentation_utils.strategies import *
 
 dependencies_check(["albumentations", "httpx", "opencv-python-headless"])
+
 
 class ImageAugmentationStrategy(ABC):
     def __init__(self, **kwargs):
@@ -41,7 +41,6 @@ class AugmentationStep:
 
 class AugmentationStrategyFactory:
     """Factory class to create augmentation strategy instances."""
-
     STRATEGIES = {
         'blur': BlurAugmentation,
         'bit_depth_reduction': BitDepthReductionAugmentation,
@@ -68,17 +67,13 @@ class AugmentationStrategyFactory:
     @classmethod
     def create_strategy(cls, aug_step: AugmentationStep) -> ImageAugmentationStrategy:
         strategy_name_lower = aug_step.name.lower()
-        
-        # Handle both snake_case and PascalCase keys from requests
         pascal_case_map = {k.replace('_', ''): v for k, v in cls.STRATEGIES.items()}
-        
         if strategy_name_lower in cls.STRATEGIES:
             strategy_class = cls.STRATEGIES[strategy_name_lower]
         elif strategy_name_lower in pascal_case_map:
             strategy_class = pascal_case_map[strategy_name_lower]
         else:
             raise ValueError(f"Unknown augmentation strategy: {aug_step.name}")
-
         return strategy_class(**aug_step.params)
 
 
@@ -112,33 +107,47 @@ class AugmentationServer:
         self._server_thread = None
         self.app = FastAPI(title="Matrice Augmentation Server", version="1.0.0")
 
+        # Track last request time
+        self.last_request_time = time.time()
+        self.idle_timeout_seconds = 600  # 10 minutes
+
         self._setup_routes()
         self._setup_shutdown_handlers()
         self._fetch_action_details()
+        self._start_idle_monitor()  # Start idle monitoring
+
         logging.info("Successfully initialized augmentation server on IP: %s", self.ip)
-    
+
+    def _start_idle_monitor(self):
+        """Background thread that shuts down server if idle for too long."""
+        def monitor():
+            while not self._shutdown_event.is_set():
+                time.sleep(60)  # Check every 1 minute
+                idle_time = time.time() - self.last_request_time
+                if idle_time > self.idle_timeout_seconds:
+                    logging.info("No requests received for 10 minutes. Stopping server due to inactivity...")
+                    self.stop_server()
+                    break
+        t = threading.Thread(target=monitor, daemon=True, name="IdleMonitor")
+        t.start()
+
     def _apply_augmentations(self, image_np: np.ndarray, bboxes_coco: List[List[float]], configs: Dict) -> Dict:
         """Applies a sequence of augmentations using the factory."""
         current_image = image_np.copy()
         current_bboxes = bboxes_coco
-
         for aug_name, aug_params in configs.items():
             try:
                 aug_step = AugmentationStep(name=aug_name, params=aug_params)
                 strategy = AugmentationStrategyFactory.create_strategy(aug_step)
-                
                 augmented_image, _, _, new_bboxes = strategy.apply(
                     current_image, current_bboxes, bbox_format='coco'
                 )
-
                 current_image = augmented_image
                 current_bboxes = new_bboxes
                 logging.info(f"Successfully applied augmentation: {aug_name}")
-
             except Exception as e:
                 logging.error(f"Failed to apply augmentation {aug_name}: {e}", exc_info=True)
                 raise HTTPException(status_code=400, detail=f"Error applying {aug_name}: {e}")
-
         return {"image": current_image, "bboxes": current_bboxes}
 
     def _setup_routes(self) -> None:
@@ -146,6 +155,7 @@ class AugmentationServer:
         @self.app.post("/augment", response_model=AugmentationResponse)
         async def augment_dataset_item(request: AugmentationRequest):
             """Augment dataset item using the new strategy-based approach."""
+            self.last_request_time = time.time()  # Update last activity
             try:
                 logging.info("Received augmentation request: %s", request)
                 if not request.image_url and not request.image_base64:
@@ -154,24 +164,19 @@ class AugmentationServer:
                     raise HTTPException(status_code=400, detail="An upload_url must be provided")
                 if not request.augmentation_configs:
                     raise HTTPException(status_code=400, detail="No augmentation configs provided")
-
                 image_pil = await self._load_image(request.image_url, request.image_base64)
                 image_np = np.array(image_pil)
-
                 augmented_result = self._apply_augmentations(
                     image_np=image_np,
                     bboxes_coco=request.image_bboxes,
                     configs=request.augmentation_configs
                 )
-                
                 augmented_image_np = augmented_result["image"]
                 image_bgr = cv2.cvtColor(augmented_image_np, cv2.COLOR_RGB2BGR)
                 is_success, img_encoded = cv2.imencode(".jpg", image_bgr)
                 if not is_success:
                     raise HTTPException(status_code=500, detail="Failed to encode augmented image.")
-                
                 img_bytes = img_encoded.tobytes()
-
                 async with httpx.AsyncClient() as client:
                     upload_response = await client.put(
                         request.upload_url,
@@ -179,21 +184,17 @@ class AugmentationServer:
                         headers={'Content-Type': 'image/jpeg'},
                         timeout=60.0,
                     )
-
                 if upload_response.status_code not in [200, 201, 204]:
                     error_detail = f"Failed to upload image. Status: {upload_response.status_code}. Response: {upload_response.text}"
                     logging.error(error_detail)
                     raise HTTPException(status_code=500, detail=error_detail)
-
                 permanent_url = request.upload_url.split('?')[0]
-
                 return AugmentationResponse(
                     success=True,
                     message="Augmentation completed and image uploaded successfully",
                     augmented_image_url=permanent_url,
                     augmented_bboxes=augmented_result.get("bboxes", []),
                 )
-
             except HTTPException:
                 raise
             except Exception as e:
@@ -202,10 +203,12 @@ class AugmentationServer:
 
         @self.app.get("/health")
         async def health_check():
+            self.last_request_time = time.time()  # Update last activity
             return {"status": "healthy", "server": "augmentation_server"}
 
         @self.app.get("/")
         async def root():
+            self.last_request_time = time.time()  # Update last activity
             return {"message": "Matrice Augmentation Server", "version": "1.0.0"}
 
     def _get_external_ip(self) -> str:
@@ -297,15 +300,15 @@ class AugmentationServer:
         except Exception as e:
             logging.error("Exception in update_status: %s", str(e))
 
-    def update_server_address(self) -> None:
+    def update_server_address(self, status, port, host) -> None:
         """Update server address in the backend."""
         try:
             path = "/v1/actions/augmentation_servers"
             payload = {
                 "id": self.augmentation_server_id,
-                "host": self.ip,
-                "port": int(self.port),
-                "status": "running",
+                "host": host,
+                "port": int(port),
+                "status": status,
                 "isShared": True,
             }
             resp = self.rpc.put(path=path, payload=payload)
@@ -317,7 +320,7 @@ class AugmentationServer:
         """Start the augmentation server."""
         try:
             self.update_status("DCKR_PROC", "OK", "Starting augmentation server")
-            self.update_server_address()
+            self.update_server_address("running", self.port, self.ip)
             def run_server():
                 try:
                     logging.info("Starting uvicorn server on %s:%d", self.ip, self.port)
@@ -344,6 +347,7 @@ class AugmentationServer:
             self._shutdown_event.set()
             try:
                 self.update_status("STOPPED", "STOPPED", "Augmentation server stopped")
+                self.update_server_address("stopped", 0, "")
             except Exception as e:
                 logging.error(f"Failed to update stop status: {e}")
 

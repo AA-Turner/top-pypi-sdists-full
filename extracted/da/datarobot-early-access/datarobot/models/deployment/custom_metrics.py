@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import dateutil
 import pandas as pd
@@ -21,10 +21,10 @@ import trafaret as t
 
 from datarobot.enums import (
     BUCKET_SIZE,
+    DEFAULT_MAX_WAIT,
     CustomMetricAggregationType,
     CustomMetricBucketTimeStep,
     CustomMetricDirectionality,
-    DEFAULT_MAX_WAIT,
     HostedCustomMetricsTemplateMetricTypeQueryParams,
     ListHostedCustomMetricTemplatesSortQueryParams,
 )

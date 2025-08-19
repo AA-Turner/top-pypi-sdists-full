@@ -43,17 +43,18 @@ use tracing::info;
 use crate::alt::answers::Answers;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::decorated_function::DecoratedFunction;
-use crate::binding::binding::FunctionStubOrImpl;
+use crate::binding::binding::BindingClass;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
-use crate::binding::binding::KeyFunction;
+use crate::binding::binding::KeyDecoratedFunction;
 use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::typeshed;
 use crate::state::handle::Handle;
 use crate::state::lsp::DefinitionMetadata;
 use crate::state::lsp::FindDefinitionItemWithDocstring;
+use crate::state::lsp::FindPreference;
 use crate::state::state::Transaction;
 use crate::types::display::TypeDisplayContext;
 use crate::types::stdlib::Stdlib;
@@ -142,6 +143,8 @@ struct ClassDefinition {
     name: String,
     bases: Vec<ClassRef>,
     parent: ScopeParent,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_synthesized: bool, // True if this class was synthesized (e.g., from namedtuple), false if from actual `class X:` statement
 }
 
 /// Format of a module file `my.module:id.json`
@@ -293,7 +296,7 @@ fn visit_expression(e: &Expr, context: &mut VisitorContext) {
     // If the expression has a type, export it.
     if let Some(type_) = context.answers.get_type_trace(range) {
         // Promote `Literal[..]` into `str` or `int`.
-        let type_ = (*type_).clone().promote_literals(context.stdlib);
+        let type_ = type_.promote_literals(context.stdlib);
 
         let display_range = context.module_info.display_range(range);
 
@@ -325,7 +328,11 @@ fn visit_expression(e: &Expr, context: &mut VisitorContext) {
 
             let definitions = context
                 .transaction
-                .find_definition_for_name_use(context.handle, &identifier, true)
+                .find_definition_for_name_use(
+                    context.handle,
+                    &identifier,
+                    &FindPreference::default(),
+                )
                 .map_or(vec![], |d| vec![d]);
 
             add_expression_definitions(&display_range, definitions, name.id.as_str(), context);
@@ -336,6 +343,7 @@ fn visit_expression(e: &Expr, context: &mut VisitorContext) {
                 context.handle,
                 attribute.value.range(),
                 &attribute.attr,
+                &FindPreference::default(),
             );
             add_expression_definitions(
                 &display_range,
@@ -520,10 +528,10 @@ fn get_scope_parent(ast: &ModModule, module_info: &Module, range: TextRange) -> 
 fn get_all_functions(
     bindings: &Bindings,
     answers: &Answers,
-) -> impl Iterator<Item = Arc<DecoratedFunction>> {
+) -> impl Iterator<Item = DecoratedFunction> {
     bindings
-        .keys::<KeyFunction>()
-        .map(|idx| answers.get_idx(idx).unwrap().clone())
+        .keys::<KeyDecoratedFunction>()
+        .map(|idx| DecoratedFunction::from_bindings_answers(idx, bindings, answers))
 }
 
 fn export_all_functions(
@@ -535,9 +543,9 @@ fn export_all_functions(
     let mut function_definitions = HashMap::new();
 
     for function in get_all_functions(bindings, answers) {
-        let display_range = module_info.display_range(function.id_range);
-        let name = function.metadata.kind.as_func_id().func.to_string();
-        let parent = get_scope_parent(ast, module_info, function.id_range);
+        let display_range = module_info.display_range(function.id_range());
+        let name = function.metadata().kind.as_func_id().func.to_string();
+        let parent = get_scope_parent(ast, module_info, function.id_range());
         assert!(
             function_definitions
                 .insert(
@@ -545,16 +553,16 @@ fn export_all_functions(
                     FunctionDefinition {
                         name,
                         parent,
-                        is_overload: function.metadata.flags.is_overload,
-                        is_staticmethod: function.metadata.flags.is_staticmethod,
-                        is_classmethod: function.metadata.flags.is_classmethod,
-                        is_property_getter: function.metadata.flags.is_property_getter,
+                        is_overload: function.metadata().flags.is_overload,
+                        is_staticmethod: function.metadata().flags.is_staticmethod,
+                        is_classmethod: function.metadata().flags.is_classmethod,
+                        is_property_getter: function.metadata().flags.is_property_getter,
                         is_property_setter: function
-                            .metadata
+                            .metadata()
                             .flags
                             .is_property_setter_with_getter
                             .is_some(),
-                        is_stub: function.stub_or_impl == FunctionStubOrImpl::Stub,
+                        is_stub: function.is_stub(),
                     }
                 )
                 .is_none(),
@@ -568,7 +576,7 @@ fn export_all_functions(
 fn get_all_classes(bindings: &Bindings, answers: &Answers) -> impl Iterator<Item = Class> {
     bindings
         .keys::<KeyClass>()
-        .filter_map(|idx| answers.get_idx(idx).unwrap().0.clone())
+        .map(|idx| answers.get_idx(idx).unwrap().0.clone().unwrap())
 }
 
 fn export_all_classes(
@@ -580,13 +588,19 @@ fn export_all_classes(
 ) -> HashMap<String, ClassDefinition> {
     let mut class_definitions = HashMap::new();
 
-    for class in get_all_classes(bindings, answers) {
+    for class_idx in bindings.keys::<KeyClass>() {
+        let class = answers.get_idx(class_idx).unwrap().0.clone().unwrap();
         let display_range = module_info.display_range(class.qname().range());
         let class_index = class.index();
         let parent = get_scope_parent(ast, module_info, class.qname().range());
         let metadata = answers
             .get_idx(bindings.key_to_idx(&KeyClassMetadata(class_index)))
             .unwrap();
+
+        let is_synthesized = match bindings.get(class_idx) {
+            BindingClass::FunctionalClassDef(_, _, _) => true,
+            BindingClass::ClassDef(_) => false,
+        };
 
         let class_definition = ClassDefinition {
             class_id: ClassId::from_class(&class),
@@ -604,6 +618,7 @@ fn export_all_classes(
                     class_name: base_class.qname().id().to_string(),
                 })
                 .collect::<Vec<_>>(),
+            is_synthesized,
         };
 
         assert!(
@@ -651,7 +666,7 @@ fn is_pytest_module(bindings: &Bindings, answers: &Answers, ast: &ModModule) -> 
     fn has_test_function(bindings: &Bindings, answers: &Answers) -> bool {
         get_all_functions(bindings, answers).any(|function| {
             function
-                .metadata
+                .metadata()
                 .kind
                 .as_func_id()
                 .func

@@ -29,6 +29,7 @@ from functools import partial, reduce, wraps
 from itertools import groupby, count, chain
 import json
 import logging
+from typing import Optional
 from warnings import warn
 from random import random
 import re
@@ -50,7 +51,7 @@ from cassandra.auth import _proxy_execute_key, PlainTextAuthProvider
 from cassandra.connection import (ConnectionException, ConnectionShutdown,
                                   ConnectionHeartbeat, ProtocolVersionUnsupported,
                                   EndPoint, DefaultEndPoint, DefaultEndPointFactory,
-                                  ContinuousPagingState, SniEndPointFactory, ConnectionBusy)
+                                  SniEndPointFactory, ConnectionBusy)
 from cassandra.cqltypes import UserType
 import cassandra.cqltypes as types
 from cassandra.encoder import Encoder
@@ -74,7 +75,7 @@ from cassandra.policies import (TokenAwarePolicy, DCAwareRoundRobinPolicy, Simpl
                                 NoSpeculativeExecutionPolicy, DefaultLoadBalancingPolicy,
                                 NeverRetryPolicy)
 from cassandra.pool import (Host, _ReconnectionHandler, _HostReconnectionHandler,
-                            HostConnectionPool, HostConnection,
+                            HostConnection,
                             NoConnectionsAvailable)
 from cassandra.query import (SimpleStatement, PreparedStatement, BoundStatement,
                              BatchStatement, bind_params, QueryTrace, TraceUnavailable,
@@ -95,6 +96,7 @@ from cassandra.datastax.graph import (graph_object_row_factory, GraphOptions, Gr
 from cassandra.datastax.graph.query import _request_timeout_key, _GraphSONContextRowFactory
 from cassandra.datastax import cloud as dscloud
 from cassandra.scylla.cloud import CloudConfiguration
+from cassandra.application_info import ApplicationInfoBase
 
 try:
     from cassandra.io.twistedreactor import TwistedConnection
@@ -189,15 +191,6 @@ DefaultConnection = conn_class
 
 log = logging.getLogger(__name__)
 
-
-DEFAULT_MIN_REQUESTS = 5
-DEFAULT_MAX_REQUESTS = 100
-
-DEFAULT_MIN_CONNECTIONS_PER_LOCAL_HOST = 2
-DEFAULT_MAX_CONNECTIONS_PER_LOCAL_HOST = 8
-
-DEFAULT_MIN_CONNECTIONS_PER_REMOTE_HOST = 1
-DEFAULT_MAX_CONNECTIONS_PER_REMOTE_HOST = 2
 
 _GRAPH_PAGING_MIN_DSE_VERSION = Version('6.8.0')
 
@@ -670,7 +663,7 @@ class Cluster(object):
     server will be automatically used.
     """
 
-    protocol_version = ProtocolVersion.DSE_V2
+    protocol_version = ProtocolVersion.V5
     """
     The maximum version of the native protocol to use.
 
@@ -678,7 +671,7 @@ class Cluster(object):
 
     If not set in the constructor, the driver will automatically downgrade
     version based on a negotiation with the server, but it is most efficient
-    to set this to the maximum supported by your version of Cassandra.
+    to set this to the maximum supported by your version of ScyllaDB.
     Setting this will also prevent conflicting versions negotiated if your
     cluster is upgraded.
 
@@ -706,6 +699,19 @@ class Cluster(object):
     Setting this to :const:`False` disables compression.
     """
 
+    _application_info: Optional[ApplicationInfoBase] = None
+
+    @property
+    def application_info(self) -> Optional[ApplicationInfoBase]:
+        """
+        An instance of any subclass of :class:`.application_info.ApplicationInfoBase`.
+
+        Defaults to None
+
+        When set makes driver sends information about application that uses driver in startup frame
+        """
+        return self._application_info
+
     _auth_provider = None
     _auth_provider_callable = None
 
@@ -716,9 +722,6 @@ class Cluster(object):
         be an instance of a subclass of :class:`~cassandra.auth.AuthProvider`,
         such as :class:`~.PlainTextAuthProvider`.
 
-        When :attr:`~.Cluster.protocol_version` is 1, this should be
-        a function that accepts one argument, the IP address of a node,
-        and returns a dict of credentials for that node.
 
         When not using authentication, this should be left as :const:`None`.
         """
@@ -1024,7 +1027,7 @@ class Cluster(object):
     documentation for :meth:`Session.timestamp_generator`.
     """
 
-    monitor_reporting_enabled = True
+    monitor_reporting_enabled = False
     """
     A boolean indicating if monitor reporting, which sends gathered data to
     Insights when running against DSE 6.8 and higher.
@@ -1204,6 +1207,7 @@ class Cluster(object):
                  shard_aware_options=None,
                  metadata_request_timeout=None,
                  column_encryption_policy=None,
+                 application_info:Optional[ApplicationInfoBase]=None
                  ):
         """
         ``executor_threads`` defines the number of threads in a pool for handling asynchronous tasks such as
@@ -1329,6 +1333,12 @@ class Cluster(object):
                 raise TypeError("address_translator should not be a class, it should be an instance of that class")
             self.address_translator = address_translator
 
+        if application_info is not None:
+            if not isinstance(application_info, ApplicationInfoBase):
+                raise TypeError(
+                    "application_info should be an instance of any ApplicationInfoBase class")
+            self._application_info = application_info
+
         if timestamp_generator is not None:
             if not callable(timestamp_generator):
                 raise ValueError("timestamp_generator must be callable")
@@ -1429,30 +1439,6 @@ class Cluster(object):
         self._prepared_statement_lock = Lock()
 
         self._user_types = defaultdict(dict)
-
-        self._min_requests_per_connection = {
-            HostDistance.LOCAL_RACK: DEFAULT_MIN_REQUESTS,
-            HostDistance.LOCAL: DEFAULT_MIN_REQUESTS,
-            HostDistance.REMOTE: DEFAULT_MIN_REQUESTS
-        }
-
-        self._max_requests_per_connection = {
-            HostDistance.LOCAL_RACK: DEFAULT_MAX_REQUESTS,
-            HostDistance.LOCAL: DEFAULT_MAX_REQUESTS,
-            HostDistance.REMOTE: DEFAULT_MAX_REQUESTS
-        }
-
-        self._core_connections_per_host = {
-            HostDistance.LOCAL_RACK: DEFAULT_MIN_CONNECTIONS_PER_LOCAL_HOST,
-            HostDistance.LOCAL: DEFAULT_MIN_CONNECTIONS_PER_LOCAL_HOST,
-            HostDistance.REMOTE: DEFAULT_MIN_CONNECTIONS_PER_REMOTE_HOST
-        }
-
-        self._max_connections_per_host = {
-            HostDistance.LOCAL_RACK: DEFAULT_MAX_CONNECTIONS_PER_LOCAL_HOST,
-            HostDistance.LOCAL: DEFAULT_MAX_CONNECTIONS_PER_LOCAL_HOST,
-            HostDistance.REMOTE: DEFAULT_MAX_CONNECTIONS_PER_REMOTE_HOST
-        }
 
         self.executor = self._create_thread_pool_executor(max_workers=executor_threads)
         self.scheduler = _Scheduler(self.executor)
@@ -1644,115 +1630,6 @@ class Cluster(object):
         if not_done:
             raise OperationTimedOut("Failed to create all new connection pools in the %ss timeout.")
 
-    def get_min_requests_per_connection(self, host_distance):
-        return self._min_requests_per_connection[host_distance]
-
-    def set_min_requests_per_connection(self, host_distance, min_requests):
-        """
-        Sets a threshold for concurrent requests per connection, below which
-        connections will be considered for disposal (down to core connections;
-        see :meth:`~Cluster.set_core_connections_per_host`).
-
-        Pertains to connection pool management in protocol versions {1,2}.
-        """
-        if self.protocol_version >= 3:
-            raise UnsupportedOperation(
-                "Cluster.set_min_requests_per_connection() only has an effect "
-                "when using protocol_version 1 or 2.")
-        if min_requests < 0 or min_requests > 126 or \
-           min_requests >= self._max_requests_per_connection[host_distance]:
-            raise ValueError("min_requests must be 0-126 and less than the max_requests for this host_distance (%d)" %
-                             (self._min_requests_per_connection[host_distance],))
-        self._min_requests_per_connection[host_distance] = min_requests
-
-    def get_max_requests_per_connection(self, host_distance):
-        return self._max_requests_per_connection[host_distance]
-
-    def set_max_requests_per_connection(self, host_distance, max_requests):
-        """
-        Sets a threshold for concurrent requests per connection, above which new
-        connections will be created to a host (up to max connections;
-        see :meth:`~Cluster.set_max_connections_per_host`).
-
-        Pertains to connection pool management in protocol versions {1,2}.
-        """
-        if self.protocol_version >= 3:
-            raise UnsupportedOperation(
-                "Cluster.set_max_requests_per_connection() only has an effect "
-                "when using protocol_version 1 or 2.")
-        if max_requests < 1 or max_requests > 127 or \
-           max_requests <= self._min_requests_per_connection[host_distance]:
-            raise ValueError("max_requests must be 1-127 and greater than the min_requests for this host_distance (%d)" %
-                             (self._min_requests_per_connection[host_distance],))
-        self._max_requests_per_connection[host_distance] = max_requests
-
-    def get_core_connections_per_host(self, host_distance):
-        """
-        Gets the minimum number of connections per Session that will be opened
-        for each host with :class:`~.HostDistance` equal to `host_distance`.
-        The default is 2 for :attr:`~HostDistance.LOCAL` and 1 for
-        :attr:`~HostDistance.REMOTE`.
-
-        This property is ignored if :attr:`~.Cluster.protocol_version` is
-        3 or higher.
-        """
-        return self._core_connections_per_host[host_distance]
-
-    def set_core_connections_per_host(self, host_distance, core_connections):
-        """
-        Sets the minimum number of connections per Session that will be opened
-        for each host with :class:`~.HostDistance` equal to `host_distance`.
-        The default is 2 for :attr:`~HostDistance.LOCAL` and 1 for
-        :attr:`~HostDistance.REMOTE`.
-
-        Protocol version 1 and 2 are limited in the number of concurrent
-        requests they can send per connection. The driver implements connection
-        pooling to support higher levels of concurrency.
-
-        If :attr:`~.Cluster.protocol_version` is set to 3 or higher, this
-        is not supported (there is always one connection per host, unless
-        the host is remote and :attr:`connect_to_remote_hosts` is :const:`False`)
-        and using this will result in an :exc:`~.UnsupportedOperation`.
-        """
-        if self.protocol_version >= 3:
-            raise UnsupportedOperation(
-                "Cluster.set_core_connections_per_host() only has an effect "
-                "when using protocol_version 1 or 2.")
-        old = self._core_connections_per_host[host_distance]
-        self._core_connections_per_host[host_distance] = core_connections
-        if old < core_connections:
-            self._ensure_core_connections()
-
-    def get_max_connections_per_host(self, host_distance):
-        """
-        Gets the maximum number of connections per Session that will be opened
-        for each host with :class:`~.HostDistance` equal to `host_distance`.
-        The default is 8 for :attr:`~HostDistance.LOCAL` and 2 for
-        :attr:`~HostDistance.REMOTE`.
-
-        This property is ignored if :attr:`~.Cluster.protocol_version` is
-        3 or higher.
-        """
-        return self._max_connections_per_host[host_distance]
-
-    def set_max_connections_per_host(self, host_distance, max_connections):
-        """
-        Sets the maximum number of connections per Session that will be opened
-        for each host with :class:`~.HostDistance` equal to `host_distance`.
-        The default is 2 for :attr:`~HostDistance.LOCAL` and 1 for
-        :attr:`~HostDistance.REMOTE`.
-
-        If :attr:`~.Cluster.protocol_version` is set to 3 or higher, this
-        is not supported (there is always one connection per host, unless
-        the host is remote and :attr:`connect_to_remote_hosts` is :const:`False`)
-        and using this will result in an :exc:`~.UnsupportedOperation`.
-        """
-        if self.protocol_version >= 3:
-            raise UnsupportedOperation(
-                "Cluster.set_max_connections_per_host() only has an effect "
-                "when using protocol_version 1 or 2.")
-        self._max_connections_per_host[host_distance] = max_connections
-
     def connection_factory(self, endpoint, host_conn = None, *args, **kwargs):
         """
         Called to create a new connection with proper configuration.
@@ -1779,6 +1656,7 @@ class Cluster(object):
         kwargs_dict.setdefault('user_type_map', self._user_types)
         kwargs_dict.setdefault('allow_beta_protocol_version', self.allow_beta_protocol_version)
         kwargs_dict.setdefault('no_compact', self.no_compact)
+        kwargs_dict.setdefault('application_info', self.application_info)
 
         return kwargs_dict
 
@@ -2726,7 +2604,6 @@ class Session(object):
             raise NoHostAvailable(msg, [h.address for h in hosts])
 
         self.session_id = uuid.uuid4()
-        self._graph_paging_available = self._check_graph_paging_available()
 
         if self.cluster.column_encryption_policy is not None:
             try:
@@ -2923,25 +2800,9 @@ class Session(object):
     def _maybe_set_graph_paging(self, execution_profile):
         graph_paging = execution_profile.continuous_paging_options
         if execution_profile.continuous_paging_options is _NOT_SET:
-            graph_paging = ContinuousPagingOptions() if self._graph_paging_available else None
+            graph_paging = None
 
         execution_profile.continuous_paging_options = graph_paging
-
-    def _check_graph_paging_available(self):
-        """Verify if we can enable graph paging. This executed only once when the session is created."""
-
-        if not ProtocolVersion.has_continuous_paging_next_pages(self._protocol_version):
-            return False
-
-        for host in self.cluster.metadata.all_hosts():
-            if host.dse_version is None:
-                return False
-
-            version = Version(host.dse_version)
-            if version < _GRAPH_PAGING_MIN_DSE_VERSION:
-                return False
-
-        return True
 
     def _resolve_execution_profile_options(self, execution_profile):
         """
@@ -3078,24 +2939,14 @@ class Session(object):
             spec_exec_policy = execution_profile.speculative_execution_policy
 
         fetch_size = query.fetch_size
-        if fetch_size is FETCH_SIZE_UNSET and self._protocol_version >= 2:
+        if fetch_size is FETCH_SIZE_UNSET:
             fetch_size = self.default_fetch_size
-        elif self._protocol_version == 1:
-            fetch_size = None
 
         start_time = time.time()
-        if self._protocol_version >= 3 and self.use_client_timestamp:
+        if self.use_client_timestamp:
             timestamp = self.cluster.timestamp_generator()
         else:
             timestamp = None
-
-        supports_continuous_paging_state = (
-            ProtocolVersion.has_continuous_paging_next_pages(self._protocol_version)
-        )
-        if continuous_paging_options and supports_continuous_paging_state:
-            continuous_paging_state = ContinuousPagingState(continuous_paging_options.max_queue_size)
-        else:
-            continuous_paging_state = None
 
         if isinstance(query, SimpleStatement):
             query_string = query.query_string
@@ -3140,7 +2991,7 @@ class Session(object):
             self, message, query, timeout, metrics=self._metrics,
             prepared_statement=prepared_statement, retry_policy=retry_policy, row_factory=row_factory,
             load_balancer=load_balancing_policy, start_time=start_time, speculative_execution_plan=spec_exec_plan,
-            continuous_paging_state=continuous_paging_state, host=host)
+            continuous_paging_state=None, host=host)
 
     def get_execution_profile(self, name):
         """
@@ -3355,11 +3206,7 @@ class Session(object):
 
         def run_add_or_renew_pool():
             try:
-                if self._protocol_version >= 3:
-                    new_pool = HostConnection(host, distance, self)
-                else:
-                    # TODO remove host pool again ???
-                    new_pool = HostConnectionPool(host, distance, self)
+               new_pool = HostConnection(host, distance, self)
             except AuthenticationFailed as auth_exc:
                 conn_exc = ConnectionException(str(auth_exc), endpoint=host)
                 self.cluster.signal_connection_failure(host, conn_exc, is_host_addition)
@@ -4563,7 +4410,6 @@ class ResponseFuture(object):
     _timer = None
     _protocol_handler = ProtocolHandler
     _spec_execution_plan = NoSpeculativeExecutionPlan()
-    _continuous_paging_options = None
     _continuous_paging_session = None
     _host = None
 
@@ -5405,8 +5251,8 @@ class ResultSet(object):
     @property
     def current_rows(self):
         """
-        The list of current page rows. May be empty if the result was empty,
-        or this is the last page.
+        The list of current page rows. May be empty; this does not mean
+        there is no more data. Use `has_more_pages()` for that.
         """
         return self._current_rows or []
 

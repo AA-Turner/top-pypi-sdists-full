@@ -12,9 +12,11 @@
 #include <sys/stat.h>
 #include <vector>
 
-#include <elf_common.h>
+#include "elf_common.h"
 
 namespace pystack {
+
+using file_unique_ptr = std::unique_ptr<FILE, std::function<int(FILE*)>>;
 typedef uintptr_t remote_addr_t;
 
 struct RemoteMemCopyError : public std::exception
@@ -174,9 +176,12 @@ class ProcessMemoryManager : public AbstractRemoteMemoryManager
     pid_t d_pid;
     std::vector<VirtualMap> d_vmaps;
     mutable LRUCache d_lru_cache;
+    mutable file_unique_ptr d_memfile;
 
     // Methods
     ssize_t readChunk(remote_addr_t addr, size_t len, char* dst) const;
+    ssize_t readChunkDirect(remote_addr_t addr, size_t len, char* dst) const;
+    ssize_t readChunkThroughMemFile(remote_addr_t addr, size_t len, char* dst) const;
 };
 
 struct SimpleVirtualMap
@@ -207,6 +212,15 @@ class CorefileRemoteMemoryManager : public AbstractRemoteMemoryManager
         ERROR,
     };
 
+    struct ElfLoadSegment
+    {
+        GElf_Addr vaddr;
+        GElf_Off offset;
+        GElf_Xword size;
+    };
+    // Cache for PT_LOAD segments
+    mutable std::unordered_map<std::string, std::vector<ElfLoadSegment>> d_elf_load_segments_cache;
+
     // Data members
     std::shared_ptr<CoreFileAnalyzer> d_analyzer;
     std::vector<VirtualMap> d_vmaps;
@@ -220,5 +234,6 @@ class CorefileRemoteMemoryManager : public AbstractRemoteMemoryManager
             remote_addr_t addr,
             const std::string** filename,
             off_t* offset_in_file) const;
+    StatusCode initLoadSegments(const std::string& filename) const;
 };
 }  // namespace pystack

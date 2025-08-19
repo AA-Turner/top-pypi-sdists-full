@@ -137,6 +137,26 @@ def wait_for_gcp_lb_resource_termination(
         )
 
 
+def wait_for_aws_lb_resource_termination(
+    api_client: DefaultApi,
+    cloud_id: str,
+    timeout_s: int = 900,  # 15 minute timeout
+    poll_interval_s: int = 10,  # Poll every 10 seconds
+):
+    start = time.time()
+    while time.time() - start < timeout_s:
+        response = api_client.get_lb_resource_api_v2_clouds_with_cloud_resource_router_cloud_id_get_lb_resource_post(
+            cloud_id=cloud_id
+        ).result
+        if response.is_terminated:
+            break
+        time.sleep(poll_interval_s)
+    else:
+        raise ClickException(
+            f"LB resources and namespace termination timed out after {timeout_s} seconds."
+        )
+
+
 class CloudSetupError(str, Enum):
     ANYSCALE_ACCESS_DENIED = "ANYSCALE_ACCESS_DENIED"
     RESOURCE_NOT_FOUND = "RESOURCE_NOT_FOUND"

@@ -81,7 +81,7 @@ def contract_files_to_contract_inputs(
 
                 contract_input = ExternalContractInput(
                     version="0.0.1",  # This should be server calculated
-                    status=Status("ACTIVE"),
+                    status=Status("ACTIVE"),  # type: ignore
                     contractSpec=ContractSpec(**contract),
                     gitMetadata=GitMetadata(
                         gitHash=git_info["gitHash"],

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: diffusers
-Version: 0.34.0
+Version: 0.35.0
 Summary: State-of-the-art diffusion in PyTorch and JAX.
 Home-page: https://github.com/huggingface/diffusers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/diffusers/graphs/contributors)
@@ -23,7 +23,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: importlib_metadata
 Requires-Dist: filelock
-Requires-Dist: huggingface-hub>=0.27.0
+Requires-Dist: huggingface-hub>=0.34.0
 Requires-Dist: numpy
 Requires-Dist: regex!=2019.12.17
 Requires-Dist: requests
@@ -42,14 +42,14 @@ Requires-Dist: datasets; extra == "training"
 Requires-Dist: protobuf<4,>=3.20.3; extra == "training"
 Requires-Dist: tensorboard; extra == "training"
 Requires-Dist: Jinja2; extra == "training"
-Requires-Dist: peft>=0.15.0; extra == "training"
+Requires-Dist: peft>=0.17.0; extra == "training"
 Provides-Extra: test
 Requires-Dist: compel==0.1.8; extra == "test"
 Requires-Dist: GitPython<3.1.19; extra == "test"
 Requires-Dist: datasets; extra == "test"
 Requires-Dist: Jinja2; extra == "test"
 Requires-Dist: invisible-watermark>=0.2.0; extra == "test"
-Requires-Dist: k-diffusion>=0.0.12; extra == "test"
+Requires-Dist: k-diffusion==0.0.12; extra == "test"
 Requires-Dist: librosa; extra == "test"
 Requires-Dist: parameterized; extra == "test"
 Requires-Dist: pytest; extra == "test"
@@ -92,7 +92,7 @@ Requires-Dist: GitPython<3.1.19; extra == "dev"
 Requires-Dist: datasets; extra == "dev"
 Requires-Dist: Jinja2; extra == "dev"
 Requires-Dist: invisible-watermark>=0.2.0; extra == "dev"
-Requires-Dist: k-diffusion>=0.0.12; extra == "dev"
+Requires-Dist: k-diffusion==0.0.12; extra == "dev"
 Requires-Dist: librosa; extra == "dev"
 Requires-Dist: parameterized; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
@@ -111,7 +111,7 @@ Requires-Dist: datasets; extra == "dev"
 Requires-Dist: protobuf<4,>=3.20.3; extra == "dev"
 Requires-Dist: tensorboard; extra == "dev"
 Requires-Dist: Jinja2; extra == "dev"
-Requires-Dist: peft>=0.15.0; extra == "dev"
+Requires-Dist: peft>=0.17.0; extra == "dev"
 Requires-Dist: hf-doc-builder>=0.3.0; extra == "dev"
 Requires-Dist: torch>=1.4; extra == "dev"
 Requires-Dist: accelerate>=0.31.0; extra == "dev"

@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from enum import auto, Enum, EnumMeta
+from enum import Enum, EnumMeta, auto
 from typing import List, Optional
 
 from strenum import StrEnum
@@ -1602,6 +1602,12 @@ class DataWranglingDialect(StrEnum):
 class RecipeInputType(StrEnum):
     DATASOURCE = "datasource"
     DATASET = "dataset"
+
+
+class SparkInstanceSizes(StrEnum):
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
 
 
 class RecipeType(StrEnum):

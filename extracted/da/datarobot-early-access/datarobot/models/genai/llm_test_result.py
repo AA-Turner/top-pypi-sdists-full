@@ -15,16 +15,16 @@ from typing import Any, Dict, List, Optional, Union
 
 import trafaret as t
 
-from datarobot.enums import AggregationType, enum_to_list, GradingResult
+from datarobot.enums import AggregationType, GradingResult, enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.models.genai.evaluation_dataset_metric_aggregation import aggregation_value_trafaret
 from datarobot.models.genai.llm_blueprint import LLMBlueprint
 from datarobot.models.genai.llm_test_configuration import (
-    insight_grading_criteria_trafaret,
     InsightGradingCriteria,
-    llm_test_grading_criteria_trafaret,
     LLMTestConfiguration,
     LLMTestGradingCriteria,
+    insight_grading_criteria_trafaret,
+    llm_test_grading_criteria_trafaret,
 )
 from datarobot.utils.pagination import unpaginate
 

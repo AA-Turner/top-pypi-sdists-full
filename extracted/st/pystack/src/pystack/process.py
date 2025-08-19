@@ -24,7 +24,7 @@ LIBPYTHON_REGEXP = re.compile(
 # or "3.13.0+ experimental free-threading build (Python)"
 BSS_VERSION_REGEXP = re.compile(
     rb"((2|3)\.(\d+)\.(\d{1,2}))((a|b|c|rc)\d{1,2})?\+?"
-    rb"(?: experimental free-threading build)? (\(.{1,64}\))"
+    rb"(?: (?:experimental )?free-threading build)? (\(.{1,64}\))"
 )
 
 LOGGER = logging.getLogger(__file__)
@@ -124,9 +124,12 @@ def get_python_version_for_core(
 
 def is_elf(filename: pathlib.Path) -> bool:
     "Return True if the given file is an ELF file"
-    elf_header = b"\x7fELF"
-    with open(filename, "br") as thefile:
-        return thefile.read(4) == elf_header
+    try:
+        elf_header = b"\x7fELF"
+        with open(filename, "br") as thefile:
+            return thefile.read(4) == elf_header
+    except OSError:
+        return False
 
 
 def get_thread_name(pid: int, tid: int) -> Optional[str]:

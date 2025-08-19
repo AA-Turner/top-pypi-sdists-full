@@ -91,11 +91,11 @@ class ResilientDuckDB:
 
                 # Get the operation from the current connection
                 if operation_name == "query":
-                    op = self._conn.query
+                    op = self._conn.query  # type: ignore
                 elif operation_name == "execute":
-                    op = self._conn.execute
+                    op = self._conn.execute  # type: ignore
                 elif operation_name == "register":
-                    op = self._conn.register
+                    op = self._conn.register  # type: ignore
                 else:
                     raise ValueError(f"Unknown operation: {operation_name}")
 
@@ -147,7 +147,7 @@ class ResilientDuckDB:
         """Get the underlying DuckDB connection."""
         if self._conn is None:
             self._setup_connection()
-        return self._conn
+        return self._conn  # type: ignore
 
 
 def get_resilient_duckdb(

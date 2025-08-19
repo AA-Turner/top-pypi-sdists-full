@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime
 from io import IOBase, StringIO
-from typing import Any, cast, Dict, List, NoReturn, Optional, Set, Tuple, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Dict, List, NoReturn, Optional, Set, Tuple, Union, cast
 import warnings
 
 import pandas as pd

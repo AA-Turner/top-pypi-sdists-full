@@ -16,9 +16,16 @@ from langgraph_api.feature_flags import USE_RUNTIME_CONTEXT_API
 from langgraph_api.graph import get_assistant_id, get_graph
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
+from langgraph_api.schema import ASSISTANT_FIELDS
 from langgraph_api.serde import ajson_loads
-from langgraph_api.utils import fetchone, get_pagination_headers, validate_uuid
+from langgraph_api.utils import (
+    fetchone,
+    get_pagination_headers,
+    validate_select_columns,
+    validate_uuid,
+)
 from langgraph_api.validation import (
+    AssistantCountRequest,
     AssistantCreate,
     AssistantPatch,
     AssistantSearchRequest,
@@ -173,6 +180,7 @@ async def search_assistants(
 ) -> ApiResponse:
     """List assistants."""
     payload = await request.json(AssistantSearchRequest)
+    select = validate_select_columns(payload.get("select") or None, ASSISTANT_FIELDS)
     offset = int(payload.get("offset") or 0)
     async with connect() as conn:
         assistants_iter, next_offset = await Assistants.search(
@@ -183,11 +191,27 @@ async def search_assistants(
             offset=offset,
             sort_by=payload.get("sort_by"),
             sort_order=payload.get("sort_order"),
+            select=select,
         )
     assistants, response_headers = await get_pagination_headers(
         assistants_iter, next_offset, offset
     )
     return ApiResponse(assistants, headers=response_headers)
+
+
+@retry_db
+async def count_assistants(
+    request: ApiRequest,
+) -> ApiResponse:
+    """Count assistants."""
+    payload = await request.json(AssistantCountRequest)
+    async with connect() as conn:
+        count = await Assistants.count(
+            conn,
+            graph_id=payload.get("graph_id"),
+            metadata=payload.get("metadata"),
+        )
+    return ApiResponse(count)
 
 
 @retry_db
@@ -415,6 +439,7 @@ async def set_latest_assistant_version(request: ApiRequest) -> ApiResponse:
 assistants_routes: list[BaseRoute] = [
     ApiRoute("/assistants", create_assistant, methods=["POST"]),
     ApiRoute("/assistants/search", search_assistants, methods=["POST"]),
+    ApiRoute("/assistants/count", count_assistants, methods=["POST"]),
     ApiRoute(
         "/assistants/{assistant_id}/latest",
         set_latest_assistant_version,

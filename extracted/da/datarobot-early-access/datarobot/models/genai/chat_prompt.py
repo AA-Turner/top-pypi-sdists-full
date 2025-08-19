@@ -16,14 +16,14 @@ from typing import Any, Dict, List, Optional, Union
 import trafaret as t
 from typing_extensions import TypedDict
 
-from datarobot.enums import enum_to_list, FeedbackSentiment
+from datarobot.enums import FeedbackSentiment, enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.models.genai.chat import Chat
 from datarobot.models.genai.llm import LLMDefinition
 from datarobot.models.genai.llm_blueprint import (
     LLMBlueprint,
-    vector_database_settings_trafaret,
     VectorDatabaseSettings,
+    vector_database_settings_trafaret,
 )
 from datarobot.models.genai.playground import Playground
 from datarobot.models.genai.vector_database import VectorDatabase

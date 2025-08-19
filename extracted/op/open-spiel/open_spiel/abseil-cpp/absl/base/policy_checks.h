@@ -21,6 +21,8 @@
 // reported with `#error`. This enforcement is best effort, so successfully
 // compiling this header does not guarantee a supported configuration.
 
+// SKIP_ABSL_INLINE_NAMESPACE_CHECK
+
 #ifndef ABSL_BASE_POLICY_CHECKS_H_
 #define ABSL_BASE_POLICY_CHECKS_H_
 
@@ -44,10 +46,10 @@
 // Toolchain Check
 // -----------------------------------------------------------------------------
 
-// We support Visual Studio 2017 (MSVC++ 15.0) and later.
+// We support Visual Studio 2019 (MSVC++ 16.0) and later.
 // This minimum will go up.
-#if defined(_MSC_VER) && _MSC_VER < 1910 && !defined(__clang__)
-#error "This package requires Visual Studio 2017 (MSVC++ 15.0) or higher."
+#if defined(_MSC_VER) && _MSC_VER < 1920 && !defined(__clang__)
+#error "This package requires Visual Studio 2019 (MSVC++ 16.0) or higher."
 #endif
 
 // We support GCC 7 and later.

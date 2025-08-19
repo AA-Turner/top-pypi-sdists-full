@@ -18,18 +18,18 @@ from io import BytesIO, IOBase, StringIO
 import os
 import tempfile
 from typing import (
+    TYPE_CHECKING,
     Any,
     BinaryIO,
-    cast,
     Dict,
     Generator,
     List,
     Optional,
     Set,
     Type,
-    TYPE_CHECKING,
     TypeVar,
     Union,
+    cast,
 )
 
 import dateutil
@@ -42,9 +42,9 @@ from datarobot._compat import Int, String, TypedDict
 from datarobot.enums import (
     DEFAULT_MAX_WAIT,
     DEFAULT_TIMEOUT,
+    MEGABYTE,
     FileLocationType,
     LocalSourceType,
-    MEGABYTE,
 )
 from datarobot.errors import InvalidUsageError
 from datarobot.mixins.browser_mixin import BrowserMixin
@@ -54,7 +54,7 @@ from datarobot.models.feature import DatasetFeature
 from datarobot.models.featurelist import DatasetFeaturelist
 from datarobot.models.project import Project
 from datarobot.models.sharing import SharingAccess
-from datarobot.models.use_cases.utils import add_to_use_case, resolve_use_cases, UseCaseLike
+from datarobot.models.use_cases.utils import UseCaseLike, add_to_use_case, resolve_use_cases
 from datarobot.utils import assert_single_parameter, dataframe_to_buffer
 from datarobot.utils.pagination import unpaginate
 from datarobot.utils.source import parse_source_type

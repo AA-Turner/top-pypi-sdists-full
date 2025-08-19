@@ -9,6 +9,8 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from datarobot.enums import AUTOPILOT_MODE, DEFAULT_MAX_WAIT, PROJECT_STAGE
 from datarobot.models import Project
 

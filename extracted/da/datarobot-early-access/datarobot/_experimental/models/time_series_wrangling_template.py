@@ -9,6 +9,8 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from typing import Optional
 import uuid
 
@@ -20,7 +22,7 @@ from datarobot._experimental.models.time_series_transformation_plan import (
 )
 from datarobot.enums import DataWranglingDataSourceTypes, DataWranglingDialect
 from datarobot.models.dataset import Dataset
-from datarobot.models.recipe import DatasetInput, DataSourceInput, Recipe
+from datarobot.models.recipe import DataSourceInput, DatasetInput, Recipe
 from datarobot.models.recipe_operation import (
     DatetimeSamplingOperation,
     RandomSamplingOperation,

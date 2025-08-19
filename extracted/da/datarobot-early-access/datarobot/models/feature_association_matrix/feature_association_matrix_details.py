@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 import trafaret as t
 

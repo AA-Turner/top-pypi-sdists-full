@@ -44,6 +44,8 @@ use crate::binding::scope::LoopExit;
 use crate::binding::scope::ScopeKind;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
+use crate::export::exports::Export;
+use crate::export::exports::ExportLocation;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
 use crate::state::loader::FindError;
@@ -257,7 +259,7 @@ impl<'a> BindingsBuilder<'a> {
             };
             self.error(
                 oops_top_level.range,
-                ErrorInfo::Kind(ErrorKind::BadReturn),
+                ErrorInfo::Kind(ErrorKind::InvalidSyntax),
                 "Invalid `return` outside of a function".to_owned(),
             );
         }
@@ -616,6 +618,13 @@ impl<'a> BindingsBuilder<'a> {
                 }
             }
             Stmt::For(mut x) => {
+                if x.is_async && !self.scopes.is_in_async_def() {
+                    self.error(
+                        x.range(),
+                        ErrorInfo::Kind(ErrorKind::InvalidSyntax),
+                        "`async for` can only be used inside an async function".to_owned(),
+                    );
+                }
                 self.bind_target_with_expr(&mut x.target, &mut x.iter, &|expr, ann| {
                     Binding::IterableValue(ann, expr.clone(), IsAsync::new(x.is_async))
                 });
@@ -629,7 +638,7 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(&mut x.test, &mut Usage::Narrowing);
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
                 self.setup_loop(x.range, &narrow_ops);
-                // Note that is is important we ensure *after* we set up the loop, so that both the
+                // Note that it is important we ensure *after* we set up the loop, so that both the
                 // narrowing and type checking are aware that the test might be impacted by changes
                 // made in the loop (e.g. if we reassign the test variable).
                 // Typecheck the test condition during solving.
@@ -701,6 +710,13 @@ impl<'a> BindingsBuilder<'a> {
                 }
             }
             Stmt::With(x) => {
+                if x.is_async && !self.scopes.is_in_async_def() {
+                    self.error(
+                        x.range(),
+                        ErrorInfo::Kind(ErrorKind::InvalidSyntax),
+                        "`async with` can only be used inside an async function".to_owned(),
+                    );
+                }
                 let kind = IsAsync::new(x.is_async);
                 for mut item in x.items {
                     let item_range = item.range();
@@ -912,6 +928,18 @@ impl<'a> BindingsBuilder<'a> {
                                 if &x.name == "*" {
                                     for name in module_exports.wildcard(self.lookup).iter_hashed() {
                                         let key = Key::Import(name.into_key().clone(), x.range);
+                                        if let Some(ExportLocation::ThisModule(Export {
+                                            is_deprecated,
+                                            ..
+                                        })) = exported.get_hashed(name)
+                                            && *is_deprecated
+                                        {
+                                            self.error(
+                                                x.range,
+                                                ErrorInfo::Kind(ErrorKind::Deprecated),
+                                                format!("`{name}` is deprecated"),
+                                            );
+                                        }
                                         let val = if exported.contains_key_hashed(name) {
                                             Binding::Import(m, name.into_key().clone(), None)
                                         } else {
@@ -947,6 +975,18 @@ impl<'a> BindingsBuilder<'a> {
                                     let val = if (self.module_info.name() != m)
                                         && exported.contains_key(&x.name.id)
                                     {
+                                        if let Some(ExportLocation::ThisModule(Export {
+                                            is_deprecated,
+                                            ..
+                                        })) = exported.get(&x.name.id)
+                                            && *is_deprecated
+                                        {
+                                            self.error(
+                                                x.range,
+                                                ErrorInfo::Kind(ErrorKind::Deprecated),
+                                                format!("`{}` is deprecated", x.name),
+                                            );
+                                        }
                                         Binding::Import(m, x.name.id.clone(), original_name_range)
                                     } else {
                                         let x_as_module_name = m.append(&x.name.id);

@@ -2540,6 +2540,8 @@ class ClarifyTextConfigTypeDef(TypedDict):
 
 class ClusterEbsVolumeConfigTypeDef(TypedDict):
     VolumeSizeInGB: NotRequired[int]
+    VolumeKmsKeyId: NotRequired[str]
+    RootVolume: NotRequired[bool]
 
 
 class ClusterEventSummaryTypeDef(TypedDict):

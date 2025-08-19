@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: python-ulid
-Version: 3.0.0
+Version: 3.1.0
 Summary: Universally unique lexicographically sortable identifier
 Project-URL: Homepage, https://github.com/mdomke/python-ulid
 Project-URL: Documentation, https://python-ulid.readthedocs.io
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.9
 Provides-Extra: pydantic

@@ -512,7 +512,7 @@ Definition Result:
 
 #[test]
 fn keyword_argument_multi_file() {
-    let code_fuction_provider = r#"
+    let code_function_provider = r#"
 def foo(x: int, y: str) -> None:
     pass
 "#;
@@ -522,7 +522,7 @@ foo(0, y="foo")
 #      ^
 "#;
     let report = get_batched_lsp_operations_report(
-        &[("main", code), ("my_func", code_fuction_provider)],
+        &[("main", code), ("my_func", code_function_provider)],
         get_test_report,
     );
     assert_eq!(
@@ -1281,6 +1281,28 @@ Definition Result:
 Definition Result:
 6 |     x: str = "abc"
         ^
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+// todo(kylei) go-to definition on x should go to the definition
+#[test]
+fn global_keyword() {
+    let code = r#"
+x = 5
+def test():
+    global x
+    #      ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+4 |     global x
+               ^
+Definition Result: None
 "#
         .trim(),
         report.trim(),

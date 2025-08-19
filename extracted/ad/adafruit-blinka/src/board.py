@@ -11,7 +11,7 @@ See `CircuitPython:board` in CircuitPython for more details.
 """
 
 
-__version__ = "8.63.0"
+__version__ = "8.64.0"
 __repo__ = "https://github.com/adafruit/Adafruit_Blinka.git"
 __blinka__ = True
 
@@ -145,6 +145,9 @@ elif board_id == ap_board.ORANGE_PI_4_LTS:
 
 elif board_id in (ap_board.ORANGE_PI_5, ap_board.ORANGE_PI_5_MAX):
     from adafruit_blinka.board.orangepi.orangepi5 import *
+
+elif board_id == ap_board.ORANGE_PI_5_PRO:
+    from adafruit_blinka.board.orangepi.orangepi5pro import *
 
 elif board_id == ap_board.ORANGE_PI_5_PLUS:
     from adafruit_blinka.board.orangepi.orangepi5plus import *

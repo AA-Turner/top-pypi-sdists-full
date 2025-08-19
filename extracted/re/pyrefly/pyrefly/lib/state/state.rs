@@ -516,27 +516,44 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    pub fn line_count(&self) -> usize {
+    /// Computes line count split between user-owned and dependency modules.
+    /// Returns (user_lines, dependency_lines).
+    pub fn split_line_count(&self, user_handles: &HashSet<&Handle>) -> (usize, usize) {
+        let mut user_lines = 0;
+        let mut dep_lines = 0;
+
         if self.data.updated_modules.is_empty() {
-            return self
-                .readable
-                .modules
-                .values()
-                .map(|x| x.state.steps.line_count())
-                .sum();
-        }
-        let mut res = self
-            .data
-            .updated_modules
-            .iter_unordered()
-            .map(|x| x.1.state.read().steps.line_count())
-            .sum();
-        for (k, v) in self.readable.modules.iter() {
-            if self.data.updated_modules.get(k).is_none() {
-                res += v.state.steps.line_count();
+            for (handle, module) in self.readable.modules.iter() {
+                let lines = module.state.steps.line_count();
+                if user_handles.contains(handle) {
+                    user_lines += lines;
+                } else {
+                    dep_lines += lines;
+                }
+            }
+        } else {
+            for (handle, module) in self.data.updated_modules.iter_unordered() {
+                let lines = module.state.read().steps.line_count();
+                if user_handles.contains(handle) {
+                    user_lines += lines;
+                } else {
+                    dep_lines += lines;
+                }
+            }
+
+            for (handle, module) in self.readable.modules.iter() {
+                if self.data.updated_modules.get(handle).is_none() {
+                    let lines = module.state.steps.line_count();
+                    if user_handles.contains(handle) {
+                        user_lines += lines;
+                    } else {
+                        dep_lines += lines;
+                    }
+                }
             }
         }
-        res
+
+        (user_lines, dep_lines)
     }
 
     /// Create a handle for import `module` within the handle `handle`
@@ -551,6 +568,22 @@ impl<'a> Transaction<'a> {
             None => self
                 .get_cached_loader(&self.get_module(handle).config.read())
                 .find_import(module, Some(handle.path().as_path()))?,
+        };
+        Ok(Handle::new(module, path, handle.sys_info().dupe()))
+    }
+
+    /// Create a handle for import `module` within the handle `handle`, preferring `.py` over `.pyi`
+    pub fn import_handle_prefer_executable(
+        &self,
+        handle: &Handle,
+        module: ModuleName,
+        path: Option<&ModulePath>,
+    ) -> Result<Handle, FindError> {
+        let path = match path {
+            Some(path) => path.dupe(),
+            None => self
+                .get_cached_loader(&self.get_module(handle).config.read())
+                .find_import_prefer_executable(module, Some(handle.path().as_path()))?,
         };
         Ok(Handle::new(module, path, handle.sys_info().dupe()))
     }

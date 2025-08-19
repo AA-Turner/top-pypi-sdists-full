@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: discord.py
-Version: 2.5.2
+Version: 2.6.0
 Summary: A Python wrapper for the Discord API
 Author: Rapptz
 License: The MIT License (MIT)
@@ -48,7 +48,7 @@ License-File: LICENSE
 Requires-Dist: aiohttp<4,>=3.7.4
 Requires-Dist: audioop-lts; python_version >= "3.13"
 Provides-Extra: voice
-Requires-Dist: PyNaCl<1.6,>=1.3.0; extra == "voice"
+Requires-Dist: PyNaCl<1.6,>=1.5.0; extra == "voice"
 Provides-Extra: docs
 Requires-Dist: sphinx==4.4.0; extra == "docs"
 Requires-Dist: sphinxcontrib_trio==1.1.2; extra == "docs"
@@ -79,6 +79,7 @@ Requires-Dist: tzdata; sys_platform == "win32" and extra == "test"
 Provides-Extra: dev
 Requires-Dist: black==22.6; extra == "dev"
 Requires-Dist: typing_extensions<5,>=4.3; extra == "dev"
+Dynamic: license-file
 
 discord.py
 ==========

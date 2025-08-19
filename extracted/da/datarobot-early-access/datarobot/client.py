@@ -15,7 +15,7 @@ from contextlib import contextmanager
 import contextvars
 import logging
 import re
-from typing import Optional, Tuple, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Optional, Tuple, Union
 import warnings
 
 from urllib3 import Retry

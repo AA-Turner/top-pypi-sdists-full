@@ -5,7 +5,6 @@ from pydantic import create_model, BaseModel, Field
 
 import requests
 from ....configurations.ado import AdoConfiguration
-from ....configurations.embedding import EmbeddingConfiguration
 from ....configurations.pgvector import PgVectorConfiguration
 from .test_plan_wrapper import TestPlanApiWrapper
 from ...base.tool import BaseAction
@@ -30,11 +29,10 @@ class AzureDevOpsPlansToolkit(BaseToolkit):
             ado_configuration=(AdoConfiguration, Field(description="Ado configuration", json_schema_extra={'configuration_types': ['ado']})),
             limit=(Optional[int], Field(description="ADO plans limit used for limitation of the list with results", default=5)),
             # indexer settings
-            pgvector_configuration=(Optional[PgVectorConfiguration], Field(description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
+            pgvector_configuration=(Optional[PgVectorConfiguration], Field(default=None,
+                                                                           description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
             # embedder settings
-            embedding_configuration=(Optional[EmbeddingConfiguration], Field(description="Embedding configuration.",
-                                                                             json_schema_extra={'configuration_types': [
-                                                                                 'embedding']})),
+            embedding_model=(Optional[str], Field(default=None, description="Embedding configuration.", json_schema_extra={'configuration_model': 'embedding'})),
             selected_tools=(List[Literal[tuple(selected_tools)]], Field(default=[], json_schema_extra={'args_schemas': selected_tools})),
             __config__={'json_schema_extra': {'metadata':
                 {
@@ -92,7 +90,6 @@ class AzureDevOpsPlansToolkit(BaseToolkit):
             # TODO use ado_configuration fields in TestPlanApiWrapper
             **kwargs['ado_configuration'],
             **(kwargs.get('pgvector_configuration') or {}),
-            **(kwargs.get('embedding_configuration') or {}),
         }
         azure_devops_api_wrapper = TestPlanApiWrapper(**wrapper_payload)
         available_tools = azure_devops_api_wrapper.get_available_tools()

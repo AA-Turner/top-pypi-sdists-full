@@ -429,6 +429,22 @@ class AdapterSize(_common.CaseInSensitiveEnum):
   """Adapter size 32."""
 
 
+class JSONSchemaType(Enum):
+  """The type of the data supported by JSON Schema.
+
+  The values of the enums are lower case strings, while the values of the enums
+  for the Type class are upper case strings.
+  """
+
+  NULL = 'null'
+  BOOLEAN = 'boolean'
+  OBJECT = 'object'
+  ARRAY = 'array'
+  NUMBER = 'number'
+  INTEGER = 'integer'
+  STRING = 'string'
+
+
 class FeatureSelectionPreference(_common.CaseInSensitiveEnum):
   """Options for feature selection preference."""
 
@@ -564,6 +580,16 @@ class EditMode(_common.CaseInSensitiveEnum):
   EDIT_MODE_PRODUCT_IMAGE = 'EDIT_MODE_PRODUCT_IMAGE'
 
 
+class SegmentMode(_common.CaseInSensitiveEnum):
+  """Enum that represents the segmentation mode."""
+
+  FOREGROUND = 'FOREGROUND'
+  BACKGROUND = 'BACKGROUND'
+  PROMPT = 'PROMPT'
+  SEMANTIC = 'SEMANTIC'
+  INTERACTIVE = 'INTERACTIVE'
+
+
 class VideoCompressionQuality(_common.CaseInSensitiveEnum):
   """Enum that controls the compression quality of the generated videos."""
 
@@ -609,6 +635,19 @@ class MediaModality(_common.CaseInSensitiveEnum):
   """Document, e.g. PDF."""
 
 
+class FunctionResponseScheduling(_common.CaseInSensitiveEnum):
+  """Specifies how the response should be scheduled in the conversation."""
+
+  SCHEDULING_UNSPECIFIED = 'SCHEDULING_UNSPECIFIED'
+  """This value is unused."""
+  SILENT = 'SILENT'
+  """Only add the result to the conversation context, do not interrupt or trigger generation."""
+  WHEN_IDLE = 'WHEN_IDLE'
+  """Add the result to the conversation context, and prompt to generate output without interrupting ongoing generation."""
+  INTERRUPT = 'INTERRUPT'
+  """Add the result to the conversation context, interrupt ongoing generation and prompt to generate output."""
+
+
 class StartSensitivity(_common.CaseInSensitiveEnum):
   """Start of speech sensitivity."""
 
@@ -651,19 +690,6 @@ class TurnCoverage(_common.CaseInSensitiveEnum):
   """The users turn only includes activity since the last turn, excluding inactivity (e.g. silence on the audio stream). This is the default behavior."""
   TURN_INCLUDES_ALL_INPUT = 'TURN_INCLUDES_ALL_INPUT'
   """The users turn includes all realtime input since the last turn, including inactivity (e.g. silence on the audio stream)."""
-
-
-class FunctionResponseScheduling(_common.CaseInSensitiveEnum):
-  """Specifies how the response should be scheduled in the conversation."""
-
-  SCHEDULING_UNSPECIFIED = 'SCHEDULING_UNSPECIFIED'
-  """This value is unused."""
-  SILENT = 'SILENT'
-  """Only add the result to the conversation context, do not interrupt or trigger generation."""
-  WHEN_IDLE = 'WHEN_IDLE'
-  """Add the result to the conversation context, and prompt to generate output without interrupting ongoing generation."""
-  INTERRUPT = 'INTERRUPT'
-  """Add the result to the conversation context, interrupt ongoing generation and prompt to generate output."""
 
 
 class Scale(_common.CaseInSensitiveEnum):
@@ -1152,67 +1178,6 @@ class Content(_common.BaseModel):
   )
 
 
-class UserContent(Content):
-  """UserContent facilitates the creation of a Content object with a user role.
-
-  Example usages:
-
-
-  - Create a user Content object with a string:
-    user_content = UserContent("Why is the sky blue?")
-  - Create a user Content object with a file data Part object:
-    user_content = UserContent(Part.from_uri(file_uril="gs://bucket/file.txt",
-    mime_type="text/plain"))
-  - Create a user Content object with byte data Part object:
-    user_content = UserContent(Part.from_bytes(data=b"Hello, World!",
-    mime_type="text/plain"))
-
-    You can create a user Content object using other classmethods in the Part
-    class as well.
-    You can also create a user Content using a list of Part objects or strings.
-  """
-
-  role: Literal['user'] = Field(default='user', init=False, frozen=True)
-  parts: list[Part] = Field()
-
-  def __init__(
-      self, parts: Union['PartUnionDict', list['PartUnionDict'], list['Part']]
-  ):
-    from . import _transformers as t
-
-    super().__init__(parts=t.t_parts(parts=parts))
-
-
-class ModelContent(Content):
-  """ModelContent facilitates the creation of a Content object with a model role.
-
-  Example usages:
-
-  - Create a model Content object with a string:
-    model_content = ModelContent("Why is the sky blue?")
-  - Create a model Content object with a file data Part object:
-    model_content = ModelContent(Part.from_uri(file_uril="gs://bucket/file.txt",
-    mime_type="text/plain"))
-  - Create a model Content object with byte data Part object:
-    model_content = ModelContent(Part.from_bytes(data=b"Hello, World!",
-    mime_type="text/plain"))
-
-    You can create a model Content object using other classmethods in the Part
-    class as well.
-    You can also create a model Content using a list of Part objects or strings.
-  """
-
-  role: Literal['model'] = Field(default='model', init=False, frozen=True)
-  parts: list[Part] = Field()
-
-  def __init__(
-      self, parts: Union['PartUnionDict', list['PartUnionDict'], list['Part']]
-  ):
-    from . import _transformers as t
-
-    super().__init__(parts=t.t_parts(parts=parts))
-
-
 class ContentDict(TypedDict, total=False):
   """Contains the multi-part content of a message."""
 
@@ -1355,23 +1320,7 @@ class HttpOptionsDict(TypedDict, total=False):
 HttpOptionsOrDict = Union[HttpOptions, HttpOptionsDict]
 
 
-class JSONSchemaType(Enum):
-  """The type of the data supported by JSON Schema.
-
-  The values of the enums are lower case strings, while the values of the enums
-  for the Type class are upper case strings.
-  """
-
-  NULL = 'null'
-  BOOLEAN = 'boolean'
-  OBJECT = 'object'
-  ARRAY = 'array'
-  NUMBER = 'number'
-  INTEGER = 'integer'
-  STRING = 'string'
-
-
-class JSONSchema(pydantic.BaseModel):
+class JSONSchema(_common.BaseModel):
   """A subset of JSON Schema according to 2020-12 JSON Schema draft.
 
   Represents a subset of a JSON Schema object that is used by the Gemini model.
@@ -7241,6 +7190,236 @@ RecontextImageResponseOrDict = Union[
 ]
 
 
+class ScribbleImage(_common.BaseModel):
+  """An image mask representing a brush scribble."""
+
+  image: Optional[Image] = Field(
+      default=None,
+      description="""The brush scribble to guide segmentation. Valid for the interactive mode.""",
+  )
+
+
+class ScribbleImageDict(TypedDict, total=False):
+  """An image mask representing a brush scribble."""
+
+  image: Optional[ImageDict]
+  """The brush scribble to guide segmentation. Valid for the interactive mode."""
+
+
+ScribbleImageOrDict = Union[ScribbleImage, ScribbleImageDict]
+
+
+class SegmentImageSource(_common.BaseModel):
+  """A set of source input(s) for image segmentation."""
+
+  prompt: Optional[str] = Field(
+      default=None,
+      description="""A text prompt for guiding the model during image segmentation.
+      Required for prompt mode and semantic mode, disallowed for other modes.""",
+  )
+  image: Optional[Image] = Field(
+      default=None, description="""The image to be segmented."""
+  )
+  scribble_image: Optional[ScribbleImage] = Field(
+      default=None,
+      description="""The brush scribble to guide segmentation.
+      Required for the interactive mode, disallowed for other modes.""",
+  )
+
+
+class SegmentImageSourceDict(TypedDict, total=False):
+  """A set of source input(s) for image segmentation."""
+
+  prompt: Optional[str]
+  """A text prompt for guiding the model during image segmentation.
+      Required for prompt mode and semantic mode, disallowed for other modes."""
+
+  image: Optional[ImageDict]
+  """The image to be segmented."""
+
+  scribble_image: Optional[ScribbleImageDict]
+  """The brush scribble to guide segmentation.
+      Required for the interactive mode, disallowed for other modes."""
+
+
+SegmentImageSourceOrDict = Union[SegmentImageSource, SegmentImageSourceDict]
+
+
+class SegmentImageConfig(_common.BaseModel):
+  """Configuration for segmenting an image."""
+
+  http_options: Optional[HttpOptions] = Field(
+      default=None, description="""Used to override HTTP request options."""
+  )
+  mode: Optional[SegmentMode] = Field(
+      default=None, description="""The segmentation mode to use."""
+  )
+  max_predictions: Optional[int] = Field(
+      default=None,
+      description="""The maximum number of predictions to return up to, by top
+      confidence score.""",
+  )
+  confidence_threshold: Optional[float] = Field(
+      default=None,
+      description="""The confidence score threshold for the detections as a decimal
+      value. Only predictions with a confidence score higher than this
+      threshold will be returned.""",
+  )
+  mask_dilation: Optional[float] = Field(
+      default=None,
+      description="""A decimal value representing how much dilation to apply to the
+      masks. 0 for no dilation. 1.0 means the masked area covers the whole
+      image.""",
+  )
+  binary_color_threshold: Optional[float] = Field(
+      default=None,
+      description="""The binary color threshold to apply to the masks. The threshold
+      can be set to a decimal value between 0 and 255 non-inclusive.
+      Set to -1 for no binary color thresholding.""",
+  )
+
+
+class SegmentImageConfigDict(TypedDict, total=False):
+  """Configuration for segmenting an image."""
+
+  http_options: Optional[HttpOptionsDict]
+  """Used to override HTTP request options."""
+
+  mode: Optional[SegmentMode]
+  """The segmentation mode to use."""
+
+  max_predictions: Optional[int]
+  """The maximum number of predictions to return up to, by top
+      confidence score."""
+
+  confidence_threshold: Optional[float]
+  """The confidence score threshold for the detections as a decimal
+      value. Only predictions with a confidence score higher than this
+      threshold will be returned."""
+
+  mask_dilation: Optional[float]
+  """A decimal value representing how much dilation to apply to the
+      masks. 0 for no dilation. 1.0 means the masked area covers the whole
+      image."""
+
+  binary_color_threshold: Optional[float]
+  """The binary color threshold to apply to the masks. The threshold
+      can be set to a decimal value between 0 and 255 non-inclusive.
+      Set to -1 for no binary color thresholding."""
+
+
+SegmentImageConfigOrDict = Union[SegmentImageConfig, SegmentImageConfigDict]
+
+
+class _SegmentImageParameters(_common.BaseModel):
+  """The parameters for segmenting an image."""
+
+  model: Optional[str] = Field(
+      default=None,
+      description="""ID of the model to use. For a list of models, see `Google models
+    <https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models>`_.""",
+  )
+  source: Optional[SegmentImageSource] = Field(
+      default=None,
+      description="""A set of source input(s) for image segmentation.""",
+  )
+  config: Optional[SegmentImageConfig] = Field(
+      default=None, description="""Configuration for image segmentation."""
+  )
+
+
+class _SegmentImageParametersDict(TypedDict, total=False):
+  """The parameters for segmenting an image."""
+
+  model: Optional[str]
+  """ID of the model to use. For a list of models, see `Google models
+    <https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models>`_."""
+
+  source: Optional[SegmentImageSourceDict]
+  """A set of source input(s) for image segmentation."""
+
+  config: Optional[SegmentImageConfigDict]
+  """Configuration for image segmentation."""
+
+
+_SegmentImageParametersOrDict = Union[
+    _SegmentImageParameters, _SegmentImageParametersDict
+]
+
+
+class EntityLabel(_common.BaseModel):
+  """An entity representing the segmented area."""
+
+  label: Optional[str] = Field(
+      default=None, description="""The label of the segmented entity."""
+  )
+  score: Optional[float] = Field(
+      default=None,
+      description="""The confidence score of the detected label.""",
+  )
+
+
+class EntityLabelDict(TypedDict, total=False):
+  """An entity representing the segmented area."""
+
+  label: Optional[str]
+  """The label of the segmented entity."""
+
+  score: Optional[float]
+  """The confidence score of the detected label."""
+
+
+EntityLabelOrDict = Union[EntityLabel, EntityLabelDict]
+
+
+class GeneratedImageMask(_common.BaseModel):
+  """A generated image mask."""
+
+  mask: Optional[Image] = Field(
+      default=None, description="""The generated image mask."""
+  )
+  labels: Optional[list[EntityLabel]] = Field(
+      default=None,
+      description="""The detected entities on the segmented area.""",
+  )
+
+
+class GeneratedImageMaskDict(TypedDict, total=False):
+  """A generated image mask."""
+
+  mask: Optional[ImageDict]
+  """The generated image mask."""
+
+  labels: Optional[list[EntityLabelDict]]
+  """The detected entities on the segmented area."""
+
+
+GeneratedImageMaskOrDict = Union[GeneratedImageMask, GeneratedImageMaskDict]
+
+
+class SegmentImageResponse(_common.BaseModel):
+  """The output images response."""
+
+  generated_masks: Optional[list[GeneratedImageMask]] = Field(
+      default=None,
+      description="""List of generated image masks.
+      """,
+  )
+
+
+class SegmentImageResponseDict(TypedDict, total=False):
+  """The output images response."""
+
+  generated_masks: Optional[list[GeneratedImageMaskDict]]
+  """List of generated image masks.
+      """
+
+
+SegmentImageResponseOrDict = Union[
+    SegmentImageResponse, SegmentImageResponseDict
+]
+
+
 class GetModelConfig(_common.BaseModel):
   """Optional parameters for models.get method."""
 
@@ -8175,6 +8354,40 @@ class VideoDict(TypedDict, total=False):
 VideoOrDict = Union[Video, VideoDict]
 
 
+class VideoGenerationReferenceImage(_common.BaseModel):
+  """A reference image for video generation."""
+
+  image: Optional[Image] = Field(
+      default=None,
+      description="""The reference image.
+      """,
+  )
+  reference_type: Optional[str] = Field(
+      default=None,
+      description="""The type of the reference image, which defines how the reference
+      image will be used to generate the video. Supported values are 'asset'
+      or 'style'.""",
+  )
+
+
+class VideoGenerationReferenceImageDict(TypedDict, total=False):
+  """A reference image for video generation."""
+
+  image: Optional[ImageDict]
+  """The reference image.
+      """
+
+  reference_type: Optional[str]
+  """The type of the reference image, which defines how the reference
+      image will be used to generate the video. Supported values are 'asset'
+      or 'style'."""
+
+
+VideoGenerationReferenceImageOrDict = Union[
+    VideoGenerationReferenceImage, VideoGenerationReferenceImageDict
+]
+
+
 class GenerateVideosConfig(_common.BaseModel):
   """Configuration for generating videos."""
 
@@ -8230,6 +8443,14 @@ class GenerateVideosConfig(_common.BaseModel):
       default=None,
       description="""Image to use as the last frame of generated videos. Only supported for image to video use cases.""",
   )
+  reference_images: Optional[list[VideoGenerationReferenceImage]] = Field(
+      default=None,
+      description="""The images to use as the references to generate the videos.
+      If this field is provided, the text prompt field must also be provided.
+      The image, video, or last_frame field are not supported. Each image must
+      be associated with a type. Veo 2 supports up to 3 asset images *or* 1
+      style image.""",
+  )
   compression_quality: Optional[VideoCompressionQuality] = Field(
       default=None,
       description="""Compression quality of the generated videos.""",
@@ -8280,6 +8501,13 @@ class GenerateVideosConfigDict(TypedDict, total=False):
 
   last_frame: Optional[ImageDict]
   """Image to use as the last frame of generated videos. Only supported for image to video use cases."""
+
+  reference_images: Optional[list[VideoGenerationReferenceImageDict]]
+  """The images to use as the references to generate the videos.
+      If this field is provided, the text prompt field must also be provided.
+      The image, video, or last_frame field are not supported. Each image must
+      be associated with a type. Veo 2 supports up to 3 asset images *or* 1
+      style image."""
 
   compression_quality: Optional[VideoCompressionQuality]
   """Compression quality of the generated videos."""
@@ -12964,95 +13192,6 @@ class LiveServerMessageDict(TypedDict, total=False):
 LiveServerMessageOrDict = Union[LiveServerMessage, LiveServerMessageDict]
 
 
-class AutomaticActivityDetection(_common.BaseModel):
-  """Configures automatic detection of activity."""
-
-  disabled: Optional[bool] = Field(
-      default=None,
-      description="""If enabled, detected voice and text input count as activity. If disabled, the client must send activity signals.""",
-  )
-  start_of_speech_sensitivity: Optional[StartSensitivity] = Field(
-      default=None,
-      description="""Determines how likely speech is to be detected.""",
-  )
-  end_of_speech_sensitivity: Optional[EndSensitivity] = Field(
-      default=None,
-      description="""Determines how likely detected speech is ended.""",
-  )
-  prefix_padding_ms: Optional[int] = Field(
-      default=None,
-      description="""The required duration of detected speech before start-of-speech is committed. The lower this value the more sensitive the start-of-speech detection is and the shorter speech can be recognized. However, this also increases the probability of false positives.""",
-  )
-  silence_duration_ms: Optional[int] = Field(
-      default=None,
-      description="""The required duration of detected non-speech (e.g. silence) before end-of-speech is committed. The larger this value, the longer speech gaps can be without interrupting the user's activity but this will increase the model's latency.""",
-  )
-
-
-class AutomaticActivityDetectionDict(TypedDict, total=False):
-  """Configures automatic detection of activity."""
-
-  disabled: Optional[bool]
-  """If enabled, detected voice and text input count as activity. If disabled, the client must send activity signals."""
-
-  start_of_speech_sensitivity: Optional[StartSensitivity]
-  """Determines how likely speech is to be detected."""
-
-  end_of_speech_sensitivity: Optional[EndSensitivity]
-  """Determines how likely detected speech is ended."""
-
-  prefix_padding_ms: Optional[int]
-  """The required duration of detected speech before start-of-speech is committed. The lower this value the more sensitive the start-of-speech detection is and the shorter speech can be recognized. However, this also increases the probability of false positives."""
-
-  silence_duration_ms: Optional[int]
-  """The required duration of detected non-speech (e.g. silence) before end-of-speech is committed. The larger this value, the longer speech gaps can be without interrupting the user's activity but this will increase the model's latency."""
-
-
-AutomaticActivityDetectionOrDict = Union[
-    AutomaticActivityDetection, AutomaticActivityDetectionDict
-]
-
-
-class RealtimeInputConfig(_common.BaseModel):
-  """Marks the end of user activity.
-
-  This can only be sent if automatic (i.e. server-side) activity detection is
-  disabled.
-  """
-
-  automatic_activity_detection: Optional[AutomaticActivityDetection] = Field(
-      default=None,
-      description="""If not set, automatic activity detection is enabled by default. If automatic voice detection is disabled, the client must send activity signals.""",
-  )
-  activity_handling: Optional[ActivityHandling] = Field(
-      default=None, description="""Defines what effect activity has."""
-  )
-  turn_coverage: Optional[TurnCoverage] = Field(
-      default=None,
-      description="""Defines which input is included in the user's turn.""",
-  )
-
-
-class RealtimeInputConfigDict(TypedDict, total=False):
-  """Marks the end of user activity.
-
-  This can only be sent if automatic (i.e. server-side) activity detection is
-  disabled.
-  """
-
-  automatic_activity_detection: Optional[AutomaticActivityDetectionDict]
-  """If not set, automatic activity detection is enabled by default. If automatic voice detection is disabled, the client must send activity signals."""
-
-  activity_handling: Optional[ActivityHandling]
-  """Defines what effect activity has."""
-
-  turn_coverage: Optional[TurnCoverage]
-  """Defines which input is included in the user's turn."""
-
-
-RealtimeInputConfigOrDict = Union[RealtimeInputConfig, RealtimeInputConfigDict]
-
-
 class SessionResumptionConfig(_common.BaseModel):
   """Configuration of session resumption mechanism.
 
@@ -13189,6 +13328,95 @@ class ProactivityConfigDict(TypedDict, total=False):
 
 
 ProactivityConfigOrDict = Union[ProactivityConfig, ProactivityConfigDict]
+
+
+class AutomaticActivityDetection(_common.BaseModel):
+  """Configures automatic detection of activity."""
+
+  disabled: Optional[bool] = Field(
+      default=None,
+      description="""If enabled, detected voice and text input count as activity. If disabled, the client must send activity signals.""",
+  )
+  start_of_speech_sensitivity: Optional[StartSensitivity] = Field(
+      default=None,
+      description="""Determines how likely speech is to be detected.""",
+  )
+  end_of_speech_sensitivity: Optional[EndSensitivity] = Field(
+      default=None,
+      description="""Determines how likely detected speech is ended.""",
+  )
+  prefix_padding_ms: Optional[int] = Field(
+      default=None,
+      description="""The required duration of detected speech before start-of-speech is committed. The lower this value the more sensitive the start-of-speech detection is and the shorter speech can be recognized. However, this also increases the probability of false positives.""",
+  )
+  silence_duration_ms: Optional[int] = Field(
+      default=None,
+      description="""The required duration of detected non-speech (e.g. silence) before end-of-speech is committed. The larger this value, the longer speech gaps can be without interrupting the user's activity but this will increase the model's latency.""",
+  )
+
+
+class AutomaticActivityDetectionDict(TypedDict, total=False):
+  """Configures automatic detection of activity."""
+
+  disabled: Optional[bool]
+  """If enabled, detected voice and text input count as activity. If disabled, the client must send activity signals."""
+
+  start_of_speech_sensitivity: Optional[StartSensitivity]
+  """Determines how likely speech is to be detected."""
+
+  end_of_speech_sensitivity: Optional[EndSensitivity]
+  """Determines how likely detected speech is ended."""
+
+  prefix_padding_ms: Optional[int]
+  """The required duration of detected speech before start-of-speech is committed. The lower this value the more sensitive the start-of-speech detection is and the shorter speech can be recognized. However, this also increases the probability of false positives."""
+
+  silence_duration_ms: Optional[int]
+  """The required duration of detected non-speech (e.g. silence) before end-of-speech is committed. The larger this value, the longer speech gaps can be without interrupting the user's activity but this will increase the model's latency."""
+
+
+AutomaticActivityDetectionOrDict = Union[
+    AutomaticActivityDetection, AutomaticActivityDetectionDict
+]
+
+
+class RealtimeInputConfig(_common.BaseModel):
+  """Marks the end of user activity.
+
+  This can only be sent if automatic (i.e. server-side) activity detection is
+  disabled.
+  """
+
+  automatic_activity_detection: Optional[AutomaticActivityDetection] = Field(
+      default=None,
+      description="""If not set, automatic activity detection is enabled by default. If automatic voice detection is disabled, the client must send activity signals.""",
+  )
+  activity_handling: Optional[ActivityHandling] = Field(
+      default=None, description="""Defines what effect activity has."""
+  )
+  turn_coverage: Optional[TurnCoverage] = Field(
+      default=None,
+      description="""Defines which input is included in the user's turn.""",
+  )
+
+
+class RealtimeInputConfigDict(TypedDict, total=False):
+  """Marks the end of user activity.
+
+  This can only be sent if automatic (i.e. server-side) activity detection is
+  disabled.
+  """
+
+  automatic_activity_detection: Optional[AutomaticActivityDetectionDict]
+  """If not set, automatic activity detection is enabled by default. If automatic voice detection is disabled, the client must send activity signals."""
+
+  activity_handling: Optional[ActivityHandling]
+  """Defines what effect activity has."""
+
+  turn_coverage: Optional[TurnCoverage]
+  """Defines which input is included in the user's turn."""
+
+
+RealtimeInputConfigOrDict = Union[RealtimeInputConfig, RealtimeInputConfigDict]
 
 
 class LiveClientSetup(_common.BaseModel):
@@ -14541,6 +14769,67 @@ class CreateTuningJobParametersDict(TypedDict, total=False):
 CreateTuningJobParametersOrDict = Union[
     CreateTuningJobParameters, CreateTuningJobParametersDict
 ]
+
+
+class UserContent(Content):
+  """UserContent facilitates the creation of a Content object with a user role.
+
+  Example usages:
+
+
+  - Create a user Content object with a string:
+    user_content = UserContent("Why is the sky blue?")
+  - Create a user Content object with a file data Part object:
+    user_content = UserContent(Part.from_uri(file_uril="gs://bucket/file.txt",
+    mime_type="text/plain"))
+  - Create a user Content object with byte data Part object:
+    user_content = UserContent(Part.from_bytes(data=b"Hello, World!",
+    mime_type="text/plain"))
+
+    You can create a user Content object using other classmethods in the Part
+    class as well.
+    You can also create a user Content using a list of Part objects or strings.
+  """
+
+  role: Literal['user'] = Field(default='user', init=False, frozen=True)
+  parts: list[Part] = Field()
+
+  def __init__(
+      self, parts: Union['PartUnionDict', list['PartUnionDict'], list['Part']]
+  ):
+    from . import _transformers as t
+
+    super().__init__(parts=t.t_parts(parts=parts))
+
+
+class ModelContent(Content):
+  """ModelContent facilitates the creation of a Content object with a model role.
+
+  Example usages:
+
+  - Create a model Content object with a string:
+    model_content = ModelContent("Why is the sky blue?")
+  - Create a model Content object with a file data Part object:
+    model_content = ModelContent(Part.from_uri(file_uril="gs://bucket/file.txt",
+    mime_type="text/plain"))
+  - Create a model Content object with byte data Part object:
+    model_content = ModelContent(Part.from_bytes(data=b"Hello, World!",
+    mime_type="text/plain"))
+
+    You can create a model Content object using other classmethods in the Part
+    class as well.
+    You can also create a model Content using a list of Part objects or strings.
+  """
+
+  role: Literal['model'] = Field(default='model', init=False, frozen=True)
+  parts: list[Part] = Field()
+
+  def __init__(
+      self, parts: Union['PartUnionDict', list['PartUnionDict'], list['Part']]
+  ):
+    from . import _transformers as t
+
+    super().__init__(parts=t.t_parts(parts=parts))
 
 
 class CustomOutputFormatConfig(_common.BaseModel):

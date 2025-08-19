@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import trafaret as t
 

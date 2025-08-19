@@ -34,10 +34,12 @@ if typing.TYPE_CHECKING:
     from langgraph_api.config import ThreadTTLConfig
     from langgraph_api.schema import (
         Assistant,
+        AssistantSelectField,
         Checkpoint,
         Config,
         Context,
         Cron,
+        CronSelectField,
         DeprecatedInterrupt,
         IfNotExists,
         MetadataInput,
@@ -46,14 +48,17 @@ if typing.TYPE_CHECKING:
         OnConflictBehavior,
         QueueStats,
         Run,
+        RunSelectField,
         RunStatus,
         StreamMode,
         Thread,
+        ThreadSelectField,
         ThreadStatus,
         ThreadUpdateResponse,
     )
     from langgraph_api.schema import Interrupt as InterruptSchema
     from langgraph_api.serde import Fragment
+    from langgraph_api.utils import AsyncConnectionProto
 
 
 logger = structlog.stdlib.get_logger(__name__)
@@ -136,6 +141,7 @@ class Assistants(Authenticated):
         offset: int,
         sort_by: str | None = None,
         sort_order: str | None = None,
+        select: list[AssistantSelectField] | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> tuple[AsyncIterator[Assistant], int]:
         metadata = metadata if metadata is not None else {}
@@ -178,6 +184,7 @@ class Assistants(Authenticated):
             else:
                 filtered_assistants.sort(key=lambda x: x.get(sort_by), reverse=reverse)
         else:
+            sort_by = "created_at"
             # Default sorting by created_at in descending order
             filtered_assistants.sort(key=lambda x: x["created_at"], reverse=True)
 
@@ -187,14 +194,21 @@ class Assistants(Authenticated):
 
         async def assistant_iterator() -> AsyncIterator[Assistant]:
             for assistant in paginated_assistants:
-                yield assistant
+                if select:
+                    # Filter to only selected fields
+                    filtered_assistant = {
+                        k: v for k, v in assistant.items() if k in select
+                    }
+                    yield filtered_assistant
+                else:
+                    yield assistant
 
         return assistant_iterator(), cur
 
     @staticmethod
     async def get(
         conn: InMemConnectionProto,
-        assistant_id: UUID,
+        assistant_id: UUID | str,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Assistant]:
         """Get an assistant by ID."""
@@ -217,7 +231,7 @@ class Assistants(Authenticated):
     @staticmethod
     async def put(
         conn: InMemConnectionProto,
-        assistant_id: UUID,
+        assistant_id: UUID | str,
         *,
         graph_id: str,
         config: Config,
@@ -597,6 +611,37 @@ class Assistants(Authenticated):
 
         return _yield_versions()
 
+    @staticmethod
+    async def count(
+        conn: InMemConnectionProto,
+        *,
+        graph_id: str | None = None,
+        metadata: MetadataInput = None,
+        ctx: Auth.types.BaseAuthContext | None = None,
+    ) -> int:
+        """Get count of assistants."""
+        metadata = metadata if metadata is not None else {}
+        filters = await Assistants.handle_event(
+            ctx,
+            "search",
+            Auth.types.AssistantsSearch(
+                graph_id=graph_id, metadata=metadata, limit=0, offset=0
+            ),
+        )
+
+        count = 0
+        for assistant in conn.store["assistants"]:
+            if (
+                (not graph_id or assistant["graph_id"] == graph_id)
+                and (
+                    not metadata or is_jsonb_contained(assistant["metadata"], metadata)
+                )
+                and (not filters or _check_filter_match(assistant["metadata"], filters))
+            ):
+                count += 1
+
+        return count
+
 
 def is_jsonb_contained(superset: dict[str, Any], subset: dict[str, Any]) -> bool:
     """
@@ -680,7 +725,7 @@ def _patch_interrupt(
             "value": interrupt.value,
             "resumable": interrupt.resumable,
             "ns": interrupt.ns,
-            "when": interrupt.when,
+            "when": interrupt.when,  # type: ignore[unresolved-attribute]
         }
 
 
@@ -698,6 +743,7 @@ class Threads(Authenticated):
         offset: int,
         sort_by: str | None = None,
         sort_order: str | None = None,
+        select: list[ThreadSelectField] | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> tuple[AsyncIterator[Thread], int]:
         threads = conn.store["threads"]
@@ -747,6 +793,7 @@ class Threads(Authenticated):
                 filtered_threads, key=lambda x: x.get(sort_by), reverse=reverse
             )
         else:
+            sort_by = "created_at"
             # Default sorting by created_at in descending order
             sorted_threads = sorted(
                 filtered_threads, key=lambda x: x["updated_at"], reverse=True
@@ -758,7 +805,12 @@ class Threads(Authenticated):
 
         async def thread_iterator() -> AsyncIterator[Thread]:
             for thread in paginated_threads:
-                yield thread
+                if select:
+                    # Filter to only selected fields
+                    filtered_thread = {k: v for k, v in thread.items() if k in select}
+                    yield filtered_thread
+                else:
+                    yield thread
 
         return thread_iterator(), cursor
 
@@ -822,7 +874,7 @@ class Threads(Authenticated):
     @staticmethod
     async def put(
         conn: InMemConnectionProto,
-        thread_id: UUID,
+        thread_id: UUID | str,
         *,
         metadata: MetadataInput,
         if_exists: OnConflictBehavior,
@@ -1559,6 +1611,53 @@ class Threads(Authenticated):
 
             return []
 
+    @staticmethod
+    async def count(
+        conn: InMemConnectionProto,
+        *,
+        metadata: MetadataInput = None,
+        values: MetadataInput = None,
+        status: ThreadStatus | None = None,
+        ctx: Auth.types.BaseAuthContext | None = None,
+    ) -> int:
+        """Get count of threads."""
+        threads = conn.store["threads"]
+        metadata = metadata if metadata is not None else {}
+        values = values if values is not None else {}
+        filters = await Threads.handle_event(
+            ctx,
+            "search",
+            Auth.types.ThreadsSearch(
+                metadata=metadata,
+                values=values,
+                status=status,
+                limit=0,
+                offset=0,
+            ),
+        )
+
+        count = 0
+        for thread in threads:
+            if filters and not _check_filter_match(thread["metadata"], filters):
+                continue
+
+            if metadata and not is_jsonb_contained(thread["metadata"], metadata):
+                continue
+
+            if (
+                values
+                and "values" in thread
+                and not is_jsonb_contained(thread["values"], values)
+            ):
+                continue
+
+            if status and thread.get("status") != status:
+                continue
+
+            count += 1
+
+        return count
+
 
 RUN_LOCK = asyncio.Lock()
 
@@ -1724,7 +1823,7 @@ class Runs(Authenticated):
 
     @staticmethod
     async def put(
-        conn: InMemConnectionProto,
+        conn: InMemConnectionProto | AsyncConnectionProto,
         assistant_id: UUID,
         kwargs: dict,
         *,
@@ -2068,8 +2167,8 @@ class Runs(Authenticated):
 
     @staticmethod
     async def cancel(
-        conn: InMemConnectionProto,
-        run_ids: Sequence[UUID] | None = None,
+        conn: InMemConnectionProto | AsyncConnectionProto,
+        run_ids: Sequence[UUID | str] | None = None,
         *,
         action: Literal["interrupt", "rollback"] = "interrupt",
         thread_id: UUID | None = None,
@@ -2233,6 +2332,7 @@ class Runs(Authenticated):
         limit: int = 10,
         offset: int = 0,
         status: RunStatus | None = None,
+        select: list[RunSelectField] | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Run]:
         """List all runs by thread."""
@@ -2260,7 +2360,12 @@ class Runs(Authenticated):
 
         async def _return():
             for run in sliced_runs:
-                yield run
+                if select:
+                    # Filter to only selected fields
+                    filtered_run = {k: v for k, v in run.items() if k in select}
+                    yield filtered_run
+                else:
+                    yield run
 
         return _return()
 
@@ -2432,7 +2537,7 @@ class Runs(Authenticated):
 
         @staticmethod
         async def publish(
-            run_id: UUID,
+            run_id: UUID | str,
             event: str,
             message: bytes,
             *,
@@ -2533,9 +2638,23 @@ class Crons:
         thread_id: UUID | None,
         limit: int,
         offset: int,
+        select: list[CronSelectField] | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
-    ) -> AsyncIterator[Cron]:
+        sort_by: str | None = None,
+        sort_order: Literal["asc", "desc"] | None = None,
+    ) -> tuple[AsyncIterator[Cron], int]:
         raise NotImplementedError
+
+    @staticmethod
+    async def count(
+        conn: InMemConnectionProto,
+        *,
+        assistant_id: UUID | None = None,
+        thread_id: UUID | None = None,
+        ctx: Auth.types.BaseAuthContext | None = None,
+    ) -> int:
+        """Get count of crons."""
+        raise NotImplementedError("The in-mem server does not implement Crons.")
 
 
 async def cancel_run(

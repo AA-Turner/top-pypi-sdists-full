@@ -9,8 +9,10 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from dataclasses import dataclass
-from enum import auto, Enum
+from enum import Enum, auto
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Type, TypeVar, Union
 

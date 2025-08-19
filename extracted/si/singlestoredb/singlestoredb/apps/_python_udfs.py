@@ -13,6 +13,9 @@ if typing.TYPE_CHECKING:
 # Keep track of currently running server
 _running_server: 'typing.Optional[AwaitableUvicornServer]' = None
 
+# Maximum number of UDFs allowed
+MAX_UDFS_LIMIT = 10
+
 
 async def run_udf_app(
     log_level: str = 'error',
@@ -44,20 +47,32 @@ async def run_udf_app(
     udf_suffix = ''
     if app_config.running_interactively:
         udf_suffix = '_test'
-    app = Application(url=base_url, app_mode='managed', name_suffix=udf_suffix)
+    app = Application(
+        url=base_url,
+        app_mode='managed',
+        name_suffix=udf_suffix,
+        log_level=log_level,
+    )
+
+    if not app.endpoints:
+        raise ValueError('You must define at least one function.')
+    if len(app.endpoints) > MAX_UDFS_LIMIT:
+        raise ValueError(
+            f'You can only define a maximum of {MAX_UDFS_LIMIT} functions.',
+        )
 
     config = uvicorn.Config(
         app,
         host='0.0.0.0',
         port=app_config.listen_port,
-        log_level=log_level,
+        log_config=app.get_uvicorn_log_config(),
     )
-    _running_server = AwaitableUvicornServer(config)
 
     # Register the functions only if the app is running interactively.
     if app_config.running_interactively:
         app.register_functions(replace=True)
 
+    _running_server = AwaitableUvicornServer(config)
     asyncio.create_task(_running_server.serve())
     await _running_server.wait_for_startup()
 

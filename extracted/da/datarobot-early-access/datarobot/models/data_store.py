@@ -18,6 +18,7 @@ import trafaret as t
 
 from datarobot._compat import String, TypedDict
 from datarobot.enums import DATA_STORE_TABLE_TYPE, DataStoreListTypes, DataStoreTypes
+from datarobot.errors import CredentialsError
 from datarobot.models.api_object import APIObject, ServerDataType
 from datarobot.models.credential import CredentialDataSchema
 from datarobot.models.sharing import SharingRole
@@ -98,13 +99,13 @@ class DataStoreParameters:
     def collect_payload(self) -> Dict[str, Any]:
         """Build a dict of the parameters to send to the server"""
         dat: Dict[str, Any] = {}
-        if self.driver_id:
+        if self.driver_id is not None:
             dat["driver_id"] = self.driver_id
-        if self.connector_id:
+        if self.connector_id is not None:
             dat["connector_id"] = self.connector_id
-        if self.jdbc_url:
+        if self.jdbc_url is not None:
             dat["jdbc_url"] = self.jdbc_url
-        if self.fields:
+        if self.fields is not None:
             dat["fields"] = self.fields
         return dat
 
@@ -372,6 +373,7 @@ class DataStore(APIObject):
         credential_id: Optional[str] = None,
         use_kerberos: Optional[bool] = None,
         credential_data: Optional[Dict[str, str]] = None,
+        set_default_credential: bool = False,
     ) -> TestResponse:
         """
         Tests database connection.
@@ -379,6 +381,9 @@ class DataStore(APIObject):
         .. versionchanged:: v3.2
            Added `credential_id`, `use_kerberos` and `credential_data` optional params and made
            `username` and `password` optional.
+        .. versionchanged:: v3.9
+           If credential_id is provided and set_default_credential is True and the connection test is successful,
+           the credential is set as the default for this data store.
 
         Parameters
         ----------
@@ -394,11 +399,19 @@ class DataStore(APIObject):
         credential_data : dict
             optional, the credentials to authenticate with the database, to use instead of
             user/password or credential ID
+        set_default_credential: bool
+            optional, if True and credential_id is provided, sets the credential as default for this data store
+            Default is False.
 
         Returns
         -------
         message : dict
             message with status.
+
+        Raises
+        ------
+        CredentialsError
+            If unable to set the provided credential_id as default for this data store.
 
         Examples
         --------
@@ -417,7 +430,15 @@ class DataStore(APIObject):
         }
         if credential_data:
             payload["credential_data"] = CredentialDataSchema(credential_data)
-        return self._client.post(f"{self._path}{self.id}/test/", data=to_api(payload)).json()  # type: ignore[no-any-return] # noqa: E501
+        response = self._client.post(f"{self._path}{self.id}/test/", data=to_api(payload))
+        if set_default_credential and response.status_code == 200 and credential_id is not None:
+            cred_assoc_resp = self._client.put(
+                f"credentials/{credential_id}/associations/dataconnection:{self.id}/",
+                json={"isDefault": True},
+            )
+            if cred_assoc_resp.status_code not in {200, 201}:
+                raise CredentialsError(f"Unable to set {credential_id} as default credential")
+        return response.json()  # type: ignore[no-any-return] # noqa: E501
 
     def schemas(self, username: str, password: str) -> SchemasResponse:
         """

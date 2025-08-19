@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot_early_access
-Version: 3.9.0.2025.8.11.174758
+Version: 3.9.0.2025.8.18.175126
 Summary: This client library is designed to support the DataRobot API.
 Home-page: https://datarobot.com
 Author: datarobot
@@ -51,7 +51,6 @@ Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "dev"
 Requires-Dist: respx; extra == "dev"
 Requires-Dist: black==24.4.2; extra == "dev"
 Requires-Dist: black[jupyter]==24.4.2; extra == "dev"
-Requires-Dist: isort==5.10.1; extra == "dev"
 Requires-Dist: ruff>=0.12.7; extra == "dev"
 Requires-Dist: pylint==2.15.0; extra == "dev"
 Requires-Dist: mypy==1.16.0; extra == "dev"
@@ -95,7 +94,6 @@ Requires-Dist: zest.releaser[recommended]==6.22.0; extra == "release"
 Provides-Extra: lint
 Requires-Dist: black==24.4.2; extra == "lint"
 Requires-Dist: black[jupyter]==24.4.2; extra == "lint"
-Requires-Dist: isort==5.10.1; extra == "lint"
 Requires-Dist: ruff>=0.12.7; extra == "lint"
 Requires-Dist: pylint==2.15.0; extra == "lint"
 Requires-Dist: mypy==1.16.0; extra == "lint"

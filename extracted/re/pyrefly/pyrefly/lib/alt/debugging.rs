@@ -23,7 +23,7 @@ use crate::graph::index::Idx;
 /// Debugging helpers for the AnswersSolver.
 ///
 /// These are all string-returning functions, which make them potentially less efficient
-/// but more convienient than `Display` implementations because they are easy to use
+/// but more convenient than `Display` implementations because they are easy to use
 /// for string-based comparisons for filtered debugging.
 ///
 /// For example, one useful snippet in unit tests is:
@@ -113,7 +113,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.show_binding_for_with(&bindings, idx)
                 }
                 AnyIdx::KeyExport(idx) => self.show_binding_for_with(&bindings, idx),
-                AnyIdx::KeyFunction(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyDecoratedFunction(idx) => self.show_binding_for_with(&bindings, idx),
+                AnyIdx::KeyUndecoratedFunction(idx) => self.show_binding_for_with(&bindings, idx),
                 AnyIdx::KeyAnnotation(idx) => self.show_binding_for_with(&bindings, idx),
                 AnyIdx::KeyClassMetadata(idx) => self.show_binding_for_with(&bindings, idx),
                 AnyIdx::KeyClassMro(idx) => self.show_binding_for_with(&bindings, idx),

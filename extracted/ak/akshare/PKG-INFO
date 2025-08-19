@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: akshare
-Version: 1.17.35
+Version: 1.17.37
 Summary: AKShare is an elegant and simple financial data interface library for Python, built for human beings!
 Home-page: https://github.com/akfamily/akshare
 Author: AKFamily
@@ -227,9 +227,9 @@ Please use this **bibtex** if you want to cite this repository in your publicati
 
 ```markdown
 @misc{akshare,
-    author = {Albert King},
+    author = {Albert King and Yaojie Zhang},
     title = {AKShare},
-    year = {2019},
+    year = {2022},
     publisher = {GitHub},
     journal = {GitHub repository},
     howpublished = {\url{https://github.com/akfamily/akshare}},

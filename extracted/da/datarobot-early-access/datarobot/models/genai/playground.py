@@ -15,10 +15,10 @@ from typing import Any, List, Optional, Union
 
 import trafaret as t
 
-from datarobot.enums import enum_to_list, PlaygroundType
+from datarobot.enums import PlaygroundType, enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.models.use_cases.use_case import UseCase
-from datarobot.models.use_cases.utils import get_use_case_id, resolve_use_cases, UseCaseLike
+from datarobot.models.use_cases.utils import UseCaseLike, get_use_case_id, resolve_use_cases
 from datarobot.utils.pagination import unpaginate
 
 playground_trafaret = t.Dict(

@@ -7,44 +7,46 @@ import httpx
 from .core.api_error import ApiError
 from .core.client_wrapper import SyncClientWrapper
 from .annotations.client import AnnotationsClient
+from .comments.client import CommentsClient
 from .users.client import UsersClient
 from .actions.client import ActionsClient
 from .views.client import ViewsClient
 from .files.client import FilesClient
+from .organizations.client import OrganizationsClient
+from .jwt_settings.client import JwtSettingsClient
 from .ml.client import MlClient
+from .model_providers.client import ModelProvidersClient
+from .prompts.client import PromptsClient
 from .predictions.client import PredictionsClient
 from .projects.client import ProjectsClient
 from .tasks.client import TasksClient
 from .import_storage.client import ImportStorageClient
 from .export_storage.client import ExportStorageClient
-from .webhooks.client import WebhooksClient
-from .versions.client import VersionsClient
-from .prompts.client import PromptsClient
-from .model_providers.client import ModelProvidersClient
-from .comments.client import CommentsClient
-from .workspaces.client import WorkspacesClient
 from .tokens.client import TokensClient
-from .jwt_settings.client import JwtSettingsClient
+from .versions.client import VersionsClient
+from .webhooks.client import WebhooksClient
+from .workspaces.client import WorkspacesClient
 from .core.client_wrapper import AsyncClientWrapper
 from .annotations.client import AsyncAnnotationsClient
+from .comments.client import AsyncCommentsClient
 from .users.client import AsyncUsersClient
 from .actions.client import AsyncActionsClient
 from .views.client import AsyncViewsClient
 from .files.client import AsyncFilesClient
+from .organizations.client import AsyncOrganizationsClient
+from .jwt_settings.client import AsyncJwtSettingsClient
 from .ml.client import AsyncMlClient
+from .model_providers.client import AsyncModelProvidersClient
+from .prompts.client import AsyncPromptsClient
 from .predictions.client import AsyncPredictionsClient
 from .projects.client import AsyncProjectsClient
 from .tasks.client import AsyncTasksClient
 from .import_storage.client import AsyncImportStorageClient
 from .export_storage.client import AsyncExportStorageClient
-from .webhooks.client import AsyncWebhooksClient
-from .versions.client import AsyncVersionsClient
-from .prompts.client import AsyncPromptsClient
-from .model_providers.client import AsyncModelProvidersClient
-from .comments.client import AsyncCommentsClient
-from .workspaces.client import AsyncWorkspacesClient
 from .tokens.client import AsyncTokensClient
-from .jwt_settings.client import AsyncJwtSettingsClient
+from .versions.client import AsyncVersionsClient
+from .webhooks.client import AsyncWebhooksClient
+from .workspaces.client import AsyncWorkspacesClient
 
 
 class LabelStudioBase:
@@ -110,24 +112,25 @@ class LabelStudioBase:
             timeout=_defaulted_timeout,
         )
         self.annotations = AnnotationsClient(client_wrapper=self._client_wrapper)
+        self.comments = CommentsClient(client_wrapper=self._client_wrapper)
         self.users = UsersClient(client_wrapper=self._client_wrapper)
         self.actions = ActionsClient(client_wrapper=self._client_wrapper)
         self.views = ViewsClient(client_wrapper=self._client_wrapper)
         self.files = FilesClient(client_wrapper=self._client_wrapper)
+        self.organizations = OrganizationsClient(client_wrapper=self._client_wrapper)
+        self.jwt_settings = JwtSettingsClient(client_wrapper=self._client_wrapper)
         self.ml = MlClient(client_wrapper=self._client_wrapper)
+        self.model_providers = ModelProvidersClient(client_wrapper=self._client_wrapper)
+        self.prompts = PromptsClient(client_wrapper=self._client_wrapper)
         self.predictions = PredictionsClient(client_wrapper=self._client_wrapper)
         self.projects = ProjectsClient(client_wrapper=self._client_wrapper)
         self.tasks = TasksClient(client_wrapper=self._client_wrapper)
         self.import_storage = ImportStorageClient(client_wrapper=self._client_wrapper)
         self.export_storage = ExportStorageClient(client_wrapper=self._client_wrapper)
-        self.webhooks = WebhooksClient(client_wrapper=self._client_wrapper)
-        self.versions = VersionsClient(client_wrapper=self._client_wrapper)
-        self.prompts = PromptsClient(client_wrapper=self._client_wrapper)
-        self.model_providers = ModelProvidersClient(client_wrapper=self._client_wrapper)
-        self.comments = CommentsClient(client_wrapper=self._client_wrapper)
-        self.workspaces = WorkspacesClient(client_wrapper=self._client_wrapper)
         self.tokens = TokensClient(client_wrapper=self._client_wrapper)
-        self.jwt_settings = JwtSettingsClient(client_wrapper=self._client_wrapper)
+        self.versions = VersionsClient(client_wrapper=self._client_wrapper)
+        self.webhooks = WebhooksClient(client_wrapper=self._client_wrapper)
+        self.workspaces = WorkspacesClient(client_wrapper=self._client_wrapper)
 
 
 class AsyncLabelStudioBase:
@@ -193,24 +196,25 @@ class AsyncLabelStudioBase:
             timeout=_defaulted_timeout,
         )
         self.annotations = AsyncAnnotationsClient(client_wrapper=self._client_wrapper)
+        self.comments = AsyncCommentsClient(client_wrapper=self._client_wrapper)
         self.users = AsyncUsersClient(client_wrapper=self._client_wrapper)
         self.actions = AsyncActionsClient(client_wrapper=self._client_wrapper)
         self.views = AsyncViewsClient(client_wrapper=self._client_wrapper)
         self.files = AsyncFilesClient(client_wrapper=self._client_wrapper)
+        self.organizations = AsyncOrganizationsClient(client_wrapper=self._client_wrapper)
+        self.jwt_settings = AsyncJwtSettingsClient(client_wrapper=self._client_wrapper)
         self.ml = AsyncMlClient(client_wrapper=self._client_wrapper)
+        self.model_providers = AsyncModelProvidersClient(client_wrapper=self._client_wrapper)
+        self.prompts = AsyncPromptsClient(client_wrapper=self._client_wrapper)
         self.predictions = AsyncPredictionsClient(client_wrapper=self._client_wrapper)
         self.projects = AsyncProjectsClient(client_wrapper=self._client_wrapper)
         self.tasks = AsyncTasksClient(client_wrapper=self._client_wrapper)
         self.import_storage = AsyncImportStorageClient(client_wrapper=self._client_wrapper)
         self.export_storage = AsyncExportStorageClient(client_wrapper=self._client_wrapper)
-        self.webhooks = AsyncWebhooksClient(client_wrapper=self._client_wrapper)
-        self.versions = AsyncVersionsClient(client_wrapper=self._client_wrapper)
-        self.prompts = AsyncPromptsClient(client_wrapper=self._client_wrapper)
-        self.model_providers = AsyncModelProvidersClient(client_wrapper=self._client_wrapper)
-        self.comments = AsyncCommentsClient(client_wrapper=self._client_wrapper)
-        self.workspaces = AsyncWorkspacesClient(client_wrapper=self._client_wrapper)
         self.tokens = AsyncTokensClient(client_wrapper=self._client_wrapper)
-        self.jwt_settings = AsyncJwtSettingsClient(client_wrapper=self._client_wrapper)
+        self.versions = AsyncVersionsClient(client_wrapper=self._client_wrapper)
+        self.webhooks = AsyncWebhooksClient(client_wrapper=self._client_wrapper)
+        self.workspaces = AsyncWorkspacesClient(client_wrapper=self._client_wrapper)
 
 
 def _get_base_url(*, base_url: typing.Optional[str] = None, environment: LabelStudioEnvironment) -> str:

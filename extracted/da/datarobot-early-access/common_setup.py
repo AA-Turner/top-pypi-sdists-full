@@ -9,6 +9,8 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 import re
 import sys
 
@@ -150,7 +152,6 @@ lint_require = (
     [
         "black==24.4.2",
         "black[jupyter]==24.4.2",
-        "isort==5.10.1",
         "ruff>=0.12.7",
         "pylint==2.15.0",
     ]

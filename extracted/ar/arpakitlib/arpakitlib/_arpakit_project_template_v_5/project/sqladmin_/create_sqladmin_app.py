@@ -18,7 +18,7 @@ def create_sqladmin_app(*, prefix: str = "/sqladmin") -> FastAPI:
 
     sqladmin_app = FastAPI(
         title=get_cached_settings().project_name,
-        description=get_cached_settings().project_name,
+        description=get_cached_settings().project_title,
         docs_url=None,
         redoc_url=None,
         openapi_url=None,

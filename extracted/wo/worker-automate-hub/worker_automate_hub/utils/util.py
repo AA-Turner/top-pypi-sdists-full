@@ -4042,7 +4042,7 @@ async def nf_devolucao_liquidar_cupom(
                 "assets\\emsys\\icon_pesquisa_nota_saida.png", confidence=0.8
             )
             pyautogui.click(pesquisar_icon)
-            await worker_sleep(5)
+            await worker_sleep(10)
         except Exception as e:
             return RpaRetornoProcessoDTO(
                 sucesso=False,

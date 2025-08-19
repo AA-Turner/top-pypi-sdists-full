@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, cast, Dict, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union, cast
 
 import trafaret as t
 from urllib3 import Retry

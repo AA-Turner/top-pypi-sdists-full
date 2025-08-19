@@ -427,7 +427,7 @@ assert_type(C().f(None, 1), int)
 // because the default value can be overridden by instance assignment.
 //
 // Our behavior is compatible, but the underlying implementation is not, we are
-// behaving this way based on how we treate the Callable type rather than based
+// behaving this way based on how we treat the Callable type rather than based
 // on the absence of `ClassVar`.
 //
 // See https://discuss.python.org/t/when-should-we-assume-callable-types-are-method-descriptors/92938
@@ -1231,7 +1231,6 @@ C.x = 43  # E: This field is marked as Final
 );
 
 testcase!(
-    bug = "other.output type is too general. Also, there should be no errors.",
     test_attr_cast,
     r#"
 from typing import Self, cast, Any, assert_type
@@ -1241,34 +1240,33 @@ class C:
     def f(self, other):
         other = cast(Self, other)
         assert_type(other, Self)
-        assert_type(other.outputs, Any) # E: TODO: Expr::attr_infer_for_type
-        len(self.outputs) == len(other.outputs) # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: Self
+        assert_type(other.outputs, list[Any])
+        len(self.outputs) == len(other.outputs)
     "#,
 );
 
 testcase!(
-    bug = "There should be no errors here.",
     test_attr_tuple,
     r#"
 from typing import Any, Tuple
 
 def g(ann) -> None:
     if ann is Tuple: ...
-    ann.__module__ # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: type[Tuple] | Unknown (trying to access __module__)
+    ann.__module__
     "#,
 );
 
 testcase!(
-    bug = "PyTorch TODO: The first error message could be better, and hasattr narrowing would fix it. The second error message is incorrect, if `obj` is a class it should have a `__name__` attribute.",
+    bug = "PyTorch TODO: this would be fixed by hasattr narrowing",
     test_tuple_attribute_example,
     r#"
 def f(obj, g, field_type, my_type,):
     assert issubclass(obj, tuple) and hasattr(obj, "_fields")
-    for f in obj._fields: # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: type[tuple[Unknown, ...]]
+    for f in obj._fields:  # E: Class `tuple` has no class attribute `_fields`
         if isinstance(field_type, my_type) and g is not None:
             if g is None:
                 raise ValueError(
-                    f"{obj.__name__}."  # E: TODO: Expr::attr_infer_for_type attribute base undefined for type: type[tuple[Unknown, ...]] (trying to access __name__)
+                    f"{obj.__name__}."
                 )
     "#,
 );
@@ -1320,5 +1318,51 @@ class Singleton(Expr):
     def __init__(self, v: Expr):
         self.children = (v,)
 assert_type(Singleton(Expr()).children, tuple[Expr, ...])
+    "#,
+);
+
+testcase!(
+    test_mro_method,
+    r#"
+().mro()  # E: no attribute `mro`
+tuple.mro()
+type.mro()  # E: Missing argument `self`
+    "#,
+);
+
+// How special forms are represented in typing.py is an implementation detail, but in practice,
+// some of the representations are stable across Python versions. In particular, user code
+// sometimes relies on some special forms being classes and Type behaving like builtins.type.
+testcase!(
+    test_special_forms,
+    r#"
+from typing import Callable, Generic, Protocol, Tuple, Type
+def f1(cls):
+    if cls is Callable:
+        return cls.mro()
+def f2(cls):
+    if cls is Generic:
+        return cls.mro()
+def f3(cls):
+    if cls is Protocol:
+        return cls.mro()
+def f4(cls):
+    if cls is Tuple:
+        return cls.mro()
+def f5(cls, x: type):
+    if cls is Type:
+        return cls.mro(x)
+    "#,
+);
+
+testcase!(
+    test_get_type_new,
+    r#"
+from typing import cast, reveal_type
+def get_type_t[T]() -> type[T]:
+    return cast(type[T], 0)
+def foo[T](x: type[T]):
+    # mypy reveals the same thing we do (the type of `type.__new__`), while pyright reveals `Unknown`.
+    reveal_type(get_type_t().__new__)  # E: Overload[(cls: type[Self@type], o: object, /) -> type, (cls: type[TypeVar[Self]], name: str, bases: tuple[type, ...], namespace: dict[str, Any], /, **kwds: Any) -> TypeVar[Self]]
     "#,
 );

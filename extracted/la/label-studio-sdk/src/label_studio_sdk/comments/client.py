@@ -3,8 +3,8 @@
 import typing
 from ..core.client_wrapper import SyncClientWrapper
 from ..core.request_options import RequestOptions
-from ..types.comment import Comment
-from ..core.pydantic_utilities import parse_obj_as
+from ..types.maybe_expanded_comment import MaybeExpandedComment
+from ..core.unchecked_base_model import construct_type
 from json.decoder import JSONDecodeError
 from ..core.api_error import ApiError
 from ..core.jsonable_encoder import jsonable_encoder
@@ -21,33 +21,39 @@ class CommentsClient:
     def list(
         self,
         *,
-        project: typing.Optional[int] = None,
-        expand_created_by: typing.Optional[bool] = None,
         annotation: typing.Optional[int] = None,
+        annotators: typing.Optional[str] = None,
+        draft: typing.Optional[int] = None,
+        expand_created_by: typing.Optional[bool] = None,
+        ordering: typing.Optional[str] = None,
+        projects: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[Comment]:
+    ) -> typing.List[MaybeExpandedComment]:
         """
-
-        Get a list of comments for a specific project.
+        List all comments for a specific annotation ID.
 
         Parameters
         ----------
-        project : typing.Optional[int]
-            Project ID
+        annotation : typing.Optional[int]
+
+        annotators : typing.Optional[str]
+
+        draft : typing.Optional[int]
 
         expand_created_by : typing.Optional[bool]
-            Expand the created_by field with object instead of ID
 
-        annotation : typing.Optional[int]
-            Annotation ID
+        ordering : typing.Optional[str]
+            Which field to use when ordering the results.
+
+        projects : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.List[Comment]
-
+        typing.List[MaybeExpandedComment]
+            List of comments
 
         Examples
         --------
@@ -62,18 +68,21 @@ class CommentsClient:
             "api/comments/",
             method="GET",
             params={
-                "project": project,
-                "expand_created_by": expand_created_by,
                 "annotation": annotation,
+                "annotators": annotators,
+                "draft": draft,
+                "expand_created_by": expand_created_by,
+                "ordering": ordering,
+                "projects": projects,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
-                    typing.List[Comment],
-                    parse_obj_as(
-                        type_=typing.List[Comment],  # type: ignore
+                    typing.List[MaybeExpandedComment],
+                    construct_type(
+                        type_=typing.List[MaybeExpandedComment],  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -85,32 +94,43 @@ class CommentsClient:
     def create(
         self,
         *,
-        annotation: typing.Optional[int] = OMIT,
-        project: typing.Optional[int] = OMIT,
+        expand_created_by: typing.Optional[bool] = None,
+        region_ref: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        classifications: typing.Optional[typing.Optional[typing.Any]] = OMIT,
         text: typing.Optional[str] = OMIT,
         is_resolved: typing.Optional[bool] = OMIT,
+        draft: typing.Optional[int] = OMIT,
+        annotation: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> Comment:
+    ) -> MaybeExpandedComment:
         """
-
-        Create a new comment.
+        Create a comment for a specific annotation ID.
 
         Parameters
         ----------
-        annotation : typing.Optional[int]
+        expand_created_by : typing.Optional[bool]
+            Expand the created_by field
 
-        project : typing.Optional[int]
+        region_ref : typing.Optional[typing.Optional[typing.Any]]
+
+        classifications : typing.Optional[typing.Optional[typing.Any]]
 
         text : typing.Optional[str]
+            Reviewer or annotator comment
 
         is_resolved : typing.Optional[bool]
+            True if the comment is resolved
+
+        draft : typing.Optional[int]
+
+        annotation : typing.Optional[int]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        Comment
+        MaybeExpandedComment
 
 
         Examples
@@ -125,14 +145,16 @@ class CommentsClient:
         _response = self._client_wrapper.httpx_client.request(
             "api/comments/",
             method="POST",
+            params={
+                "expand_created_by": expand_created_by,
+            },
             json={
-                "annotation": annotation,
-                "project": project,
+                "region_ref": region_ref,
+                "classifications": classifications,
                 "text": text,
                 "is_resolved": is_resolved,
-            },
-            headers={
-                "content-type": "application/json",
+                "draft": draft,
+                "annotation": annotation,
             },
             request_options=request_options,
             omit=OMIT,
@@ -140,9 +162,9 @@ class CommentsClient:
         try:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
-                    Comment,
-                    parse_obj_as(
-                        type_=Comment,  # type: ignore
+                    MaybeExpandedComment,
+                    construct_type(
+                        type_=MaybeExpandedComment,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -151,22 +173,29 @@ class CommentsClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def get(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> Comment:
+    def get(
+        self,
+        id: str,
+        *,
+        expand_created_by: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> MaybeExpandedComment:
         """
-
-        Get a specific comment.
+        Retrieve a specific comment by ID for an annotation.
 
         Parameters
         ----------
-        id : int
-            Comment ID
+        id : str
+
+        expand_created_by : typing.Optional[bool]
+            Expand the created_by field
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        Comment
+        MaybeExpandedComment
 
 
         Examples
@@ -177,20 +206,23 @@ class CommentsClient:
             api_key="YOUR_API_KEY",
         )
         client.comments.get(
-            id=1,
+            id="id",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/comments/{jsonable_encoder(id)}",
+            f"api/comments/{jsonable_encoder(id)}/",
             method="GET",
+            params={
+                "expand_created_by": expand_created_by,
+            },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
-                    Comment,
-                    parse_obj_as(
-                        type_=Comment,  # type: ignore
+                    MaybeExpandedComment,
+                    construct_type(
+                        type_=MaybeExpandedComment,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -199,15 +231,22 @@ class CommentsClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def delete(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+    def delete(
+        self,
+        id: str,
+        *,
+        expand_created_by: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> None:
         """
-
-        Delete a specific comment.
+        Delete a comment by ID
 
         Parameters
         ----------
-        id : int
-            Comment ID
+        id : str
+
+        expand_created_by : typing.Optional[bool]
+            Expand the created_by field
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -224,12 +263,15 @@ class CommentsClient:
             api_key="YOUR_API_KEY",
         )
         client.comments.delete(
-            id=1,
+            id="id",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/comments/{jsonable_encoder(id)}",
+            f"api/comments/{jsonable_encoder(id)}/",
             method="DELETE",
+            params={
+                "expand_created_by": expand_created_by,
+            },
             request_options=request_options,
         )
         try:
@@ -242,37 +284,47 @@ class CommentsClient:
 
     def update(
         self,
-        id: int,
+        id: str,
         *,
-        annotation: typing.Optional[int] = OMIT,
-        project: typing.Optional[int] = OMIT,
+        expand_created_by: typing.Optional[bool] = None,
+        region_ref: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        classifications: typing.Optional[typing.Optional[typing.Any]] = OMIT,
         text: typing.Optional[str] = OMIT,
         is_resolved: typing.Optional[bool] = OMIT,
+        draft: typing.Optional[int] = OMIT,
+        annotation: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> Comment:
+    ) -> MaybeExpandedComment:
         """
-
-        Update a specific comment.
+        Update a specific comment by ID.
 
         Parameters
         ----------
-        id : int
-            Comment ID
+        id : str
 
-        annotation : typing.Optional[int]
+        expand_created_by : typing.Optional[bool]
+            Expand the created_by field
 
-        project : typing.Optional[int]
+        region_ref : typing.Optional[typing.Optional[typing.Any]]
+
+        classifications : typing.Optional[typing.Optional[typing.Any]]
 
         text : typing.Optional[str]
+            Reviewer or annotator comment
 
         is_resolved : typing.Optional[bool]
+            True if the comment is resolved
+
+        draft : typing.Optional[int]
+
+        annotation : typing.Optional[int]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        Comment
+        MaybeExpandedComment
 
 
         Examples
@@ -283,17 +335,22 @@ class CommentsClient:
             api_key="YOUR_API_KEY",
         )
         client.comments.update(
-            id=1,
+            id="id",
         )
         """
         _response = self._client_wrapper.httpx_client.request(
-            f"api/comments/{jsonable_encoder(id)}",
+            f"api/comments/{jsonable_encoder(id)}/",
             method="PATCH",
+            params={
+                "expand_created_by": expand_created_by,
+            },
             json={
-                "annotation": annotation,
-                "project": project,
+                "region_ref": region_ref,
+                "classifications": classifications,
                 "text": text,
                 "is_resolved": is_resolved,
+                "draft": draft,
+                "annotation": annotation,
             },
             headers={
                 "content-type": "application/json",
@@ -304,9 +361,9 @@ class CommentsClient:
         try:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
-                    Comment,
-                    parse_obj_as(
-                        type_=Comment,  # type: ignore
+                    MaybeExpandedComment,
+                    construct_type(
+                        type_=MaybeExpandedComment,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -314,6 +371,68 @@ class CommentsClient:
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def export(
+        self,
+        *,
+        annotation: typing.Optional[int] = None,
+        annotators: typing.Optional[str] = None,
+        draft: typing.Optional[int] = None,
+        expand_created_by: typing.Optional[bool] = None,
+        projects: typing.Optional[str] = None,
+        tz: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.Iterator[bytes]:
+        """
+        Export comments to CSV file
+
+        Parameters
+        ----------
+        annotation : typing.Optional[int]
+
+        annotators : typing.Optional[str]
+
+        draft : typing.Optional[int]
+
+        expand_created_by : typing.Optional[bool]
+
+        projects : typing.Optional[str]
+
+        tz : typing.Optional[str]
+            Timezone in which to export the data. Format IANA timezone name, e.g. "America/New_York"
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
+
+        Yields
+        ------
+        typing.Iterator[bytes]
+            CSV file with comments
+        """
+        with self._client_wrapper.httpx_client.stream(
+            "api/comments/export/",
+            method="GET",
+            params={
+                "annotation": annotation,
+                "annotators": annotators,
+                "draft": draft,
+                "expand_created_by": expand_created_by,
+                "projects": projects,
+                "tz": tz,
+            },
+            request_options=request_options,
+        ) as _response:
+            try:
+                if 200 <= _response.status_code < 300:
+                    _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
+                    for _chunk in _response.iter_bytes(chunk_size=_chunk_size):
+                        yield _chunk
+                    return
+                _response.read()
+                _response_json = _response.json()
+            except JSONDecodeError:
+                raise ApiError(status_code=_response.status_code, body=_response.text)
+            raise ApiError(status_code=_response.status_code, body=_response_json)
 
 
 class AsyncCommentsClient:
@@ -323,33 +442,39 @@ class AsyncCommentsClient:
     async def list(
         self,
         *,
-        project: typing.Optional[int] = None,
-        expand_created_by: typing.Optional[bool] = None,
         annotation: typing.Optional[int] = None,
+        annotators: typing.Optional[str] = None,
+        draft: typing.Optional[int] = None,
+        expand_created_by: typing.Optional[bool] = None,
+        ordering: typing.Optional[str] = None,
+        projects: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[Comment]:
+    ) -> typing.List[MaybeExpandedComment]:
         """
-
-        Get a list of comments for a specific project.
+        List all comments for a specific annotation ID.
 
         Parameters
         ----------
-        project : typing.Optional[int]
-            Project ID
+        annotation : typing.Optional[int]
+
+        annotators : typing.Optional[str]
+
+        draft : typing.Optional[int]
 
         expand_created_by : typing.Optional[bool]
-            Expand the created_by field with object instead of ID
 
-        annotation : typing.Optional[int]
-            Annotation ID
+        ordering : typing.Optional[str]
+            Which field to use when ordering the results.
+
+        projects : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.List[Comment]
-
+        typing.List[MaybeExpandedComment]
+            List of comments
 
         Examples
         --------
@@ -372,18 +497,21 @@ class AsyncCommentsClient:
             "api/comments/",
             method="GET",
             params={
-                "project": project,
-                "expand_created_by": expand_created_by,
                 "annotation": annotation,
+                "annotators": annotators,
+                "draft": draft,
+                "expand_created_by": expand_created_by,
+                "ordering": ordering,
+                "projects": projects,
             },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
-                    typing.List[Comment],
-                    parse_obj_as(
-                        type_=typing.List[Comment],  # type: ignore
+                    typing.List[MaybeExpandedComment],
+                    construct_type(
+                        type_=typing.List[MaybeExpandedComment],  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -395,32 +523,43 @@ class AsyncCommentsClient:
     async def create(
         self,
         *,
-        annotation: typing.Optional[int] = OMIT,
-        project: typing.Optional[int] = OMIT,
+        expand_created_by: typing.Optional[bool] = None,
+        region_ref: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        classifications: typing.Optional[typing.Optional[typing.Any]] = OMIT,
         text: typing.Optional[str] = OMIT,
         is_resolved: typing.Optional[bool] = OMIT,
+        draft: typing.Optional[int] = OMIT,
+        annotation: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> Comment:
+    ) -> MaybeExpandedComment:
         """
-
-        Create a new comment.
+        Create a comment for a specific annotation ID.
 
         Parameters
         ----------
-        annotation : typing.Optional[int]
+        expand_created_by : typing.Optional[bool]
+            Expand the created_by field
 
-        project : typing.Optional[int]
+        region_ref : typing.Optional[typing.Optional[typing.Any]]
+
+        classifications : typing.Optional[typing.Optional[typing.Any]]
 
         text : typing.Optional[str]
+            Reviewer or annotator comment
 
         is_resolved : typing.Optional[bool]
+            True if the comment is resolved
+
+        draft : typing.Optional[int]
+
+        annotation : typing.Optional[int]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        Comment
+        MaybeExpandedComment
 
 
         Examples
@@ -443,14 +582,16 @@ class AsyncCommentsClient:
         _response = await self._client_wrapper.httpx_client.request(
             "api/comments/",
             method="POST",
+            params={
+                "expand_created_by": expand_created_by,
+            },
             json={
-                "annotation": annotation,
-                "project": project,
+                "region_ref": region_ref,
+                "classifications": classifications,
                 "text": text,
                 "is_resolved": is_resolved,
-            },
-            headers={
-                "content-type": "application/json",
+                "draft": draft,
+                "annotation": annotation,
             },
             request_options=request_options,
             omit=OMIT,
@@ -458,9 +599,9 @@ class AsyncCommentsClient:
         try:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
-                    Comment,
-                    parse_obj_as(
-                        type_=Comment,  # type: ignore
+                    MaybeExpandedComment,
+                    construct_type(
+                        type_=MaybeExpandedComment,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -469,22 +610,29 @@ class AsyncCommentsClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def get(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> Comment:
+    async def get(
+        self,
+        id: str,
+        *,
+        expand_created_by: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> MaybeExpandedComment:
         """
-
-        Get a specific comment.
+        Retrieve a specific comment by ID for an annotation.
 
         Parameters
         ----------
-        id : int
-            Comment ID
+        id : str
+
+        expand_created_by : typing.Optional[bool]
+            Expand the created_by field
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        Comment
+        MaybeExpandedComment
 
 
         Examples
@@ -500,23 +648,26 @@ class AsyncCommentsClient:
 
         async def main() -> None:
             await client.comments.get(
-                id=1,
+                id="id",
             )
 
 
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/comments/{jsonable_encoder(id)}",
+            f"api/comments/{jsonable_encoder(id)}/",
             method="GET",
+            params={
+                "expand_created_by": expand_created_by,
+            },
             request_options=request_options,
         )
         try:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
-                    Comment,
-                    parse_obj_as(
-                        type_=Comment,  # type: ignore
+                    MaybeExpandedComment,
+                    construct_type(
+                        type_=MaybeExpandedComment,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -525,15 +676,22 @@ class AsyncCommentsClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def delete(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+    async def delete(
+        self,
+        id: str,
+        *,
+        expand_created_by: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> None:
         """
-
-        Delete a specific comment.
+        Delete a comment by ID
 
         Parameters
         ----------
-        id : int
-            Comment ID
+        id : str
+
+        expand_created_by : typing.Optional[bool]
+            Expand the created_by field
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -555,15 +713,18 @@ class AsyncCommentsClient:
 
         async def main() -> None:
             await client.comments.delete(
-                id=1,
+                id="id",
             )
 
 
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/comments/{jsonable_encoder(id)}",
+            f"api/comments/{jsonable_encoder(id)}/",
             method="DELETE",
+            params={
+                "expand_created_by": expand_created_by,
+            },
             request_options=request_options,
         )
         try:
@@ -576,37 +737,47 @@ class AsyncCommentsClient:
 
     async def update(
         self,
-        id: int,
+        id: str,
         *,
-        annotation: typing.Optional[int] = OMIT,
-        project: typing.Optional[int] = OMIT,
+        expand_created_by: typing.Optional[bool] = None,
+        region_ref: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        classifications: typing.Optional[typing.Optional[typing.Any]] = OMIT,
         text: typing.Optional[str] = OMIT,
         is_resolved: typing.Optional[bool] = OMIT,
+        draft: typing.Optional[int] = OMIT,
+        annotation: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> Comment:
+    ) -> MaybeExpandedComment:
         """
-
-        Update a specific comment.
+        Update a specific comment by ID.
 
         Parameters
         ----------
-        id : int
-            Comment ID
+        id : str
 
-        annotation : typing.Optional[int]
+        expand_created_by : typing.Optional[bool]
+            Expand the created_by field
 
-        project : typing.Optional[int]
+        region_ref : typing.Optional[typing.Optional[typing.Any]]
+
+        classifications : typing.Optional[typing.Optional[typing.Any]]
 
         text : typing.Optional[str]
+            Reviewer or annotator comment
 
         is_resolved : typing.Optional[bool]
+            True if the comment is resolved
+
+        draft : typing.Optional[int]
+
+        annotation : typing.Optional[int]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        Comment
+        MaybeExpandedComment
 
 
         Examples
@@ -622,20 +793,25 @@ class AsyncCommentsClient:
 
         async def main() -> None:
             await client.comments.update(
-                id=1,
+                id="id",
             )
 
 
         asyncio.run(main())
         """
         _response = await self._client_wrapper.httpx_client.request(
-            f"api/comments/{jsonable_encoder(id)}",
+            f"api/comments/{jsonable_encoder(id)}/",
             method="PATCH",
+            params={
+                "expand_created_by": expand_created_by,
+            },
             json={
-                "annotation": annotation,
-                "project": project,
+                "region_ref": region_ref,
+                "classifications": classifications,
                 "text": text,
                 "is_resolved": is_resolved,
+                "draft": draft,
+                "annotation": annotation,
             },
             headers={
                 "content-type": "application/json",
@@ -646,9 +822,9 @@ class AsyncCommentsClient:
         try:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
-                    Comment,
-                    parse_obj_as(
-                        type_=Comment,  # type: ignore
+                    MaybeExpandedComment,
+                    construct_type(
+                        type_=MaybeExpandedComment,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -656,3 +832,65 @@ class AsyncCommentsClient:
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def export(
+        self,
+        *,
+        annotation: typing.Optional[int] = None,
+        annotators: typing.Optional[str] = None,
+        draft: typing.Optional[int] = None,
+        expand_created_by: typing.Optional[bool] = None,
+        projects: typing.Optional[str] = None,
+        tz: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.AsyncIterator[bytes]:
+        """
+        Export comments to CSV file
+
+        Parameters
+        ----------
+        annotation : typing.Optional[int]
+
+        annotators : typing.Optional[str]
+
+        draft : typing.Optional[int]
+
+        expand_created_by : typing.Optional[bool]
+
+        projects : typing.Optional[str]
+
+        tz : typing.Optional[str]
+            Timezone in which to export the data. Format IANA timezone name, e.g. "America/New_York"
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
+
+        Yields
+        ------
+        typing.AsyncIterator[bytes]
+            CSV file with comments
+        """
+        async with self._client_wrapper.httpx_client.stream(
+            "api/comments/export/",
+            method="GET",
+            params={
+                "annotation": annotation,
+                "annotators": annotators,
+                "draft": draft,
+                "expand_created_by": expand_created_by,
+                "projects": projects,
+                "tz": tz,
+            },
+            request_options=request_options,
+        ) as _response:
+            try:
+                if 200 <= _response.status_code < 300:
+                    _chunk_size = request_options.get("chunk_size", None) if request_options is not None else None
+                    async for _chunk in _response.aiter_bytes(chunk_size=_chunk_size):
+                        yield _chunk
+                    return
+                await _response.aread()
+                _response_json = _response.json()
+            except JSONDecodeError:
+                raise ApiError(status_code=_response.status_code, body=_response.text)
+            raise ApiError(status_code=_response.status_code, body=_response_json)

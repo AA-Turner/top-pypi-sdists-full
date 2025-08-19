@@ -10,9 +10,17 @@ from langgraph_api import config
 from langgraph_api.asyncio import ValueEvent, aclosing
 from langgraph_api.models.run import create_valid_run
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
+from langgraph_api.schema import CRON_FIELDS, RUN_FIELDS
 from langgraph_api.sse import EventSourceResponse
-from langgraph_api.utils import fetchone, get_pagination_headers, uuid7, validate_uuid
+from langgraph_api.utils import (
+    fetchone,
+    get_pagination_headers,
+    uuid7,
+    validate_select_columns,
+    validate_uuid,
+)
 from langgraph_api.validation import (
+    CronCountRequest,
     CronCreate,
     CronSearch,
     RunBatchCreate,
@@ -337,6 +345,9 @@ async def list_runs(
     limit = int(request.query_params.get("limit", 10))
     offset = int(request.query_params.get("offset", 0))
     status = request.query_params.get("status")
+    select = validate_select_columns(
+        request.query_params.getlist("select") or None, RUN_FIELDS
+    )
 
     async with connect() as conn, conn.pipeline():
         thread, runs = await asyncio.gather(
@@ -347,6 +358,7 @@ async def list_runs(
                 limit=limit,
                 offset=offset,
                 status=status,
+                select=select,
             ),
         )
     await fetchone(thread)
@@ -560,6 +572,7 @@ async def delete_cron(request: ApiRequest):
 async def search_crons(request: ApiRequest):
     """List all cron jobs for an assistant"""
     payload = await request.json(CronSearch)
+    select = validate_select_columns(payload.get("select") or None, CRON_FIELDS)
     if assistant_id := payload.get("assistant_id"):
         validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
     if thread_id := payload.get("thread_id"):
@@ -575,11 +588,30 @@ async def search_crons(request: ApiRequest):
             offset=offset,
             sort_by=payload.get("sort_by"),
             sort_order=payload.get("sort_order"),
+            select=select,
         )
     crons, response_headers = await get_pagination_headers(
         crons_iter, next_offset, offset
     )
     return ApiResponse(crons, headers=response_headers)
+
+
+@retry_db
+async def count_crons(request: ApiRequest):
+    """Count cron jobs."""
+    payload = await request.json(CronCountRequest)
+    if assistant_id := payload.get("assistant_id"):
+        validate_uuid(assistant_id, "Invalid assistant ID: must be a UUID")
+    if thread_id := payload.get("thread_id"):
+        validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
+
+    async with connect() as conn:
+        count = await Crons.count(
+            conn,
+            assistant_id=assistant_id,
+            thread_id=thread_id,
+        )
+    return ApiResponse(count)
 
 
 runs_routes = [
@@ -595,6 +627,11 @@ runs_routes = [
     ),
     (
         ApiRoute("/runs/crons/search", search_crons, methods=["POST"])
+        if config.FF_CRONS_ENABLED and plus_features_enabled()
+        else None
+    ),
+    (
+        ApiRoute("/runs/crons/count", count_crons, methods=["POST"])
         if config.FF_CRONS_ENABLED and plus_features_enabled()
         else None
     ),

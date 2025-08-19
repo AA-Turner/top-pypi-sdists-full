@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime
 from io import IOBase
-from typing import Any, cast, Dict, List, Optional, Tuple, Type, TYPE_CHECKING, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast
 import warnings
 
 import dateutil

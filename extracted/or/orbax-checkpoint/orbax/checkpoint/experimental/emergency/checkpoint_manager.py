@@ -267,6 +267,7 @@ class CheckpointManagerOptions:
   enable_async_checkpointing: bool = True
   async_options: Optional[checkpoint_manager.AsyncOptions] = None
   multiprocessing_options: Optional[MultiprocessingOptions] = None
+  use_shard_map_broadcast: bool = False
 
 
 class _BarrierIdentifier(enum.Enum):
@@ -494,8 +495,6 @@ class _LocalCheckpointManager(checkpoint_manager.CheckpointManager):
         active_processes=self._active_processes,
         barrier_sync_key_prefix='local',
     )
-    async_options = options.async_options or checkpoint_manager.AsyncOptions()
-    async_options.create_directories_asynchronously = False
     local_options = checkpoint_manager.CheckpointManagerOptions(
         save_interval_steps=options.local.save_interval_steps,
         max_to_keep=options.local.max_to_keep,
@@ -505,7 +504,6 @@ class _LocalCheckpointManager(checkpoint_manager.CheckpointManager):
         create=False,
         # we always clean up local tmp directories explicitly
         cleanup_tmp_directories=False,
-        async_options=async_options,
         multiprocessing_options=multiprocessing_options,
         enable_async_checkpointing=options.enable_async_checkpointing,
         read_only=options.local.read_only,
@@ -513,6 +511,7 @@ class _LocalCheckpointManager(checkpoint_manager.CheckpointManager):
         # enable_background_delete set to False to ensure gc is done before save
         enable_background_delete=False,
         save_root_metadata=False,
+        enable_per_process_directory_creation=True,
     )
     self._logger = logger or standard_logger.StandardLogger()
     self._coordination_timeout_secs = (
@@ -1272,6 +1271,7 @@ class _MultisliceCheckpointManager(
         self._global_mesh,
         replica_axis_index=self._replica_axis_index,
         is_source=is_restoring_slice,
+        use_shard_map=self._options.use_shard_map_broadcast,
     )
     broadcast_elapsed_s = time.time() - start_broadcast
     jax.monitoring.record_event_duration_secs(
@@ -1399,6 +1399,7 @@ class _MultisliceCheckpointManager(
         self._global_mesh,
         replica_axis_index=self._replica_axis_index,
         is_source=self.in_primary_slice,
+        use_shard_map=self._options.use_shard_map_broadcast,
     )
     broadcast_elapsed_s = time.time() - start_broadcast
     jax.monitoring.record_event_duration_secs(

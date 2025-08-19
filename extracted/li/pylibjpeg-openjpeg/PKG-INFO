@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pylibjpeg-openjpeg
-Version: 2.4.0
+Version: 2.5.0
 Summary: A Python wrapper for openjpeg, with a focus on use as a plugin for for pylibjpeg
 Home-page: https://github.com/pydicom/pylibjpeg-openjpeg
 License: MIT
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Medical Science Apps.
 Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: numpy (>=2.0,<3.0)

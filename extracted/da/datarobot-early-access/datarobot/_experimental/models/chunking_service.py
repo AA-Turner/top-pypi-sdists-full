@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Union
 import trafaret as t
 from trafaret.contrib.rfc_3339 import DateTime
 
-from datarobot._experimental.models.enums import ChunkingType, ChunkStorageType, OriginStorageType
+from datarobot._experimental.models.enums import ChunkStorageType, ChunkingType, OriginStorageType
 from datarobot.enums import DEFAULT_MAX_WAIT, enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.utils import camelize

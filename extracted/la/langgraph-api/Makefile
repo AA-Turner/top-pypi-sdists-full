@@ -41,6 +41,8 @@ test-watch-oss:
 
 test: test-license-oss
 test-watch: test-watch-oss
+unit-test:
+	DATABASE_URI="test" REDIS_URI="test" uv run pytest tests/unit_tests
 
 test-auth:
 	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_AUTH='{"path": "./tests/graphs/fastapi_jwt_auth.py:get_current_active_user"}' REDIS_URI=_FAKE DATABASE_URI=:memory: MIGRATIONS_PATH=__inmem__ uv run pytest -v $(AUTH_TEST)

@@ -148,6 +148,24 @@ async def get_pagination_headers(
     return resources, response_headers
 
 
+def validate_select_columns(
+    select: list[str] | None, allowed: set[str]
+) -> list[str] | None:
+    """Validate select columns against an allowed set.
+
+    Returns the input list (or None) if valid, otherwise raises HTTP 422.
+    """
+    if not select:
+        return None
+    invalid = [col for col in select if col not in allowed]
+    if invalid:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid select columns: {invalid}. Expected: {allowed}",
+        )
+    return select
+
+
 __all__ = [
     "AsyncCursorProto",
     "AsyncPipelineProto",
@@ -158,4 +176,5 @@ __all__ = [
     "SchemaGenerator",
     "get_pagination_headers",
     "uuid7",
+    "validate_select_columns",
 ]

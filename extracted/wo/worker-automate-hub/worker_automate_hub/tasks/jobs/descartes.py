@@ -706,7 +706,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                     sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
                 )
 
-        await worker_sleep(2)
+        await worker_sleep(5)
 
         # Clica no botão "+" no canto superior esquerdo para lançar a pre-venda
         console.print(
@@ -787,7 +787,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
             )
 
-        screenshot_path = take_screenshot()
+        # screenshot_path = take_screenshot()
 
         # Message 'Deseja pesquisar pré-venda?'
         console.print(
@@ -837,6 +837,7 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 # retorno=log_msg,
                 # status=RpaHistoricoStatusEnum.Falha)
 
+        await worker_sleep(5)
         pyautogui.moveTo(1200, 300)
 
         console.print("Verificando a mensagem: Confirmar transferencia...\n")
@@ -854,11 +855,11 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             console.log(
                 "Cliclou em 'Sim' para cofirmar a pré-venda", style="bold green"
             )
-            await worker_sleep(3)
+            await worker_sleep(8)
             pyautogui.click(956, 559)
             pyautogui.moveTo(1200, 300)
             
-            await worker_sleep(5)
+            await worker_sleep(8)
             screenshot_path = take_screenshot()
             vencimento_message_primeira_parcela = take_target_position(
                 screenshot_path, "vencimento"

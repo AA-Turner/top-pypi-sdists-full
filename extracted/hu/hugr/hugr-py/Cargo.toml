@@ -4,6 +4,7 @@ version = "0.1.0"
 publish = false
 edition = { workspace = true }
 rust-version = { workspace = true }
+readme = "README.md"
 
 [lints]
 workspace = true
@@ -21,6 +22,6 @@ bench = false
 
 [dependencies]
 bumpalo = { workspace = true, features = ["collections"] }
-hugr-model = { version = "0.22.1", path = "../hugr-model", features = ["pyo3"] }
+hugr-model = { version = "0.22.2", path = "../hugr-model", features = ["pyo3"] }
 paste.workspace = true
 pyo3 = { workspace = true, features = ["extension-module", "abi3-py310"] }

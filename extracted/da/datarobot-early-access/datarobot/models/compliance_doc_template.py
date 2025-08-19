@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from functools import partial
 import json
-from typing import cast, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, cast
 
 import trafaret as t
 from typing_extensions import TypedDict

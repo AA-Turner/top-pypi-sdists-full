@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flagsmith-flag-engine
-Version: 6.0.2
+Version: 6.1.0
 Summary: Flag engine for the Flagsmith API.
 Home-page: https://github.com/Flagsmith/flagsmith-engine
 Author: Flagsmith
@@ -8,9 +8,11 @@ Author-email: support@flagsmith.com
 License: BSD3
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: pydantic<3,>=2.3.0

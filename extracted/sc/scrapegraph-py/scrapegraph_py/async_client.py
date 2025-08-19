@@ -8,6 +8,10 @@ from pydantic import BaseModel
 from scrapegraph_py.config import API_BASE_URL, DEFAULT_HEADERS
 from scrapegraph_py.exceptions import APIError
 from scrapegraph_py.logger import sgai_logger as logger
+from scrapegraph_py.models.agenticscraper import (
+    AgenticScraperRequest,
+    GetAgenticScraperRequest,
+)
 from scrapegraph_py.models.crawl import CrawlRequest, GetCrawlRequest
 from scrapegraph_py.models.feedback import FeedbackRequest
 from scrapegraph_py.models.markdownify import GetMarkdownifyRequest, MarkdownifyRequest
@@ -63,7 +67,8 @@ class AsyncClient:
         """Initialize AsyncClient with configurable parameters.
 
         Args:
-            api_key: API key for authentication. If None, will try to load from environment
+            api_key: API key for authentication. If None, will try to
+                     load from environment
             verify_ssl: Whether to verify SSL certificates
             timeout: Request timeout in seconds. None means no timeout (infinite)
             max_retries: Maximum number of retry attempts
@@ -83,7 +88,8 @@ class AsyncClient:
 
         validate_api_key(api_key)
         logger.debug(
-            f"🛠️ Configuration: verify_ssl={verify_ssl}, timeout={timeout}, max_retries={max_retries}"
+            f"🛠️ Configuration: verify_ssl={verify_ssl}, "
+            f"timeout={timeout}, max_retries={max_retries}"
         )
         self.api_key = api_key
         self.headers = {**DEFAULT_HEADERS, "SGAI-APIKEY": api_key}
@@ -104,7 +110,8 @@ class AsyncClient:
         for attempt in range(self.max_retries):
             try:
                 logger.info(
-                    f"🚀 Making {method} request to {url} (Attempt {attempt + 1}/{self.max_retries})"
+                    f"🚀 Making {method} request to {url} "
+                    f"(Attempt {attempt + 1}/{self.max_retries})"
                 )
                 logger.debug(f"🔍 Request parameters: {kwargs}")
 
@@ -255,7 +262,8 @@ class AsyncClient:
             f"{API_BASE_URL}/credits",
         )
         logger.info(
-            f"✨ Credits info retrieved: {result.get('remaining_credits')} credits remaining"
+            f"✨ Credits info retrieved: "
+            f"{result.get('remaining_credits')} credits remaining"
         )
         return result
 
@@ -271,8 +279,9 @@ class AsyncClient:
         Args:
             user_prompt: The search prompt string
             num_results: Number of websites to scrape (3-20). Default is 3.
-                        More websites provide better research depth but cost more credits.
-                        Credit calculation: 30 base + 10 per additional website beyond 3.
+                        More websites provide better research depth but cost more
+                        credits. Credit calculation: 30 base + 10 per additional
+                        website beyond 3.
             headers: Optional headers to send with the request
             output_schema: Optional schema to structure the output
         """
@@ -323,7 +332,8 @@ class AsyncClient:
         batch_size: Optional[int] = None,
         sitemap: bool = False,
     ):
-        """Send a crawl request with support for both AI extraction and markdown conversion modes"""
+        """Send a crawl request with support for both AI extraction and
+        markdown conversion modes"""
         logger.info("🔍 Starting crawl request")
         logger.debug(f"🌐 URL: {url}")
         logger.debug(
@@ -384,6 +394,48 @@ class AsyncClient:
 
         result = await self._make_request("GET", f"{API_BASE_URL}/crawl/{crawl_id}")
         logger.info(f"✨ Successfully retrieved result for request {crawl_id}")
+        return result
+
+    async def agenticscraper(
+        self,
+        url: str,
+        steps: list[str],
+        use_session: bool = True,
+    ):
+        """Send an agentic scraper request to perform automated actions on a webpage
+        
+        Args:
+            url: The URL to scrape
+            steps: List of steps to perform on the webpage
+            use_session: Whether to use session for the scraping (default: True)
+        """
+        logger.info(f"🤖 Starting agentic scraper request for {url}")
+        logger.debug(f"🔧 Use session: {use_session}")
+        logger.debug(f"📋 Steps: {steps}")
+
+        request = AgenticScraperRequest(
+            url=url,
+            steps=steps,
+            use_session=use_session,
+        )
+        logger.debug("✅ Request validation passed")
+
+        result = await self._make_request(
+            "POST", f"{API_BASE_URL}/agentic-scrapper", json=request.model_dump()
+        )
+        logger.info("✨ Agentic scraper request completed successfully")
+        return result
+
+    async def get_agenticscraper(self, request_id: str):
+        """Get the result of a previous agentic scraper request"""
+        logger.info(f"🔍 Fetching agentic scraper result for request {request_id}")
+
+        # Validate input using Pydantic model
+        GetAgenticScraperRequest(request_id=request_id)
+        logger.debug("✅ Request ID validation passed")
+
+        result = await self._make_request("GET", f"{API_BASE_URL}/agentic-scrapper/{request_id}")
+        logger.info(f"✨ Successfully retrieved result for request {request_id}")
         return result
 
     async def close(self):

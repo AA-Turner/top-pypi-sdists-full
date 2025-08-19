@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arxiv-mcp-server
-Version: 0.3.0
+Version: 0.3.1
 Summary: A flexible arXiv search and analysis service with MCP protocol support
 Author-email: Joseph Blazick <blazickjp@amazon.com>
 License: MIT
@@ -10,6 +10,7 @@ Requires-Dist: aiofiles>=23.2.1
 Requires-Dist: aiohttp>=3.9.1
 Requires-Dist: anyio>=4.2.0
 Requires-Dist: arxiv>=2.1.0
+Requires-Dist: black>=25.1.0
 Requires-Dist: httpx>=0.24.0
 Requires-Dist: mcp>=1.2.0
 Requires-Dist: pydantic-settings>=2.1.0

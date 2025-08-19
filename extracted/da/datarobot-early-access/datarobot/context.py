@@ -9,10 +9,12 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 import functools
-from typing import Callable, List, Optional, TYPE_CHECKING, TypeVar, Union
+from typing import TYPE_CHECKING, Callable, List, Optional, TypeVar, Union
 
 from trafaret import DataError
 from typing_extensions import ParamSpec

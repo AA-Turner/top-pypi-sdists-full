@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tobiko-cloud-pydantic
-Version: 202533.15.0
+Version: 202534.1.0
 Author: TobikoData Inc.
 Author-email: engineering@tobikodata.com
 Requires-Python: <3.13,>=3.9

@@ -43,7 +43,7 @@ Documentation = "https://limx0.github.io/betfair_parser/"
 
 [tool.poetry]
 name = "betfair_parser"
-version = "0.16.1"
+version = "0.16.2"
 description = "A betfair parser"
 readme = "README.md"
 authors = ["Bradley McElroy <bradley.mcelroy@live.com>"]

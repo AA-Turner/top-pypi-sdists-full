@@ -22,6 +22,7 @@ from .literals import (
     ArtifactStatusType,
     ChatItemTypeType,
     ConnectionTypeType,
+    MeetingFeatureStatusType,
     ParticipantRoleType,
     ScanDirectionType,
     SortKeyType,
@@ -41,9 +42,12 @@ else:
 
 __all__ = (
     "AttachmentItemTypeDef",
+    "AttendeeTypeDef",
+    "AudioFeaturesTypeDef",
     "CancelParticipantAuthenticationRequestTypeDef",
     "CompleteAttachmentUploadRequestTypeDef",
     "ConnectionCredentialsTypeDef",
+    "ConnectionDataTypeDef",
     "CreateParticipantConnectionRequestTypeDef",
     "CreateParticipantConnectionResponseTypeDef",
     "DescribeViewRequestTypeDef",
@@ -56,6 +60,9 @@ __all__ = (
     "GetTranscriptRequestTypeDef",
     "GetTranscriptResponseTypeDef",
     "ItemTypeDef",
+    "MediaPlacementTypeDef",
+    "MeetingFeaturesConfigurationTypeDef",
+    "MeetingTypeDef",
     "MessageMetadataTypeDef",
     "ReceiptTypeDef",
     "ResponseMetadataTypeDef",
@@ -78,6 +85,15 @@ class AttachmentItemTypeDef(TypedDict):
     AttachmentId: NotRequired[str]
     AttachmentName: NotRequired[str]
     Status: NotRequired[ArtifactStatusType]
+
+
+class AttendeeTypeDef(TypedDict):
+    AttendeeId: NotRequired[str]
+    JoinToken: NotRequired[str]
+
+
+class AudioFeaturesTypeDef(TypedDict):
+    EchoReduction: NotRequired[MeetingFeatureStatusType]
 
 
 class CancelParticipantAuthenticationRequestTypeDef(TypedDict):
@@ -147,6 +163,14 @@ class StartPositionTypeDef(TypedDict):
     MostRecent: NotRequired[int]
 
 
+class MediaPlacementTypeDef(TypedDict):
+    AudioHostUrl: NotRequired[str]
+    AudioFallbackUrl: NotRequired[str]
+    SignalingUrl: NotRequired[str]
+    TurnControlUrl: NotRequired[str]
+    EventIngestionUrl: NotRequired[str]
+
+
 class ReceiptTypeDef(TypedDict):
     DeliveredTimestamp: NotRequired[str]
     ReadTimestamp: NotRequired[str]
@@ -187,6 +211,10 @@ class ViewContentTypeDef(TypedDict):
     Actions: NotRequired[List[str]]
 
 
+class MeetingFeaturesConfigurationTypeDef(TypedDict):
+    Audio: NotRequired[AudioFeaturesTypeDef]
+
+
 class GetAttachmentResponseTypeDef(TypedDict):
     Url: str
     UrlExpiry: str
@@ -208,12 +236,6 @@ class SendEventResponseTypeDef(TypedDict):
 class SendMessageResponseTypeDef(TypedDict):
     Id: str
     AbsoluteTime: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateParticipantConnectionResponseTypeDef(TypedDict):
-    Websocket: WebsocketTypeDef
-    ConnectionCredentials: ConnectionCredentialsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -246,6 +268,13 @@ class ViewTypeDef(TypedDict):
     Content: NotRequired[ViewContentTypeDef]
 
 
+class MeetingTypeDef(TypedDict):
+    MediaRegion: NotRequired[str]
+    MediaPlacement: NotRequired[MediaPlacementTypeDef]
+    MeetingFeatures: NotRequired[MeetingFeaturesConfigurationTypeDef]
+    MeetingId: NotRequired[str]
+
+
 ItemTypeDef = TypedDict(
     "ItemTypeDef",
     {
@@ -270,8 +299,20 @@ class DescribeViewResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ConnectionDataTypeDef(TypedDict):
+    Attendee: NotRequired[AttendeeTypeDef]
+    Meeting: NotRequired[MeetingTypeDef]
+
+
 class GetTranscriptResponseTypeDef(TypedDict):
     InitialContactId: str
     Transcript: List[ItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class CreateParticipantConnectionResponseTypeDef(TypedDict):
+    Websocket: WebsocketTypeDef
+    ConnectionCredentials: ConnectionCredentialsTypeDef
+    WebRTCConnection: ConnectionDataTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef

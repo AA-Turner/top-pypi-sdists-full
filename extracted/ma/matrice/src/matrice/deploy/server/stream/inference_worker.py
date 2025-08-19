@@ -226,6 +226,7 @@ class InferenceWorker:
                     "stream_unit": input_stream.get("stream_unit"),
                     "input_order": input_stream.get("input_order"),
                     "original_fps": input_stream.get("original_fps", 31),
+                    "stream_time": input_stream.get("stream_info", {}).get("stream_time",""),
                 }
             }
             camera_info = message.get("camera_info")
@@ -302,6 +303,7 @@ class InferenceWorker:
                     "stream_unit": input_stream.get("stream_unit"),
                     "input_order": input_stream.get("input_order"),
                     "original_fps": input_stream.get("original_fps", 31),
+                    "stream_time": input_stream.get("stream_info", {}).get("stream_time",""),
                 }
             }
             camera_info = message.get("camera_info")

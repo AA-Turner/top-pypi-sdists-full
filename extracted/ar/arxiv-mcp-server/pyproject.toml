@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "arxiv-mcp-server"
-version = "0.3.0"
+version = "0.3.1"
 description = "A flexible arXiv search and analysis service with MCP protocol support"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -25,7 +25,8 @@ dependencies = [
     "aiofiles>=23.2.1",
     "uvicorn>=0.30.0",
     "sse-starlette>=1.8.2",
-    "anyio>=4.2.0"
+    "anyio>=4.2.0",
+    "black>=25.1.0",
 ]
 
 [project.optional-dependencies]

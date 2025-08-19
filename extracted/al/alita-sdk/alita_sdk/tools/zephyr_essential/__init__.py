@@ -1,12 +1,11 @@
 from typing import List, Literal, Optional
 
 from langchain_core.tools import BaseToolkit, BaseTool
-from pydantic import create_model, BaseModel, Field, SecretStr
+from pydantic import create_model, BaseModel, Field
 
 from .api_wrapper import ZephyrEssentialApiWrapper
 from ..base.tool import BaseAction
 from ..utils import clean_string, TOOLKIT_SPLITTER, get_max_toolkit_length
-from ...configurations.embedding import EmbeddingConfiguration
 from ...configurations.pgvector import PgVectorConfiguration
 
 name = "zephyr_essential"
@@ -22,7 +21,7 @@ def get_tools(tool):
         # indexer settings
         collection_name=str(tool['toolkit_name']),
         pgvector_configuration=tool['settings'].get('pgvector_configuration', {}),
-        embedding_configuration=tool['settings'].get('embedding_configuration', {}),
+        embedding_model=tool['settings'].get('embedding_model'),
         vectorstore_type = "PGVector"
     ).get_tools()
 
@@ -39,13 +38,12 @@ class ZephyrEssentialToolkit(BaseToolkit):
             token=(str, Field(description="Bearer api token")),
             base_url=(Optional[str], Field(description="Zephyr Essential base url", default=None)),
             selected_tools=(List[Literal[tuple(selected_tools)]], Field(default=[], json_schema_extra={'args_schemas': selected_tools})),
-            pgvector_configuration=(Optional[PgVectorConfiguration], Field(description="PgVector Configuration",
+            pgvector_configuration=(Optional[PgVectorConfiguration], Field(default=None,
+                                                                           description="PgVector Configuration",
                                                                            json_schema_extra={
                                                                                'configuration_types': ['pgvector']})),
             # embedder settings
-            embedding_configuration=(Optional[EmbeddingConfiguration], Field(default=None, description="Embedding configuration.",
-                                                                             json_schema_extra={'configuration_types': [
-                                                                                 'embedding']})),
+            embedding_model=(Optional[str], Field(default=None, description="Embedding configuration.", json_schema_extra={'configuration_model': 'embedding'})),
             __config__={'json_schema_extra': {'metadata': {"label": "Zephyr Essential", "icon_url": "zephyr.svg",
                             "categories": ["test management"],
                             "extra_categories": ["test automation", "test case management", "test planning"]
@@ -59,7 +57,6 @@ class ZephyrEssentialToolkit(BaseToolkit):
         wrapper_payload = {
             **kwargs,
             **(kwargs.get('pgvector_configuration') or {}),
-            **(kwargs.get('embedding_configuration') or {}),
         }
         zephyr_api_wrapper = ZephyrEssentialApiWrapper(**wrapper_payload)
         prefix = clean_string(toolkit_name, cls.toolkit_max_length) + TOOLKIT_SPLITTER if toolkit_name else ''

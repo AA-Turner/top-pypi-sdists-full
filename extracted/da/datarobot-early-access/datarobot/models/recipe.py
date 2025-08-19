@@ -11,19 +11,20 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, cast, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union, cast
 from urllib.parse import urlencode
 
 import trafaret as t
 
 from datarobot.enums import (
+    DEFAULT_MAX_WAIT,
     DataWranglingDataSourceTypes,
     DataWranglingDialect,
     DataWranglingSnapshotPolicy,
-    DEFAULT_MAX_WAIT,
-    enum_to_list,
     RecipeInputType,
     RecipeType,
+    SparkInstanceSizes,
+    enum_to_list,
 )
 from datarobot.models.api_object import APIObject
 from datarobot.models.data_store import DataStore
@@ -181,6 +182,9 @@ class RecipeSettings(APIObject):
             t.Key(
                 "feature_discovery_supervised_feature_reduction", optional=True, default=None
             ): t.Or(t.Bool(), t.Null),
+            t.Key("spark_instance_size", optional=True, default=None): t.Or(
+                t.Enum(*enum_to_list(SparkInstanceSizes)), t.Null
+            ),
         }
     ).allow_extra("*")
 
@@ -191,6 +195,7 @@ class RecipeSettings(APIObject):
         prediction_point: Optional[str] = None,
         relationships_configuration_id: Optional[str] = None,
         feature_discovery_supervised_feature_reduction: Optional[bool] = None,
+        spark_instance_size: Optional[SparkInstanceSizes] = None,
     ):
         self.target = target
         self.weights_feature = weights_feature
@@ -199,6 +204,7 @@ class RecipeSettings(APIObject):
         self.feature_discovery_supervised_feature_reduction = (
             feature_discovery_supervised_feature_reduction
         )
+        self.spark_instance_size = spark_instance_size
 
 
 class RecipeMetadata(APIObject):

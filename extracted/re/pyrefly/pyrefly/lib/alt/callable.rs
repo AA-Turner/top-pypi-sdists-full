@@ -48,7 +48,7 @@ use crate::types::types::Type;
 use crate::types::types::Var;
 
 /// Structure to turn TypeOrExprs into Types.
-/// This is used to avoid re-infering types for arguments multiple types.
+/// This is used to avoid re-inferring types for arguments multiple types.
 ///
 /// Implemented by keeping an `Owner` to hand out references to `Type`.
 pub struct CallWithTypes(Owner<Type>);
@@ -235,7 +235,7 @@ impl<'a> CallArg<'a> {
 }
 
 // Pre-evaluated args are iterable. Type/Expr/Star variants iterate once (tracked via bool field),
-// Fixed variant iterates over the the vec (tracked via usize field).
+// Fixed variant iterates over the vec (tracked via usize field).
 #[derive(Clone, Debug)]
 enum CallArgPreEval<'a> {
     Type(&'a Type, bool),
@@ -285,7 +285,7 @@ impl CallArgPreEval<'_> {
                 *done = true;
                 solver.expr_with_separate_check_errors(
                     x,
-                    Some((HintRef::new(hint, call_errors), tcc)),
+                    Some((hint, call_errors, tcc)),
                     arg_errors,
                 );
             }
@@ -798,7 +798,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         TypeOrExpr::Expr(x) => {
                             self.expr_with_separate_check_errors(
                                 x,
-                                hint.map(|ty| (HintRef::new(ty, call_errors), tcc)),
+                                hint.map(|ty| (ty, call_errors, tcc)),
                                 arg_errors,
                             );
                         }
@@ -927,7 +927,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         mut ctor_targs: Option<&mut TArgs>,
     ) -> Type {
         let (qs, mut callable) = if let Some(tparams) = tparams {
-            // If we have a hint, we want to try to instantiate against it first, so we cancontextually type
+            // If we have a hint, we want to try to instantiate against it first, so we can contextually type
             // arguments. If we don't match the hint, we need to throw away any instantiations we might have made.
             // By invariant, hint will be None if we are calling a constructor.
             if let Some(hint) = hint {

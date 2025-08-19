@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, create_model
 import requests
 
 from ....configurations.ado import AdoReposConfiguration
-from ....configurations.embedding import EmbeddingConfiguration
 from ....configurations.pgvector import PgVectorConfiguration
 from ...base.tool import BaseAction
 from .repos_wrapper import ReposApiWrapper
@@ -24,9 +23,9 @@ def _get_toolkit(tool) -> BaseToolkit:
         active_branch=tool['settings'].get('active_branch', ""),
         toolkit_name=tool['settings'].get('toolkit_name', ""),
         pgvector_configuration=tool['settings'].get('pgvector_configuration', {}),
-        embedding_configuration=tool['settings'].get('embedding_configuration', {}),
         collection_name=tool['toolkit_name'],
         doctype='code',
+        embedding_model=tool['settings'].get('embedding_model'),
         vectorstore_type="PGVector",
     )
 
@@ -52,10 +51,9 @@ class AzureDevOpsReposToolkit(BaseToolkit):
             active_branch=(Optional[str], Field(default="", title="Active branch", description="ADO active branch (e.g., main)")),
 
             # indexer settings
-            pgvector_configuration=(Optional[PgVectorConfiguration], Field(description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
+            pgvector_configuration=(Optional[PgVectorConfiguration], Field(default=None, description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
             # embedder settings
-            embedding_configuration=(Optional[EmbeddingConfiguration], Field(description="Embedding configuration.",
-                                                            json_schema_extra={'configuration_types': ['embedding']})),
+            embedding_model=(Optional[str], Field(default=None, description="Embedding configuration.", json_schema_extra={'configuration_model': 'embedding'})),
 
             selected_tools=(List[Literal[tuple(selected_tools)]], Field(default=[], json_schema_extra={'args_schemas': selected_tools})),
             __config__={'json_schema_extra': {'metadata':
@@ -109,7 +107,6 @@ class AzureDevOpsReposToolkit(BaseToolkit):
             # TODO use ado_repos_configuration fields
             **kwargs['ado_repos_configuration'],
             **(kwargs.get('pgvector_configuration') or {}),
-            **(kwargs.get('embedding_configuration') or {}),
         }
         azure_devops_repos_wrapper = ReposApiWrapper(**wrapper_payload)
         available_tools = azure_devops_repos_wrapper.get_available_tools()

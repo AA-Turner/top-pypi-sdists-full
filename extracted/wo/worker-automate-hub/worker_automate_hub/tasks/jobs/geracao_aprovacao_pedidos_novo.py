@@ -1,6 +1,8 @@
-
-
 import asyncio
+import sys
+import os
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+
 from worker_automate_hub.api.client import get_config_by_name
 from worker_automate_hub.models.dto.rpa_historico_request_dto import RpaHistoricoStatusEnum, RpaRetornoProcessoDTO, RpaTagDTO, RpaTagEnum
 from worker_automate_hub.models.dto.rpa_processo_entrada_dto import RpaProcessoEntradaDTO
@@ -51,7 +53,7 @@ async def geracao_aprovacao_pedidos_processo(task: RpaProcessoEntradaDTO) -> Rpa
         
         if task.uuidProcesso == "c8527e90-c65b-4d68-b4cf-25008b678957":
             empresa = "34"
-            periodo = "4"
+            periodo = "1"
         elif task.uuidProcesso == "260380b7-a3e5-4c23-ab69-b428ee552830":
             empresa = "171"
             periodo = "1"
@@ -134,18 +136,20 @@ async def geracao_aprovacao_pedidos_processo(task: RpaProcessoEntradaDTO) -> Rpa
             await worker_sleep(5)
             
             console.print("Selecionando todas as filiais...")
-            pyautogui.click(x=721, y=620)
-            await worker_sleep(2)
-            
-            ##### Janela Seleção de Empresa #####
-            
-            console.print("Clicando em ok para confirmar...")
-            app = Application(backend="win32").connect(
-            class_name="TFrmSelecionaEmpresas", found_index=0)
-            main_window = app["TFrmSelecionaEmpresas"]
-            main_window.child_window(class_name="TBitBtn", found_index=1).click_input()
+            pyautogui.click(x=720, y=620)
             await worker_sleep(5)
 
+            
+            ##### Janela Seleção de Empresa #####
+            try:
+                console.print("Clicando em ok para confirmar...")
+                app = Application(backend="win32").connect(
+                class_name="TFrmSelecionaEmpresas", found_index=0)
+                main_window = app["TFrmSelecionaEmpresas"]
+                main_window.child_window(class_name="TBitBtn", found_index=1).click_input()
+                await worker_sleep(5)
+            except:
+                pass
             # tela de aguarde
             try:
                 console.print("Aguardando janela de aguarde finalizar...")
@@ -179,18 +183,21 @@ async def geracao_aprovacao_pedidos_processo(task: RpaProcessoEntradaDTO) -> Rpa
             await worker_sleep(30)
             
             console.print("Clicando em aprovar...")
-            pyautogui.click(x=1112, y=750)
-             
-            await worker_sleep(30)
+            pyautogui.click(x=1120, y=753)
+
+            await worker_sleep(5)
             
-            ##### Janela Motivo da Aprovação da Negociação de Compra #####
-            
-            console.print("clicando em OK em Motivo da aprovação da Negociação de Compra...")
-            app = Application(backend="win32").connect(
-            class_name="TFrmInputBoxText", found_index=0)
-            main_window = app["TFrmInputBoxText"]
-            main_window.child_window(class_name="TBitBtn", found_index=1).click_input()
-            
+            try:
+                ##### Janela Motivo da Aprovação da Negociação de Compra #####
+                
+                console.print("clicando em OK em Motivo da aprovação da Negociação de Compra...")
+                app = Application(backend="win32").connect(
+                class_name="TFrmInputBoxText", found_index=0)
+                main_window = app["TFrmInputBoxText"]
+                main_window.set_focus()
+                main_window.child_window(class_name="TBitBtn", found_index=1).click_input()
+            except:
+                pass
             await worker_sleep(20)
             
             ##### Janela Information #####
@@ -357,12 +364,17 @@ async def geracao_aprovacao_pedidos_processo(task: RpaProcessoEntradaDTO) -> Rpa
             checks = 0
 
             for _ in range(max_attempts):
-                if app.window(title="Confirm").exists():
+                janela_confirm = app.window(title="Confirm")
+
+                if janela_confirm.exists(timeout=1):  # espera 1s a cada tentativa
                     checks = 0
 
-                    # Traz a janela para frente
-                    confirm_window = app.window(title="Confirm")
-                    confirm_window.set_focus()
+                    try:
+                        janela_confirm.set_focus()
+                        janela_confirm.restore()  # garante que está visível
+                    except Exception as e:
+                        print(f"Erro ao dar foco: {e}")
+                        continue
 
                     # Tenta clicar até 4 vezes com intervalo de 5s
                     for _ in range(4):
@@ -370,18 +382,16 @@ async def geracao_aprovacao_pedidos_processo(task: RpaProcessoEntradaDTO) -> Rpa
                             await emsys.verify_warning_and_error("Confirm", "&Yes")
                             break  # Sai do loop se clicar com sucesso
                         except Exception as e:
-                            print(f"Tentativa falhou: {e}")
+                            print(f"Tentativa de clique falhou: {e}")
                             time.sleep(5)
-                    break  # Sai do loop principal se encontrou e tentou
+                    break  # Sai do loop principal após tentar clicar
                 else:
                     checks += 1
                     if checks >= minimum_checks:
+                        print("Janela 'Confirm' não apareceu após múltiplas tentativas.")
                         break
                 time.sleep(1)
-                
-            max_attempts = 80
-            minimum_checks = 4
-            checks = 0
+
 
             for _ in range(max_attempts):
                 if app.window(title="Information").exists():

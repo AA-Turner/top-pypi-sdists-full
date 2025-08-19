@@ -9,6 +9,8 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from typing import Any, Dict, NamedTuple, Optional, Set, Union
 import warnings
 
@@ -184,6 +186,12 @@ class JobAlreadyRequested(ClientError):
 class ContentRetrievalTerminatedError(Exception):
     """
     Raised when due to content retrieval error process of data retrieval was terminated.
+    """
+
+
+class CredentialsError(Exception):
+    """
+    Raised for errors related to credentials.
     """
 
 

@@ -14,7 +14,7 @@ from __future__ import annotations
 from copy import deepcopy
 from pprint import pformat
 from textwrap import dedent
-from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
 if TYPE_CHECKING:
     from datarobot.models.model import AdvancedTuningParamsType, Model, TuningParametersType

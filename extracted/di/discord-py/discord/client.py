@@ -42,6 +42,7 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
+    TypedDict,
     Union,
     overload,
 )
@@ -67,12 +68,12 @@ from .voice_client import VoiceClient
 from .http import HTTPClient
 from .state import ConnectionState
 from . import utils
-from .utils import MISSING, time_snowflake
+from .utils import MISSING, time_snowflake, deprecated
 from .object import Object
 from .backoff import ExponentialBackoff
 from .webhook import Webhook
 from .appinfo import AppInfo
-from .ui.view import View
+from .ui.view import BaseView
 from .ui.dynamic import DynamicItem
 from .stage_instance import StageInstance
 from .threads import Thread
@@ -82,7 +83,7 @@ from .soundboard import SoundboardDefaultSound, SoundboardSound
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from typing_extensions import Self
+    from typing_extensions import Self, Unpack
 
     from .abc import Messageable, PrivateChannel, Snowflake, SnowflakeTime
     from .app_commands import Command, ContextMenu
@@ -120,6 +121,28 @@ if TYPE_CHECKING:
     from .audit_logs import AuditLogEntry
     from .poll import PollAnswer
     from .subscription import Subscription
+    from .flags import MemberCacheFlags
+
+    class _ClientOptions(TypedDict, total=False):
+        max_messages: int
+        proxy: str
+        proxy_auth: aiohttp.BasicAuth
+        shard_id: int
+        shard_count: int
+        application_id: int
+        member_cache_flags: MemberCacheFlags
+        chunk_guilds_at_startup: bool
+        status: Status
+        activity: BaseActivity
+        allowed_mentions: AllowedMentions
+        heartbeat_timeout: float
+        guild_ready_timeout: float
+        assume_unsync_clock: bool
+        enable_debug_events: bool
+        enable_raw_presences: bool
+        http_trace: aiohttp.TraceConfig
+        max_ratelimit_timeout: float
+        connector: aiohttp.BaseConnector
 
 
 # fmt: off
@@ -272,7 +295,7 @@ class Client:
         The websocket gateway the client is currently connected to. Could be ``None``.
     """
 
-    def __init__(self, *, intents: Intents, **options: Any) -> None:
+    def __init__(self, *, intents: Intents, **options: Unpack[_ClientOptions]) -> None:
         self.loop: asyncio.AbstractEventLoop = _loop
         # self.ws is set in the connect method
         self.ws: DiscordWebSocket = None  # type: ignore
@@ -381,7 +404,7 @@ class Client:
 
         .. note::
 
-            This not include the emojis that are owned by the application.
+            This does not include the emojis that are owned by the application.
             Use :meth:`.fetch_application_emoji` to get those.
         """
         return self._connection.emojis
@@ -2388,6 +2411,7 @@ class Client:
         data = await self.http.get_guild_preview(guild_id)
         return GuildPreview(data=data, state=self._connection)
 
+    @deprecated()
     async def create_guild(
         self,
         *,
@@ -2407,6 +2431,9 @@ class Client:
         .. versionchanged:: 2.0
             This function will now raise :exc:`ValueError` instead of
             ``InvalidArgument``.
+
+        .. deprecated:: 2.6
+            This function is deprecated and will be removed in a future version.
 
         Parameters
         ----------
@@ -2506,6 +2533,9 @@ class Client:
             :attr:`.Invite.expires_at` field.
 
             .. versionadded:: 2.0
+            .. deprecated:: 2.6
+                This parameter is deprecated and will be removed in a future version as it is no
+                longer needed to fill the :attr:`.Invite.expires_at` field.
         scheduled_event_id: Optional[:class:`int`]
             The ID of the scheduled event this invite is for.
 
@@ -2541,12 +2571,11 @@ class Client:
         data = await self.http.get_invite(
             resolved.code,
             with_counts=with_counts,
-            with_expiration=with_expiration,
             guild_scheduled_event_id=scheduled_event_id,
         )
         return Invite.from_incomplete(state=self._connection, data=data)
 
-    async def delete_invite(self, invite: Union[Invite, str], /) -> None:
+    async def delete_invite(self, invite: Union[Invite, str], /) -> Invite:
         """|coro|
 
         Revokes an :class:`.Invite`, URL, or ID to an invite.
@@ -2574,7 +2603,8 @@ class Client:
         """
 
         resolved = utils.resolve_invite(invite)
-        await self.http.delete_invite(resolved.code)
+        data = await self.http.delete_invite(resolved.code)
+        return Invite.from_incomplete(state=self._connection, data=data)
 
     # Miscellaneous stuff
 
@@ -3149,7 +3179,7 @@ class Client:
 
         self._connection.remove_dynamic_items(*items)
 
-    def add_view(self, view: View, *, message_id: Optional[int] = None) -> None:
+    def add_view(self, view: BaseView, *, message_id: Optional[int] = None) -> None:
         """Registers a :class:`~discord.ui.View` for persistent listening.
 
         This method should be used for when a view is comprised of components
@@ -3159,7 +3189,7 @@ class Client:
 
         Parameters
         ------------
-        view: :class:`discord.ui.View`
+        view: Union[:class:`discord.ui.View`, :class:`discord.ui.LayoutView`]
             The view to register for dispatching.
         message_id: Optional[:class:`int`]
             The message ID that the view is attached to. This is currently used to
@@ -3175,7 +3205,7 @@ class Client:
             and all their components have an explicitly provided custom_id.
         """
 
-        if not isinstance(view, View):
+        if not isinstance(view, BaseView):
             raise TypeError(f'expected an instance of View not {view.__class__.__name__}')
 
         if not view.is_persistent():
@@ -3187,8 +3217,8 @@ class Client:
         self._connection.store_view(view, message_id)
 
     @property
-    def persistent_views(self) -> Sequence[View]:
-        """Sequence[:class:`.View`]: A sequence of persistent views added to the client.
+    def persistent_views(self) -> Sequence[BaseView]:
+        """Sequence[Union[:class:`.View`, :class:`.LayoutView`]]: A sequence of persistent views added to the client.
 
         .. versionadded:: 2.0
         """

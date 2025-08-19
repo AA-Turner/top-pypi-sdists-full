@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import cast, List, Optional
+from typing import List, Optional, cast
 
 import trafaret as t
 

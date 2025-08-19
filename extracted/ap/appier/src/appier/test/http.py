@@ -104,6 +104,9 @@ class HTTPTest(unittest.TestCase):
         self.assertEqual(params, dict(hello=["world"]))
 
     def test_redirect(self):
+        if appier.conf("NO_NETWORK", False, cast=bool):
+            self.skipTest("Network access is disabled")
+
         _data, response = appier.get(
             "https://%s/redirect-to" % self.httpbin,
             params=dict(url="https://%s/" % self.httpbin),
@@ -135,6 +138,9 @@ class HTTPTest(unittest.TestCase):
         self.assertEqual(code, 200)
 
     def test_timeout(self):
+        if appier.conf("NO_NETWORK", False, cast=bool):
+            self.skipTest("Network access is disabled")
+
         self.assertRaises(
             BaseException,
             lambda: appier.get(
@@ -155,6 +161,9 @@ class HTTPTest(unittest.TestCase):
         self.assertNotEqual(data, None)
 
     def test_get_f(self):
+        if appier.conf("NO_NETWORK", False, cast=bool):
+            self.skipTest("Network access is disabled")
+
         file = appier.get_f("https://%s/image/png" % self.httpbin)
 
         self.assertEqual(file.file_name, "default")
@@ -170,6 +179,9 @@ class HTTPTest(unittest.TestCase):
         self.assertEqual(len(file.data_b64) > 100, True)
 
     def test_generator(self):
+        if appier.conf("NO_NETWORK", False, cast=bool):
+            self.skipTest("Network access is disabled")
+
         def text_g(message=[b"hello", b" ", b"world"]):
             yield sum(len(value) for value in message)
             for value in message:
@@ -185,6 +197,9 @@ class HTTPTest(unittest.TestCase):
         self.assertEqual(data["data"], "hello world")
 
     def test_file(self):
+        if appier.conf("NO_NETWORK", False, cast=bool):
+            self.skipTest("Network access is disabled")
+
         data, response = appier.post(
             "https://%s/post" % self.httpbin,
             data=appier.legacy.BytesIO(b"hello world"),
@@ -198,6 +213,9 @@ class HTTPTest(unittest.TestCase):
         self.assertEqual(data["data"], "hello world")
 
     def test_multithread(self):
+        if appier.conf("NO_NETWORK", False, cast=bool):
+            self.skipTest("Network access is disabled")
+
         threads = []
         results = []
 
@@ -230,11 +248,17 @@ class HTTPTest(unittest.TestCase):
             self.assertEqual(code, 200)
 
     def test_error(self):
+        if appier.conf("NO_NETWORK", False, cast=bool):
+            self.skipTest("Network access is disabled")
+
         self.assertRaises(
             appier.HTTPError, lambda: appier.get("https://%s/status/404" % self.httpbin)
         )
 
     def test_invalid(self):
+        if appier.conf("NO_NETWORK", False, cast=bool):
+            self.skipTest("Network access is disabled")
+
         self.assertRaises(
             BaseException, lambda: appier.get("https://invalidlargedomain.org/")
         )

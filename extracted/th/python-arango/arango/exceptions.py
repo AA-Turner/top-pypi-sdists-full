@@ -298,6 +298,10 @@ class CollectionTruncateError(ArangoServerError):
     """Failed to truncate collection."""
 
 
+class CollectionKeyGeneratorsError(ArangoServerError):
+    """Failed to retrieve key generators."""
+
+
 class CollectionLoadError(ArangoServerError):
     """Failed to load collection."""
 
@@ -648,6 +652,10 @@ class ServerStatusError(ArangoServerError):
 
 class ServerTimeError(ArangoServerError):
     """Failed to retrieve server system time."""
+
+
+class ServerCheckAvailabilityError(ArangoServerError):
+    """Failed to retrieve server availability mode."""
 
 
 class ServerEchoError(ArangoServerError):

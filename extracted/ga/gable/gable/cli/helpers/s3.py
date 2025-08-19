@@ -93,10 +93,10 @@ def start_sca_run(
 
     if not success or isinstance(response, ErrorResponse):
         raise click.ClickException(
-            f"Error starting static code analysis run: {response.title} - {response.message}"
+            f"Error starting static code analysis run: {response.title} - {response.message}"  # type: ignore
         )
 
-    return response.runId, response.s3PresignedUrl
+    return response.runId, response.s3PresignedUrl  # type: ignore
 
 
 def get_sca_package_info() -> tuple[str, str]:

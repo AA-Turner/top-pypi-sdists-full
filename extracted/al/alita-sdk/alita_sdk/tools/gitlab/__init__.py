@@ -8,7 +8,6 @@ from pydantic.fields import Field
 
 from .api_wrapper import GitLabAPIWrapper
 from ..utils import clean_string, TOOLKIT_SPLITTER, get_max_toolkit_length
-from ...configurations.embedding import EmbeddingConfiguration
 from ...configurations.gitlab import GitlabConfiguration
 from ...configurations.pgvector import PgVectorConfiguration
 
@@ -28,7 +27,7 @@ def get_tools(tool):
         pgvector_configuration=tool['settings'].get('pgvector_configuration', {}),
         collection_name=str(tool['toolkit_name']),
         doctype='code',
-        embedding_configuration=tool['settings'].get('embedding_configuration', {}),
+        embedding_model=tool['settings'].get('embedding_model'),
         vectorstore_type="PGVector",
         toolkit_name=tool.get('toolkit_name')
     ).get_tools()
@@ -48,27 +47,16 @@ class AlitaGitlabToolkit(BaseToolkit):
             gitlab_configuration=(Optional[GitlabConfiguration], Field(description="GitLab configuration", json_schema_extra={'configuration_types': ['gitlab']})),
             branch=(str, Field(description="Main branch", default="main")),
             # indexer settings
-            pgvector_configuration=(Optional[PgVectorConfiguration], Field(description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
+            pgvector_configuration=(Optional[PgVectorConfiguration], Field(default = None,
+                                                                           description="PgVector Configuration", json_schema_extra={'configuration_types': ['pgvector']})),
             # embedder settings
-            embedding_configuration=(Optional[EmbeddingConfiguration], Field(default=None, description="Embedding configuration.",
-                                                                             json_schema_extra={'configuration_types': [
-                                                                                 'embedding']})),
+            embedding_model=(Optional[str], Field(default=None, description="Embedding configuration.",
+                                                  json_schema_extra={'configuration_model': 'embedding'})),
             selected_tools=(List[Literal[tuple(selected_tools)]], Field(default=[], json_schema_extra={'args_schemas': selected_tools})),
             __config__=ConfigDict(json_schema_extra={
                 'metadata': {
                     "label": "GitLab",
                     "icon_url": None,
-                    "sections": {
-                        "auth": {
-                            "required": True,
-                            "subsections": [
-                                {
-                                    "name": "GitLab private token",
-                                    "fields": ["private_token"]
-                                }
-                            ]
-                        }
-                    },
                     "categories": ["code repositories"],
                     "extra_categories": ["gitlab", "git", "repository", "code", "version control"],
                 }

@@ -118,6 +118,7 @@ from anyscale.utils.cloud_utils import (
     modify_memorydb_parameter_group,
     validate_aws_credentials,
     verify_anyscale_access,
+    wait_for_aws_lb_resource_termination,
     wait_for_gcp_lb_resource_termination,
 )
 from anyscale.utils.imports.gcp import (
@@ -3525,6 +3526,15 @@ class CloudController(BaseController):
         # Clean up cloud resources
         try:
             if cloud_provider == CloudProviders.AWS:
+                if not (cloud.is_aioa or cloud.compute_stack == ComputeStack.K8S):
+                    # Delete services resources
+                    self.delete_aws_lb_cfn_stack(cloud=cloud)
+                    with self.log.spinner("Deleting load balancing resources..."):
+                        wait_for_aws_lb_resource_termination(
+                            api_client=self.api_client, cloud_id=cloud_id
+                        )
+                    self.delete_aws_tls_certificates(cloud=cloud)
+
                 self.delete_all_aws_resources(cloud)
             elif cloud_provider == CloudProviders.GCP:
                 with self.log.spinner("Deleting load balancing resources..."):
@@ -3585,10 +3595,6 @@ class CloudController(BaseController):
             # No resources to delete for hosted and k8s clouds
             return True
 
-        # Delete services resources
-        self.delete_aws_lb_cfn_stack(cloud=cloud)
-        self.delete_aws_tls_certificates(cloud=cloud)
-
         # Clean up cloud resources
         if cloud.is_bring_your_own_resource is False:  # managed cloud
             # Delete AWS cloud resources by deleting the cfn stack
@@ -3601,7 +3607,6 @@ class CloudController(BaseController):
         return True
 
     def delete_aws_lb_cfn_stack(self, cloud: CloudWithCloudResource) -> bool:
-
         tag_name = "anyscale-cloud-id"
         key_name = cloud.id
 

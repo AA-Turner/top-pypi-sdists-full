@@ -191,7 +191,7 @@ class ConnectParticipantClient(BaseClient):
         """
         The
         <code>application/vnd.amazonaws.connect.event.connection.acknowledged</code>
-        ContentType will no longer be supported starting December 31, 2024.
+        ContentType is no longer maintained since December 31, 2024.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectparticipant/client/send_event.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connectparticipant/client/#send_event)

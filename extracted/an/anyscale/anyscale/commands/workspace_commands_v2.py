@@ -34,7 +34,7 @@ log = BlockLogger()  # CLI Logger
 
 # Constants for SSH configuration
 HTTPS_PORT = "443"
-SSH_TIMEOUT_SECONDS = 45
+SSH_TEST_TIMEOUT_SECONDS = 8
 WSS_PATH = "/sshws"
 PREFERRED_AUTH_METHOD = "PreferredAuthentications=publickey"
 
@@ -319,15 +319,10 @@ def _parse_user_args(user_args: List[str]) -> Tuple[List[str], List[str]]:
     return user_options, user_command
 
 
-def _try_https_connection(
-    workspace_obj: Workspace,
-    workspace_private_sdk,
-    host_name: str,
-    config_file: str,
-    ctx_args: List[str],
-    shell_command: str,
+def _test_https_connectivity(
+    workspace_obj: Workspace, workspace_private_sdk, host_name: str, config_file: str,
 ) -> bool:
-    """Attempt HTTPS SSH connection. Returns True if successful."""
+    """Test HTTPS SSH connectivity with a quick command. Returns True if available."""
     try:
         cluster = workspace_private_sdk.client.get_workspace_cluster(workspace_obj.id)
         if not cluster:
@@ -337,33 +332,60 @@ def _try_https_connection(
             workspace_obj, workspace_private_sdk, host_name, config_file
         )
 
-        ssh_cmd = _build_ssh_command(ssh_config, ctx_args, shell_command)
+        # Build a test command using the same logic as the actual connection
+        # but with a simple echo command that exits immediately
+        test_args = [
+            "-o",
+            "ConnectTimeout=5",
+            "-o",
+            "BatchMode=yes",
+            "echo",
+            "connectivity_test",
+        ]
+        test_cmd = _build_ssh_command(ssh_config, test_args, "")
 
-        # Try HTTPS connection with a timeout
+        # Run test with a timeout
         result = subprocess.run(
-            ssh_cmd,
+            test_cmd,
             check=False,
-            timeout=SSH_TIMEOUT_SECONDS,
-            stderr=subprocess.DEVNULL,
+            timeout=SSH_TEST_TIMEOUT_SECONDS,
+            capture_output=True,
+            text=True,
         )
 
-        return result.returncode == 0
+        # Check if we got the expected output
+        if result.returncode == 0 and "connectivity_test" in result.stdout:
+            return True
+
+        # Connection failed - no need to show error code to user
+        return False
 
     except subprocess.TimeoutExpired:
-        print(
-            "HTTPS connection timed out or failed (SSH proxy may not be available), "
-            "falling back to Legacy SSH connection..."
-        )
+        # Silent failure - the main code will show a user-friendly message
         return False
     except OSError:
-        print(
-            "HTTPS connection timed out or failed (SSH proxy may not be available), "
-            "falling back to Legacy SSH connection..."
-        )
+        # Silent failure
         return False
     except (click.ClickException, ValueError, AttributeError, KeyError, TypeError):
-        print("HTTPS setup failed, falling back to Legacy SSH connection...")
+        # Silent failure
         return False
+
+
+def _execute_https_ssh(
+    workspace_obj: Workspace,
+    workspace_private_sdk,
+    host_name: str,
+    config_file: str,
+    ctx_args: List[str],
+    shell_command: str,
+) -> None:
+    """Execute HTTPS SSH connection without timeout."""
+    ssh_config = _setup_https_connection(
+        workspace_obj, workspace_private_sdk, host_name, config_file
+    )
+    ssh_cmd = _build_ssh_command(ssh_config, ctx_args, shell_command)
+    # Run the actual SSH session without any timeout
+    subprocess.run(ssh_cmd, check=False)
 
 
 def _execute_legacy_ssh(
@@ -857,21 +879,32 @@ id should be used, specifying both will result in an error.
                     )
 
                     if cluster:
-                        https_connection_successful = _try_https_connection(
+                        https_connection_successful = _test_https_connectivity(
                             workspace_obj,
                             workspace_private_sdk,
                             host_name,
                             config_file,
-                            ctx.args,
-                            shell_command,
                         )
 
                 except (ValueError, AttributeError, KeyError, TypeError):
                     # If we can't get workspace/cluster info, proceed with legacy SSH
                     pass
 
-            # Run legacy SSH command if HTTPS wasn't successful or --legacy was specified
-            if not https_connection_successful:
+            # Execute the appropriate SSH connection based on test results
+            if https_connection_successful:
+                # HTTPS connectivity test passed, run actual SSH session without timeout
+                _execute_https_ssh(
+                    workspace_obj,
+                    workspace_private_sdk,
+                    host_name,
+                    config_file,
+                    ctx.args,
+                    shell_command,
+                )
+            else:
+                # HTTPS test failed or --legacy was specified, use legacy SSH
+                if not legacy:  # Only show message if we tried HTTPS first
+                    print("Connecting via standard SSH...")
                 _execute_legacy_ssh(
                     ssh_target_host, config_file, ctx.args, shell_command
                 )

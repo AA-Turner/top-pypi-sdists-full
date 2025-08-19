@@ -2316,6 +2316,7 @@ https://docs.chalk.ai/cli/apply
             show_progress=show_progress if isinstance(show_progress, bool) else True,
             timeout=timeout,
             caller_method="offline_query",
+            raise_on_dataset_failure=False,
         )
         initialized_dataset.is_finished = True
         return initialized_dataset

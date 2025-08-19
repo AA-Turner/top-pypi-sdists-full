@@ -22,7 +22,6 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
-use crate::alt::unwrap::HintRef;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
@@ -88,7 +87,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Some(field) => {
                             self.expr_with_separate_check_errors(
                                 &x.value,
-                                Some((HintRef::new(&field.ty, check_errors), &|| {
+                                Some((&field.ty, check_errors, &|| {
                                     TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
                                         key_name.clone(),
                                     ))
@@ -126,10 +125,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 has_expansion = true;
                 self.expr_with_separate_check_errors(
                     &x.value,
-                    Some((
-                        HintRef::new(&Type::TypedDict(typed_dict.clone()), check_errors),
-                        &|| TypeCheckContext::of_kind(TypeCheckKind::TypedDictUnpacking),
-                    )),
+                    Some((&Type::TypedDict(typed_dict.clone()), check_errors, &|| {
+                        TypeCheckContext::of_kind(TypeCheckKind::TypedDictUnpacking)
+                    })),
                     item_errors,
                 );
             }
@@ -527,7 +525,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Required::Required,
             );
 
-            // Construct an an overload of the form: (self, key: Literal["field_name"]) -> None
+            // Construct an overload of the form: (self, key: Literal["field_name"]) -> None
             literal_signatures.push(OverloadType::Function(Function {
                 signature: Callable::list(
                     ParamList::new(vec![self_param.clone(), key_param]),

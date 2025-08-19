@@ -605,7 +605,7 @@ class IntrusionUseCase(BaseProcessor):
                     # Fallback to original zone analysis format
                     zone_total = self._robust_zone_total(zone_data)
                     human_text_lines.append(f"\t- Zone name: {zone_name}")
-                    human_text_lines.append(f"\t\t- Total count in Prohibited Boarding Gate: {zone_total}")
+                    human_text_lines.append(f"\t\t- Total count in Prohibited Boarding Gate: {zone_total-1}")
 
             if total_unique_count > 0:
                 human_text_lines.append(f"\t- Total unique people in the scene: {total_unique_count}")

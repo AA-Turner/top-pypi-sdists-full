@@ -292,6 +292,20 @@ def test_literals() -> None:
     validate(mod.hugr)
 
 
+def test_const_type() -> None:
+    mod = Module()
+
+    mod.declare_function(
+        "const_type",
+        tys.PolyFuncType(
+            [tys.ConstParam(tys.Qubit)],
+            tys.FunctionType([], [tys.Qubit]),
+        ),
+    )
+
+    validate(mod.hugr)
+
+
 @pytest.mark.parametrize("direct_call", [True, False])
 def test_mono_function(direct_call: bool) -> None:
     mod = Module()
@@ -496,3 +510,20 @@ def test_fndef_output_ports(snapshot):
     assert mod.hugr.num_out_ports(main) == 1
 
     validate(mod.hugr, snap=snapshot)
+
+
+def test_render_subgraph(snapshot):
+    dfg = Dfg(tys.Qubit)
+    (q,) = dfg.inputs()
+    tagged_q = dfg.add(ops.Left(tys.Either([tys.Qubit], [tys.Qubit, INT_T]))(q))
+    with dfg.add_conditional(tagged_q, dfg.load(val.TRUE)) as cond:
+        with cond.add_case(0) as case0:
+            q, b = case0.inputs()
+            case0.set_outputs(q, b)
+        with cond.add_case(1) as case1:
+            q, _i, b = case1.inputs()
+            case1.set_outputs(q, b)
+    dfg.set_outputs(*cond[:2])
+    h = dfg.hugr
+    dot = h.render_dot(root=Node(10))
+    assert snapshot == dot.source

@@ -146,3 +146,44 @@ async def test_search_max_results_limiting(mock_client):
         # Should not fail and should be limited by settings.MAX_RESULTS
         content = json.loads(result[0].text)
         assert "papers" in content
+
+
+@pytest.mark.asyncio
+async def test_search_sort_by_relevance(mock_client):
+    """Test search with relevance sorting (default)."""
+    with patch("arxiv.Client", return_value=mock_client):
+        result = await handle_search({"query": "test", "sort_by": "relevance"})
+
+        content = json.loads(result[0].text)
+        assert "papers" in content
+
+
+@pytest.mark.asyncio
+async def test_search_sort_by_date(mock_client):
+    """Test search with date sorting."""
+    with patch("arxiv.Client", return_value=mock_client):
+        result = await handle_search({"query": "test", "sort_by": "date"})
+
+        content = json.loads(result[0].text)
+        assert "papers" in content
+
+
+@pytest.mark.asyncio
+async def test_search_no_query_optimization(mock_client):
+    """Test that queries are not automatically modified."""
+    from arxiv_mcp_server.tools.search import _optimize_query
+
+    # Test that complex queries are not mangled
+    complex_query = "graph neural networks message passing attention mechanism"
+    optimized = _optimize_query(complex_query)
+    assert optimized == complex_query
+
+    # Test that field-specific queries are preserved
+    field_query = 'ti:"graph neural networks"'
+    optimized = _optimize_query(field_query)
+    assert optimized == field_query
+
+    # Test that boolean queries are preserved
+    bool_query = "machine learning AND deep learning"
+    optimized = _optimize_query(bool_query)
+    assert optimized == bool_query

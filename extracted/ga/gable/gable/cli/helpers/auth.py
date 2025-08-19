@@ -84,7 +84,7 @@ def write_npm_credentials(
 
 
 def set_pip_config_credentials(
-    pip_credentials: GetPipCredentialsResponse, file_path: str = None
+    pip_credentials: GetPipCredentialsResponse, file_path: str = None  # type: ignore
 ):
     """
     Set the PIP_CONFIG environment variables for the credentials

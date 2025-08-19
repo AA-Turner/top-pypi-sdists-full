@@ -167,6 +167,15 @@ def generate_cli_parser() -> argparse.ArgumentParser:
         "the interpreter (implies --native)",
     )
     remote_parser.add_argument(
+        "--native-last",
+        action="store_const",
+        dest="native_mode",
+        const=NativeReportingMode.LAST,
+        default=NativeReportingMode.OFF,
+        help="Include native (C) frames only after the last python frame "
+        "in the resulting stack trace",
+    )
+    remote_parser.add_argument(
         "--locals",
         action="store_true",
         default=False,
@@ -211,6 +220,15 @@ def generate_cli_parser() -> argparse.ArgumentParser:
         default=NativeReportingMode.OFF,
         help="Include native (C) frames from threads not registered with "
         "the interpreter (implies --native)",
+    )
+    core_parser.add_argument(
+        "--native-last",
+        action="store_const",
+        dest="native_mode",
+        const=NativeReportingMode.LAST,
+        default=NativeReportingMode.OFF,
+        help="Include native (C) frames only after the last python frame "
+        "in the resulting stack trace",
     )
     core_parser.add_argument(
         "--locals",
@@ -274,8 +292,7 @@ def process_remote(parser: argparse.ArgumentParser, args: argparse.Namespace) ->
         locals=args.locals,
         method=StackMethod.ALL if args.exhaustive else StackMethod.AUTO,
     ):
-        native = args.native_mode != NativeReportingMode.OFF
-        print_thread(thread, native)
+        print_thread(thread, args.native_mode)
 
 
 def format_psinfo_information(psinfo: Dict[str, Any]) -> str:
@@ -331,7 +348,7 @@ def process_core(parser: argparse.ArgumentParser, args: argparse.Namespace) -> N
     if args.executable is None:
         corefile_analyzer = CoreFileAnalyzer(corefile)
         executable = pathlib.Path(corefile_analyzer.extract_executable())
-        if not executable.exists() or not is_elf(executable):
+        if not is_elf(executable):
             first_map = next(
                 (
                     map
@@ -343,7 +360,6 @@ def process_core(parser: argparse.ArgumentParser, args: argparse.Namespace) -> N
             if (
                 first_map is not None
                 and first_map.path is not None
-                and first_map.path.exists()
                 and is_elf(first_map.path)
             ):
                 executable = first_map.path
@@ -406,8 +422,7 @@ def process_core(parser: argparse.ArgumentParser, args: argparse.Namespace) -> N
         locals=args.locals,
         method=StackMethod.ALL if args.exhaustive else StackMethod.AUTO,
     ):
-        native = args.native_mode != NativeReportingMode.OFF
-        print_thread(thread, native)
+        print_thread(thread, args.native_mode)
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: bbot
-Version: 2.6.0
+Version: 2.6.1
 Summary: OSINT automation for hackers.
 License: GPL-3.0
 Keywords: python,cli,automation,osint,threat-intel,intelligence,neo4j,scanner,python-library,hacking,recursion,pentesting,recon,command-line-tool,bugbounty,subdomains,security-tools,subdomain-scanner,osint-framework,attack-surface,subdomain-enumeration,osint-tool

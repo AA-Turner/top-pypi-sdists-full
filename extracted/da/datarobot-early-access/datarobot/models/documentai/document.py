@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import cast, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union, cast
 
 import trafaret as t
 from typing_extensions import NotRequired

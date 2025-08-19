@@ -1,8 +1,9 @@
 Metadata-Version: 2.4
 Name: ome-zarr
-Version: 0.11.1
+Version: 0.12.0
 Summary: Implementation of images in Zarr files.
 Author: The Open Microscopy Team
+License-Expression: BSD-2-Clause
 Project-URL: Documentation, https://ome-zarr.readthedocs.io
 Project-URL: Repository, https://github.com/ome/ome-zarr-py
 Project-URL: Changelog, https://github.com/ome/ome-zarr-py/blob/master/CHANGELOG.md
@@ -13,17 +14,16 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
-Classifier: License :: OSI Approved :: BSD License
 Requires-Python: >3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: numpy
 Requires-Dist: dask
-Requires-Dist: zarr<3,>=2.8.1
+Requires-Dist: zarr>=v3.0.0
 Requires-Dist: fsspec[s3]!=2021.07.0,!=2023.9.0,>=0.8
 Requires-Dist: aiohttp<4
 Requires-Dist: requests
-Requires-Dist: scikit-image
+Requires-Dist: scikit-image>=0.19.0
 Requires-Dist: toolz
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
@@ -37,7 +37,7 @@ ome-zarr-py
 
 Tools for multi-resolution images stored in Zarr filesets, according to the `OME NGFF spec`_.
 
-See `Readthedocs <https://ome-zarr.readthedocs.io/>`_ for usage information.
+See `Documentation <https://ome-zarr.readthedocs.io/>`_ for usage information.
 
 Documentation
 -------------

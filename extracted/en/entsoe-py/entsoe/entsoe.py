@@ -17,19 +17,22 @@ from .parsers import parse_prices, parse_loads, parse_generation, \
     parse_unavailabilities, parse_contracted_reserve, parse_imbalance_prices_zip, \
     parse_imbalance_volumes_zip, parse_netpositions, parse_procured_balancing_capacity, \
     parse_water_hydro,parse_aggregated_bids, parse_activated_balancing_energy_prices, \
-    parse_offshore_unavailability
+    parse_offshore_unavailability, parse_imbalance_volumes
 from .decorators import retry, paginated, year_limited, day_limited, documents_limited
 import warnings
 
 logger = logging.getLogger(__name__)
+warnings.filterwarnings('always')
 warnings.filterwarnings('ignore', category=XMLParsedAsHTMLWarning)
 
 __title__ = "entsoe-py"
-__version__ = "0.7.1"
+__version__ = "0.7.3"
 __author__ = "EnergieID.be, Frank Boerman"
 __license__ = "MIT"
 
 URL = os.getenv("ENTSOE_ENDPOINT_URL") or "https://web-api.tp.entsoe.eu/api"
+
+QUARTER_MTU_SDAC_GOLIVE =  pd.Timestamp('2025-10-01', tz='europe/amsterdam')
 
 
 class EntsoeRawClient:
@@ -164,7 +167,7 @@ class EntsoeRawClient:
 
     def query_day_ahead_prices(self, country_code: Union[Area, str],
                                start: pd.Timestamp, end: pd.Timestamp,
-                               offset: int = 0) -> str:
+                               offset: int = 0, sequence: int = None) -> str:
         """
         Parameters
         ----------
@@ -183,6 +186,8 @@ class EntsoeRawClient:
             'out_Domain': area.code,
             'offset': offset
         }
+        if sequence is not None:
+            params['classificationSequence_AttributeInstanceComponent.position'] = sequence
         response = self._base_request(params=params, start=start, end=end)
         return response.text
 
@@ -202,8 +207,8 @@ class EntsoeRawClient:
         -------
         str
         """
-        if process_type not in ['A51', 'A47']:
-            raise ValueError('processType allowed values: A51, A47')
+        if process_type not in ['A51', 'A52', 'A47']:
+            raise ValueError('processType allowed values: A51, A52, A47')
         area = lookup_area(country_code)
         params = {
             'documentType': 'A24',
@@ -822,6 +827,29 @@ class EntsoeRawClient:
         response = self._base_request(params=params, start=start, end=end)
         return response.content
 
+    def query_current_balancing_state(
+            self, country_code: Union[Area, str], start: pd.Timestamp,
+            end: pd.Timestamp) -> str:
+        """
+        Parameters
+        ----------
+        country_code : Area|str
+        start : pd.Timestamp
+        end : pd.Timestamp
+
+        Returns
+        -------
+        str
+        """
+        area = lookup_area(country_code)
+        params = {
+            'documentType': 'A86',
+            'businessType': 'B33',
+            'area_Domain': area.code,
+        }
+        response = self._base_request(params=params, start=start, end=end)
+        return response.text
+
     def query_procured_balancing_capacity(
             self, country_code: Union[Area, str], start: pd.Timestamp,
             end: pd.Timestamp, process_type: str,
@@ -841,8 +869,8 @@ class EntsoeRawClient:
         -------
         bytes
         """
-        if process_type not in ['A51', 'A47']:
-            raise ValueError('processType allowed values: A51, A47')
+        if process_type not in ['A51', 'A52', 'A47']:
+            raise ValueError('processType allowed values: A51, A52, A47')
 
         area = lookup_area(country_code)
         params = {
@@ -1171,9 +1199,10 @@ class EntsoeRawClient:
 class EntsoePandasClient(EntsoeRawClient):
     @year_limited
     def query_net_position(self, country_code: Union[Area, str],
-                            start: pd.Timestamp, end: pd.Timestamp, dayahead: bool = True, resolution: Literal['60min', '30min', '15min'] = '60min') -> pd.Series:
+                            start: pd.Timestamp, end: pd.Timestamp, dayahead: bool = True,
+                           resolution = None) -> pd.Series:
         """
-
+        forced to correct resolution for day ahead values
         Parameters
         ----------
         country_code
@@ -1184,14 +1213,36 @@ class EntsoePandasClient(EntsoeRawClient):
         -------
 
         """
+        if resolution is not None:
+            warnings.warn('The resolution parameter is deprecated and will be removed. This function will force the right resolution', DeprecationWarning)
         area = lookup_area(country_code)
         text = super(EntsoePandasClient, self).query_net_position(
             country_code=area, start=start, end=end, dayahead=dayahead)
-        series = parse_netpositions(text, resolution=resolution)
+        series = parse_netpositions(text)
         if len(series) == 0:
             raise NoMatchingDataError
-        series = series.tz_convert(area.tz)
+        if dayahead:
+            # This function should only return SDAC net positions for day ahead, which have a fixed defined resolution
+            # before 2025-10-01 its 60min, after 15min
+            # this is aligned on businessday in timezone europe/amsterdam
+            # some zones already publish in different resolution.
+            # for secondary auctions published on entsoe, use the query_day_ahead_prices_local function
+            if series.index.max() < QUARTER_MTU_SDAC_GOLIVE:
+                series = series.resample('h').first()
+            else:
+                series_60min = series[series.index < QUARTER_MTU_SDAC_GOLIVE]
+                series_15min = series[series.index >= QUARTER_MTU_SDAC_GOLIVE]
+
+                series = pd.concat([
+                    series_60min.resample('h').first(),
+                    series_15min
+                ]).sort_index()
+
+        series = series.tz_convert(area.tz).sort_index()
         series = series.truncate(before=start, after=end)
+        # because of the above fix we need to check again if any valid data exists after truncating
+        if len(series) == 0:
+            raise NoMatchingDataError
         return series
 
     @year_limited
@@ -1224,12 +1275,11 @@ class EntsoePandasClient(EntsoeRawClient):
             self, country_code: Union[Area, str],
             start: pd.Timestamp,
             end: pd.Timestamp,
-            resolution: Literal['60min', '30min', '15min'] = '60min') -> pd.Series:
+            resolution = None) -> pd.Series:
         """
         Parameters
         ----------
-        resolution: either 60min for hourly values,
-            30min for half-hourly values or 15min for quarterly values, throws error if type is not available
+        this will return the SDAC prices, forced to the correct resolution
         country_code : Area|str
         start : pd.Timestamp
         end : pd.Timestamp
@@ -1238,15 +1288,14 @@ class EntsoePandasClient(EntsoeRawClient):
         -------
         pd.Series
         """
-        if resolution not in ['60min', '30min', '15min']:
-            raise InvalidParameterError('Please choose either 60min, 30min or 15min')
+        if resolution is not None:
+            warnings.warn('The resolution parameter is deprecated and will be removed. This function will force the right SDAC resolution', DeprecationWarning)
         area = lookup_area(country_code)
         # we do here extra days at start and end to fix issue 187
         series = self._query_day_ahead_prices(
             area,
             start=start-pd.Timedelta(days=1),
-            end=end+pd.Timedelta(days=1),
-            resolution=resolution
+            end=end+pd.Timedelta(days=1)
         )
         series = series.tz_convert(area.tz).sort_index()
         series = series.truncate(before=start, after=end)
@@ -1261,29 +1310,96 @@ class EntsoePandasClient(EntsoeRawClient):
             self, area: Area,
             start: pd.Timestamp,
             end: pd.Timestamp,
-            resolution: Literal['60min', '30min', '15min'] = '60min',
             offset: int = 0) -> pd.Series:
         text = super(EntsoePandasClient, self).query_day_ahead_prices(
             area,
             start=start,
             end=end,
-            offset=offset
+            offset=offset,
+            sequence=1 if area.name in ['DE_LU', 'AT'] else None
+        )
+        series_all = parse_prices(text)
+
+        # This function should only return SDAC prices, which have a fixed defined resolution
+        # before 2025-10-01 its 60min, after 15min
+        # this is aligned on businessday in timezone europe/amsterdam
+        # some zones already publish in different resolution.
+        # for secondary auctions published on entsoe, use the query_day_ahead_prices_local function
+
+        series = pd.concat([x for x in series_all.values() if len(x) > 0]).sort_index().tz_convert('europe/amsterdam')
+        if len(series) == 0:
+            raise NoMatchingDataError
+        if series.index.max() < QUARTER_MTU_SDAC_GOLIVE:
+            series = series.resample('h').first()
+        else:
+            series_60min = series[series.index < QUARTER_MTU_SDAC_GOLIVE]
+            series_15min = series[series.index >= QUARTER_MTU_SDAC_GOLIVE]
+
+            series = pd.concat([
+                series_60min.resample('h').first(),
+                series_15min
+            ]).sort_index()
+
+        series = series.tz_convert(area.tz).sort_index()
+        series = series.truncate(before=start, after=end)
+        # because of the above fix we need to check again if any valid data exists after truncating
+        if len(series) == 0:
+            raise NoMatchingDataError
+        return series
+
+    # we need to do offset, but we also want to pad the days so wrap it in an internal call
+    def query_day_ahead_prices_local(
+            self, country_code: Union[Area, str],
+            sequence: int,
+            start: pd.Timestamp,
+            end: pd.Timestamp,
+            resolution: Literal['60min', '30min', '15min'] = '60min') -> pd.Series:
+        """
+        Parameters
+        ----------
+        this will return local auction prices that are published on entsoe, simply specify the sequence. sequence 1 is always SDAC
+        country_code : Area|str
+        start : pd.Timestamp
+        end : pd.Timestamp
+
+        Returns
+        -------
+        pd.Series
+        """
+        area = lookup_area(country_code)
+        # we do here extra days at start and end to fix issue 187
+        series = self._query_day_ahead_prices_local(
+            area,
+            sequence,
+            start=start-pd.Timedelta(days=1),
+            end=end+pd.Timedelta(days=1),
+            resolution=resolution
+        )
+        series = series.tz_convert(area.tz).sort_index()
+        series = series.truncate(before=start, after=end)
+        # because of the above fix we need to check again if any valid data exists after truncating
+        if len(series) == 0:
+            raise NoMatchingDataError
+        return series
+
+    @year_limited
+    @documents_limited(100)
+    def _query_day_ahead_prices_local(
+            self, area: Area,
+            sequence: int,
+            start: pd.Timestamp,
+            end: pd.Timestamp,
+            offset: int = 0,
+            resolution: Literal['60min', '30min', '15min'] = '60min') -> pd.Series:
+        text = super(EntsoePandasClient, self).query_day_ahead_prices(
+            area,
+            start=start,
+            end=end,
+            offset=offset,
+            sequence=sequence
         )
         series_all = parse_prices(text)
         series = series_all[resolution]
-        # For now Day Ahead SDAC should always return at least 60 min
-        # if there is either no 60 min data at all or 60 and 15/30 but none overlapping then force it to be 60 min
-        # due to the existence of EXAA prices that are published as day ahead, this should not happen for DE_LU and AT!
-        if area.name not in ['DE_LU', 'AT']:
-            if resolution == '60min' and len(series_all['60min']) == 0:
-                for res in ['15min', '30min']:
-                    if len(series_all[res]) != 0:
-                        return series_all[res].resample('h').first()
-            elif resolution == '60min' and sum([len(x) > 0 for x in series_all.values()]) > 1:
-                for res in ['15min', '30min']:
-                    if len(series_all['60min'].index.intersection(series_all[res])) == 0 and len(series_all[res]) > 0:
-                        return pd.concat([series_all['60min'], series_all[res]]).resample('h').first()
-
         if len(series) == 0:
             raise NoMatchingDataError
         return series
@@ -1381,6 +1497,8 @@ class EntsoePandasClient(EntsoeRawClient):
         text = super(EntsoePandasClient, self).query_generation_forecast(
             country_code=area, start=start, end=end, process_type=process_type)
         df = parse_generation(text, nett=nett)
+        if isinstance(df, pd.DataFrame):
+            df = df.rename(columns=lambda c: c.replace('Actual', 'Scheduled'))
         df = df.tz_convert(area.tz)
         df = df.truncate(before=start, after=end)
         return df
@@ -1881,6 +1999,28 @@ class EntsoePandasClient(EntsoeRawClient):
         archive = super(EntsoePandasClient, self).query_imbalance_volumes(
             country_code=area, start=start, end=end, psr_type=psr_type)
         df = parse_imbalance_volumes_zip(zip_contents=archive, include_resolution=include_resolution)
+        df = df.tz_convert(area.tz)
+        df = df.truncate(before=start, after=end)
+        return df
+
+    @year_limited
+    def query_current_balancing_state(
+            self, country_code: Union[Area, str], start: pd.Timestamp,
+            end: pd.Timestamp) -> pd.DataFrame:
+        """
+        Parameters
+        ----------
+        country_code : Area|str
+        start : pd.Timestamp
+        end : pd.Timestamp
+        Returns
+        -------
+        pd.DataFrame
+        """
+        area = lookup_area(country_code)
+        text = super(EntsoePandasClient, self).query_current_balancing_state(
+            country_code=area, start=start, end=end)
+        df = -1*parse_imbalance_volumes(text)
         df = df.tz_convert(area.tz)
         df = df.truncate(before=start, after=end)
         return df

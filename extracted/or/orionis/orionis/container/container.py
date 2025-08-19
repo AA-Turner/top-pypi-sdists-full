@@ -1,4 +1,5 @@
 import abc
+import asyncio
 import inspect
 import threading
 import typing
@@ -105,6 +106,122 @@ class Container(IContainer):
 
             # Mark this instance as initialized
             self.__initialized = True
+
+    def __handleSyncAsyncResult(
+        self,
+        result: Any
+    ) -> Any:
+        """
+        Universal helper to handle both synchronous and asynchronous results.
+
+        This method automatically detects if a result is a coroutine and handles
+        it appropriately based on the current execution context.
+
+        Parameters
+        ----------
+        result : Any
+            The result to handle, which may be a coroutine or regular value.
+
+        Returns
+        -------
+        Any
+            The resolved result. If the result was a coroutine, it will be awaited
+            if possible, or scheduled appropriately.
+        """
+
+        # If the result is not a coroutine, return it directly
+        if not asyncio.iscoroutine(result):
+            return result
+
+        try:
+
+            # Check if we're currently in an event loop
+            loop = asyncio.get_running_loop()
+
+            # If we're in an async context, we need to let the caller handle the coroutine
+            # Since we can't await here, we'll create a task and get the result synchronously
+            # This is a compromise for mixed sync/async environments
+            if loop.is_running():
+
+                # For running loops, we create a new thread to run the coroutine
+                import concurrent.futures
+
+                # Define a function to run the coroutine in a new event loop
+                def run_coroutine():
+
+                    # Create a new event loop for this thread
+                    new_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(new_loop)
+
+                    # Run the coroutine until completion
+                    try:
+                        return new_loop.run_until_complete(result)
+
+                    # Finally, ensure the loop is closed to free resources
+                    finally:
+                        new_loop.close()
+
+                # Use ThreadPoolExecutor to run the coroutine in a separate thread
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(run_coroutine)
+                    return future.result()
+
+            else:
+                # If loop exists but not running, we can run the coroutine
+                return loop.run_until_complete(result)
+
+        except RuntimeError:
+
+            # No event loop running, we can run the coroutine directly
+            return asyncio.run(result)
+
+    def __invokeCallableUniversal(
+        self,
+        fn: Callable[..., Any],
+        *args,
+        **kwargs
+    ) -> Any:
+        """
+        Universal callable invoker that handles both sync and async callables.
+
+        Parameters
+        ----------
+        fn : Callable[..., Any]
+            The callable to invoke.
+        *args : tuple
+            Positional arguments to pass to the callable.
+        **kwargs : dict
+            Keyword arguments to pass to the callable.
+
+        Returns
+        -------
+        Any
+            The result of the callable invocation.
+
+        Raises
+        ------
+        OrionisContainerException
+            If the callable invocation fails.
+        """
+
+        try:
+
+            # Check if the callable is a coroutine function
+            result = fn(*args, **kwargs)
+            return self.__handleSyncAsyncResult(result)
+
+        except TypeError as e:
+
+            # If invocation fails, use ReflectionCallable for better error messaging
+            rf_callable = ReflectionCallable(fn)
+            function_name = rf_callable.getName()
+            signature = rf_callable.getSignature()
+
+            # Raise a more informative exception with the function name and signature
+            raise OrionisContainerException(
+                f"Failed to invoke function [{function_name}] with the provided arguments: {e}\n"
+                f"Expected function signature: [{signature}]"
+            ) from e
 
     def transient(
         self,
@@ -1284,6 +1401,7 @@ class Container(IContainer):
     ) -> Any:
         """
         Invokes a callable with the provided arguments.
+        Supports both synchronous and asynchronous callables automatically.
 
         Parameters
         ----------
@@ -1297,27 +1415,10 @@ class Container(IContainer):
         Returns
         -------
         Any
-            The result of the callable.
+            The result of the callable. If the callable is async,
+            the coroutine will be handled automatically.
         """
-
-        # Try to invoke the callable with the provided arguments
-        try:
-
-            # If the callable is a function, invoke it directly
-            return fn(*args, **kwargs)
-
-        except TypeError as e:
-
-            # If invocation fails, use ReflectionCallable to get function name and signature
-            rf_callable = ReflectionCallable(fn)
-            function_name = rf_callable.getName()
-            signature = rf_callable.getSignature()
-
-            # Raise an exception with detailed information about the failure
-            raise OrionisContainerException(
-                f"Failed to invoke function [{function_name}] with the provided arguments: {e}\n"
-                f"Expected function signature: [{signature}]"
-            ) from e
+        return self.__invokeCallableUniversal(fn, *args, **kwargs)
 
     def __instantiateConcreteReflective(
         self,
@@ -1359,13 +1460,13 @@ class Container(IContainer):
 
         # Try simple call first for functions without parameters
         try:
-
             # Use ReflectionCallable to get dependencies
             dependencies = ReflectionCallable(fn).getDependencies()
 
             # If there are no required parameters, call directly
             if not dependencies or (not dependencies.resolved and not dependencies.unresolved):
-                return fn()
+                result = fn()
+                return self.__handleSyncAsyncResult(result)
 
             # If there are unresolved dependencies, raise an exception
             if dependencies.unresolved:
@@ -1379,13 +1480,19 @@ class Container(IContainer):
                 getattr(fn, '__name__', str(fn)),
                 dependencies
             )
-            return fn(**resolved_params)
+
+            # Invoke the callable with resolved parameters
+            result = fn(**resolved_params)
+
+            # Handle the result, which may be a coroutine
+            return self.__handleSyncAsyncResult(result)
 
         except Exception as inspect_error:
 
             # If inspection fails, try direct call as last resort
             try:
-                return fn()
+                result = fn()
+                return self.__handleSyncAsyncResult(result)
 
             # If direct call fails, raise inspection error
             except TypeError:
@@ -1533,6 +1640,7 @@ class Container(IContainer):
             return params
 
         except Exception as e:
+
             # If the exception is already an OrionisContainerException, re-raise it
             if isinstance(e, OrionisContainerException):
                 raise e from None
@@ -1621,6 +1729,7 @@ class Container(IContainer):
     ) -> Any:
         """
         Helper method to instantiate a target with reflection-based dependency resolution.
+        Supports both synchronous and asynchronous callables automatically.
 
         Parameters
         ----------
@@ -1632,13 +1741,20 @@ class Container(IContainer):
         Returns
         -------
         Any
-            The instantiated object or callable result.
+            The instantiated object or callable result. If the callable is async,
+            the coroutine will be handled automatically.
         """
 
+        # Reflect the target to get its dependencies
         resolved_params = self.__resolveDependencies(
             *self.__reflectTarget(target, is_class=is_class)
         )
-        return target(**resolved_params)
+
+        # If the target is a class, instantiate it with resolved parameters
+        result = target(**resolved_params)
+
+        # Handle the result, which may be a coroutine
+        return self.__handleSyncAsyncResult(result)
 
     def resolveWithoutContainer(
         self,
@@ -2118,6 +2234,7 @@ class Container(IContainer):
     ) -> Any:
         """
         Call a method on an instance with automatic dependency injection.
+        Supports both synchronous and asynchronous methods automatically.
 
         Parameters
         ----------
@@ -2133,13 +2250,84 @@ class Container(IContainer):
         Returns
         -------
         Any
-            The result of the method call.
+            The result of the method call. If the method is async,
+            the coroutine will be handled automatically.
+        """
+
+        # Validate inputs
+        self.__validateCallInputs(instance, method_name)
+
+        # Get the method
+        method = getattr(instance, method_name)
+
+        # Execute the method with appropriate handling
+        return self.__executeMethod(method, *args, **kwargs)
+
+    async def callAsync(
+        self,
+        instance: Any,
+        method_name: str,
+        *args,
+        **kwargs
+    ) -> Any:
+        """
+        Async version of call for when you're in an async context and need to await the result.
+
+        Parameters
+        ----------
+        instance : Any
+            The instance on which to call the method.
+        method_name : str
+            The name of the method to call.
+        *args : tuple
+            Positional arguments to pass to the method.
+        **kwargs : dict
+            Keyword arguments to pass to the method.
+
+        Returns
+        -------
+        Any
+            The result of the method call, properly awaited if async.
+        """
+
+        # Validate inputs
+        self.__validateCallInputs(instance, method_name)
+
+        # Get the method
+        method = getattr(instance, method_name)
+
+        # Execute the method with async handling
+        result = self.__executeMethod(method, *args, **kwargs)
+
+        # If the result is a coroutine, await it
+        if asyncio.iscoroutine(result):
+            return await result
+
+        # Otherwise, return the result directly
+        return result
+
+    def __validateCallInputs(self, instance: Any, method_name: str) -> None:
+        """
+        Validates the inputs for the call methods.
+
+        Parameters
+        ----------
+        instance : Any
+            The instance to validate.
+        method_name : str
+            The method name to validate.
+
+        Raises
+        ------
+        OrionisContainerException
+            If validation fails.
         """
 
         # Ensure the instance is a valid object (allow __main__ for development)
         if instance is None:
             raise OrionisContainerException("Instance cannot be None")
 
+        # Ensure the instance is a valid object with a class
         if not hasattr(instance, '__class__'):
             raise OrionisContainerException("Instance must be a valid object with a class")
 
@@ -2161,12 +2349,35 @@ class Container(IContainer):
                 f"Method '{method_name}' not found or not callable on instance '{type(instance).__name__}'."
             )
 
+    def __executeMethod(
+        self,
+        method: Callable,
+        *args,
+        **kwargs
+    ) -> Any:
+        """
+        Executes a method with automatic dependency injection and sync/async handling.
+
+        Parameters
+        ----------
+        method : Callable
+            The method to execute.
+        *args : tuple
+            Positional arguments to pass to the method.
+        **kwargs : dict
+            Keyword arguments to pass to the method.
+
+        Returns
+        -------
+        Any
+            The result of the method execution.
+        """
+
         # If args or kwargs are provided, use them directly
         if args or kwargs:
-            return self.__instantiateCallableWithArgs(method, *args, **kwargs)
+            return self.__invokeCallableUniversal(method, *args, **kwargs)
 
         # For methods without provided arguments, try simple call first
-        # This avoids reflection issues for simple methods
         try:
 
             # Get method signature to check if it needs parameters
@@ -2178,19 +2389,22 @@ class Container(IContainer):
 
             # If no required parameters, call directly
             if not params:
-                return method()
+                result = method()
+                return self.__handleSyncAsyncResult(result)
 
             # If has required parameters, try dependency injection
-            return self.__instantiateWithReflection(method, is_class=False)
+            result = self.__instantiateWithReflection(method, is_class=False)
+            return result
 
         except Exception as reflection_error:
 
             # If reflection fails, try simple call as fallback
             try:
-                return method()
+                result = method()
+                return self.__handleSyncAsyncResult(result)
 
-            # If simple call also fails, raise the original reflection error
+            # If both reflection and simple call fail, raise an exception
             except TypeError:
                 raise OrionisContainerException(
-                    f"Failed to call method '{method_name}': {reflection_error}"
+                    f"Failed to call method '{method.__name__}': {reflection_error}"
                 ) from reflection_error

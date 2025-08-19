@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amazon-braket-default-simulator
-Version: 1.27.0
+Version: 1.28.0
 Summary: An open source quantum circuit simulator to be run locally with the Amazon Braket SDK
 Home-page: https://github.com/amazon-braket/amazon-braket-default-simulator-python
 Author: Amazon Web Services
@@ -23,7 +23,7 @@ Requires-Dist: opt_einsum
 Requires-Dist: pydantic>2
 Requires-Dist: scipy
 Requires-Dist: sympy
-Requires-Dist: antlr4-python3-runtime==4.9.2
+Requires-Dist: antlr4-python3-runtime==4.13.2
 Requires-Dist: amazon-braket-schemas>=1.25.0
 Provides-Extra: test
 Requires-Dist: pre-commit; extra == "test"

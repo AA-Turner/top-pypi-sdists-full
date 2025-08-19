@@ -78,9 +78,11 @@ class UserMV(SimpleMV, model=UserDBM):
     ]
     column_formatters = {
         UserDBM.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
+        UserDBM.tg_data: lambda m, a: format_json_for_preview_(m.tg_data),
         UserDBM.extra_data: lambda m, a: format_json_for_preview_(m.extra_data),
     }
     column_formatters_detail = {
         UserDBM.creation_dt: lambda m, _: format_datetime_(m.creation_dt),
+        UserDBM.tg_data: lambda m, a: format_json_for_preview_(m.tg_data),
         UserDBM.extra_data: lambda m, a: format_json_(m.extra_data),
     }

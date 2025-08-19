@@ -4,12 +4,10 @@ import typing
 from ...core.client_wrapper import SyncClientWrapper
 from ...core.request_options import RequestOptions
 from ...types.s3export_storage import S3ExportStorage
-from ...core.pydantic_utilities import parse_obj_as
+from ...core.unchecked_base_model import construct_type
 from json.decoder import JSONDecodeError
 from ...core.api_error import ApiError
-from .types.s3create_response import S3CreateResponse
 from ...core.jsonable_encoder import jsonable_encoder
-from .types.s3update_response import S3UpdateResponse
 from ...core.client_wrapper import AsyncClientWrapper
 
 # this is used as the default value for optional parameters
@@ -21,18 +19,20 @@ class S3Client:
         self._client_wrapper = client_wrapper
 
     def list(
-        self, *, project: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        ordering: typing.Optional[str] = None,
+        project: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.List[S3ExportStorage]:
         """
-
-        You can connect your S3 bucket to Label Studio as a source storage or target storage. Use this API request to get a list of all S3 export (target) storage connections for a specific project.
-
-        The project ID can be found in the URL when viewing the project in Label Studio, or you can retrieve all project IDs using [List all projects](../projects/list).
-
-        For more information about working with external storage, see [Sync data from external storage](https://labelstud.io/guide/storage).
+        Get a list of all S3 export storage connections.
 
         Parameters
         ----------
+        ordering : typing.Optional[str]
+            Which field to use when ordering the results.
+
         project : typing.Optional[int]
             Project ID
 
@@ -57,6 +57,7 @@ class S3Client:
             "api/storages/export/s3",
             method="GET",
             params={
+                "ordering": ordering,
                 "project": project,
             },
             request_options=request_options,
@@ -65,7 +66,7 @@ class S3Client:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
                     typing.List[S3ExportStorage],
-                    parse_obj_as(
+                    construct_type(
                         type_=typing.List[S3ExportStorage],  # type: ignore
                         object_=_response.json(),
                     ),
@@ -91,14 +92,9 @@ class S3Client:
         region_name: typing.Optional[str] = OMIT,
         s3endpoint: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> S3CreateResponse:
+    ) -> S3ExportStorage:
         """
-
-        Create a new target storage connection to S3 storage.
-
-        For information about the required fields and prerequisites, see [Amazon S3](https://labelstud.io/guide/storage#Amazon-S3) in the Label Studio documentation.
-
-        <Tip>After you add the storage, you should validate the connection before attempting to sync your data. Your data will not be exported until you [sync your connection](sync).</Tip>
+        Create a new S3 export storage connection to store annotations.
 
         Parameters
         ----------
@@ -143,7 +139,7 @@ class S3Client:
 
         Returns
         -------
-        S3CreateResponse
+        S3ExportStorage
 
 
         Examples
@@ -181,9 +177,257 @@ class S3Client:
         try:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
-                    S3CreateResponse,
-                    parse_obj_as(
-                        type_=S3CreateResponse,  # type: ignore
+                    S3ExportStorage,
+                    construct_type(
+                        type_=S3ExportStorage,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def get(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> S3ExportStorage:
+        """
+        Get a specific S3 export storage connection.
+
+        Parameters
+        ----------
+        id : int
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        S3ExportStorage
+
+
+        Examples
+        --------
+        from label_studio_sdk import LabelStudio
+
+        client = LabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+        client.export_storage.s3.get(
+            id=1,
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/storages/export/s3/{jsonable_encoder(id)}",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    S3ExportStorage,
+                    construct_type(
+                        type_=S3ExportStorage,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def delete(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+        """
+        Delete a specific S3 export storage connection.
+
+        Parameters
+        ----------
+        id : int
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        from label_studio_sdk import LabelStudio
+
+        client = LabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+        client.export_storage.s3.delete(
+            id=1,
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/storages/export/s3/{jsonable_encoder(id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def update(
+        self,
+        id: int,
+        *,
+        can_delete_objects: typing.Optional[bool] = OMIT,
+        title: typing.Optional[str] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        project: typing.Optional[int] = OMIT,
+        bucket: typing.Optional[str] = OMIT,
+        prefix: typing.Optional[str] = OMIT,
+        aws_access_key_id: typing.Optional[str] = OMIT,
+        aws_secret_access_key: typing.Optional[str] = OMIT,
+        aws_session_token: typing.Optional[str] = OMIT,
+        aws_sse_kms_key_id: typing.Optional[str] = OMIT,
+        region_name: typing.Optional[str] = OMIT,
+        s3endpoint: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> S3ExportStorage:
+        """
+        Update a specific S3 export storage connection.
+
+        Parameters
+        ----------
+        id : int
+
+        can_delete_objects : typing.Optional[bool]
+            Deletion from storage enabled.
+
+        title : typing.Optional[str]
+            Storage title
+
+        description : typing.Optional[str]
+            Storage description
+
+        project : typing.Optional[int]
+            Project ID
+
+        bucket : typing.Optional[str]
+            S3 bucket name
+
+        prefix : typing.Optional[str]
+            S3 bucket prefix
+
+        aws_access_key_id : typing.Optional[str]
+            AWS_ACCESS_KEY_ID
+
+        aws_secret_access_key : typing.Optional[str]
+            AWS_SECRET_ACCESS_KEY
+
+        aws_session_token : typing.Optional[str]
+            AWS_SESSION_TOKEN
+
+        aws_sse_kms_key_id : typing.Optional[str]
+            AWS SSE KMS Key ID
+
+        region_name : typing.Optional[str]
+            AWS Region
+
+        s3endpoint : typing.Optional[str]
+            S3 Endpoint
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        S3ExportStorage
+
+
+        Examples
+        --------
+        from label_studio_sdk import LabelStudio
+
+        client = LabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+        client.export_storage.s3.update(
+            id=1,
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/storages/export/s3/{jsonable_encoder(id)}",
+            method="PATCH",
+            json={
+                "can_delete_objects": can_delete_objects,
+                "title": title,
+                "description": description,
+                "project": project,
+                "bucket": bucket,
+                "prefix": prefix,
+                "aws_access_key_id": aws_access_key_id,
+                "aws_secret_access_key": aws_secret_access_key,
+                "aws_session_token": aws_session_token,
+                "aws_sse_kms_key_id": aws_sse_kms_key_id,
+                "region_name": region_name,
+                "s3_endpoint": s3endpoint,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    S3ExportStorage,
+                    construct_type(
+                        type_=S3ExportStorage,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def sync(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> S3ExportStorage:
+        """
+        Sync tasks from an S3 export storage connection.
+
+        Parameters
+        ----------
+        id : int
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        S3ExportStorage
+
+
+        Examples
+        --------
+        from label_studio_sdk import LabelStudio
+
+        client = LabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+        client.export_storage.s3.sync(
+            id=1,
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/storages/export/s3/{jsonable_encoder(id)}/sync",
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    S3ExportStorage,
+                    construct_type(
+                        type_=S3ExportStorage,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -211,8 +455,7 @@ class S3Client:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> None:
         """
-
-        Validate a specific S3 export storage connection. This is useful to ensure that the storage configuration settings are correct and operational before attempting to export data.
+        Validate a specific S3 export storage connection.
 
         Parameters
         ----------
@@ -303,289 +546,26 @@ class S3Client:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def get(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> S3ExportStorage:
-        """
-
-        Get a specific S3 export storage connection. You will need to provide the export storage ID. You can find this using [List export storages](list).
-
-        For more information about working with external storage, see [Sync data from external storage](https://labelstud.io/guide/storage).
-
-        Parameters
-        ----------
-        id : int
-            A unique integer value identifying this s3 export storage.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        S3ExportStorage
-
-
-        Examples
-        --------
-        from label_studio_sdk import LabelStudio
-
-        client = LabelStudio(
-            api_key="YOUR_API_KEY",
-        )
-        client.export_storage.s3.get(
-            id=1,
-        )
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/storages/export/s3/{jsonable_encoder(id)}",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    S3ExportStorage,
-                    parse_obj_as(
-                        type_=S3ExportStorage,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def delete(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> None:
-        """
-
-        Delete a specific S3 export storage connection. You will need to provide the export storage ID. You can find this using [List export storages](list).
-
-        Deleting an export/target storage connection does not affect tasks with synced data in Label Studio. If you want to remove the tasks that were synced from the external storage, you will need to delete them manually from within the Label Studio UI or use the [Delete tasks](../../tasks/delete-all-tasks) API.
-
-        Parameters
-        ----------
-        id : int
-            A unique integer value identifying this s3 export storage.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        None
-
-        Examples
-        --------
-        from label_studio_sdk import LabelStudio
-
-        client = LabelStudio(
-            api_key="YOUR_API_KEY",
-        )
-        client.export_storage.s3.delete(
-            id=1,
-        )
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/storages/export/s3/{jsonable_encoder(id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def update(
-        self,
-        id: int,
-        *,
-        can_delete_objects: typing.Optional[bool] = OMIT,
-        title: typing.Optional[str] = OMIT,
-        description: typing.Optional[str] = OMIT,
-        project: typing.Optional[int] = OMIT,
-        bucket: typing.Optional[str] = OMIT,
-        prefix: typing.Optional[str] = OMIT,
-        aws_access_key_id: typing.Optional[str] = OMIT,
-        aws_secret_access_key: typing.Optional[str] = OMIT,
-        aws_session_token: typing.Optional[str] = OMIT,
-        aws_sse_kms_key_id: typing.Optional[str] = OMIT,
-        region_name: typing.Optional[str] = OMIT,
-        s3endpoint: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> S3UpdateResponse:
-        """
-
-        Update a specific S3 export storage connection. You will need to provide the export storage ID. You can find this using [List export storages](list).
-
-        For more information about working with external storage, see [Sync data from external storage](https://labelstud.io/guide/storage).
-
-        Parameters
-        ----------
-        id : int
-            A unique integer value identifying this s3 export storage.
-
-        can_delete_objects : typing.Optional[bool]
-            Deletion from storage enabled.
-
-        title : typing.Optional[str]
-            Storage title
-
-        description : typing.Optional[str]
-            Storage description
-
-        project : typing.Optional[int]
-            Project ID
-
-        bucket : typing.Optional[str]
-            S3 bucket name
-
-        prefix : typing.Optional[str]
-            S3 bucket prefix
-
-        aws_access_key_id : typing.Optional[str]
-            AWS_ACCESS_KEY_ID
-
-        aws_secret_access_key : typing.Optional[str]
-            AWS_SECRET_ACCESS_KEY
-
-        aws_session_token : typing.Optional[str]
-            AWS_SESSION_TOKEN
-
-        aws_sse_kms_key_id : typing.Optional[str]
-            AWS SSE KMS Key ID
-
-        region_name : typing.Optional[str]
-            AWS Region
-
-        s3endpoint : typing.Optional[str]
-            S3 Endpoint
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        S3UpdateResponse
-
-
-        Examples
-        --------
-        from label_studio_sdk import LabelStudio
-
-        client = LabelStudio(
-            api_key="YOUR_API_KEY",
-        )
-        client.export_storage.s3.update(
-            id=1,
-        )
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/storages/export/s3/{jsonable_encoder(id)}",
-            method="PATCH",
-            json={
-                "can_delete_objects": can_delete_objects,
-                "title": title,
-                "description": description,
-                "project": project,
-                "bucket": bucket,
-                "prefix": prefix,
-                "aws_access_key_id": aws_access_key_id,
-                "aws_secret_access_key": aws_secret_access_key,
-                "aws_session_token": aws_session_token,
-                "aws_sse_kms_key_id": aws_sse_kms_key_id,
-                "region_name": region_name,
-                "s3_endpoint": s3endpoint,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    S3UpdateResponse,
-                    parse_obj_as(
-                        type_=S3UpdateResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def sync(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> S3ExportStorage:
-        """
-
-        Sync tasks to an S3 export/target storage connection. You will need to provide the export storage ID. You can find this using [List export storages](list).
-
-        Sync operations with external buckets only go one way. They either create tasks from objects in the bucket (source/import storage) or push annotations to the output bucket (export/target storage). Changing something on the bucket side doesn’t guarantee consistency in results.
-
-        <Note>Before proceeding, you should review [How sync operations work - Source storage](https://labelstud.io/guide/storage#Source-storage) to ensure that your data remains secure and private.</Note>
-
-        Parameters
-        ----------
-        id : int
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        S3ExportStorage
-
-
-        Examples
-        --------
-        from label_studio_sdk import LabelStudio
-
-        client = LabelStudio(
-            api_key="YOUR_API_KEY",
-        )
-        client.export_storage.s3.sync(
-            id=1,
-        )
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/storages/export/s3/{jsonable_encoder(id)}/sync",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    S3ExportStorage,
-                    parse_obj_as(
-                        type_=S3ExportStorage,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
 
 class AsyncS3Client:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
     async def list(
-        self, *, project: typing.Optional[int] = None, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        ordering: typing.Optional[str] = None,
+        project: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.List[S3ExportStorage]:
         """
-
-        You can connect your S3 bucket to Label Studio as a source storage or target storage. Use this API request to get a list of all S3 export (target) storage connections for a specific project.
-
-        The project ID can be found in the URL when viewing the project in Label Studio, or you can retrieve all project IDs using [List all projects](../projects/list).
-
-        For more information about working with external storage, see [Sync data from external storage](https://labelstud.io/guide/storage).
+        Get a list of all S3 export storage connections.
 
         Parameters
         ----------
+        ordering : typing.Optional[str]
+            Which field to use when ordering the results.
+
         project : typing.Optional[int]
             Project ID
 
@@ -618,6 +598,7 @@ class AsyncS3Client:
             "api/storages/export/s3",
             method="GET",
             params={
+                "ordering": ordering,
                 "project": project,
             },
             request_options=request_options,
@@ -626,7 +607,7 @@ class AsyncS3Client:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
                     typing.List[S3ExportStorage],
-                    parse_obj_as(
+                    construct_type(
                         type_=typing.List[S3ExportStorage],  # type: ignore
                         object_=_response.json(),
                     ),
@@ -652,14 +633,9 @@ class AsyncS3Client:
         region_name: typing.Optional[str] = OMIT,
         s3endpoint: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> S3CreateResponse:
+    ) -> S3ExportStorage:
         """
-
-        Create a new target storage connection to S3 storage.
-
-        For information about the required fields and prerequisites, see [Amazon S3](https://labelstud.io/guide/storage#Amazon-S3) in the Label Studio documentation.
-
-        <Tip>After you add the storage, you should validate the connection before attempting to sync your data. Your data will not be exported until you [sync your connection](sync).</Tip>
+        Create a new S3 export storage connection to store annotations.
 
         Parameters
         ----------
@@ -704,7 +680,7 @@ class AsyncS3Client:
 
         Returns
         -------
-        S3CreateResponse
+        S3ExportStorage
 
 
         Examples
@@ -750,9 +726,289 @@ class AsyncS3Client:
         try:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
-                    S3CreateResponse,
-                    parse_obj_as(
-                        type_=S3CreateResponse,  # type: ignore
+                    S3ExportStorage,
+                    construct_type(
+                        type_=S3ExportStorage,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def get(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> S3ExportStorage:
+        """
+        Get a specific S3 export storage connection.
+
+        Parameters
+        ----------
+        id : int
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        S3ExportStorage
+
+
+        Examples
+        --------
+        import asyncio
+
+        from label_studio_sdk import AsyncLabelStudio
+
+        client = AsyncLabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.export_storage.s3.get(
+                id=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/storages/export/s3/{jsonable_encoder(id)}",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    S3ExportStorage,
+                    construct_type(
+                        type_=S3ExportStorage,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def delete(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> None:
+        """
+        Delete a specific S3 export storage connection.
+
+        Parameters
+        ----------
+        id : int
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        import asyncio
+
+        from label_studio_sdk import AsyncLabelStudio
+
+        client = AsyncLabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.export_storage.s3.delete(
+                id=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/storages/export/s3/{jsonable_encoder(id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def update(
+        self,
+        id: int,
+        *,
+        can_delete_objects: typing.Optional[bool] = OMIT,
+        title: typing.Optional[str] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        project: typing.Optional[int] = OMIT,
+        bucket: typing.Optional[str] = OMIT,
+        prefix: typing.Optional[str] = OMIT,
+        aws_access_key_id: typing.Optional[str] = OMIT,
+        aws_secret_access_key: typing.Optional[str] = OMIT,
+        aws_session_token: typing.Optional[str] = OMIT,
+        aws_sse_kms_key_id: typing.Optional[str] = OMIT,
+        region_name: typing.Optional[str] = OMIT,
+        s3endpoint: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> S3ExportStorage:
+        """
+        Update a specific S3 export storage connection.
+
+        Parameters
+        ----------
+        id : int
+
+        can_delete_objects : typing.Optional[bool]
+            Deletion from storage enabled.
+
+        title : typing.Optional[str]
+            Storage title
+
+        description : typing.Optional[str]
+            Storage description
+
+        project : typing.Optional[int]
+            Project ID
+
+        bucket : typing.Optional[str]
+            S3 bucket name
+
+        prefix : typing.Optional[str]
+            S3 bucket prefix
+
+        aws_access_key_id : typing.Optional[str]
+            AWS_ACCESS_KEY_ID
+
+        aws_secret_access_key : typing.Optional[str]
+            AWS_SECRET_ACCESS_KEY
+
+        aws_session_token : typing.Optional[str]
+            AWS_SESSION_TOKEN
+
+        aws_sse_kms_key_id : typing.Optional[str]
+            AWS SSE KMS Key ID
+
+        region_name : typing.Optional[str]
+            AWS Region
+
+        s3endpoint : typing.Optional[str]
+            S3 Endpoint
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        S3ExportStorage
+
+
+        Examples
+        --------
+        import asyncio
+
+        from label_studio_sdk import AsyncLabelStudio
+
+        client = AsyncLabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.export_storage.s3.update(
+                id=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/storages/export/s3/{jsonable_encoder(id)}",
+            method="PATCH",
+            json={
+                "can_delete_objects": can_delete_objects,
+                "title": title,
+                "description": description,
+                "project": project,
+                "bucket": bucket,
+                "prefix": prefix,
+                "aws_access_key_id": aws_access_key_id,
+                "aws_secret_access_key": aws_secret_access_key,
+                "aws_session_token": aws_session_token,
+                "aws_sse_kms_key_id": aws_sse_kms_key_id,
+                "region_name": region_name,
+                "s3_endpoint": s3endpoint,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    S3ExportStorage,
+                    construct_type(
+                        type_=S3ExportStorage,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def sync(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> S3ExportStorage:
+        """
+        Sync tasks from an S3 export storage connection.
+
+        Parameters
+        ----------
+        id : int
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        S3ExportStorage
+
+
+        Examples
+        --------
+        import asyncio
+
+        from label_studio_sdk import AsyncLabelStudio
+
+        client = AsyncLabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.export_storage.s3.sync(
+                id=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/storages/export/s3/{jsonable_encoder(id)}/sync",
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    S3ExportStorage,
+                    construct_type(
+                        type_=S3ExportStorage,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -780,8 +1036,7 @@ class AsyncS3Client:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> None:
         """
-
-        Validate a specific S3 export storage connection. This is useful to ensure that the storage configuration settings are correct and operational before attempting to export data.
+        Validate a specific S3 export storage connection.
 
         Parameters
         ----------
@@ -875,303 +1130,6 @@ class AsyncS3Client:
         try:
             if 200 <= _response.status_code < 300:
                 return
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def get(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> S3ExportStorage:
-        """
-
-        Get a specific S3 export storage connection. You will need to provide the export storage ID. You can find this using [List export storages](list).
-
-        For more information about working with external storage, see [Sync data from external storage](https://labelstud.io/guide/storage).
-
-        Parameters
-        ----------
-        id : int
-            A unique integer value identifying this s3 export storage.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        S3ExportStorage
-
-
-        Examples
-        --------
-        import asyncio
-
-        from label_studio_sdk import AsyncLabelStudio
-
-        client = AsyncLabelStudio(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.export_storage.s3.get(
-                id=1,
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/storages/export/s3/{jsonable_encoder(id)}",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    S3ExportStorage,
-                    parse_obj_as(
-                        type_=S3ExportStorage,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def delete(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> None:
-        """
-
-        Delete a specific S3 export storage connection. You will need to provide the export storage ID. You can find this using [List export storages](list).
-
-        Deleting an export/target storage connection does not affect tasks with synced data in Label Studio. If you want to remove the tasks that were synced from the external storage, you will need to delete them manually from within the Label Studio UI or use the [Delete tasks](../../tasks/delete-all-tasks) API.
-
-        Parameters
-        ----------
-        id : int
-            A unique integer value identifying this s3 export storage.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        None
-
-        Examples
-        --------
-        import asyncio
-
-        from label_studio_sdk import AsyncLabelStudio
-
-        client = AsyncLabelStudio(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.export_storage.s3.delete(
-                id=1,
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/storages/export/s3/{jsonable_encoder(id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def update(
-        self,
-        id: int,
-        *,
-        can_delete_objects: typing.Optional[bool] = OMIT,
-        title: typing.Optional[str] = OMIT,
-        description: typing.Optional[str] = OMIT,
-        project: typing.Optional[int] = OMIT,
-        bucket: typing.Optional[str] = OMIT,
-        prefix: typing.Optional[str] = OMIT,
-        aws_access_key_id: typing.Optional[str] = OMIT,
-        aws_secret_access_key: typing.Optional[str] = OMIT,
-        aws_session_token: typing.Optional[str] = OMIT,
-        aws_sse_kms_key_id: typing.Optional[str] = OMIT,
-        region_name: typing.Optional[str] = OMIT,
-        s3endpoint: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> S3UpdateResponse:
-        """
-
-        Update a specific S3 export storage connection. You will need to provide the export storage ID. You can find this using [List export storages](list).
-
-        For more information about working with external storage, see [Sync data from external storage](https://labelstud.io/guide/storage).
-
-        Parameters
-        ----------
-        id : int
-            A unique integer value identifying this s3 export storage.
-
-        can_delete_objects : typing.Optional[bool]
-            Deletion from storage enabled.
-
-        title : typing.Optional[str]
-            Storage title
-
-        description : typing.Optional[str]
-            Storage description
-
-        project : typing.Optional[int]
-            Project ID
-
-        bucket : typing.Optional[str]
-            S3 bucket name
-
-        prefix : typing.Optional[str]
-            S3 bucket prefix
-
-        aws_access_key_id : typing.Optional[str]
-            AWS_ACCESS_KEY_ID
-
-        aws_secret_access_key : typing.Optional[str]
-            AWS_SECRET_ACCESS_KEY
-
-        aws_session_token : typing.Optional[str]
-            AWS_SESSION_TOKEN
-
-        aws_sse_kms_key_id : typing.Optional[str]
-            AWS SSE KMS Key ID
-
-        region_name : typing.Optional[str]
-            AWS Region
-
-        s3endpoint : typing.Optional[str]
-            S3 Endpoint
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        S3UpdateResponse
-
-
-        Examples
-        --------
-        import asyncio
-
-        from label_studio_sdk import AsyncLabelStudio
-
-        client = AsyncLabelStudio(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.export_storage.s3.update(
-                id=1,
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/storages/export/s3/{jsonable_encoder(id)}",
-            method="PATCH",
-            json={
-                "can_delete_objects": can_delete_objects,
-                "title": title,
-                "description": description,
-                "project": project,
-                "bucket": bucket,
-                "prefix": prefix,
-                "aws_access_key_id": aws_access_key_id,
-                "aws_secret_access_key": aws_secret_access_key,
-                "aws_session_token": aws_session_token,
-                "aws_sse_kms_key_id": aws_sse_kms_key_id,
-                "region_name": region_name,
-                "s3_endpoint": s3endpoint,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    S3UpdateResponse,
-                    parse_obj_as(
-                        type_=S3UpdateResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def sync(self, id: int, *, request_options: typing.Optional[RequestOptions] = None) -> S3ExportStorage:
-        """
-
-        Sync tasks to an S3 export/target storage connection. You will need to provide the export storage ID. You can find this using [List export storages](list).
-
-        Sync operations with external buckets only go one way. They either create tasks from objects in the bucket (source/import storage) or push annotations to the output bucket (export/target storage). Changing something on the bucket side doesn’t guarantee consistency in results.
-
-        <Note>Before proceeding, you should review [How sync operations work - Source storage](https://labelstud.io/guide/storage#Source-storage) to ensure that your data remains secure and private.</Note>
-
-        Parameters
-        ----------
-        id : int
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        S3ExportStorage
-
-
-        Examples
-        --------
-        import asyncio
-
-        from label_studio_sdk import AsyncLabelStudio
-
-        client = AsyncLabelStudio(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.export_storage.s3.sync(
-                id=1,
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/storages/export/s3/{jsonable_encoder(id)}/sync",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    S3ExportStorage,
-                    parse_obj_as(
-                        type_=S3ExportStorage,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, body=_response.text)

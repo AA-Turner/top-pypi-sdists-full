@@ -11,7 +11,7 @@ from reflex.components.core.breakpoints import Breakpoints
 from reflex.event import EventType, PointerEventInfo
 from reflex.vars.base import Var
 
-LUCIDE_LIBRARY = "lucide-react@0.536.0"
+LUCIDE_LIBRARY = "lucide-react@0.539.0"
 
 class LucideIconComponent(Component):
     @classmethod
@@ -408,6 +408,7 @@ LUCIDE_ICON_LIST = [
     "brain_cog",
     "brain",
     "brick_wall_fire",
+    "brick_wall_shield",
     "brick_wall",
     "briefcase_business",
     "briefcase_conveyor_belt",
@@ -559,6 +560,7 @@ LUCIDE_ICON_LIST = [
     "circle_slash_2",
     "circle_slash",
     "circle_small",
+    "circle_star",
     "circle_stop",
     "circle_user_round",
     "circle_user",
@@ -1015,6 +1017,7 @@ LUCIDE_ICON_LIST = [
     "japanese_yen",
     "joystick",
     "kanban",
+    "kayak",
     "key_round",
     "key_square",
     "key",

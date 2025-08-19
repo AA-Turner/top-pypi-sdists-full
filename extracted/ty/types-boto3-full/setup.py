@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3-full",
-    version="1.40.11",
+    version="1.40.12",
     packages=[
         "types_boto3_accessanalyzer",
         "types_boto3_account",
@@ -52,6 +52,7 @@ setup(
         "types_boto3_backup_gateway",
         "types_boto3_backupsearch",
         "types_boto3_batch",
+        "types_boto3_bcm_dashboards",
         "types_boto3_bcm_data_exports",
         "types_boto3_bcm_pricing_calculator",
         "types_boto3_bcm_recommended_actions",
@@ -433,7 +434,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.40.11 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for boto3 1.40.12 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -495,6 +496,7 @@ setup(
         "types_boto3_backup_gateway": ["py.typed", "*.pyi"],
         "types_boto3_backupsearch": ["py.typed", "*.pyi"],
         "types_boto3_batch": ["py.typed", "*.pyi"],
+        "types_boto3_bcm_dashboards": ["py.typed", "*.pyi"],
         "types_boto3_bcm_data_exports": ["py.typed", "*.pyi"],
         "types_boto3_bcm_pricing_calculator": ["py.typed", "*.pyi"],
         "types_boto3_bcm_recommended_actions": ["py.typed", "*.pyi"],

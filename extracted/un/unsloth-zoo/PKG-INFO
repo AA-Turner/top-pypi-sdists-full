@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth_zoo
-Version: 2025.8.5
+Version: 2025.8.6
 Summary: Utils for Unsloth
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -15,9 +15,10 @@ Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=2.4.0
-Requires-Dist: triton>=3.0.0; platform_system == "Linux"
-Requires-Dist: triton-windows; platform_system == "Windows"
-Requires-Dist: packaging
+Requires-Dist: torchao
+Requires-Dist: triton; platform_system == "Linux"
+Requires-Dist: triton_windows; platform_system == "Windows"
+Requires-Dist: packaging>=24.1
 Requires-Dist: tyro
 Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,>=4.51.3
 Requires-Dist: datasets<4.0.0,>=3.4.1

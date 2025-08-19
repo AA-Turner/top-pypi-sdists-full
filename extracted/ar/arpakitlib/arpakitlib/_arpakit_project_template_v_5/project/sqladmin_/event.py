@@ -1,8 +1,6 @@
 import logging
 from typing import Callable
 
-from project.business_service.create_first_data import create_first_admin_with_api_key
-
 from project.core.settings import get_cached_settings
 from project.sqlalchemy_db_.sqlalchemy_db import get_cached_sqlalchemy_db
 

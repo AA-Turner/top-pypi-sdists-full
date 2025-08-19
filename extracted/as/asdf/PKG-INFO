@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asdf
-Version: 4.3.0
+Version: 4.4.0
 Summary: Python implementation of the ASDF Standard
 Author-email: The ASDF Developers <help@stsci.edu>
 Project-URL: documentation, https://asdf.readthedocs.io/en/stable/
@@ -41,6 +41,9 @@ Requires-Dist: pytest>=8; extra == "tests"
 Requires-Dist: pytest-remotedata; extra == "tests"
 Provides-Extra: test
 Requires-Dist: asdf[tests]; extra == "test"
+Provides-Extra: benchmark
+Requires-Dist: asdf[tests]; extra == "benchmark"
+Requires-Dist: pytest-benchmark; extra == "benchmark"
 Dynamic: license-file
 
 ASDF - Advanced Scientific Data Format

@@ -40,7 +40,7 @@ dependencies = [
     "typing-extensions >= 3.7.4.3",
 ]
 readme = "README.md"
-version = "0.16.0"
+version = "0.16.1"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/typer"

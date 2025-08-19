@@ -45,6 +45,7 @@ from orbax.checkpoint._src.metadata import array_metadata_store as array_metadat
 from orbax.checkpoint._src.metadata import empty_values
 from orbax.checkpoint._src.metadata import tree as tree_metadata
 from orbax.checkpoint._src.multihost import multihost
+from orbax.checkpoint._src.path import async_path
 from orbax.checkpoint._src.path import format_utils
 from orbax.checkpoint._src.serialization import serialization
 from orbax.checkpoint._src.serialization import tensorstore_utils as ts_utils
@@ -782,7 +783,9 @@ class BasePyTreeCheckpointHandler(
           f'Requested directory for restore does not exist at {directory}'
       )
     # Get value metadata tree and use_zarr3 from serialized pytree metadata.
-    internal_tree_metadata = self._read_metadata_file(directory)
+    internal_tree_metadata = asyncio_utils.run_sync(
+        self._read_metadata_file(directory)
+    )
     value_metadata_tree = internal_tree_metadata.as_nested_tree()
     if not value_metadata_tree:
       raise ValueError(
@@ -920,7 +923,7 @@ class BasePyTreeCheckpointHandler(
 
     return jax.tree.map(update_param_info, param_infos)
 
-  def _write_metadata_file(
+  async def _write_metadata_file(
       self,
       directory: epath.Path,
       *,
@@ -928,33 +931,31 @@ class BasePyTreeCheckpointHandler(
       save_args: PyTree,
       custom_metadata: tree_types.JsonType | None = None,
       use_zarr3: bool = False,
-  ) -> future.Future:
-    async def _save_fn(param_infos):
-      if utils.is_primary_host(self._primary_host):
-        metadata_write_start_time = time.time()
-        path = directory / PYTREE_METADATA_FILE
-        metadata_content = tree_metadata.InternalTreeMetadata.build(
-            param_infos,
-            save_args=save_args,
-            use_zarr3=use_zarr3,
-            custom_metadata=custom_metadata,
-            pytree_metadata_options=self._pytree_metadata_options,
-        )
-        logging.vlog(
-            1,
-            'Writing pytree metadata file: %s with pytree_metadata_options: %s',
-            path,
-            self._pytree_metadata_options,
-        )
-        path.write_text(json.dumps(metadata_content.to_json()))
-        jax.monitoring.record_event_duration_secs(
-            '/jax/checkpoint/write/async/metadata_write_duration_secs',
-            time.time() - metadata_write_start_time,
-        )
-
-    return future.CommitFuture(
-        _save_fn(param_infos),
-    )
+  ) -> None:
+    if utils.is_primary_host(self._primary_host):
+      metadata_write_start_time = time.time()
+      path = directory / PYTREE_METADATA_FILE
+      metadata_content = tree_metadata.InternalTreeMetadata.build(
+          param_infos,
+          save_args=save_args,
+          use_zarr3=use_zarr3,
+          custom_metadata=custom_metadata,
+          pytree_metadata_options=self._pytree_metadata_options,
+      )
+      logging.vlog(
+          1,
+          'Writing pytree metadata file: %s with pytree_metadata_options: %s',
+          path,
+          self._pytree_metadata_options,
+      )
+      await async_path.write_text(
+          path,
+          json.dumps(metadata_content.to_json()),
+      )
+      jax.monitoring.record_event_duration_secs(
+          '/jax/checkpoint/write/async/metadata_write_duration_secs',
+          time.time() - metadata_write_start_time,
+      )
 
   async def _write_metadata_after_commits(
       self,
@@ -986,14 +987,13 @@ class BasePyTreeCheckpointHandler(
           param_infos, checkpoint_dir, self._array_metadata_store
       )
 
-    write_metadata_file_future = self._write_metadata_file(
+    await self._write_metadata_file(
         checkpoint_dir,
         param_infos=param_infos,
         save_args=save_args,
         custom_metadata=custom_metadata,
         use_zarr3=use_zarr3,
     )
-    await asyncio.to_thread(write_metadata_file_future.result)
     end_time = time.time()
     logging.info(
         '[process=%s][thread=%s] Commit + Array metadata written. Time taken:'
@@ -1005,7 +1005,7 @@ class BasePyTreeCheckpointHandler(
         end_time - commit_time,
     )
 
-  def _read_metadata_file(
+  async def _read_metadata_file(
       self, directory: epath.Path
   ) -> tree_metadata.InternalTreeMetadata:
     """Reads metadata file and returns a tree of restore types.
@@ -1020,7 +1020,7 @@ class BasePyTreeCheckpointHandler(
       FileNotFoundError: if the metadata file is not found.
     """
     path = directory / PYTREE_METADATA_FILE
-    if not path.exists():
+    if not await async_path.exists(path):
       raise FileNotFoundError(
           f'Metadata file (named {PYTREE_METADATA_FILE}) does not exist at'
           f' {directory}.'
@@ -1032,7 +1032,7 @@ class BasePyTreeCheckpointHandler(
         self._pytree_metadata_options,
     )
     return tree_metadata.InternalTreeMetadata.from_json(
-        json.loads(path.read_text()),
+        json.loads(await async_path.read_text(path)),
         pytree_metadata_options=self._pytree_metadata_options,
     )
 
@@ -1064,7 +1064,9 @@ class BasePyTreeCheckpointHandler(
       tree containing metadata.
     """
     is_ocdbt_checkpoint = type_handlers.is_ocdbt_checkpoint(directory)
-    internal_tree_metadata = self._read_metadata_file(directory)
+    internal_tree_metadata = asyncio_utils.run_sync(
+        self._read_metadata_file(directory)
+    )
     return tree_metadata.build_default_tree_metadata(
         internal_tree_metadata.as_custom_metadata(
             directory,

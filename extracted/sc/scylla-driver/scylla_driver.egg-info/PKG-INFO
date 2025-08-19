@@ -1,8 +1,9 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: scylla-driver
-Version: 3.29.3
+Version: 3.29.4
 Summary: Scylla Driver for Apache Cassandra
 Author: ScyllaDB
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/scylladb/python-driver
 Project-URL: Documentation, https://scylladb.github.io/python-driver/
 Project-URL: Source, https://github.com/scylladb/python-driver/
@@ -10,11 +11,9 @@ Project-URL: Issues, https://github.com/scylladb/python-driver/issues
 Keywords: cassandra,cql,orm,dse,graph
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -23,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: geomet>=1.1
@@ -31,23 +31,11 @@ Provides-Extra: graph
 Requires-Dist: gremlinpython==3.4.6; extra == "graph"
 Provides-Extra: cle
 Requires-Dist: cryptography>=35.0; extra == "cle"
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: PyYAML; extra == "test"
-Requires-Dist: pytz; extra == "test"
-Requires-Dist: sure; extra == "test"
-Requires-Dist: scales; extra == "test"
-Requires-Dist: pure-sasl; extra == "test"
-Requires-Dist: twisted[tls]; python_version >= "3.5" and extra == "test"
-Requires-Dist: twisted[tls]==19.2.1; python_version < "3.5" and extra == "test"
-Requires-Dist: gevent>=1.0; (python_version < "3.13" and platform_machine != "i686" and platform_machine != "win32") and extra == "test"
-Requires-Dist: gevent==23.9.0; (python_version < "3.13" and (platform_machine == "i686" or platform_machine == "win32")) and extra == "test"
-Requires-Dist: eventlet>=0.33.3; python_version < "3.13" and extra == "test"
-Requires-Dist: cython; extra == "test"
-Requires-Dist: packaging; extra == "test"
-Requires-Dist: futurist; python_version >= "3.7" and extra == "test"
-Requires-Dist: asynctest; python_version >= "3.5" and extra == "test"
-Requires-Dist: pyyaml; extra == "test"
+Provides-Extra: compress-lz4
+Requires-Dist: lz4; extra == "compress-lz4"
+Provides-Extra: compress-snappy
+Requires-Dist: python-snappy; extra == "compress-snappy"
+Dynamic: license-file
 
 .. |license| image:: https://img.shields.io/badge/License-Apache%202.0-blue.svg
     :target: https://opensource.org/licenses/Apache-2.0
@@ -71,7 +59,7 @@ Scylla Enterprise (2018.1.x+) using exclusively Cassandra's binary protocol and 
 .. image:: https://github.com/scylladb/python-driver/actions/workflows/integration-tests.yml/badge.svg?branch=master
    :target: https://github.com/scylladb/python-driver/actions/workflows/integration-tests.yml?query=event%3Apush+branch%3Amaster
 
-The driver supports Python versions 3.7-3.13.
+The driver supports Python versions 3.9-3.13.
 
 .. **Note:** This driver does not support big-endian systems.
 

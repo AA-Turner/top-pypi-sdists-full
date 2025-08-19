@@ -94,7 +94,7 @@ NAME = "appier"
 """ The name to be used to describe the framework while working
 on its own environment, this is just a descriptive value """
 
-VERSION = "1.34.6"
+VERSION = "1.34.7"
 """ The version of the framework that is currently installed
 this value may be used for debugging/diagnostic purposes """
 
@@ -6138,7 +6138,10 @@ class App(
                 continue
             if _handler[1] and not scope == _handler[1]:
                 continue
-            if not json == _handler[2]:
+            # if the handler has explicitly defined to handle JSON
+            # contexts then it should only be used if the JSON flag
+            # is also set to the same value as in the handler
+            if not _handler[2] == None and not json == _handler[2]:
                 continue
             handler = _handler
             break

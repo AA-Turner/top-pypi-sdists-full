@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: InvokeAI
-Version: 6.3.0
+Version: 6.4.0
 Summary: An implementation of Stable Diffusion which provides various new features and options to aid the image generation process
 Author-email: Invoke <support@invoke.ai>
 License:                                  Apache License

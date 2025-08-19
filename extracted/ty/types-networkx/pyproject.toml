@@ -4,15 +4,15 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-networkx"
-version = "3.5.0.20250816"
+version = "3.5.0.20250819"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for networkx"
 readme = { text = """\
 ## Typing stubs for networkx
 
-This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
-the [`networkx`](https://github.com/networkx/networkx) package. It can be used by type checkers
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`networkx`](https://github.com/networkx/networkx) package. It can be used by type checkers
 to check code that uses `networkx`. This version of
 `types-networkx` aims to provide accurate annotations for
 `networkx==3.5`.
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.403
 
 It was generated from typeshed commit
-[`85a787bba3057f1df44188b4c815069d2d931557`](https://github.com/python/typeshed/commit/85a787bba3057f1df44188b4c815069d2d931557).
+[`d270bb0dc1df3fcfae2808c9a5a0f7ec802e1fb2`](https://github.com/python/typeshed/commit/d270bb0dc1df3fcfae2808c9a5a0f7ec802e1fb2).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

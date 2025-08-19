@@ -9,7 +9,6 @@ use std::iter;
 use std::sync::Arc;
 
 use dupe::Dupe;
-use itertools::Either;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::short_identifier::ShortIdentifier;
@@ -37,7 +36,7 @@ use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
-use crate::alt::types::decorated_function::DecoratedFunction;
+use crate::alt::types::decorated_function::UndecoratedFunction;
 use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
 use crate::alt::types::yields::YieldResult;
@@ -53,22 +52,24 @@ use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassMro;
 use crate::binding::binding::BindingClassSynthesizedFields;
 use crate::binding::binding::BindingConsistentOverrideCheck;
+use crate::binding::binding::BindingDecoratedFunction;
 use crate::binding::binding::BindingExpect;
-use crate::binding::binding::BindingFunction;
 use crate::binding::binding::BindingLegacyTypeParam;
 use crate::binding::binding::BindingTParams;
+use crate::binding::binding::BindingUndecoratedFunction;
 use crate::binding::binding::BindingVariance;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::EmptyAnswer;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::FirstUse;
+use crate::binding::binding::FunctionParameter;
 use crate::binding::binding::FunctionStubOrImpl;
 use crate::binding::binding::Initialized;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyExport;
-use crate::binding::binding::KeyFunction;
+use crate::binding::binding::KeyUndecoratedFunction;
 use crate::binding::binding::LastStmt;
 use crate::binding::binding::LinkedKey;
 use crate::binding::binding::NoneIfRecursive;
@@ -115,6 +116,7 @@ use crate::types::types::Forallable;
 use crate::types::types::SuperObj;
 use crate::types::types::TParam;
 use crate::types::types::TParams;
+use crate::types::types::TParamsSource;
 use crate::types::types::Type;
 use crate::types::types::TypeAlias;
 use crate::types::types::TypeAliasStyle;
@@ -137,7 +139,7 @@ pub enum TypeFormContext {
     ReturnAnnotation,
     /// Type argument for a generic
     TypeArgument,
-    /// Type argument for `bulitins.type`
+    /// Type argument for `builtins.type`
     TypeArgumentForType,
     /// Type argument for the return position of a Callable type
     TypeArgumentCallableReturn,
@@ -882,7 +884,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             &mut tparams,
         );
         let ta = TypeAlias::new(name.clone(), Type::type_form(ty), style);
-        Forallable::TypeAlias(ta).forall(self.validated_tparams(range, tparams, errors))
+        Forallable::TypeAlias(ta).forall(self.validated_tparams(
+            range,
+            tparams,
+            TParamsSource::TypeAlias,
+            errors,
+        ))
     }
 
     fn context_value_enter(
@@ -1029,7 +1036,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn validate_type_params(&self, range: TextRange, tparams: &[TParam], errors: &ErrorCollector) {
+    fn validate_type_params(
+        &self,
+        range: TextRange,
+        tparams: &[TParam],
+        source: TParamsSource,
+        errors: &ErrorCollector,
+    ) {
         let mut last_tparam: Option<&TParam> = None;
         let mut seen = SmallSet::new();
         let mut typevartuple = None;
@@ -1099,12 +1112,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             last_tparam = Some(tparam);
         }
-        if typevartuple_count > 1 {
+        if typevartuple_count > 1
+            && matches!(source, TParamsSource::Class | TParamsSource::TypeAlias)
+        {
             self.error(
                 errors,
                 range,
-                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                "There cannot be more than one TypeVarTuple type parameter".to_owned(),
+                ErrorInfo::Kind(ErrorKind::InvalidTypeVarTuple),
+                format!("Type parameters for {source} may not have more than one TypeVarTuple")
+                    .to_owned(),
             );
         }
     }
@@ -1113,9 +1129,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         range: TextRange,
         tparams: Vec<TParam>,
+        source: TParamsSource,
         errors: &ErrorCollector,
     ) -> Arc<TParams> {
-        self.validate_type_params(range, &tparams, errors);
+        self.validate_type_params(range, &tparams, source, errors);
         Arc::new(TParams::new(tparams))
     }
 
@@ -1530,7 +1547,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             // no-argument form of super is allowed.
                             SuperObj::Class(obj_cls.dupe())
                         } else {
-                            let method_ty = self.get(&KeyFunction(ShortIdentifier::new(method)));
+                            let method_ty =
+                                self.get(&KeyUndecoratedFunction(ShortIdentifier::new(method)));
                             if method_ty.metadata.flags.is_staticmethod {
                                 return self.error(
                                     errors,
@@ -2005,7 +2023,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             Binding::Pin(unpinned_idx, first_use) => {
-                // Calclulate the first use for its side-effects (it might pin `Var`s)
+                // Calculate the first use for its side-effects (it might pin `Var`s)
                 match first_use {
                     FirstUse::UsedBy(idx) => {
                         self.get_idx(*idx);
@@ -2659,7 +2677,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 got
             }
             &Binding::Function(idx, mut pred, class_meta) => {
-                self.solve_function_binding(idx, &mut pred, class_meta.as_ref(), errors)
+                let def = self.get_decorated_function(idx);
+                self.solve_function_binding(def, &mut pred, class_meta.as_ref(), errors)
             }
             Binding::Import(m, name, _aliased) => self
                 .get_from_export(*m, None, &KeyExport(name.clone()))
@@ -2669,7 +2688,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Some(cls) => {
                     let mut ty = Type::ClassDef(cls.dupe());
                     for x in decorators.iter().rev() {
-                        ty = self.apply_decorator(*x, ty, errors)
+                        let decorator = self.get_idx(*x).arc_clone_ty();
+                        let range = self.bindings().idx_to_key(*x).range();
+                        ty = self.apply_decorator(decorator, ty, range, errors)
                     }
                     ty
                 }
@@ -2789,6 +2810,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         Forallable::TypeAlias(ta).forall(self.validated_tparams(
                             params_range,
                             self.scoped_type_params(params.as_ref()),
+                            TParamsSource::TypeAlias,
                             errors,
                         ))
                     }
@@ -2799,7 +2821,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Binding::LambdaParameter(var) => var.to_type(),
             Binding::FunctionParameter(param) => {
                 match param {
-                    Either::Left(key) => {
+                    FunctionParameter::Annotated(key) => {
                         let annotation = self.get_idx(*key);
                         annotation.ty(self.stdlib).clone().unwrap_or_else(|| {
                             // This annotation isn't valid. It's something like `: Final` that doesn't
@@ -2807,8 +2829,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Type::any_implicit()
                         })
                     }
-                    Either::Right(var) => {
-                        // If the context hasn't already been filled in, just assume it is Unknown.
+                    FunctionParameter::Unannotated(var, function_idx) => {
+                        // It's important that we force the undecorated function binding before reading
+                        // from this var. Solving the undecorated function binding pins the type of the var,
+                        // either to a concrete type or to any. Without this we can have non-determinism
+                        // where the reader can observe an unresolved var or a resolved type, depending on
+                        // the order of solved bindings.
+                        self.get_idx(*function_idx);
                         self.solver().force_var(*var)
                     }
                 }
@@ -2834,12 +2861,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn solve_function(
+    pub fn solve_decorated_function(
         &self,
-        x: &BindingFunction,
+        x: &BindingDecoratedFunction,
         errors: &ErrorCollector,
-    ) -> Arc<DecoratedFunction> {
-        self.function_definition(
+    ) -> Arc<Type> {
+        let b = self.bindings().get(x.undecorated_idx);
+        let def = self.get_idx(x.undecorated_idx);
+        self.decorated_function_type(&def, &b.def, errors)
+    }
+
+    pub fn solve_undecorated_function(
+        &self,
+        x: &BindingUndecoratedFunction,
+        errors: &ErrorCollector,
+    ) -> Arc<UndecoratedFunction> {
+        self.undecorated_function(
             &x.def,
             x.stub_or_impl,
             x.class_key.as_ref(),

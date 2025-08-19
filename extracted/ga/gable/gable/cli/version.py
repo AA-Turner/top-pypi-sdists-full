@@ -37,7 +37,7 @@ def print_version(ctx, param, value):
         sca_version = "local"
     else:
         try:
-            prepare_npm_environment(GableCliClient())
+            prepare_npm_environment(GableCliClient())  # type: ignore
             result = subprocess.run(
                 ["npm", "show", "@gable-eng/sca", "version"],
                 stdout=subprocess.PIPE,

@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Literal, Optional, TypeAlias
+from typing import Any, Literal, NotRequired, Optional, TypeAlias
 from uuid import UUID
 
 from langchain_core.runnables.config import RunnableConfig
@@ -121,6 +121,8 @@ class Thread(TypedDict):
     """The thread metadata."""
     config: Fragment
     """The thread config."""
+    context: Fragment
+    """The thread context."""
     status: ThreadStatus
     """The status of the thread. One of 'idle', 'busy', 'interrupted', "error"."""
     values: Fragment
@@ -223,16 +225,16 @@ class Cron(TypedDict):
     """The time the cron was created."""
     updated_at: datetime
     """The last time the cron was updated."""
-    user_id: UUID | None
-    """The ID of the user."""
+    user_id: str | None
+    """The ID of the user (string identity)."""
     payload: Fragment
     """The run payload to use for creating new run."""
     next_run_date: datetime
     """The next run date of the cron."""
     metadata: Fragment
     """The cron metadata."""
-    now: datetime
-    """The current time."""
+    now: NotRequired[datetime]
+    """The current time (present in internal next() only)."""
 
 
 class ThreadUpdateResponse(TypedDict):
@@ -246,3 +248,66 @@ class QueueStats(TypedDict):
     n_running: int
     max_age_secs: datetime | None
     med_age_secs: datetime | None
+
+
+# Canonical field sets for select= validation and type aliases for ops
+
+# Assistant select fields (intentionally excludes 'context')
+AssistantSelectField = Literal[
+    "assistant_id",
+    "graph_id",
+    "name",
+    "description",
+    "config",
+    "context",
+    "created_at",
+    "updated_at",
+    "metadata",
+    "version",
+]
+ASSISTANT_FIELDS: set[str] = set(AssistantSelectField.__args__)  # type: ignore[attr-defined]
+
+# Thread select fields
+ThreadSelectField = Literal[
+    "thread_id",
+    "created_at",
+    "updated_at",
+    "metadata",
+    "config",
+    "context",
+    "status",
+    "values",
+    "interrupts",
+]
+THREAD_FIELDS: set[str] = set(ThreadSelectField.__args__)  # type: ignore[attr-defined]
+
+# Run select fields
+RunSelectField = Literal[
+    "run_id",
+    "thread_id",
+    "assistant_id",
+    "created_at",
+    "updated_at",
+    "status",
+    "metadata",
+    "kwargs",
+    "multitask_strategy",
+]
+RUN_FIELDS: set[str] = set(RunSelectField.__args__)  # type: ignore[attr-defined]
+
+# Cron select fields
+CronSelectField = Literal[
+    "cron_id",
+    "assistant_id",
+    "thread_id",
+    "end_time",
+    "schedule",
+    "created_at",
+    "updated_at",
+    "user_id",
+    "payload",
+    "next_run_date",
+    "metadata",
+    "now",
+]
+CRON_FIELDS: set[str] = set(CronSelectField.__args__)  # type: ignore[attr-defined]

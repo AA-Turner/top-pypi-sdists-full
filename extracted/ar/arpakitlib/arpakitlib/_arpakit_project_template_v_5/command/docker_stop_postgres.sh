@@ -1,3 +1,3 @@
 cd ..
 source .env
-sudo docker stop ${project_name}_postgres
+sudo docker stop ${common_project_name}_postgres

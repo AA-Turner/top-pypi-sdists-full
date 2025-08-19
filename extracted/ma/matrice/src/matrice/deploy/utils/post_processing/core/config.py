@@ -491,6 +491,73 @@ class CustomerServiceConfig(BaseConfig):
         
         return errors
 
+@dataclass  
+class CarServiceConfig(BaseConfig):
+    """Configuration for car service use case."""
+    
+    # Area definitions
+    car_areas: Dict[str, List[List[float]]] = field(default_factory=dict)
+    staff_areas: Dict[str, List[List[float]]] = field(default_factory=dict)
+    service_areas: Dict[str, List[List[float]]] = field(default_factory=dict)
+    
+    # Category identification
+    staff_categories: List[str] = field(default_factory=lambda: ["staff", "employee"])
+    car_categories: List[str] = field(default_factory=lambda: ["car"])
+    
+    # Service parameters
+    service_proximity_threshold: float = 100.0
+    max_service_time: float = 1800.0  # 30 minutes
+    buffer_time: float = 2.0
+    
+    # Tracking configuration
+    tracking_config: Optional[TrackingConfig] = None
+    
+    # Alert configuration
+    alert_config: Optional[AlertConfig] = None
+    
+    # Additional analytics options
+    enable_journey_analysis: bool = False
+    enable_queue_analytics: bool = False
+    
+    def validate(self) -> List[str]:
+        """Validate customer service configuration."""
+        errors = super().validate()
+        
+        if self.service_proximity_threshold <= 0:
+            errors.append("service_proximity_threshold must be positive")
+        
+        if self.max_service_time <= 0:
+            errors.append("max_service_time must be positive")
+        
+        if self.buffer_time < 0:
+            errors.append("buffer_time must be non-negative")
+        
+        # Validate category lists
+        if not self.staff_categories:
+            errors.append("staff_categories cannot be empty")
+        
+        if not self.car_categories:
+            errors.append("car_categories cannot be empty")
+        
+        # Validate area polygons
+        all_areas = {**self.car_categories, **self.staff_areas, **self.service_areas}
+        for area_name, polygon in all_areas.items():
+            if len(polygon) < 0:
+                errors.append(f"Area '{area_name}' must have at least 0 points")
+            
+            for i, point in enumerate(polygon):
+                if len(point) != 2:
+                    errors.append(f"Area '{area_name}' point {i} must have exactly 2 coordinates")
+        
+        # Validate nested configurations
+        if self.tracking_config:
+            errors.extend(self.tracking_config.validate())
+        
+        if self.alert_config:
+            errors.extend(self.alert_config.validate())
+        
+        return errors
+
 
 class ConfigManager:
     """Centralized configuration management for post-processing operations."""

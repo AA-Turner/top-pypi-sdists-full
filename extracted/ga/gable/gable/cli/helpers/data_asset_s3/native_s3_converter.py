@@ -55,7 +55,7 @@ def _process_duck_type(duck_type: Any, col_name: str) -> Dict[str, Any]:
                     {
                         "type": "struct",
                         "fields": nested_fields,
-                    }
+                    }  # type: ignore
                 )
             else:
                 field_dict["type"] = "struct"
@@ -68,7 +68,7 @@ def _process_duck_type(duck_type: Any, col_name: str) -> Dict[str, Any]:
                     {
                         "type": "array",
                         "items": item_type,
-                    }
+                    }  # type: ignore
                 )
             else:
                 field_dict["type"] = "array"

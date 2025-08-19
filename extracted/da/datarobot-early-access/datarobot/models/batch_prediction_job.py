@@ -15,7 +15,7 @@ from __future__ import annotations
 import csv
 import datetime
 import io
-from typing import cast, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union, cast
 
 import pandas as pd
 import trafaret as t
@@ -27,8 +27,8 @@ from datarobot.models.batch_job import (
     CsvSettings,
     IntakeSettings,
     OutputSettings,
-    recognize_sourcedata,
     Schedule,
+    recognize_sourcedata,
 )
 from datarobot.models.credential import Credential
 from datarobot.models.dataset import Dataset
@@ -43,7 +43,7 @@ from datarobot.utils import (
     to_api,
 )
 
-from ..enums import DEFAULT_TIMEOUT, IntakeAdapters, JOB_TYPE, OutputAdapters, QUEUE_STATUS
+from ..enums import DEFAULT_TIMEOUT, JOB_TYPE, QUEUE_STATUS, IntakeAdapters, OutputAdapters
 from .api_object import APIObject
 
 LOG = logger.get_logger(__name__)
@@ -1300,9 +1300,8 @@ class BatchPredictionJob(AbstractBatchJob):
             raise RuntimeError(
                 (
                     "Got invalid response when downloading job data. "
-                    "Status code: %s, Reponse: %s, Job ID: %s"
-                )
-                % (resp.status_code, resp.content, job.id)
+                    "Status code: {}, Reponse: {}, Job ID: {}"
+                ).format(resp.status_code, resp.content, job.id)
             )
 
         scored_df = pd.read_csv(resp.raw, index_col=index_label)

@@ -3,8 +3,11 @@
 
 __all__ = ('about', 'about_from_setup')
 
+from typing import Any
+from pathlib import Path
 
-def about(package=None):
+
+def about(package: str | None = None) -> None:
     import sys
     from packaging.version import parse as parse_version
     from importlib.metadata import metadata as get_metadata
@@ -16,8 +19,9 @@ def about(package=None):
     version = parse_version(metadata["Version"])
     project_urls = {item.partition(",")[0].strip():
                     item.partition(",")[2].lstrip()
-                    for item in metadata.get_all("Project-URL")}
+                    for item in metadata.get_all("Project-URL") or []}
     release_levels = __release_levels
+    metadata_get = metadata.get  # type: ignore[attr-defined]
 
     pkg_metadata = dict(
         __title__        = metadata["Name"],
@@ -35,26 +39,26 @@ def about(package=None):
                                 serial=(version.pre[1] if version.pre else
                                         version.dev or version.post
                                         or version.local or 0))),
-        __summary__      = metadata.get("Summary"),
-        __uri__          = (metadata.get("Home-page")
+        __summary__      = metadata_get("Summary"),
+        __uri__          = (metadata_get("Home-page")
                             or project_urls.get("Home-page")
                             or project_urls.get("Homepage")
                             or project_urls.get("Home")),
-        __author__       = metadata.get("Author"),
-        __email__        = metadata.get("Author-email"),
-        __author_email__ = metadata.get("Author-email"),
-        __maintainer__       = metadata.get("Maintainer"),
-        __maintainer_email__ = metadata.get("Maintainer-email"),
-        __license__      = (metadata.get("License-Expression")
-                            or metadata.get("License")),
-        __copyright__    = metadata.get("Author"),
+        __author__       = metadata_get("Author"),
+        __email__        = metadata_get("Author-email"),
+        __author_email__ = metadata_get("Author-email"),
+        __maintainer__       = metadata_get("Maintainer"),
+        __maintainer_email__ = metadata_get("Maintainer-email"),
+        __license__      = (metadata_get("License-Expression")
+                            or metadata_get("License")),
+        __copyright__    = metadata_get("Author"),
     )
 
     pkg_globals.update(pkg_metadata)
     pkg_globals["__all__"] = list(pkg_metadata.keys())
 
 
-def about_from_setup(package_path=None):
+def about_from_setup(package_path: Path | str | None = None) -> type:
     import sys
     from pathlib import Path
     from packaging.version import parse as parse_version
@@ -65,9 +69,9 @@ def about_from_setup(package_path=None):
         from setuptools.config import read_configuration as read_setupcfg
     try:
         from setuptools.config.pyprojecttoml import (read_configuration as
-                                                     read_pyprojecttoml)
+                                                     read_pyproject_toml)
     except ImportError:  # pragma: no cover
-        read_pyprojecttoml = None
+        read_pyproject_toml = None  # type: ignore[assignment]
     pkg_globals = sys._getframe(1).f_globals
     package_path = (Path(pkg_globals["__file__"]).resolve().parents[1]
                     if package_path is None else Path(package_path))
@@ -78,14 +82,14 @@ def about_from_setup(package_path=None):
         metadata.update(read_setupcfg(setup_cfg_path,
                         ignore_option_errors=True).get("metadata", {}))
     if pyproject_path.exists():  # pragma: no branch
-        if read_pyprojecttoml:
-            metadata.update(read_pyprojecttoml(pyproject_path,
+        if read_pyproject_toml is not None:
+            metadata.update(read_pyproject_toml(pyproject_path,
                             ignore_option_errors=True).get("project", {}))
         else:  # pragma: no cover
             if sys.version_info >= (3, 11):
                 import tomllib
             else:
-                import tomli as tomllib
+                import tomli as tomllib  # type: ignore[import-not-found]
             with pyproject_path.open("rb") as file:
                 metadata.update(tomllib.load(file).get("project", {}))
     version = parse_version(metadata["version"])
@@ -93,7 +97,7 @@ def about_from_setup(package_path=None):
 
     class about:
         __slots__  = ()
-        __module__ = None
+        __module__ = 'pkg_about'
         __title__        = metadata["name"]
         __version__      = str(version)
         __version_info__ = type("version_info", (), dict(
@@ -132,20 +136,21 @@ def about_from_setup(package_path=None):
     pkg_globals["about"] = about
     pkg_globals.setdefault("__all__", [])
     pkg_globals["__all__"].append("about")
+    return about
 
 
-def __get(mdata, *keys):
+def __get(metadata: Any, *keys: Any) -> Any:
     for key in keys:
-        if isinstance(mdata, dict):
-            if key not in mdata:
+        if isinstance(metadata, dict):
+            if key not in metadata:
                 return None
-        elif isinstance(mdata, (list, tuple)):
-            if key >= len(mdata):  # pragma: no cover
+        elif isinstance(metadata, (list, tuple)):
+            if key >= len(metadata):  # pragma: no cover
                 return None
         else:  # pragma: no cover
             return None
-        mdata = mdata[key]
-    return mdata
+        metadata = metadata[key]
+    return metadata
 
 
 __release_levels = dict(

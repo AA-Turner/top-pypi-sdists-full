@@ -56,6 +56,7 @@ from types_boto3_backup.client import BackupClient
 from types_boto3_backup_gateway.client import BackupGatewayClient
 from types_boto3_backupsearch.client import BackupSearchClient
 from types_boto3_batch.client import BatchClient
+from types_boto3_bcm_dashboards.client import BillingandCostManagementDashboardsClient
 from types_boto3_bcm_data_exports.client import BillingandCostManagementDataExportsClient
 from types_boto3_bcm_pricing_calculator.client import (
     BillingandCostManagementPricingCalculatorClient,
@@ -1216,6 +1217,25 @@ class Session:
     ) -> BatchClient:
         """
         Create client for Batch service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["bcm-dashboards"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> BillingandCostManagementDashboardsClient:
+        """
+        Create client for BillingandCostManagementDashboards service.
         """
 
     @overload

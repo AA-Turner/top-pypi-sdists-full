@@ -298,7 +298,7 @@ def init(
 @click.option(
     '--skip_dockerfile',
     is_flag=True,
-    help='Flag to skip generating a dockerfile so that you can manually edit an already created dockerfile.',
+    help='Flag to skip generating a dockerfile so that you can manually edit an already created dockerfile. If not provided, intelligently handle existing Dockerfiles with user confirmation.',
 )
 @click.pass_context
 def upload(ctx, model_path, stage, skip_dockerfile):
@@ -410,7 +410,7 @@ def signatures(model_path, out_path):
 @click.option(
     '--skip_dockerfile',
     is_flag=True,
-    help='Flag to skip generating a dockerfile so that you can manually edit an already created dockerfile. Apply for `--mode conatainer`.',
+    help='Flag to skip generating a dockerfile so that you can manually edit an already created dockerfile. If not provided, intelligently handle existing Dockerfiles with user confirmation.',
 )
 def test_locally(model_path, keep_env=False, keep_image=False, mode='env', skip_dockerfile=False):
     """Test model locally.
@@ -477,7 +477,7 @@ def test_locally(model_path, keep_env=False, keep_image=False, mode='env', skip_
 @click.option(
     '--skip_dockerfile',
     is_flag=True,
-    help='Flag to skip generating a dockerfile so that you can manually edit an already created dockerfile. Apply for `--mode conatainer`.',
+    help='Flag to skip generating a dockerfile so that you can manually edit an already created dockerfile. If not provided, intelligently handle existing Dockerfiles with user confirmation.',
 )
 def run_locally(model_path, port, mode, keep_env, keep_image, skip_dockerfile=False):
     """Run the model locally and start a gRPC server to serve the model.
@@ -520,7 +520,7 @@ def run_locally(model_path, port, mode, keep_env, keep_image, skip_dockerfile=Fa
 @click.option(
     "--pool_size",
     type=int,
-    default=1,  # default to 1 thread for local runner to avoid rapid depletion of compute time.
+    default=32,
     show_default=True,
     help="The number of threads to use. On community plan, the compute time allocation is drained at a rate proportional to the number of threads.",
 )  # pylint: disable=range-builtin-not-iterating
@@ -570,6 +570,8 @@ def local_runner(ctx, model_path, pool_size, verbose):
     from clarifai.client.user import User
     from clarifai.runners.models.model_builder import ModelBuilder
     from clarifai.runners.server import serve
+
+    builder = ModelBuilder(model_path, download_validation_only=True)
 
     validate_context(ctx)
     builder = ModelBuilder(model_path, download_validation_only=True)
@@ -726,16 +728,20 @@ def local_runner(ctx, model_path, pool_size, verbose):
     # Now we need to create a version for the model if no version exists. Only need one version that
     # mentions it's a local runner.
     model_versions = [v for v in model.list_versions()]
+    method_signatures = builder.get_method_signatures(mocking=False)
     if len(model_versions) == 0:
         logger.warning("No model versions found. Creating a new version for local runner.")
-        # add the signatures for local runner on how to call it.
-        signatures = builder.get_method_signatures(mocking=True)
         version = model.create_version(
-            pretrained_model_config={"local_dev": True}, method_signatures=signatures
+            pretrained_model_config={"local_dev": True}, method_signatures=method_signatures
         ).model_version
         ctx.obj.current.CLARIFAI_MODEL_VERSION_ID = version.id
         ctx.obj.to_yaml()
     else:
+        model.patch_version(
+            version_id=model_versions[0].model_version.id,
+            pretrained_model_config={"local_dev": True},
+            method_signatures=method_signatures,
+        )
         version = model_versions[0].model_version
         ctx.obj.current.CLARIFAI_MODEL_VERSION_ID = version.id
         ctx.obj.to_yaml()  # save to yaml file.
@@ -864,7 +870,6 @@ def local_runner(ctx, model_path, pool_size, verbose):
         ModelBuilder._backup_config(config_file)
         ModelBuilder._save_config(config_file, config)
 
-    builder = ModelBuilder(model_path, download_validation_only=True)
     if not check_requirements_installed(model_path):
         logger.error(f"Requirements not installed for model at {model_path}.")
         raise click.Abort()

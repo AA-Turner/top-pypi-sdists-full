@@ -397,6 +397,10 @@ class EC2InstanceWorker(DeadlineWorker):
                 WaiterConfig=ssm_waiter_config,
             )
         except botocore.exceptions.WaiterError as e:  # pragma: no cover
+            LOG.warning(f"WaiterError caught for command {command_id}:")
+            LOG.warning(f"\tError reason: {str(e)}")
+            LOG.warning(f"\tWaiter last response: {str(e.last_response)}")
+
             if isinstance(e, botocore.exceptions.WaiterError) and (
                 "Undeliverable" in str(e) or "Undeliverable" in str(e.last_response)
             ):
@@ -624,7 +628,8 @@ class WindowsInstanceWorkerBase(EC2InstanceWorker):
         LOG.info(f"Sending SSM command to configure Worker agent on instance {self.instance_id}")
 
         cmd_result = self.send_command(
-            f"{self.configure_worker_command(config=self.configuration)}"
+            f"{self.configure_worker_command(config=self.configuration)}",
+            {"Delay": 5, "MaxAttempts": 48},
         )
         assert cmd_result.exit_code == 0, f"Failed to configure Worker agent: {cmd_result}"
         LOG.info("Successfully configured Worker agent")

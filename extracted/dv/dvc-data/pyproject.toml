@@ -9,7 +9,6 @@ name = "dvc-data"
 description = "DVC's data management subsystem"
 readme = "README.rst"
 license = "Apache-2.0"
-license-files = ["LICENSE"]
 authors = [{ name = "Iterative", email = "support@dvc.org" }]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -53,12 +52,12 @@ tests = [
     "pytest-cov>=4.1.0",
     "pytest-mock",
     "pytest-benchmark>=4",
-    "pytest-servers==0.5.11",
+    "pytest-servers==0.5.12",
 ]
 dev = [
     "dvc-data[all]",
     "dvc-data[tests]",
-    "mypy==1.17.0",
+    "mypy==1.17.1",
     "types-tqdm",
 ]
 

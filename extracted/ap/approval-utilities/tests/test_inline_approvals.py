@@ -15,8 +15,14 @@ from approvaltests import (
     verify_all_combinations_with_labeled_input,
 )
 from approvaltests.inline.inline_options import InlineOptions
+from approvaltests.inline.markers import PRESERVE_LEADING_WHITESPACE_MARKER
 from approvaltests.inline.parse_docstring import parse_docstring
 from approvaltests.namer.inline_comparator import InlineComparator
+from approvaltests.namer.inline_python_reporter import (
+    detect_trailing_whitespace,
+    escape_backslashes,
+    handle_preceeding_whitespace,
+)
 from approvaltests.reporters.report_quietly import ReportQuietly
 from approvaltests.reporters.report_with_beyond_compare import (
     ReportWithBeyondCompare,
@@ -137,17 +143,34 @@ def get_preceding_whitespace() -> str:
 
 # fmt: off
 @unittest.skipIf(sys.version_info >= (3, 13), "__doc__ removes preceding whitespace in Python 3.13+")
-def test_preceding_whitespace() -> None:
+def test_preceding_whitespace_before_python_3_13() -> None:
     """
         4 whitespaces
     """
     verify(get_preceding_whitespace(), options=Options().inline())
 
+def test_preceding_whitespace() -> None:
+    """
+    <<approvaltests:preserve-leading-whitespace>>
+        4 whitespaces
+    """
+    verify(get_preceding_whitespace(), options=Options().inline())
+
+
+def test_no_preceeding_whitespace() -> None:
+    """
+        4 whitespaces
+    applesauce
+    """
+    text = "    4 whitespaces\napplesauce"
+    verify(text, options=Options().inline())
+
 
 def test_trailing_whitespace() -> None:
     """
     4 trailing whitespaces    
-    """
+    """  # Warning: Editors may remove trailing spaces, causing this test to fail
+
     # Note: Pycharm will remove the trailing whitespaces, to disable this go to:
     # File -> Settings -> Editor -> General -> On Save -> [ ] Remove trailing spaces
     verify("4 trailing whitespaces    ", options=Options().inline())
@@ -159,12 +182,24 @@ def test_bug_blank_lines() -> None:
     """
 
 
-    test bug with blank lines
+    test bug <br \\> with blank lines
 
 
 
     """
-    verify("\n\ntest bug with blank lines\n\n\n\n", options=Options().inline())
+    verify("\n\ntest bug <br \\> with blank lines\n\n\n\n", options=Options().inline())
+
+
+def test_handle_preceeding_whitespace_all_lines_indented() -> None:
+    text = "    indented with spaces\n\tindented with tab\n    still indented"
+    result = handle_preceeding_whitespace(text)
+    assert result.startswith(PRESERVE_LEADING_WHITESPACE_MARKER)
+
+
+def test_handle_preceeding_whitespace_one_line_not_indented() -> None:
+    text = "    indented with spaces\nnot indented\n\tindented with tab"
+    result = handle_preceeding_whitespace(text)
+    assert not result.startswith(PRESERVE_LEADING_WHITESPACE_MARKER)
 
 
 def test_inline_with_additional_reporter() -> None:
@@ -204,3 +239,30 @@ def test_inline_with_semi_automatic_inline() -> None:
     except ApprovalException:
         pass
     verify(InlineComparator.get_test_method_doc_string())
+
+
+def test_detect_trailing_whitespace_true() -> None:
+    text = "no trail\nwith trail \t\nnormal"
+    assert detect_trailing_whitespace(text)
+
+
+def test_detect_trailing_whitespace_false() -> None:
+    text = "alpha\nbeta\ngamma"
+    assert not detect_trailing_whitespace(text)
+
+
+def test_detect_trailing_whitespace_ignores_pure_empty_lines() -> None:
+    text = "line1\n\nline2"
+    assert not detect_trailing_whitespace(text)
+
+
+def test_escape_backslashes_windows_path() -> None:
+    text = "C:\\Temp\\foo\\bar\\note.txt"
+    assert escape_backslashes(text) == "C:\\Temp\\foo\\bar\\note.txt".replace(
+        "\\", "\\\\"
+    )
+
+
+def test_escape_backslashes_mixed_sequences() -> None:
+    text = "a\\b\\c\\n"
+    assert escape_backslashes(text) == "a\\b\\c\\n".replace("\\", "\\\\")

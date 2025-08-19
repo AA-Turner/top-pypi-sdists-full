@@ -95,7 +95,7 @@ class InventoryDataLoader:
             self.logger.info(
                 "Using %d cached .csv.gz inventory files", len(cached_files)
             )
-            return cached_files
+            return cached_files  # type: ignore
 
         # If not in cache, find files and cache them
         inventory_path = Path(self.inventory_dir)
@@ -117,7 +117,7 @@ class InventoryDataLoader:
             )
 
         # Cache the results
-        self.cache_manager.cache_inventory_files(self.inventory_dir, files)
+        self.cache_manager.cache_inventory_files(self.inventory_dir, files)  # type: ignore
 
         return files
 
@@ -196,7 +196,7 @@ class InventoryDataLoader:
             self.logger.error(f"Error loading keys: {str(e)}")
             return []
         finally:
-            resilient_duckdb.close()
+            resilient_duckdb.close()  # type: ignore
 
         self.logger.info("Loaded %d keys for processing", len(keys))
         return keys
@@ -288,7 +288,7 @@ class InventoryDataLoader:
             self.logger.error(f"Error loading file metadata: {str(e)}")
             return pa.table([])
         finally:
-            resilient_duckdb.close()
+            resilient_duckdb.close()  # type: ignore
 
     def get_latest_objects(
         self,
@@ -349,4 +349,4 @@ class InventoryDataLoader:
             )
             return pa.table([])
         finally:
-            resilient_duckdb.close()
+            resilient_duckdb.close()  # type: ignore

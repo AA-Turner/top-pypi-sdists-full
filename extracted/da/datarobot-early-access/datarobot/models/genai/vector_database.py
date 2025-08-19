@@ -15,18 +15,18 @@ from typing import Any, Dict, List, Optional, Union
 
 import trafaret as t
 
-from datarobot.enums import enum_to_list, PineconeCloud, VectorDatabaseMetadataCombinationStrategy
+from datarobot.enums import PineconeCloud, VectorDatabaseMetadataCombinationStrategy, enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.models.custom_model_version import CustomModelVersion
 from datarobot.models.deployment import Deployment
 from datarobot.models.genai.custom_model_embedding_validation import CustomModelEmbeddingValidation
 from datarobot.models.genai.custom_model_validation import (
-    get_entity_id,
     NonChatAwareCustomModelValidation,
+    get_entity_id,
 )
 from datarobot.models.genai.playground import Playground
 from datarobot.models.use_cases.use_case import UseCase
-from datarobot.models.use_cases.utils import get_use_case_id, resolve_use_cases, UseCaseLike
+from datarobot.models.use_cases.utils import UseCaseLike, get_use_case_id, resolve_use_cases
 from datarobot.utils.pagination import unpaginate
 from datarobot.utils.waiters import wait_for_async_resolution
 

@@ -9,6 +9,8 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 import inspect
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type

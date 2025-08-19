@@ -27,6 +27,8 @@ __all__ = (
     "BucketCannedACLType",
     "BucketLocationConstraintType",
     "BucketVersioningStatusType",
+    "ComputeObjectChecksumAlgorithmType",
+    "ComputeObjectChecksumTypeType",
     "DeleteMarkerReplicationStatusType",
     "ExistingObjectReplicationStatusType",
     "ExpirationStatusType",
@@ -103,6 +105,10 @@ BucketLocationConstraintType = Literal[
     "us-west-2",
 ]
 BucketVersioningStatusType = Literal["Enabled", "Suspended"]
+ComputeObjectChecksumAlgorithmType = Literal[
+    "CRC32", "CRC32C", "CRC64NVME", "MD5", "SHA1", "SHA256"
+]
+ComputeObjectChecksumTypeType = Literal["COMPOSITE", "FULL_OBJECT"]
 DeleteMarkerReplicationStatusType = Literal["Disabled", "Enabled"]
 ExistingObjectReplicationStatusType = Literal["Disabled", "Enabled"]
 ExpirationStatusType = Literal["Disabled", "Enabled"]
@@ -154,6 +160,7 @@ ObjectLambdaTransformationConfigurationActionType = Literal[
 ]
 OperationNameType = Literal[
     "LambdaInvoke",
+    "S3ComputeObjectChecksum",
     "S3DeleteObjectTagging",
     "S3InitiateRestoreObject",
     "S3PutObjectAcl",
@@ -265,6 +272,7 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
     "bcm-recommended-actions",

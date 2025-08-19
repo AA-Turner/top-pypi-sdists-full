@@ -34,14 +34,14 @@ from datarobot.enums import (
     VALIDATION_TYPE,
 )
 from datarobot.helpers import (
-    _class_mapping_aggregation_settings_converter,
     AdvancedOptions,
     ClassMappingAggregationSettings,
+    _class_mapping_aggregation_settings_converter,
 )
 from datarobot.helpers.partitioning_methods import (
-    _feature_settings_converter,
     BacktestSpecification,
     FeatureSettings,
+    _feature_settings_converter,
 )
 from datarobot.models.api_object import APIObject
 from datarobot.models.feature import Feature

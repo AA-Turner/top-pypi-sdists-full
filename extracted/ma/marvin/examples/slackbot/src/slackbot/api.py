@@ -52,13 +52,15 @@ async def run_agent(
     if decorator_settings is None:
         decorator_settings = {
             "cache_policy": NONE,
-            "task_run_name": "execute {self.function.__name__}",
+            "task_run_name": "execute {tool_name}",
             "log_prints": True,
         }
 
     start_time = time.monotonic()
     progress = await create_progress_message(
-        channel_id=channel_id, thread_ts=thread_ts, initial_text="🔄 Thinking..."
+        channel_id=channel_id,
+        thread_ts=thread_ts,
+        initial_text="🔄 Thinking... this may take a while",
     )
 
     try:
@@ -67,7 +69,10 @@ async def run_agent(
         counts_token = _tool_usage_counts.set(defaultdict(int))
 
         try:
-            with WatchToolCalls(settings=decorator_settings):
+            with WatchToolCalls(
+                settings=decorator_settings,
+                max_tool_calls=settings.max_tool_calls_per_turn,
+            ):
                 result = await create_agent(model=settings.model_name).run(
                     user_prompt=cleaned_message,
                     message_history=conversation,
@@ -139,18 +144,33 @@ async def handle_message(payload: SlackPayload, db: Database):
             bot_id=bot_user_id or "unknown",
         )
 
-        result = await run_agent(
-            cleaned_message, conversation, user_context, event.channel, thread_ts
-        )  # type: ignore
+        try:
+            result = await run_agent(
+                cleaned_message, conversation, user_context, event.channel, thread_ts
+            )  # type: ignore
 
-        await db.add_thread_messages(thread_ts, result.new_messages())
-        conversation.extend(result.new_messages())
-        assert event.channel is not None, "No channel found"
-        await task(post_slack_message)(
-            message=result.data,
-            channel_id=event.channel,
-            thread_ts=thread_ts,
-        )
+            await db.add_thread_messages(thread_ts, result.new_messages())
+            conversation.extend(result.new_messages())
+            assert event.channel is not None, "No channel found"
+            await task(post_slack_message)(
+                message=result.output,
+                channel_id=event.channel,
+                thread_ts=thread_ts,
+            )
+        except Exception as e:
+            logger.error(f"Error running agent: {e}")
+            assert event.channel is not None, "No channel found"
+            await task(post_slack_message)(
+                message="Sorry, I encountered an error while processing your request. Please try again.",
+                channel_id=event.channel,
+                thread_ts=thread_ts,
+            )
+            # Still return completed so we don't retry
+            return Completed(
+                message="Error during agent execution",
+                name="ERROR_HANDLED",
+                data=dict(error=str(e), user_context=user_context),
+            )
         return Completed(
             message="Responded to mention",
             data=dict(user_context=user_context, conversation=conversation),

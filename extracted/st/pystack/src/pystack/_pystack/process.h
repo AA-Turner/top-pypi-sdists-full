@@ -95,6 +95,7 @@ class AbstractProcessManager : public std::enable_shared_from_this<AbstractProce
     void setPythonVersionFromDebugOffsets();
     void setPythonVersion(const std::pair<int, int>& version);
     bool versionIsAtLeast(int required_major, int required_minor) const;
+    bool isFreeThreaded() const;
     const python_v& offsets() const;
 
   protected:
@@ -111,6 +112,7 @@ class AbstractProcessManager : public std::enable_shared_from_this<AbstractProce
     int d_major{};
     int d_minor{};
     const python_v* d_py_v{};
+    bool d_is_free_threaded;
     remote_addr_t d_debug_offsets_addr{};
     std::unique_ptr<python_v> d_debug_offsets{};
     mutable std::unordered_map<std::string, remote_addr_t> d_type_cache;
@@ -150,6 +152,9 @@ class ProcessManager : public AbstractProcessManager
             std::vector<VirtualMap> memory_maps,
             MemoryMapInformation map_info);
 
+    // Destructors
+    virtual ~ProcessManager() = default;
+
     // Getters
     const std::vector<int>& Tids() const override;
 
@@ -168,6 +173,9 @@ class CoreFileProcessManager : public AbstractProcessManager
             const std::shared_ptr<CoreFileAnalyzer>& analyzer,
             std::vector<VirtualMap> memory_maps,
             MemoryMapInformation map_info);
+
+    // Destructors
+    virtual ~CoreFileProcessManager() = default;
 
     // Getters
     const std::vector<int>& Tids() const override;

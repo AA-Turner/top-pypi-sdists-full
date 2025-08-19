@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime
 import json
 import os
-from typing import Dict, Iterable, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union
 
 from requests import Response
 import trafaret as t

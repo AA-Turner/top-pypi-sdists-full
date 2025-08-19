@@ -548,6 +548,8 @@ class api_SeriesDataType(ConjureEnumType):
     '''LOG'''
     INT = 'INT'
     '''INT'''
+    UINT = 'UINT'
+    '''UINT'''
     DOUBLE_ARRAY = 'DOUBLE_ARRAY'
     '''DOUBLE_ARRAY'''
     STRING_ARRAY = 'STRING_ARRAY'
@@ -17275,6 +17277,10 @@ when accounting for out-of-order points.
     _enum: Optional["scout_compute_api_EnumPlot"] = None
     _bucketed_numeric: Optional["scout_compute_api_BucketedNumericPlot"] = None
     _bucketed_enum: Optional["scout_compute_api_BucketedEnumPlot"] = None
+    _arrow_numeric: Optional["scout_compute_api_ArrowNumericPlot"] = None
+    _arrow_enum: Optional["scout_compute_api_ArrowEnumPlot"] = None
+    _arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None
+    _arrow_bucketed_enum: Optional["scout_compute_api_ArrowBucketedEnumPlot"] = None
     _grouped: Optional["persistent_compute_api_GroupedComputeNodeAppendResponses"] = None
 
     @builtins.classmethod
@@ -17289,6 +17295,10 @@ when accounting for out-of-order points.
             'enum': ConjureFieldDefinition('enum', scout_compute_api_EnumPlot),
             'bucketed_numeric': ConjureFieldDefinition('bucketedNumeric', scout_compute_api_BucketedNumericPlot),
             'bucketed_enum': ConjureFieldDefinition('bucketedEnum', scout_compute_api_BucketedEnumPlot),
+            'arrow_numeric': ConjureFieldDefinition('arrowNumeric', scout_compute_api_ArrowNumericPlot),
+            'arrow_enum': ConjureFieldDefinition('arrowEnum', scout_compute_api_ArrowEnumPlot),
+            'arrow_bucketed_numeric': ConjureFieldDefinition('arrowBucketedNumeric', scout_compute_api_ArrowBucketedNumericPlot),
+            'arrow_bucketed_enum': ConjureFieldDefinition('arrowBucketedEnum', scout_compute_api_ArrowBucketedEnumPlot),
             'grouped': ConjureFieldDefinition('grouped', persistent_compute_api_GroupedComputeNodeAppendResponses)
         }
 
@@ -17303,11 +17313,15 @@ when accounting for out-of-order points.
             enum: Optional["scout_compute_api_EnumPlot"] = None,
             bucketed_numeric: Optional["scout_compute_api_BucketedNumericPlot"] = None,
             bucketed_enum: Optional["scout_compute_api_BucketedEnumPlot"] = None,
+            arrow_numeric: Optional["scout_compute_api_ArrowNumericPlot"] = None,
+            arrow_enum: Optional["scout_compute_api_ArrowEnumPlot"] = None,
+            arrow_bucketed_numeric: Optional["scout_compute_api_ArrowBucketedNumericPlot"] = None,
+            arrow_bucketed_enum: Optional["scout_compute_api_ArrowBucketedEnumPlot"] = None,
             grouped: Optional["persistent_compute_api_GroupedComputeNodeAppendResponses"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (range is not None) + (enum_point is not None) + (numeric_point is not None) + (log_point is not None) + (range_value is not None) + (numeric is not None) + (enum is not None) + (bucketed_numeric is not None) + (bucketed_enum is not None) + (grouped is not None) != 1:
+            if (range is not None) + (enum_point is not None) + (numeric_point is not None) + (log_point is not None) + (range_value is not None) + (numeric is not None) + (enum is not None) + (bucketed_numeric is not None) + (bucketed_enum is not None) + (arrow_numeric is not None) + (arrow_enum is not None) + (arrow_bucketed_numeric is not None) + (arrow_bucketed_enum is not None) + (grouped is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if range is not None:
@@ -17337,6 +17351,18 @@ when accounting for out-of-order points.
             if bucketed_enum is not None:
                 self._bucketed_enum = bucketed_enum
                 self._type = 'bucketedEnum'
+            if arrow_numeric is not None:
+                self._arrow_numeric = arrow_numeric
+                self._type = 'arrowNumeric'
+            if arrow_enum is not None:
+                self._arrow_enum = arrow_enum
+                self._type = 'arrowEnum'
+            if arrow_bucketed_numeric is not None:
+                self._arrow_bucketed_numeric = arrow_bucketed_numeric
+                self._type = 'arrowBucketedNumeric'
+            if arrow_bucketed_enum is not None:
+                self._arrow_bucketed_enum = arrow_bucketed_enum
+                self._type = 'arrowBucketedEnum'
             if grouped is not None:
                 self._grouped = grouped
                 self._type = 'grouped'
@@ -17386,6 +17412,26 @@ when accounting for out-of-order points.
                 raise ValueError('a union value must not be None')
             self._bucketed_enum = bucketed_enum
             self._type = 'bucketedEnum'
+        elif type_of_union == 'arrowNumeric':
+            if arrow_numeric is None:
+                raise ValueError('a union value must not be None')
+            self._arrow_numeric = arrow_numeric
+            self._type = 'arrowNumeric'
+        elif type_of_union == 'arrowEnum':
+            if arrow_enum is None:
+                raise ValueError('a union value must not be None')
+            self._arrow_enum = arrow_enum
+            self._type = 'arrowEnum'
+        elif type_of_union == 'arrowBucketedNumeric':
+            if arrow_bucketed_numeric is None:
+                raise ValueError('a union value must not be None')
+            self._arrow_bucketed_numeric = arrow_bucketed_numeric
+            self._type = 'arrowBucketedNumeric'
+        elif type_of_union == 'arrowBucketedEnum':
+            if arrow_bucketed_enum is None:
+                raise ValueError('a union value must not be None')
+            self._arrow_bucketed_enum = arrow_bucketed_enum
+            self._type = 'arrowBucketedEnum'
         elif type_of_union == 'grouped':
             if grouped is None:
                 raise ValueError('a union value must not be None')
@@ -17426,13 +17472,13 @@ merging ranges if they are overlap or are adjacent
 
     @builtins.property
     def numeric(self) -> Optional["scout_compute_api_NumericPlot"]:
-        """Merging be be done by dropping any old points and adding the new ones, accounting for overlaps
+        """Merging can be done by dropping any old points and adding the new ones, accounting for overlaps
         """
         return self._numeric
 
     @builtins.property
     def enum(self) -> Optional["scout_compute_api_EnumPlot"]:
-        """Merging be be done by dropping any old points and adding the new ones, accounting for overlaps
+        """Merging can be done by dropping any old points and adding the new ones, accounting for overlaps
         """
         return self._enum
 
@@ -17451,6 +17497,34 @@ guaranteed to align (same bucket end timestamp) and the older version of the buc
 with the newer ones.
         """
         return self._bucketed_enum
+
+    @builtins.property
+    def arrow_numeric(self) -> Optional["scout_compute_api_ArrowNumericPlot"]:
+        """Merging can be done by dropping any old points and adding the new ones, accounting for overlaps
+        """
+        return self._arrow_numeric
+
+    @builtins.property
+    def arrow_enum(self) -> Optional["scout_compute_api_ArrowEnumPlot"]:
+        """Merging can be done by dropping any old points and adding the new ones, accounting for overlaps
+        """
+        return self._arrow_enum
+
+    @builtins.property
+    def arrow_bucketed_numeric(self) -> Optional["scout_compute_api_ArrowBucketedNumericPlot"]:
+        """Merging can be done by dropping any old buckets and adding the new ones. Overlapping buckets are
+guaranteed to align (same bucket end timestamp) and the older version of the bucket can be replaced
+with the newer ones.
+        """
+        return self._arrow_bucketed_numeric
+
+    @builtins.property
+    def arrow_bucketed_enum(self) -> Optional["scout_compute_api_ArrowBucketedEnumPlot"]:
+        """Merging can be done by dropping any old buckets and adding the new ones. Overlapping buckets are
+guaranteed to align (same bucket end timestamp) and the older version of the bucket can be replaced
+with the newer ones.
+        """
+        return self._arrow_bucketed_enum
 
     @builtins.property
     def grouped(self) -> Optional["persistent_compute_api_GroupedComputeNodeAppendResponses"]:
@@ -17479,6 +17553,14 @@ with the newer ones.
             return visitor._bucketed_numeric(self.bucketed_numeric)
         if self._type == 'bucketedEnum' and self.bucketed_enum is not None:
             return visitor._bucketed_enum(self.bucketed_enum)
+        if self._type == 'arrowNumeric' and self.arrow_numeric is not None:
+            return visitor._arrow_numeric(self.arrow_numeric)
+        if self._type == 'arrowEnum' and self.arrow_enum is not None:
+            return visitor._arrow_enum(self.arrow_enum)
+        if self._type == 'arrowBucketedNumeric' and self.arrow_bucketed_numeric is not None:
+            return visitor._arrow_bucketed_numeric(self.arrow_bucketed_numeric)
+        if self._type == 'arrowBucketedEnum' and self.arrow_bucketed_enum is not None:
+            return visitor._arrow_bucketed_enum(self.arrow_bucketed_enum)
         if self._type == 'grouped' and self.grouped is not None:
             return visitor._grouped(self.grouped)
 
@@ -17524,6 +17606,22 @@ class persistent_compute_api_ComputeNodeAppendResponseVisitor:
 
     @abstractmethod
     def _bucketed_enum(self, bucketed_enum: "scout_compute_api_BucketedEnumPlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _arrow_numeric(self, arrow_numeric: "scout_compute_api_ArrowNumericPlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _arrow_enum(self, arrow_enum: "scout_compute_api_ArrowEnumPlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _arrow_bucketed_numeric(self, arrow_bucketed_numeric: "scout_compute_api_ArrowBucketedNumericPlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _arrow_bucketed_enum(self, arrow_bucketed_enum: "scout_compute_api_ArrowBucketedEnumPlot") -> Any:
         pass
 
     @abstractmethod
@@ -78418,7 +78516,6 @@ class scout_savedviews_api_CreateSavedViewRequest(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'resource_type': ConjureFieldDefinition('resourceType', scout_savedviews_api_ResourceType),
             'title': ConjureFieldDefinition('title', str),
             'symbol': ConjureFieldDefinition('symbol', OptionalTypeWrapper[scout_api_Symbol]),
             'color': ConjureFieldDefinition('color', OptionalTypeWrapper[scout_api_Color]),
@@ -78427,20 +78524,15 @@ class scout_savedviews_api_CreateSavedViewRequest(ConjureBeanType):
             'workspace_rid': ConjureFieldDefinition('workspaceRid', OptionalTypeWrapper[api_rids_WorkspaceRid])
         }
 
-    __slots__: List[str] = ['_resource_type', '_title', '_symbol', '_color', '_search_state', '_display_state', '_workspace_rid']
+    __slots__: List[str] = ['_title', '_symbol', '_color', '_search_state', '_display_state', '_workspace_rid']
 
-    def __init__(self, display_state: "scout_savedviews_api_DisplayState", resource_type: "scout_savedviews_api_ResourceType", search_state: "scout_savedviews_api_SearchState", title: str, color: Optional["scout_api_Color"] = None, symbol: Optional["scout_api_Symbol"] = None, workspace_rid: Optional[str] = None) -> None:
-        self._resource_type = resource_type
+    def __init__(self, display_state: "scout_savedviews_api_DisplayState", search_state: "scout_savedviews_api_SearchState", title: str, color: Optional["scout_api_Color"] = None, symbol: Optional["scout_api_Symbol"] = None, workspace_rid: Optional[str] = None) -> None:
         self._title = title
         self._symbol = symbol
         self._color = color
         self._search_state = search_state
         self._display_state = display_state
         self._workspace_rid = workspace_rid
-
-    @builtins.property
-    def resource_type(self) -> "scout_savedviews_api_ResourceType":
-        return self._resource_type
 
     @builtins.property
     def title(self) -> str:
@@ -78645,12 +78737,13 @@ class scout_savedviews_api_SavedView(ConjureBeanType):
             'display_state': ConjureFieldDefinition('displayState', scout_savedviews_api_DisplayState),
             'is_archived': ConjureFieldDefinition('isArchived', bool),
             'created_at': ConjureFieldDefinition('createdAt', str),
+            'created_by': ConjureFieldDefinition('createdBy', scout_rids_api_UserRid),
             'updated_at': ConjureFieldDefinition('updatedAt', str)
         }
 
-    __slots__: List[str] = ['_rid', '_resource_type', '_title', '_symbol', '_color', '_search_state', '_display_state', '_is_archived', '_created_at', '_updated_at']
+    __slots__: List[str] = ['_rid', '_resource_type', '_title', '_symbol', '_color', '_search_state', '_display_state', '_is_archived', '_created_at', '_created_by', '_updated_at']
 
-    def __init__(self, created_at: str, display_state: "scout_savedviews_api_DisplayState", is_archived: bool, resource_type: "scout_savedviews_api_ResourceType", rid: str, search_state: "scout_savedviews_api_SearchState", title: str, updated_at: str, color: Optional["scout_api_Color"] = None, symbol: Optional["scout_api_Symbol"] = None) -> None:
+    def __init__(self, created_at: str, created_by: str, display_state: "scout_savedviews_api_DisplayState", is_archived: bool, resource_type: "scout_savedviews_api_ResourceType", rid: str, search_state: "scout_savedviews_api_SearchState", title: str, updated_at: str, color: Optional["scout_api_Color"] = None, symbol: Optional["scout_api_Symbol"] = None) -> None:
         self._rid = rid
         self._resource_type = resource_type
         self._title = title
@@ -78660,6 +78753,7 @@ class scout_savedviews_api_SavedView(ConjureBeanType):
         self._display_state = display_state
         self._is_archived = is_archived
         self._created_at = created_at
+        self._created_by = created_by
         self._updated_at = updated_at
 
     @builtins.property
@@ -78699,6 +78793,10 @@ class scout_savedviews_api_SavedView(ConjureBeanType):
         return self._created_at
 
     @builtins.property
+    def created_by(self) -> str:
+        return self._created_by
+
+    @builtins.property
     def updated_at(self) -> str:
         return self._updated_at
 
@@ -78706,6 +78804,37 @@ class scout_savedviews_api_SavedView(ConjureBeanType):
 scout_savedviews_api_SavedView.__name__ = "SavedView"
 scout_savedviews_api_SavedView.__qualname__ = "SavedView"
 scout_savedviews_api_SavedView.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_SavedViewSortOptions(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'is_descending': ConjureFieldDefinition('isDescending', bool),
+            'sort_key': ConjureFieldDefinition('sortKey', scout_savedviews_api_SortKey)
+        }
+
+    __slots__: List[str] = ['_is_descending', '_sort_key']
+
+    def __init__(self, is_descending: bool, sort_key: "scout_savedviews_api_SortKey") -> None:
+        self._is_descending = is_descending
+        self._sort_key = sort_key
+
+    @builtins.property
+    def is_descending(self) -> bool:
+        return self._is_descending
+
+    @builtins.property
+    def sort_key(self) -> "scout_savedviews_api_SortKey":
+        """Field to sort by.
+        """
+        return self._sort_key
+
+
+scout_savedviews_api_SavedViewSortOptions.__name__ = "SavedViewSortOptions"
+scout_savedviews_api_SavedViewSortOptions.__qualname__ = "SavedViewSortOptions"
+scout_savedviews_api_SavedViewSortOptions.__module__ = "nominal_api.scout_savedviews_api"
 
 
 class scout_savedviews_api_SearchSavedViewsQuery(ConjureUnionType):
@@ -78897,31 +79026,45 @@ class scout_savedviews_api_SearchSavedViewsRequest(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'query': ConjureFieldDefinition('query', scout_savedviews_api_SearchSavedViewsQuery),
+            'sort': ConjureFieldDefinition('sort', scout_savedviews_api_SavedViewSortOptions),
+            'page_size': ConjureFieldDefinition('pageSize', OptionalTypeWrapper[int]),
             'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token]),
-            'page_size': ConjureFieldDefinition('pageSize', OptionalTypeWrapper[int])
+            'query': ConjureFieldDefinition('query', scout_savedviews_api_SearchSavedViewsQuery),
+            'archived_statuses': ConjureFieldDefinition('archivedStatuses', OptionalTypeWrapper[List[api_ArchivedStatus]])
         }
 
-    __slots__: List[str] = ['_query', '_next_page_token', '_page_size']
+    __slots__: List[str] = ['_sort', '_page_size', '_next_page_token', '_query', '_archived_statuses']
 
-    def __init__(self, query: "scout_savedviews_api_SearchSavedViewsQuery", next_page_token: Optional[str] = None, page_size: Optional[int] = None) -> None:
-        self._query = query
-        self._next_page_token = next_page_token
+    def __init__(self, query: "scout_savedviews_api_SearchSavedViewsQuery", sort: "scout_savedviews_api_SavedViewSortOptions", archived_statuses: Optional[List["api_ArchivedStatus"]] = None, next_page_token: Optional[str] = None, page_size: Optional[int] = None) -> None:
+        self._sort = sort
         self._page_size = page_size
+        self._next_page_token = next_page_token
+        self._query = query
+        self._archived_statuses = archived_statuses
 
     @builtins.property
-    def query(self) -> "scout_savedviews_api_SearchSavedViewsQuery":
-        return self._query
-
-    @builtins.property
-    def next_page_token(self) -> Optional[str]:
-        return self._next_page_token
+    def sort(self) -> "scout_savedviews_api_SavedViewSortOptions":
+        return self._sort
 
     @builtins.property
     def page_size(self) -> Optional[int]:
         """Defaults to 100. Will throw if larger than 1_000.
         """
         return self._page_size
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+    @builtins.property
+    def query(self) -> "scout_savedviews_api_SearchSavedViewsQuery":
+        return self._query
+
+    @builtins.property
+    def archived_statuses(self) -> Optional[List["api_ArchivedStatus"]]:
+        """Default search status is NOT_ARCHIVED if none are provided. Allows for including archived assets in search.
+        """
+        return self._archived_statuses
 
 
 scout_savedviews_api_SearchSavedViewsRequest.__name__ = "SearchSavedViewsRequest"
@@ -79096,6 +79239,80 @@ class scout_savedviews_api_SearchStateVisitor:
 scout_savedviews_api_SearchStateVisitor.__name__ = "SearchStateVisitor"
 scout_savedviews_api_SearchStateVisitor.__qualname__ = "SearchStateVisitor"
 scout_savedviews_api_SearchStateVisitor.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_SortField(ConjureEnumType):
+
+    TITLE = 'TITLE'
+    '''TITLE'''
+    CREATED_AT = 'CREATED_AT'
+    '''CREATED_AT'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_savedviews_api_SortField.__name__ = "SortField"
+scout_savedviews_api_SortField.__qualname__ = "SortField"
+scout_savedviews_api_SortField.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_SortKey(ConjureUnionType):
+    _field: Optional["scout_savedviews_api_SortField"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'field': ConjureFieldDefinition('field', scout_savedviews_api_SortField)
+        }
+
+    def __init__(
+            self,
+            field: Optional["scout_savedviews_api_SortField"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (field is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if field is not None:
+                self._field = field
+                self._type = 'field'
+
+        elif type_of_union == 'field':
+            if field is None:
+                raise ValueError('a union value must not be None')
+            self._field = field
+            self._type = 'field'
+
+    @builtins.property
+    def field(self) -> Optional["scout_savedviews_api_SortField"]:
+        return self._field
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_savedviews_api_SortKeyVisitor):
+            raise ValueError('{} is not an instance of scout_savedviews_api_SortKeyVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'field' and self.field is not None:
+            return visitor._field(self.field)
+
+
+scout_savedviews_api_SortKey.__name__ = "SortKey"
+scout_savedviews_api_SortKey.__qualname__ = "SortKey"
+scout_savedviews_api_SortKey.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_SortKeyVisitor:
+
+    @abstractmethod
+    def _field(self, field: "scout_savedviews_api_SortField") -> Any:
+        pass
+
+
+scout_savedviews_api_SortKeyVisitor.__name__ = "SortKeyVisitor"
+scout_savedviews_api_SortKeyVisitor.__qualname__ = "SortKeyVisitor"
+scout_savedviews_api_SortKeyVisitor.__module__ = "nominal_api.scout_savedviews_api"
 
 
 class scout_savedviews_api_TableState(ConjureBeanType):
@@ -86736,6 +86953,8 @@ class storage_series_api_NominalDataType(ConjureEnumType):
     '''LOG'''
     INT64 = 'INT64'
     '''INT64'''
+    UINT64 = 'UINT64'
+    '''UINT64'''
     DOUBLE_ARRAY = 'DOUBLE_ARRAY'
     '''DOUBLE_ARRAY'''
     STRING_ARRAY = 'STRING_ARRAY'

@@ -9,5 +9,7 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 __version__ = "3.9.0b0"
 __expected_server_version__ = "2.37"

@@ -16,6 +16,7 @@ use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::visit::Visit;
+use ruff_python_ast::Decorator;
 use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
@@ -25,7 +26,9 @@ use ruff_python_ast::Identifier;
 use ruff_python_ast::Operator;
 use ruff_python_ast::Pattern;
 use ruff_python_ast::Stmt;
+use ruff_python_ast::StmtClassDef;
 use ruff_python_ast::StmtExpr;
+use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::Entry;
@@ -66,7 +69,7 @@ pub struct Definition {
     /// The number is the distinct times this variable was defined.
     pub count: usize,
     /// If the first statement in a definition (class, function) is a string literal, PEP 257 convention
-    /// states that is is the docstring.
+    /// states that is the docstring.
     pub docstring_range: Option<TextRange>,
 }
 
@@ -90,6 +93,8 @@ pub struct Definitions {
     /// that are guaranteed to be imported under `foo` when `foo` is itself imported in downstream
     /// files.
     pub implicitly_imported_submodules: SmallSet<Name>,
+    /// Deprecated names that are defined in this module.
+    pub deprecated: SmallSet<Name>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -154,6 +159,21 @@ fn implicitly_imported_submodule(
         .cloned()
 }
 
+fn is_deprecated_decorator(decorator: &Decorator) -> bool {
+    decorator.expression.as_call_expr().is_some_and(|x| {
+        x.func
+            .as_name_expr()
+            .is_some_and(|x| x.id == "deprecated" || x.id == "warnings.deprecated")
+    })
+}
+
+fn is_overload_decorator(decorator: &Decorator) -> bool {
+    decorator
+        .expression
+        .as_name_expr()
+        .is_some_and(|x| x.id == "overload" || x.id == "typing.overload")
+}
+
 impl Definitions {
     pub fn new(x: &[Stmt], module_name: ModuleName, is_init: bool, sys_info: &SysInfo) -> Self {
         let mut builder = DefinitionsBuilder {
@@ -211,7 +231,7 @@ impl Definitions {
         }
     }
 
-    /// Add these names to `duner_all`, if they are defined in the module.
+    /// Add these names to `dunder_all`, if they are defined in the module.
     pub fn extend_dunder_all(&mut self, extra: &[Name]) {
         for name in extra {
             if let Some(def) = self.definitions.get(name) {
@@ -369,11 +389,24 @@ impl<'a> DefinitionsBuilder<'a> {
                     }
                 }
             }
-            Stmt::ClassDef(x) => {
+            Stmt::ClassDef(StmtClassDef {
+                name,
+                body,
+                decorator_list,
+                ..
+            }) => {
+                // If the class is decorated with `@deprecated`, we mark it as deprecated.
+                let mut is_deprecated = false;
+                for d in decorator_list {
+                    is_deprecated = is_deprecated || is_deprecated_decorator(d);
+                }
+                if is_deprecated {
+                    self.inner.deprecated.insert(name.id.clone());
+                }
                 self.add_identifier_with_body(
-                    &x.name,
+                    name,
                     DefinitionStyle::Local(SymbolKind::Class),
-                    Some(&x.body),
+                    Some(body),
                 );
                 return; // These things are inside a scope
             }
@@ -468,11 +501,27 @@ impl<'a> DefinitionsBuilder<'a> {
                     self.expr_lvalue(&x.name)
                 }
             }
-            Stmt::FunctionDef(x) => {
+            Stmt::FunctionDef(StmtFunctionDef {
+                name,
+                body,
+                decorator_list,
+                ..
+            }) => {
+                let mut is_overload = false;
+                let mut is_deprecated = false;
+                for d in decorator_list {
+                    is_overload = is_overload || is_overload_decorator(d);
+                    is_deprecated = is_deprecated || is_deprecated_decorator(d);
+                }
+                // If the function is not an overload and decorated with
+                // `@deprecated`, we mark it as deprecated.
+                if is_deprecated && !is_overload {
+                    self.inner.deprecated.insert(name.id.clone());
+                }
                 self.add_identifier_with_body(
-                    &x.name,
+                    name,
                     DefinitionStyle::Local(SymbolKind::Function),
-                    Some(&x.body),
+                    Some(body),
                 );
                 return; // don't recurse because a separate scope
             }
@@ -548,7 +597,11 @@ impl<'a> DefinitionsBuilder<'a> {
             Expr::Named(expr_named) => {
                 self.expr_lvalue(&expr_named.target);
             }
-            Expr::Lambda(..) | Expr::SetComp(..) | Expr::DictComp(..) | Expr::ListComp(..) => {
+            Expr::Lambda(..)
+            | Expr::SetComp(..)
+            | Expr::DictComp(..)
+            | Expr::ListComp(..)
+            | Expr::Generator(..) => {
                 // These expressions define a scope, so walrus operators only define a name
                 // within that scope, not in the surrounding statement's scope.
             }
@@ -712,7 +765,10 @@ assert (x9 := 42), (x10 := "oops")
 type y = (x11 := int)
 # Named expressions inside expression-level scopes should not appear in definitions.
 lambda x: (z := 42)
+{z := "str" for _ in [1]}
+{(z := "str"):1 for _ in [1]}
 [z for x in [1, 2, 3] if z := x > 2]
+(z := "str" for _ in [1])
 "#,
         );
         assert_definition_names(
