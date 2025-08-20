@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.11
+Version: 2.6.15
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, o1, o3, GPT-4, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: py_gpt,py-gpt,pygpt,desktop,app,o1,o3,gpt-5,gpt,gpt4,gpt-4o,gpt-4v,gpt3.5,gpt-4,gpt-4-vision,gpt-3.5,llama3,mistral,gemini,grok,deepseek,bielik,claude,tts,whisper,vision,chatgpt,dall-e,chat,chatbot,assistant,text completion,image generation,ai,api,openai,api key,langchain,llama-index,ollama,presets,ui,qt,pyside
@@ -108,7 +108,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.11** | build: **2025-08-18** | Python: **>=3.10, <3.14**
+Release: **2.6.15** | build: **2025-08-20** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -4565,6 +4565,28 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.15 (2025-08-20)**
+
+- Added: do not change the context menu font size in text editing.
+- Added: do not reload context items on tab change if already loaded.
+- Fixed: appending of names and avatars in the stream chunk.
+
+**2.6.14 (2025-08-19)**
+
+- Fixed: Agent evaluation tool runs even if tools are disabled.
+- Extended agent response evaluation by providing the full context of the output.
+
+**2.6.13 (2025-08-19)**
+
+- Fix: Do not load the index in experts if it is not provided.
+- Fix: Load remote images in the webview.
+- Fix: Presets list refresh.
+- Optimize context items reload.
+
+**2.6.12 (2025-08-19)**
+
+- Optimized web renderer memory cleanup.
 
 **2.6.11 (2025-08-18)**
 

@@ -34,6 +34,10 @@ Keyword arguments:
 - ariaLabel (string; optional):
     `aria-label` for the inputs.
 
+- attributes (boolean | number | string | dict | list; optional):
+    Passes attributes to inner elements of a component.  See Styles
+    API docs.
+
 - autoFocus (boolean; optional):
     If set, the first input is focused when component is mounted,
     `False` by default.
@@ -68,7 +72,8 @@ Keyword arguments:
     Class added to the root element, if applicable.
 
 - classNames (dict; optional):
-    Adds class names to Mantine components.
+    Adds custom CSS class names to inner elements of a component.  See
+    Styles API docs.
 
 - darkHidden (boolean; optional):
     Determines whether component should be hidden in dark color scheme
@@ -233,7 +238,8 @@ Keyword arguments:
     truthy and hasn't changed from its previous value, a `value` that
     the user has changed while using the app will keep that change, as
     long as the new `value` also matches what was given originally.
-    Used in conjunction with `persistence_type`.
+    Used in conjunction with `persistence_type`. Note:  The component
+    must have an `id` for persistence to work.
 
 - persistence_type (a value equal to: 'local', 'session', 'memory'; optional):
     Where persisted user changes will be stored: memory: only kept in
@@ -279,7 +285,8 @@ Keyword arguments:
     Controls inputs `width` and `height`, `'sm'` by default.
 
 - styles (boolean | number | string | dict | list; optional):
-    Mantine styles API.
+    Adds inline styles directly to inner elements of a component.  See
+    Styles API docs.
 
 - ta (optional):
     TextAlign.
@@ -411,6 +418,7 @@ Keyword arguments:
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
         variant: typing.Optional[str] = None,
+        attributes: typing.Optional[typing.Any] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
         persistence: typing.Optional[typing.Union[str, NumberType]] = None,
@@ -418,9 +426,9 @@ Keyword arguments:
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'ariaLabel', 'autoFocus', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'disabled', 'display', 'error', 'ff', 'flex', 'form', 'fs', 'fw', 'fz', 'gap', 'h', 'hiddenFrom', 'inputMode', 'inputType', 'inset', 'left', 'length', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'manageFocus', 'mask', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'oneTimeCode', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'variant', 'visibleFrom', 'w']
+        self._prop_names = ['id', 'aria-*', 'ariaLabel', 'attributes', 'autoFocus', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'disabled', 'display', 'error', 'ff', 'flex', 'form', 'fs', 'fw', 'fz', 'gap', 'h', 'hiddenFrom', 'inputMode', 'inputType', 'inset', 'left', 'length', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'manageFocus', 'mask', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'oneTimeCode', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'variant', 'visibleFrom', 'w']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'ariaLabel', 'autoFocus', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'disabled', 'display', 'error', 'ff', 'flex', 'form', 'fs', 'fw', 'fz', 'gap', 'h', 'hiddenFrom', 'inputMode', 'inputType', 'inset', 'left', 'length', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'manageFocus', 'mask', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'oneTimeCode', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'variant', 'visibleFrom', 'w']
+        self.available_properties = ['id', 'aria-*', 'ariaLabel', 'attributes', 'autoFocus', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'disabled', 'display', 'error', 'ff', 'flex', 'form', 'fs', 'fw', 'fz', 'gap', 'h', 'hiddenFrom', 'inputMode', 'inputType', 'inset', 'left', 'length', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'manageFocus', 'mask', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'oneTimeCode', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'right', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'value', 'variant', 'visibleFrom', 'w']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

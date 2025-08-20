@@ -22,7 +22,6 @@ import pytz
 import yaml
 
 from howso.utilities.features import FeatureType
-from howso.utilities.internals import serialize_models
 from howso.utilities.utilities import is_valid_datetime_format, time_to_seconds
 
 logger = logging.getLogger(__name__)
@@ -743,7 +742,6 @@ class InferFeatureAttributesBase(ABC):
                  datetime_feature_formats: t.Optional[dict] = None,
                  default_time_zone: t.Optional[str] = None,
                  dependent_features: t.Optional[dict[str, list[str]]] = None,
-                 features: t.Optional[dict[str, dict]] = None,
                  id_feature_name: t.Optional[str | Iterable[str]] = None,
                  include_extended_nominal_probabilities: t.Optional[bool] = False,
                  include_sample: bool = False,
@@ -761,28 +759,7 @@ class InferFeatureAttributesBase(ABC):
 
         See ``infer_feature_attributes`` for full docstring.
         """
-        if features:
-            if not isinstance(features, dict):
-                raise ValueError(
-                    f"The parameter `features` needs to be a `dict` and not of "
-                    f"type {type(features)}."
-                )
-            elif types:
-                raise ValueError('The `features` parameter is deprecated. Please do not use it '
-                                 'in conjunction with the `types` parameter. Specify all types '
-                                 'using `types`, and perform other needed updates directly on '
-                                 'the resultant dict.')
-            else:
-                self.attributes = FeatureAttributesBase(serialize_models(features))
-                warnings.warn('The `features` parameter ("partial features") is deprecated. '
-                              'Please instead clobber the dict-like `FeatureAttributesBase` '
-                              'instance post-hoc with desired modifications. However, you can '
-                              'also guarantee certain feature types by calling '
-                              '`infer_feature_attributes` with the `types` parameter.',
-                              DeprecationWarning)
-        else:
-            self.attributes = FeatureAttributesBase({})
-            features = dict()
+        self.attributes = FeatureAttributesBase({})
 
         if datetime_feature_formats is None:
             datetime_feature_formats = dict()
@@ -846,12 +823,6 @@ class InferFeatureAttributesBase(ABC):
                     raise ValueError(
                         f'The date time format "{user_dt_format}" does not match the data of feature '
                         f'"{feature_name}". Data sample: "{test_value}"')
-                if 'date_time_format' in features.get(feature_name, {}):
-                    warnings.warn(
-                        f'The date_time_format for "{feature_name}" was provided in '
-                        'both `features` (ignored) and `datetime_feature_formats`.'
-                    )
-                    del features[feature_name]['date_time_format']
 
                 if feature_type == FeatureType.DATETIME:
                     # When feature is a datetime instance, we won't need to
@@ -956,7 +927,12 @@ class InferFeatureAttributesBase(ABC):
                 self.attributes[feature_name]['unique'] = True
 
             # Add original type to feature
-            if feature_type is not None:
+            if original_type := typing_info.pop('original_type', None):
+                self.attributes[feature_name]['original_type'] = {
+                    'data_type': str(original_type),
+                    **typing_info
+                }
+            elif feature_type is not None:
                 self.attributes[feature_name]['original_type'] = {
                     'data_type': str(feature_type),
                     **typing_info
@@ -964,14 +940,9 @@ class InferFeatureAttributesBase(ABC):
 
             # DECLARED DEPENDENTS
             # First determine if there are any dependent features in the partial features dict
-            partial_dependent_features = []
-            if 'dependent_features' in features.get(feature_name, {}):
-                partial_dependent_features = features[feature_name]['dependent_features']
             # Set dependent features: `dependent_features` + partial features dict, if provided
             if feature_name in dependent_features:
-                self.attributes[feature_name]['dependent_features'] = list(
-                    set(partial_dependent_features + dependent_features[feature_name])
-                )
+                self.attributes[feature_name]['dependent_features'] = dependent_features[feature_name]
 
             # Set default time if provided
             if self.default_time_zone is not None:
@@ -986,8 +957,6 @@ class InferFeatureAttributesBase(ABC):
             raise ValueError('ID feature must be of type `str` or `list[str], '
                              f'not {type(id_feature_name)}.')
 
-        self._validate_date_times()
-
         if infer_bounds:
             for feature_name, _attributes in self.attributes.items():
                 # If multiprocessing is enabled, this InferFeatureAttributes instance may not have
@@ -996,10 +965,7 @@ class InferFeatureAttributesBase(ABC):
                 if feature_name not in self.data.columns:
                     continue
                 # Don't infer bounds for JSON/YAML features
-                if (
-                    _attributes.get("data_type") in ["json", "yaml"] or
-                    features.get(feature_name, {}).get('data_type') in ["json", "yaml"]
-                ):
+                if _attributes.get("data_type") in ["json", "yaml"]:
                     continue
                 try:
                     bounds = self._infer_feature_bounds(
@@ -1079,11 +1045,8 @@ class InferFeatureAttributesBase(ABC):
                     sample = str(sample)
                 self.attributes[feature_name]['sample'] = sample
 
-        # Re-insert any partial features provided as an argument
-        if features:
-            for feature in features.keys():
-                for attribute, value in features[feature].items():
-                    self.attributes[feature][attribute] = value
+        # Validate datetimes after any user-defined features have been re-implemented
+        self._validate_date_times()
 
         # Re-order the keys like the original dataframe
         ordered_attributes = {}

@@ -564,15 +564,41 @@ class ColorDetectionUseCase(BaseProcessor):
             cat = rec.get('category')
             color = rec.get('main_color')
             track_id = rec.get('track_id')
-            color_conf = rec.get('major_colors')[0][2]
+            major_colors = rec.get('major_colors') or []
+            # Safely extract color confidence
+            if major_colors and isinstance(major_colors[0], (list, tuple)) and len(major_colors[0]) > 2:
+                color_conf = major_colors[0][2]
+            else:
+                color_conf = 0.0
             if track_id is None:
                 track_id = rec.get('detection_id')
             if cat and track_id is not None:
                 # Update the color_det_dict with the actual color
-                # if color_conf > self.color_det_dict[track_id][1] and track_id in self.color_det_dict:
-                #     self.color_det_dict[track_id] = [color,color_conf]
-                if color and track_id not in self.color_det_dict:
-                    self.color_det_dict[track_id] = [color,color_conf]
+                if color and track_id in self.color_det_dict:
+                    existing_color, existing_conf = self.color_det_dict.get(track_id, [None, -1])
+                    if color_conf > existing_conf and color != existing_color:
+                        # Move this track_id from any previous color bucket(s) to the new one
+                        for k in list(self._color_total_track_ids.keys()):
+                            if track_id in self._color_total_track_ids[k]:
+                                self._color_total_track_ids[k].discard(track_id)
+                        # Update assignment
+                        self.color_det_dict[track_id] = [color, color_conf]
+                        new_key = f"{cat}:{color}" if color else cat
+                        self._color_total_track_ids[new_key].add(track_id)
+                        # Update current frame tracking
+                        self._color_current_frame_track_ids[new_key].add(track_id)
+                    elif color_conf > existing_conf:
+                        # Confidence improved but color unchanged; update confidence only
+                        self.color_det_dict[track_id] = [existing_color, color_conf]
+                        same_key = f"{cat}:{existing_color}" if existing_color else cat
+                        self._color_current_frame_track_ids[same_key].add(track_id)
+                    else:
+                        # No improvement; still reflect in current frame under existing color
+                        same_key = f"{cat}:{existing_color}" if existing_color else cat
+                        self._color_current_frame_track_ids[same_key].add(track_id)
+                elif color and track_id not in self.color_det_dict:
+                    # First assignment for this track
+                    self.color_det_dict[track_id] = [color, color_conf]
                     key = f"{cat}:{color}" if color else cat
                     self._color_total_track_ids[key].add(track_id)
                     # Also update current frame tracking

@@ -1959,8 +1959,7 @@ class AttemptStartResponse(google.protobuf.message.Message):
     RETRY_POLICY_FIELD_NUMBER: builtins.int
     attempt_token: builtins.str
     @property
-    def retry_policy(self) -> global___FunctionRetryPolicy:
-        """TODO(ben-okeefe) TODO(nathan): Not currently used"""
+    def retry_policy(self) -> global___FunctionRetryPolicy: ...
     def __init__(
         self,
         *,
@@ -6379,6 +6378,8 @@ class GenericResult(google.protobuf.message.Message):
         Terminates the function and all remaining inputs.
         """
         GENERIC_STATUS_INTERNAL_FAILURE: GenericResult._GenericStatus.ValueType  # 6
+        GENERIC_STATUS_IDLE_TIMEOUT: GenericResult._GenericStatus.ValueType  # 7
+        """Used when sandboxes are terminated due to idle_timeout"""
 
     class GenericStatus(_GenericStatus, metaclass=_GenericStatusEnumTypeWrapper): ...
     GENERIC_STATUS_UNSPECIFIED: GenericResult.GenericStatus.ValueType  # 0
@@ -6392,6 +6393,8 @@ class GenericResult(google.protobuf.message.Message):
     Terminates the function and all remaining inputs.
     """
     GENERIC_STATUS_INTERNAL_FAILURE: GenericResult.GenericStatus.ValueType  # 6
+    GENERIC_STATUS_IDLE_TIMEOUT: GenericResult.GenericStatus.ValueType  # 7
+    """Used when sandboxes are terminated due to idle_timeout"""
 
     STATUS_FIELD_NUMBER: builtins.int
     EXCEPTION_FIELD_NUMBER: builtins.int
@@ -7007,8 +7010,7 @@ class MapStartOrContinueResponse(google.protobuf.message.Message):
     @property
     def attempt_tokens(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
     @property
-    def retry_policy(self) -> global___FunctionRetryPolicy:
-        """TODO(ben-okeefe): Not currently used"""
+    def retry_policy(self) -> global___FunctionRetryPolicy: ...
     def __init__(
         self,
         *,
@@ -8385,6 +8387,7 @@ class Sandbox(google.protobuf.message.Message):
     NAME_FIELD_NUMBER: builtins.int
     EXPERIMENTAL_OPTIONS_FIELD_NUMBER: builtins.int
     PRELOAD_PATH_PREFIXES_FIELD_NUMBER: builtins.int
+    IDLE_TIMEOUT_SECS_FIELD_NUMBER: builtins.int
     @property
     def entrypoint_args(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
     @property
@@ -8397,6 +8400,7 @@ class Sandbox(google.protobuf.message.Message):
     cloud_provider: global___CloudProvider.ValueType
     """Deprecated at some point"""
     timeout_secs: builtins.int
+    """The max lifetime of a sandbox in seconds."""
     workdir: builtins.str
     @property
     def nfs_mounts(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SharedVolumeMount]: ...
@@ -8448,6 +8452,8 @@ class Sandbox(google.protobuf.message.Message):
     @property
     def preload_path_prefixes(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
         """Internal use only."""
+    idle_timeout_secs: builtins.int
+    """Optional idle timeout in seconds. If set, the sandbox will be terminated after being idle for this duration."""
     def __init__(
         self,
         *,
@@ -8481,9 +8487,12 @@ class Sandbox(google.protobuf.message.Message):
         name: builtins.str | None = ...,
         experimental_options: collections.abc.Mapping[builtins.str, builtins.bool] | None = ...,
         preload_path_prefixes: collections.abc.Iterable[builtins.str] | None = ...,
+        idle_timeout_secs: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_name", b"_name", "_proxy_id", b"_proxy_id", "_runsc_runtime_version", b"_runsc_runtime_version", "_runtime", b"_runtime", "_scheduler_placement", b"_scheduler_placement", "_snapshot_version", b"_snapshot_version", "_workdir", b"_workdir", "name", b"name", "network_access", b"network_access", "open_ports", b"open_ports", "open_ports_oneof", b"open_ports_oneof", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "resources", b"resources", "runsc_runtime_version", b"runsc_runtime_version", "runtime", b"runtime", "scheduler_placement", b"scheduler_placement", "snapshot_version", b"snapshot_version", "workdir", b"workdir"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_name", b"_name", "_proxy_id", b"_proxy_id", "_runsc_runtime_version", b"_runsc_runtime_version", "_runtime", b"_runtime", "_scheduler_placement", b"_scheduler_placement", "_snapshot_version", b"_snapshot_version", "_workdir", b"_workdir", "block_network", b"block_network", "cloud_bucket_mounts", b"cloud_bucket_mounts", "cloud_provider", b"cloud_provider", "cloud_provider_str", b"cloud_provider_str", "enable_snapshot", b"enable_snapshot", "entrypoint_args", b"entrypoint_args", "experimental_options", b"experimental_options", "i6pn_enabled", b"i6pn_enabled", "image_id", b"image_id", "mount_ids", b"mount_ids", "name", b"name", "network_access", b"network_access", "nfs_mounts", b"nfs_mounts", "open_ports", b"open_ports", "open_ports_oneof", b"open_ports_oneof", "preload_path_prefixes", b"preload_path_prefixes", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "resources", b"resources", "runsc_runtime_version", b"runsc_runtime_version", "runtime", b"runtime", "runtime_debug", b"runtime_debug", "s3_mounts", b"s3_mounts", "scheduler_placement", b"scheduler_placement", "secret_ids", b"secret_ids", "snapshot_version", b"snapshot_version", "timeout_secs", b"timeout_secs", "verbose", b"verbose", "volume_mounts", b"volume_mounts", "workdir", b"workdir", "worker_id", b"worker_id"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_idle_timeout_secs", b"_idle_timeout_secs", "_name", b"_name", "_proxy_id", b"_proxy_id", "_runsc_runtime_version", b"_runsc_runtime_version", "_runtime", b"_runtime", "_scheduler_placement", b"_scheduler_placement", "_snapshot_version", b"_snapshot_version", "_workdir", b"_workdir", "idle_timeout_secs", b"idle_timeout_secs", "name", b"name", "network_access", b"network_access", "open_ports", b"open_ports", "open_ports_oneof", b"open_ports_oneof", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "resources", b"resources", "runsc_runtime_version", b"runsc_runtime_version", "runtime", b"runtime", "scheduler_placement", b"scheduler_placement", "snapshot_version", b"snapshot_version", "workdir", b"workdir"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_idle_timeout_secs", b"_idle_timeout_secs", "_name", b"_name", "_proxy_id", b"_proxy_id", "_runsc_runtime_version", b"_runsc_runtime_version", "_runtime", b"_runtime", "_scheduler_placement", b"_scheduler_placement", "_snapshot_version", b"_snapshot_version", "_workdir", b"_workdir", "block_network", b"block_network", "cloud_bucket_mounts", b"cloud_bucket_mounts", "cloud_provider", b"cloud_provider", "cloud_provider_str", b"cloud_provider_str", "enable_snapshot", b"enable_snapshot", "entrypoint_args", b"entrypoint_args", "experimental_options", b"experimental_options", "i6pn_enabled", b"i6pn_enabled", "idle_timeout_secs", b"idle_timeout_secs", "image_id", b"image_id", "mount_ids", b"mount_ids", "name", b"name", "network_access", b"network_access", "nfs_mounts", b"nfs_mounts", "open_ports", b"open_ports", "open_ports_oneof", b"open_ports_oneof", "preload_path_prefixes", b"preload_path_prefixes", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "resources", b"resources", "runsc_runtime_version", b"runsc_runtime_version", "runtime", b"runtime", "runtime_debug", b"runtime_debug", "s3_mounts", b"s3_mounts", "scheduler_placement", b"scheduler_placement", "secret_ids", b"secret_ids", "snapshot_version", b"snapshot_version", "timeout_secs", b"timeout_secs", "verbose", b"verbose", "volume_mounts", b"volume_mounts", "workdir", b"workdir", "worker_id", b"worker_id"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_idle_timeout_secs", b"_idle_timeout_secs"]) -> typing_extensions.Literal["idle_timeout_secs"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_name", b"_name"]) -> typing_extensions.Literal["name"] | None: ...
     @typing.overload

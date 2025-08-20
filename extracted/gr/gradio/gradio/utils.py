@@ -102,28 +102,20 @@ def safe_get_lock() -> asyncio.Lock:
     the main thread.
     """
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        return asyncio.Lock()
+        loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        return asyncio.Lock()
+    return asyncio.Lock()
 
 
 def safe_get_stop_event() -> asyncio.Event:
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        return asyncio.Event()
+        loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        return asyncio.Event()
+    return asyncio.Event()
 
 
 class DynamicBoolean(int):
@@ -495,7 +487,7 @@ def download_if_url(article: str) -> str:
     return article
 
 
-HASH_SEED_PATH = os.path.join(os.path.dirname(gradio.__file__), "hash_seed.txt")
+HASH_SEED_PATH = os.path.join(os.path.dirname(gradio.__file__), "hash_seed.txt")  # type: ignore
 
 
 def get_hash_seed() -> str:
@@ -1719,7 +1711,12 @@ def get_function_description(fn: Callable) -> tuple[str, dict[str, str], list[st
     """
     fn_docstring = inspect.getdoc(fn)
     description = ""
-    parameters = {}
+    try:  # This can fail if the function is a builtin
+        parameters: dict[str, str] = {
+            param.name: "" for param in inspect.signature(fn).parameters.values()
+        }
+    except ValueError:
+        parameters: dict[str, str] = {}
     returns = []
 
     if not fn_docstring:
@@ -1767,7 +1764,7 @@ def get_function_description(fn: Callable) -> tuple[str, dict[str, str], list[st
                 if ":" in line:
                     param_name, param_desc = line.split(":", 1)
                     param_name = param_name.split(" ")[0].strip()
-                    if param_name:
+                    if param_name and param_name in parameters:
                         parameters[param_name] = param_desc.strip()
             except Exception:
                 continue

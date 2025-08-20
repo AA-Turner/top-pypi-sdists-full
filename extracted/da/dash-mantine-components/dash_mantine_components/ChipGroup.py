@@ -69,7 +69,8 @@ Keyword arguments:
     truthy and hasn't changed from its previous value, a `value` that
     the user has changed while using the app will keep that change, as
     long as the new `value` also matches what was given originally.
-    Used in conjunction with `persistence_type`.
+    Used in conjunction with `persistence_type`. Note:  The component
+    must have an `id` for persistence to work.
 
 - persistence_type (a value equal to: 'local', 'session', 'memory'; optional):
     Where persisted user changes will be stored: memory: only kept in

@@ -44,7 +44,7 @@ class TestKernel(ITestKernel):
         config = Testing(**app.config('testing'))
 
         # Resolve the unit test service from the application container
-        self.__unit_test: IUnitTest = app.make('x-orionis.test.core.unit_test', app)
+        self.__unit_test: IUnitTest = app.make('x-orionis.test.core.unit_test')
 
         # Apply configuration settings to the UnitTest instance
         self.__unit_test.configure(

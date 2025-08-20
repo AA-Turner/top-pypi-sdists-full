@@ -45,8 +45,13 @@ Keyword arguments:
 - arrowSize (number; optional):
     Arrow size in px, `7` by default.
 
+- attributes (boolean | number | string | dict | list; optional):
+    Passes attributes to inner elements of a component.  See Styles
+    API docs.
+
 - classNames (dict; optional):
-    Adds class names to Mantine components.
+    Adds custom CSS class names to inner elements of a component.  See
+    Styles API docs.
 
 - clickOutsideEvents (list of strings; optional):
     Events that trigger outside clicks.
@@ -224,7 +229,8 @@ Keyword arguments:
     Key of `theme.shadows` or any other valid CSS `box-shadow` value.
 
 - styles (boolean | number | string | dict | list; optional):
-    Mantine styles API.
+    Adds inline styles directly to inner elements of a component.  See
+    Styles API docs.
 
 - tabIndex (number; optional):
     tab-index.
@@ -388,14 +394,15 @@ Keyword arguments:
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
         variant: typing.Optional[str] = None,
+        attributes: typing.Optional[typing.Any] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'classNames', 'clickOutsideEvents', 'closeDelay', 'closeOnClickOutside', 'closeOnEscape', 'data-*', 'disabled', 'floatingStrategy', 'hideDetached', 'keepMounted', 'loading_state', 'middlewares', 'offset', 'openDelay', 'overlayProps', 'portalProps', 'position', 'positionDependencies', 'radius', 'returnFocus', 'shadow', 'styles', 'tabIndex', 'transitionProps', 'trapFocus', 'unstyled', 'variant', 'width', 'withArrow', 'withOverlay', 'withRoles', 'withinPortal', 'zIndex']
+        self._prop_names = ['children', 'id', 'aria-*', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'attributes', 'classNames', 'clickOutsideEvents', 'closeDelay', 'closeOnClickOutside', 'closeOnEscape', 'data-*', 'disabled', 'floatingStrategy', 'hideDetached', 'keepMounted', 'loading_state', 'middlewares', 'offset', 'openDelay', 'overlayProps', 'portalProps', 'position', 'positionDependencies', 'radius', 'returnFocus', 'shadow', 'styles', 'tabIndex', 'transitionProps', 'trapFocus', 'unstyled', 'variant', 'width', 'withArrow', 'withOverlay', 'withRoles', 'withinPortal', 'zIndex']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'classNames', 'clickOutsideEvents', 'closeDelay', 'closeOnClickOutside', 'closeOnEscape', 'data-*', 'disabled', 'floatingStrategy', 'hideDetached', 'keepMounted', 'loading_state', 'middlewares', 'offset', 'openDelay', 'overlayProps', 'portalProps', 'position', 'positionDependencies', 'radius', 'returnFocus', 'shadow', 'styles', 'tabIndex', 'transitionProps', 'trapFocus', 'unstyled', 'variant', 'width', 'withArrow', 'withOverlay', 'withRoles', 'withinPortal', 'zIndex']
+        self.available_properties = ['children', 'id', 'aria-*', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'attributes', 'classNames', 'clickOutsideEvents', 'closeDelay', 'closeOnClickOutside', 'closeOnEscape', 'data-*', 'disabled', 'floatingStrategy', 'hideDetached', 'keepMounted', 'loading_state', 'middlewares', 'offset', 'openDelay', 'overlayProps', 'portalProps', 'position', 'positionDependencies', 'radius', 'returnFocus', 'shadow', 'styles', 'tabIndex', 'transitionProps', 'trapFocus', 'unstyled', 'variant', 'width', 'withArrow', 'withOverlay', 'withRoles', 'withinPortal', 'zIndex']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

@@ -84,7 +84,6 @@ class TestDevboxes:
             },
             metadata={"foo": "string"},
             name="name",
-            prebuilt="prebuilt",
             repo_connection_id="repo_connection_id",
             secrets={"foo": "string"},
             snapshot_id="snapshot_id",
@@ -1169,9 +1168,7 @@ class TestDevboxes:
                 mock_await.return_value = mock_devbox_running
 
                 result = client.devboxes.create_and_await_running(
-                    create_args={
-                        "name": "test",
-                    }
+                    name="test",
                 )
 
                 assert result.id == "test_id"
@@ -1211,12 +1208,8 @@ class TestDevboxes:
                 mock_await.return_value = mock_devbox_running
 
                 result = client.devboxes.create_and_await_running(
-                    create_args={
-                        "name": "test",
-                    },
-                    request_args={
-                        "polling_config": config,
-                    },
+                    name="test",
+                    polling_config=config,
                 )
 
                 assert result.id == "test_id"
@@ -1236,9 +1229,7 @@ class TestDevboxes:
 
             with pytest.raises(APIStatusError, match="Bad request"):
                 client.devboxes.create_and_await_running(
-                    create_args={
-                        "name": "test",
-                    }
+                    name="test",
                 )
 
     @parametrize
@@ -1262,9 +1253,7 @@ class TestDevboxes:
 
                 with pytest.raises(RunloopError, match="Devbox entered non-running terminal state: failed"):
                     client.devboxes.create_and_await_running(
-                        create_args={
-                            "name": "test",
-                        }
+                        name="test",
                     )
 
 
@@ -1315,7 +1304,6 @@ class TestAsyncDevboxes:
             },
             metadata={"foo": "string"},
             name="name",
-            prebuilt="prebuilt",
             repo_connection_id="repo_connection_id",
             secrets={"foo": "string"},
             snapshot_id="snapshot_id",

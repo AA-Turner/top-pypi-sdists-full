@@ -522,18 +522,22 @@ def _parse_duration(duration_input: str) -> datetime.timedelta:
 # }
 
 
-#   export const extractOffsetAndDirectionFromFormula = (formula = '') => {
+#   export const extractOffsetAndDirectionFromFormula = (formula = ''): [{ value?: number; units?: string }, string] => {
 def _extract_offset_and_direction_from_formula(formula: str = '') -> Tuple[Dict[str, int], str]:
-    # const formulaOffset = formula.match(/[+-](.*?)[-](.*?)(\$now)(.*)/)[4];
+    # const formulaOffset = formula.match(/[+-](.*?)[-](.*?)(\$now)(.*)/)![4];
     formula_offset = re.search(r'[+-](.*?)[-](.*?)(\$now)(.*)', formula).group(4)
-    # const value = toNumber(formulaOffset.match(/(\d+)(\w+)/)[1]);
-    value = int(re.search(r'(\d+)(\w+)', formula_offset).group(1))
-    # const units = formulaOffset.match(/(\d+)(\w+)/)[2];
-    units = re.search(r'(\d+)(\w+)', formula_offset).group(2)
+    # const match = formulaOffset.match(/((\d+(?:\.\d+)?)(\w+))/);
+    match = re.search(r'((\d+(?:\.\d+)?)(\w+))', formula_offset)
+    # const value = toNumber(match![2]);
+    num_str = match.group(2)
+    value = float(num_str) if re.search(r'[.\deE]', num_str) and '.' in num_str or 'e' in num_str.lower() else int(num_str)
+
+    # const units = match![3];
+    units = match.group(3)
     # const offset = { value, units };
     offset = {'value': value, 'units': units}
     #
-    # const offsetDirection = formulaOffset.match(/[+-]/)[0] === '-' ? OFFSET_DIRECTION.PAST : OFFSET_DIRECTION.FUTURE;
+    # const offsetDirection = formulaOffset.match(/[+-]/)![0] === '-' ? OFFSET_DIRECTION.PAST : OFFSET_DIRECTION.FUTURE;
     offset_direction = (OFFSET_DIRECTION.PAST if re.search(r'[+-]', formula_offset).group(0) == '-' else
                         OFFSET_DIRECTION.FUTURE)
     #

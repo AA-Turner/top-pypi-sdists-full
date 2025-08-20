@@ -5584,21 +5584,23 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def remove_option_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+    def remove_option_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], tag: str = None) -> bool:
         """
         Removes the security with the specified symbol. This will cancel all
         open orders and then liquidate any existing holdings
         
         :param symbol: The symbol of the security to be removed
+        :param tag: Optional tag to indicate the cause of removal
         """
         ...
 
-    def remove_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+    def remove_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], tag: str = None) -> bool:
         """
         Removes the security with the specified symbol. This will cancel all
         open orders and then liquidate any existing holdings
         
         :param symbol: The symbol of the security to be removed
+        :param tag: Optional tag to indicate the cause of removal
         """
         ...
 

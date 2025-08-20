@@ -18,7 +18,7 @@ import os
 import setuptools
 
 PROJECT_NAME = 'tensorboard_plugin_profile'
-VERSION = '2.20.5'
+VERSION = '2.20.6'
 
 
 def get_long_description():
@@ -50,7 +50,7 @@ setuptools.setup(
     + setuptools.find_namespace_packages(
         include=['xprof.*'],
     ),
-    python_requires='>= 3.9, < 3.13',
+    python_requires='>= 2.7, != 3.0.*, != 3.1.*',
     author='Google Inc.',
     author_email='packages@tensorflow.org',
     url='https://github.com/openxla/xprof',

@@ -30,6 +30,14 @@ Keyword arguments:
 - aria-* (string; optional):
     Wild card aria attributes.
 
+- attributes (boolean | number | string | dict | list; optional):
+    Passes attributes to inner elements of a component.  See Styles
+    API docs.
+
+- autoSelectOnBlur (boolean; optional):
+    If set, the highlighted option is selected when the input loses
+    focus @,default,`False`.
+
 - bd (string | number; optional):
     Border.
 
@@ -60,7 +68,8 @@ Keyword arguments:
     Class added to the root element, if applicable.
 
 - classNames (dict; optional):
-    Adds class names to Mantine components.
+    Adds custom CSS class names to inner elements of a component.  See
+    Styles API docs.
 
 - clearButtonProps (dict; optional):
     Props passed down to the clear button.
@@ -290,16 +299,22 @@ Keyword arguments:
         dropdown is opened, `False` by default.
 
     - classNames (dict; optional):
-        Adds class names to Mantine components.
+        Adds custom CSS class names to inner elements of a component.
+        See Styles API docs.
 
     - styles (boolean | number | string | dict | list; optional):
-        Mantine styles API.
+        Adds inline styles directly to inner elements of a component.
+        See Styles API docs.
 
     - unstyled (boolean; optional):
         Remove all Mantine styling from the component.
 
     - variant (string; optional):
         variant.
+
+    - attributes (boolean | number | string | dict | list; optional):
+        Passes attributes to inner elements of a component.  See
+        Styles API docs.
 
 - darkHidden (boolean; optional):
     Determines whether component should be hidden in dark color scheme
@@ -491,7 +506,8 @@ Keyword arguments:
     truthy and hasn't changed from its previous value, a `value` that
     the user has changed while using the app will keep that change, as
     long as the new `value` also matches what was given originally.
-    Used in conjunction with `persistence_type`.
+    Used in conjunction with `persistence_type`. Note:  The component
+    must have an `id` for persistence to work.
 
 - persistence_type (a value equal to: 'local', 'session', 'memory'; optional):
     Where persisted user changes will be stored: memory: only kept in
@@ -764,16 +780,22 @@ Keyword arguments:
     - flex (string | number; optional)
 
     - classNames (dict; optional):
-        Adds class names to Mantine components.
+        Adds custom CSS class names to inner elements of a component.
+        See Styles API docs.
 
     - styles (boolean | number | string | dict | list; optional):
-        Mantine styles API.
+        Adds inline styles directly to inner elements of a component.
+        See Styles API docs.
 
     - unstyled (boolean; optional):
         Remove all Mantine styling from the component.
 
     - variant (string; optional):
         variant.
+
+    - attributes (boolean | number | string | dict | list; optional):
+        Passes attributes to inner elements of a component.  See
+        Styles API docs.
 
 - selectFirstOptionOnChange (boolean; optional):
     Determines whether the first option should be selected when value
@@ -784,7 +806,8 @@ Keyword arguments:
     default.
 
 - styles (boolean | number | string | dict | list; optional):
-    Mantine styles API.
+    Adds inline styles directly to inner elements of a component.  See
+    Styles API docs.
 
 - ta (optional):
     TextAlign.
@@ -907,7 +930,8 @@ Keyword arguments:
             "classNames": NotRequired[dict],
             "styles": NotRequired[typing.Any],
             "unstyled": NotRequired[bool],
-            "variant": NotRequired[str]
+            "variant": NotRequired[str],
+            "attributes": NotRequired[typing.Any]
         }
     )
 
@@ -1012,7 +1036,8 @@ Keyword arguments:
             "classNames": NotRequired[dict],
             "styles": NotRequired[typing.Any],
             "unstyled": NotRequired[bool],
-            "variant": NotRequired[str]
+            "variant": NotRequired[str],
+            "attributes": NotRequired[typing.Any]
         }
     )
 
@@ -1033,6 +1058,7 @@ Keyword arguments:
         scrollAreaProps: typing.Optional["ScrollAreaProps"] = None,
         clearable: typing.Optional[bool] = None,
         clearButtonProps: typing.Optional["ClearButtonProps"] = None,
+        autoSelectOnBlur: typing.Optional[bool] = None,
         className: typing.Optional[str] = None,
         style: typing.Optional[typing.Any] = None,
         hiddenFrom: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
@@ -1129,6 +1155,7 @@ Keyword arguments:
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
         variant: typing.Optional[str] = None,
+        attributes: typing.Optional[typing.Any] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
@@ -1137,9 +1164,9 @@ Keyword arguments:
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'selectFirstOptionOnChange', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'autoSelectOnBlur', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'selectFirstOptionOnChange', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'selectFirstOptionOnChange', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'autoSelectOnBlur', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'selectFirstOptionOnChange', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

@@ -143,7 +143,7 @@ class Snowflake(Database):
 
         # If a private key is used, read it from the specified path and pass it as "private_key" to the connector.
         if key_bytes:
-            if "password" in kw and (kw.get("password") != "" or kw.get("password") is not None):
+            if "password" in kw and kw.get("password") not in {"", None}:
                 raise ConnectError("Cannot use password and key at the same time")
             if kw.get("private_key_passphrase"):
                 encoded_passphrase = kw.get("private_key_passphrase").encode()

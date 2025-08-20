@@ -634,20 +634,20 @@ class ResultsAggregationPipeline:
                 health["issues"].append("Results aggregator not initialized")
                 logging.error("Results aggregator not initialized")
             
-            if self.analytics_summarizer:
-                sum_health = self.analytics_summarizer.get_health_status()
-                health["components"]["analytics_summarizer"] = sum_health
-                if sum_health.get("status") != "healthy":
-                    issue_detail = f"Analytics summarizer is {sum_health.get('status', 'unknown')}"
-                    if "reason" in sum_health:
-                        issue_detail += f": {sum_health['reason']}"
-                    if sum_health.get("errors", 0) > 0:
-                        issue_detail += f" ({sum_health['errors']} errors)"
-                    health["issues"].append(issue_detail)
-                    logging.warning(f"Summarizer health issue: {issue_detail}")
-            else:
-                health["issues"].append("Analytics summarizer not initialized")
-                logging.error("Analytics summarizer not initialized")
+            # if self.analytics_summarizer:
+            #     sum_health = self.analytics_summarizer.get_health_status()
+            #     health["components"]["analytics_summarizer"] = sum_health
+            #     if sum_health.get("status") != "healthy":
+            #         issue_detail = f"Analytics summarizer is {sum_health.get('status', 'unknown')}"
+            #         if "reason" in sum_health:
+            #             issue_detail += f": {sum_health['reason']}"
+            #         if sum_health.get("errors", 0) > 0:
+            #             issue_detail += f" ({sum_health['errors']} errors)"
+            #         health["issues"].append(issue_detail)
+            #         logging.warning(f"Summarizer health issue: {issue_detail}")
+            # else:
+            #     health["issues"].append("Analytics summarizer not initialized")
+            #     logging.error("Analytics summarizer not initialized")
             
             if self.results_publisher:
                 pub_health = self.results_publisher.get_health_status()

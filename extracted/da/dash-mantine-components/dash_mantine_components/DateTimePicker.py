@@ -51,6 +51,10 @@ Keyword arguments:
 
     - previousDecade (string; optional)
 
+- attributes (boolean | number | string | dict | list; optional):
+    Passes attributes to inner elements of a component.  See Styles
+    API docs.
+
 - bd (string | number; optional):
     Border.
 
@@ -81,7 +85,8 @@ Keyword arguments:
     Class added to the root element, if applicable.
 
 - classNames (dict; optional):
-    Adds class names to Mantine components.
+    Adds custom CSS class names to inner elements of a component.  See
+    Styles API docs.
 
 - clearButtonProps (dict; optional):
     Props passed down to clear button.
@@ -775,6 +780,10 @@ Keyword arguments:
         - unstyled (boolean; optional):
             Remove all Mantine styling from the component.
 
+        - attributes (boolean | number | string | dict | list; optional):
+            Passes attributes to inner elements of a component.  See
+            Styles API docs.
+
         - children (a list of or a singular dash component, string or number; optional):
             Content inside overlay.
 
@@ -1100,7 +1109,8 @@ Keyword arguments:
     truthy and hasn't changed from its previous value, a `value` that
     the user has changed while using the app will keep that change, as
     long as the new `value` also matches what was given originally.
-    Used in conjunction with `persistence_type`.
+    Used in conjunction with `persistence_type`. Note:  The component
+    must have an `id` for persistence to work.
 
 - persistence_type (a value equal to: 'local', 'session', 'memory'; optional):
     Where persisted user changes will be stored: memory: only kept in
@@ -1131,16 +1141,22 @@ Keyword arguments:
         If set, popover dropdown will not be rendered.
 
     - classNames (dict; optional):
-        Adds class names to Mantine components.
+        Adds custom CSS class names to inner elements of a component.
+        See Styles API docs.
 
     - styles (boolean | number | string | dict | list; optional):
-        Mantine styles API.
+        Adds inline styles directly to inner elements of a component.
+        See Styles API docs.
 
     - unstyled (boolean; optional):
         Remove all Mantine styling from the component.
 
     - variant (string; optional):
         variant.
+
+    - attributes (boolean | number | string | dict | list; optional):
+        Passes attributes to inner elements of a component.  See
+        Styles API docs.
 
     - opened (boolean; optional):
         Controlled dropdown opened state.
@@ -1429,7 +1445,8 @@ Keyword arguments:
     call, only applicable when type=\"multiple\", True by default.
 
 - styles (boolean | number | string | dict | list; optional):
-    Mantine styles API.
+    Adds inline styles directly to inner elements of a component.  See
+    Styles API docs.
 
 - submitButtonProps (boolean | number | string | dict | list; optional):
     Props passed down to the submit button.
@@ -1606,6 +1623,7 @@ Keyword arguments:
             "styles": NotRequired[typing.Any],
             "unstyled": NotRequired[bool],
             "variant": NotRequired[str],
+            "attributes": NotRequired[typing.Any],
             "opened": NotRequired[bool],
             "closeOnClickOutside": NotRequired[bool],
             "clickOutsideEvents": NotRequired[typing.Sequence[str]],
@@ -1735,6 +1753,7 @@ Keyword arguments:
             "flex": NotRequired[typing.Union[str, NumberType]],
             "radius": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "unstyled": NotRequired[bool],
+            "attributes": NotRequired[typing.Any],
             "children": NotRequired[ComponentType],
             "zIndex": NotRequired[typing.Union[str, NumberType]],
             "center": NotRequired[bool],
@@ -2060,11 +2079,12 @@ Keyword arguments:
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
         variant: typing.Optional[str] = None,
+        attributes: typing.Optional[typing.Any] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'ariaLabels', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'columnsToScroll', 'darkHidden', 'data-*', 'debounce', 'decadeLabelFormat', 'defaultDate', 'description', 'descriptionProps', 'disabled', 'disabledDates', 'display', 'dropdownType', 'error', 'errorProps', 'ff', 'firstDayOfWeek', 'flex', 'fs', 'fw', 'fz', 'getDayProps', 'getMonthControlProps', 'getYearControlProps', 'h', 'hasNextLevel', 'headerControlsOrder', 'hiddenFrom', 'hideOutsideDates', 'hideWeekdays', 'highlightToday', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'labelSeparator', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'level', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'mb', 'me', 'mih', 'minDate', 'miw', 'ml', 'mod', 'modalProps', 'monthLabelFormat', 'monthsListFormat', 'mr', 'ms', 'mt', 'mx', 'my', 'n_submit', 'name', 'nextIcon', 'nextLabel', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'presets', 'previousIcon', 'previousLabel', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderDay', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'sortDates', 'style', 'styles', 'submitButtonProps', 'ta', 'tabIndex', 'td', 'timePickerProps', 'top', 'tt', 'unstyled', 'value', 'valueFormat', 'variant', 'visibleFrom', 'w', 'weekdayFormat', 'weekendDays', 'withAsterisk', 'withCellSpacing', 'withErrorStyles', 'withSeconds', 'withWeekNumbers', 'wrapperProps', 'yearLabelFormat', 'yearsListFormat']
+        self._prop_names = ['id', 'aria-*', 'ariaLabels', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'columnsToScroll', 'darkHidden', 'data-*', 'debounce', 'decadeLabelFormat', 'defaultDate', 'description', 'descriptionProps', 'disabled', 'disabledDates', 'display', 'dropdownType', 'error', 'errorProps', 'ff', 'firstDayOfWeek', 'flex', 'fs', 'fw', 'fz', 'getDayProps', 'getMonthControlProps', 'getYearControlProps', 'h', 'hasNextLevel', 'headerControlsOrder', 'hiddenFrom', 'hideOutsideDates', 'hideWeekdays', 'highlightToday', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'labelSeparator', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'level', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'mb', 'me', 'mih', 'minDate', 'miw', 'ml', 'mod', 'modalProps', 'monthLabelFormat', 'monthsListFormat', 'mr', 'ms', 'mt', 'mx', 'my', 'n_submit', 'name', 'nextIcon', 'nextLabel', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'presets', 'previousIcon', 'previousLabel', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderDay', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'sortDates', 'style', 'styles', 'submitButtonProps', 'ta', 'tabIndex', 'td', 'timePickerProps', 'top', 'tt', 'unstyled', 'value', 'valueFormat', 'variant', 'visibleFrom', 'w', 'weekdayFormat', 'weekendDays', 'withAsterisk', 'withCellSpacing', 'withErrorStyles', 'withSeconds', 'withWeekNumbers', 'wrapperProps', 'yearLabelFormat', 'yearsListFormat']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'ariaLabels', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'columnsToScroll', 'darkHidden', 'data-*', 'debounce', 'decadeLabelFormat', 'defaultDate', 'description', 'descriptionProps', 'disabled', 'disabledDates', 'display', 'dropdownType', 'error', 'errorProps', 'ff', 'firstDayOfWeek', 'flex', 'fs', 'fw', 'fz', 'getDayProps', 'getMonthControlProps', 'getYearControlProps', 'h', 'hasNextLevel', 'headerControlsOrder', 'hiddenFrom', 'hideOutsideDates', 'hideWeekdays', 'highlightToday', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'labelSeparator', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'level', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'mb', 'me', 'mih', 'minDate', 'miw', 'ml', 'mod', 'modalProps', 'monthLabelFormat', 'monthsListFormat', 'mr', 'ms', 'mt', 'mx', 'my', 'n_submit', 'name', 'nextIcon', 'nextLabel', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'presets', 'previousIcon', 'previousLabel', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderDay', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'sortDates', 'style', 'styles', 'submitButtonProps', 'ta', 'tabIndex', 'td', 'timePickerProps', 'top', 'tt', 'unstyled', 'value', 'valueFormat', 'variant', 'visibleFrom', 'w', 'weekdayFormat', 'weekendDays', 'withAsterisk', 'withCellSpacing', 'withErrorStyles', 'withSeconds', 'withWeekNumbers', 'wrapperProps', 'yearLabelFormat', 'yearsListFormat']
+        self.available_properties = ['id', 'aria-*', 'ariaLabels', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'columnsToScroll', 'darkHidden', 'data-*', 'debounce', 'decadeLabelFormat', 'defaultDate', 'description', 'descriptionProps', 'disabled', 'disabledDates', 'display', 'dropdownType', 'error', 'errorProps', 'ff', 'firstDayOfWeek', 'flex', 'fs', 'fw', 'fz', 'getDayProps', 'getMonthControlProps', 'getYearControlProps', 'h', 'hasNextLevel', 'headerControlsOrder', 'hiddenFrom', 'hideOutsideDates', 'hideWeekdays', 'highlightToday', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'labelSeparator', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'level', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDate', 'mb', 'me', 'mih', 'minDate', 'miw', 'ml', 'mod', 'modalProps', 'monthLabelFormat', 'monthsListFormat', 'mr', 'ms', 'mt', 'mx', 'my', 'n_submit', 'name', 'nextIcon', 'nextLabel', 'numberOfColumns', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'presets', 'previousIcon', 'previousLabel', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderDay', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'sortDates', 'style', 'styles', 'submitButtonProps', 'ta', 'tabIndex', 'td', 'timePickerProps', 'top', 'tt', 'unstyled', 'value', 'valueFormat', 'variant', 'visibleFrom', 'w', 'weekdayFormat', 'weekendDays', 'withAsterisk', 'withCellSpacing', 'withErrorStyles', 'withSeconds', 'withWeekNumbers', 'wrapperProps', 'yearLabelFormat', 'yearsListFormat']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

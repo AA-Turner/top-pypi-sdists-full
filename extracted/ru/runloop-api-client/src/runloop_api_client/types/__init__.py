@@ -23,6 +23,7 @@ from .scenario_run_view import ScenarioRunView as ScenarioRunView
 from .benchmark_run_view import BenchmarkRunView as BenchmarkRunView
 from .devbox_list_params import DevboxListParams as DevboxListParams
 from .devbox_tunnel_view import DevboxTunnelView as DevboxTunnelView
+from .secret_list_params import SecretListParams as SecretListParams
 from .blueprint_build_log import BlueprintBuildLog as BlueprintBuildLog
 from .blueprint_list_view import BlueprintListView as BlueprintListView
 from .input_context_param import InputContextParam as InputContextParam
@@ -67,6 +68,7 @@ from .devbox_snapshot_disk_params import DevboxSnapshotDiskParams as DevboxSnaps
 from .scenario_list_public_params import ScenarioListPublicParams as ScenarioListPublicParams
 from .benchmark_definitions_params import BenchmarkDefinitionsParams as BenchmarkDefinitionsParams
 from .benchmark_list_public_params import BenchmarkListPublicParams as BenchmarkListPublicParams
+from .blueprint_list_public_params import BlueprintListPublicParams as BlueprintListPublicParams
 from .devbox_execution_detail_view import DevboxExecutionDetailView as DevboxExecutionDetailView
 from .scoring_contract_result_view import ScoringContractResultView as ScoringContractResultView
 from .scoring_function_result_view import ScoringFunctionResultView as ScoringFunctionResultView

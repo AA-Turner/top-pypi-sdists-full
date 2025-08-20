@@ -1655,7 +1655,6 @@ class EcsCodeDeploy(
         scope: _constructs_77d1e7e8.Construct,
         id: builtins.str,
         *,
-        certificates: typing.Sequence[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate],
         cluster: _aws_cdk_aws_ecs_ceddda9d.ICluster,
         containers: typing.Sequence[typing.Union[ContainerProps, typing.Dict[builtins.str, typing.Any]]],
         security_groups: typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup],
@@ -1663,7 +1662,9 @@ class EcsCodeDeploy(
         subnets: typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]],
         vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
         alb_target_port: typing.Optional[jsii.Number] = None,
+        assign_public_ip: typing.Optional[builtins.bool] = None,
         auto_scaling: typing.Optional[typing.Union[AutoScalingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        certificates: typing.Optional[typing.Sequence[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]] = None,
         enable_public_load_balancer: typing.Optional[builtins.bool] = None,
         memory_limit: typing.Optional[jsii.Number] = None,
         task_cpu: typing.Optional[jsii.Number] = None,
@@ -1674,7 +1675,6 @@ class EcsCodeDeploy(
         '''
         :param scope: -
         :param id: -
-        :param certificates: Optional ACM certificates for HTTPS termination.
         :param cluster: ECS Cluster where the service will run.
         :param containers: Configuration related to the task definition and container.
         :param security_groups: Security group config.
@@ -1682,7 +1682,9 @@ class EcsCodeDeploy(
         :param subnets: Select which subnets the Service and ALB will placed on.
         :param vpc: VPC in which to deploy ECS and ALB resources.
         :param alb_target_port: The ALB target port.
+        :param assign_public_ip: Whether the Fargate tasks should be assigned public IP addresses (default: false). This is required if your tasks need to access the internet and are in a public subnet.
         :param auto_scaling: Optional auto-scaling configuration.
+        :param certificates: Optional ACM certificates for HTTPS termination. If not provided, HTTP listeners will be used.
         :param enable_public_load_balancer: Whether the load balancer should be internet-facing (default: false).
         :param memory_limit: 
         :param task_cpu: CPU units for the task (default: 1024).
@@ -1695,7 +1697,6 @@ class EcsCodeDeploy(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = EcsCodeDeployProps(
-            certificates=certificates,
             cluster=cluster,
             containers=containers,
             security_groups=security_groups,
@@ -1703,7 +1704,9 @@ class EcsCodeDeploy(
             subnets=subnets,
             vpc=vpc,
             alb_target_port=alb_target_port,
+            assign_public_ip=assign_public_ip,
             auto_scaling=auto_scaling,
+            certificates=certificates,
             enable_public_load_balancer=enable_public_load_balancer,
             memory_limit=memory_limit,
             task_cpu=task_cpu,
@@ -3370,7 +3373,6 @@ class CloudFrontToOriginsProps(TaggableProps):
     jsii_struct_bases=[TaggableProps],
     name_mapping={
         "tags": "tags",
-        "certificates": "certificates",
         "cluster": "cluster",
         "containers": "containers",
         "security_groups": "securityGroups",
@@ -3378,7 +3380,9 @@ class CloudFrontToOriginsProps(TaggableProps):
         "subnets": "subnets",
         "vpc": "vpc",
         "alb_target_port": "albTargetPort",
+        "assign_public_ip": "assignPublicIp",
         "auto_scaling": "autoScaling",
+        "certificates": "certificates",
         "enable_public_load_balancer": "enablePublicLoadBalancer",
         "memory_limit": "memoryLimit",
         "task_cpu": "taskCPU",
@@ -3391,7 +3395,6 @@ class EcsCodeDeployProps(TaggableProps):
         self,
         *,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        certificates: typing.Sequence[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate],
         cluster: _aws_cdk_aws_ecs_ceddda9d.ICluster,
         containers: typing.Sequence[typing.Union[ContainerProps, typing.Dict[builtins.str, typing.Any]]],
         security_groups: typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup],
@@ -3399,7 +3402,9 @@ class EcsCodeDeployProps(TaggableProps):
         subnets: typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]],
         vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
         alb_target_port: typing.Optional[jsii.Number] = None,
+        assign_public_ip: typing.Optional[builtins.bool] = None,
         auto_scaling: typing.Optional[typing.Union[AutoScalingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        certificates: typing.Optional[typing.Sequence[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]] = None,
         enable_public_load_balancer: typing.Optional[builtins.bool] = None,
         memory_limit: typing.Optional[jsii.Number] = None,
         task_cpu: typing.Optional[jsii.Number] = None,
@@ -3409,7 +3414,6 @@ class EcsCodeDeployProps(TaggableProps):
         '''Properties for the EcsCodeDeploy construct.
 
         :param tags: Additional tags to apply to resources. Note: Tags from TAGS environment variable will take precedence over these tags. Environment variable format: TAGS=key1=value1,key2=value2
-        :param certificates: Optional ACM certificates for HTTPS termination.
         :param cluster: ECS Cluster where the service will run.
         :param containers: Configuration related to the task definition and container.
         :param security_groups: Security group config.
@@ -3417,7 +3421,9 @@ class EcsCodeDeployProps(TaggableProps):
         :param subnets: Select which subnets the Service and ALB will placed on.
         :param vpc: VPC in which to deploy ECS and ALB resources.
         :param alb_target_port: The ALB target port.
+        :param assign_public_ip: Whether the Fargate tasks should be assigned public IP addresses (default: false). This is required if your tasks need to access the internet and are in a public subnet.
         :param auto_scaling: Optional auto-scaling configuration.
+        :param certificates: Optional ACM certificates for HTTPS termination. If not provided, HTTP listeners will be used.
         :param enable_public_load_balancer: Whether the load balancer should be internet-facing (default: false).
         :param memory_limit: 
         :param task_cpu: CPU units for the task (default: 1024).
@@ -3431,7 +3437,6 @@ class EcsCodeDeployProps(TaggableProps):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0e1edfc306738ea99e0bd03a55876d7f75a063970dd3103fc1bbb766dff014b1)
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument containers", value=containers, expected_type=type_hints["containers"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
@@ -3439,14 +3444,15 @@ class EcsCodeDeployProps(TaggableProps):
             check_type(argname="argument subnets", value=subnets, expected_type=type_hints["subnets"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
             check_type(argname="argument alb_target_port", value=alb_target_port, expected_type=type_hints["alb_target_port"])
+            check_type(argname="argument assign_public_ip", value=assign_public_ip, expected_type=type_hints["assign_public_ip"])
             check_type(argname="argument auto_scaling", value=auto_scaling, expected_type=type_hints["auto_scaling"])
+            check_type(argname="argument certificates", value=certificates, expected_type=type_hints["certificates"])
             check_type(argname="argument enable_public_load_balancer", value=enable_public_load_balancer, expected_type=type_hints["enable_public_load_balancer"])
             check_type(argname="argument memory_limit", value=memory_limit, expected_type=type_hints["memory_limit"])
             check_type(argname="argument task_cpu", value=task_cpu, expected_type=type_hints["task_cpu"])
             check_type(argname="argument task_exec_role", value=task_exec_role, expected_type=type_hints["task_exec_role"])
             check_type(argname="argument task_role", value=task_role, expected_type=type_hints["task_role"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "certificates": certificates,
             "cluster": cluster,
             "containers": containers,
             "security_groups": security_groups,
@@ -3458,8 +3464,12 @@ class EcsCodeDeployProps(TaggableProps):
             self._values["tags"] = tags
         if alb_target_port is not None:
             self._values["alb_target_port"] = alb_target_port
+        if assign_public_ip is not None:
+            self._values["assign_public_ip"] = assign_public_ip
         if auto_scaling is not None:
             self._values["auto_scaling"] = auto_scaling
+        if certificates is not None:
+            self._values["certificates"] = certificates
         if enable_public_load_balancer is not None:
             self._values["enable_public_load_balancer"] = enable_public_load_balancer
         if memory_limit is not None:
@@ -3479,15 +3489,6 @@ class EcsCodeDeployProps(TaggableProps):
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def certificates(
-        self,
-    ) -> typing.List[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]:
-        '''Optional ACM certificates for HTTPS termination.'''
-        result = self._values.get("certificates")
-        assert result is not None, "Required property 'certificates' is missing"
-        return typing.cast(typing.List[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate], result)
 
     @builtins.property
     def cluster(self) -> _aws_cdk_aws_ecs_ceddda9d.ICluster:
@@ -3538,10 +3539,30 @@ class EcsCodeDeployProps(TaggableProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def assign_public_ip(self) -> typing.Optional[builtins.bool]:
+        '''Whether the Fargate tasks should be assigned public IP addresses (default: false).
+
+        This is required if your tasks need to access the internet and are in a public subnet.
+        '''
+        result = self._values.get("assign_public_ip")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def auto_scaling(self) -> typing.Optional[AutoScalingProps]:
         '''Optional auto-scaling configuration.'''
         result = self._values.get("auto_scaling")
         return typing.cast(typing.Optional[AutoScalingProps], result)
+
+    @builtins.property
+    def certificates(
+        self,
+    ) -> typing.Optional[typing.List[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]]:
+        '''Optional ACM certificates for HTTPS termination.
+
+        If not provided, HTTP listeners will be used.
+        '''
+        result = self._values.get("certificates")
+        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]], result)
 
     @builtins.property
     def enable_public_load_balancer(self) -> typing.Optional[builtins.bool]:
@@ -3815,7 +3836,6 @@ def _typecheckingstub__19ac4f77d3bba1391929b87d2d23b70fe61e21aa6809f43ed4283d6ec
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    certificates: typing.Sequence[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate],
     cluster: _aws_cdk_aws_ecs_ceddda9d.ICluster,
     containers: typing.Sequence[typing.Union[ContainerProps, typing.Dict[builtins.str, typing.Any]]],
     security_groups: typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup],
@@ -3823,7 +3843,9 @@ def _typecheckingstub__19ac4f77d3bba1391929b87d2d23b70fe61e21aa6809f43ed4283d6ec
     subnets: typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]],
     vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
     alb_target_port: typing.Optional[jsii.Number] = None,
+    assign_public_ip: typing.Optional[builtins.bool] = None,
     auto_scaling: typing.Optional[typing.Union[AutoScalingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    certificates: typing.Optional[typing.Sequence[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]] = None,
     enable_public_load_balancer: typing.Optional[builtins.bool] = None,
     memory_limit: typing.Optional[jsii.Number] = None,
     task_cpu: typing.Optional[jsii.Number] = None,
@@ -4005,7 +4027,6 @@ def _typecheckingstub__e35e3363ae35d50e0f0dd18a9ae11be6e9daf52ba8d2c783abfb12aff
 def _typecheckingstub__0e1edfc306738ea99e0bd03a55876d7f75a063970dd3103fc1bbb766dff014b1(
     *,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    certificates: typing.Sequence[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate],
     cluster: _aws_cdk_aws_ecs_ceddda9d.ICluster,
     containers: typing.Sequence[typing.Union[ContainerProps, typing.Dict[builtins.str, typing.Any]]],
     security_groups: typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup],
@@ -4013,7 +4034,9 @@ def _typecheckingstub__0e1edfc306738ea99e0bd03a55876d7f75a063970dd3103fc1bbb766d
     subnets: typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]],
     vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
     alb_target_port: typing.Optional[jsii.Number] = None,
+    assign_public_ip: typing.Optional[builtins.bool] = None,
     auto_scaling: typing.Optional[typing.Union[AutoScalingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    certificates: typing.Optional[typing.Sequence[_aws_cdk_aws_certificatemanager_ceddda9d.ICertificate]] = None,
     enable_public_load_balancer: typing.Optional[builtins.bool] = None,
     memory_limit: typing.Optional[jsii.Number] = None,
     task_cpu: typing.Optional[jsii.Number] = None,

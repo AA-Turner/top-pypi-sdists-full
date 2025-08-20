@@ -54,7 +54,7 @@ class LLMClient:
                 setattr(litellm, key, value)
                 self.logger.debug(f"Set global litellm.{key}", category="llm")
             # Handle common aliases or expected config names if necessary
-            elif key == "api_base":  # Example: map api_base if needed
+            elif key == "api_base" or key == "baseURL":
                 litellm.api_base = value
                 self.logger.debug(
                     f"Set global litellm.api_base to {value}", category="llm"
@@ -110,6 +110,9 @@ class LLMClient:
         filtered_params = {
             k: v for k, v in params.items() if v is not None or k in kwargs
         }
+        # Fixes parameters for GPT-5 family of models
+        if "gpt-5" in completion_model:
+            filtered_params["temperature"] = 1
 
         self.logger.debug(
             f"Calling litellm.completion with model={completion_model} and params: {filtered_params}",

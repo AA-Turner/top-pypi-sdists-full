@@ -110,9 +110,6 @@ class Logger(ILogger):
             # Get the configuration object for the selected channel
             config_channels = getattr(self.__config.channels, channel)
 
-            # Generate the log file path using the FileNameLogger utility
-            path: str = FileNameLogger(getattr(config_channels, 'path')).generate()
-
             # Determine the logging level (default to DEBUG if not specified)
             level: Level | int = getattr(config_channels, 'level', 10)
             level = level if isinstance(level, int) else level.value
@@ -122,7 +119,7 @@ class Logger(ILogger):
                 # Simple file handler for stack channel
                 handlers = [
                     logging.FileHandler(
-                        filename=path,
+                        filename=FileNameLogger(getattr(config_channels, 'path')).generate(channel),
                         encoding="utf-8"
                     )
                 ]
@@ -131,7 +128,7 @@ class Logger(ILogger):
                 # Rotating file handler for hourly logs
                 handlers = [
                     PrefixedTimedRotatingFileHandler(
-                        filename=path,
+                        filename=FileNameLogger(getattr(config_channels, 'path')).generate(channel),
                         when="h",
                         interval=1,
                         backupCount=getattr(config_channels, 'retention_hours', 24),
@@ -144,7 +141,7 @@ class Logger(ILogger):
                 # Rotating file handler for daily logs
                 handlers = [
                     PrefixedTimedRotatingFileHandler(
-                        filename=path,
+                        filename=FileNameLogger(getattr(config_channels, 'path')).generate(channel),
                         when="d",
                         interval=1,
                         backupCount=getattr(config_channels, 'retention_days', 7),
@@ -158,7 +155,7 @@ class Logger(ILogger):
                 # Rotating file handler for weekly logs
                 handlers = [
                     PrefixedTimedRotatingFileHandler(
-                        filename=path,
+                        filename=FileNameLogger(getattr(config_channels, 'path')).generate(channel),
                         when="w0",
                         interval=1,
                         backupCount=getattr(config_channels, 'retention_weeks', 4),
@@ -171,7 +168,7 @@ class Logger(ILogger):
                 # Rotating file handler for monthly logs
                 handlers = [
                     PrefixedTimedRotatingFileHandler(
-                        filename=path,
+                        filename=FileNameLogger(getattr(config_channels, 'path')).generate(channel),
                         when="midnight",
                         interval=30,
                         backupCount=getattr(config_channels, 'retention_months', 4),
@@ -182,9 +179,10 @@ class Logger(ILogger):
 
             elif channel == "chunked":
                 # Size-based rotating file handler for chunked logs
+                max_bytes = getattr(config_channels, 'mb_size', 10) * 1024 * 1024
                 handlers = [
                     PrefixedSizeRotatingFileHandler(
-                        filename=path,
+                        filename=FileNameLogger(getattr(config_channels, 'path')).generate(channel, max_bytes),
                         maxBytes=getattr(config_channels, 'mb_size', 10) * 1024 * 1024,
                         backupCount=getattr(config_channels, 'files', 5),
                         encoding="utf-8"

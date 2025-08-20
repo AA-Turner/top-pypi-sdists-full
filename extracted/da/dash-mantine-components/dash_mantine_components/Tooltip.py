@@ -24,7 +24,7 @@ Tooltip
 
 Keyword arguments:
 
-- children (a list of or a singular dash component, string or number; required):
+- children (a list of or a singular dash component, string or number; optional):
     Target element, must support `ref` prop and `...others`.
 
 - id (string; optional):
@@ -44,6 +44,10 @@ Keyword arguments:
 
 - arrowSize (number; optional):
     Arrow size in px, `4` by default.
+
+- attributes (boolean | number | string | dict | list; optional):
+    Passes attributes to inner elements of a component.  See Styles
+    API docs.
 
 - autoContrast (boolean; optional):
     Determines whether tooltip text color should depend on
@@ -255,7 +259,8 @@ Keyword arguments:
     Class added to the root element, if applicable.
 
 - classNames (dict; optional):
-    Adds class names to Mantine components.
+    Adds custom CSS class names to inner elements of a component.  See
+    Styles API docs.
 
 - closeDelay (number; optional):
     Close delay in ms, `0` by default.
@@ -463,13 +468,18 @@ Keyword arguments:
 - right (string | number; optional)
 
 - styles (boolean | number | string | dict | list; optional):
-    Mantine styles API.
+    Adds inline styles directly to inner elements of a component.  See
+    Styles API docs.
 
 - ta (optional):
     TextAlign.
 
 - tabIndex (number; optional):
     tab-index.
+
+- target (string; optional):
+    Selector, ref of an element or element itself that should be used
+    for positioning.
 
 - td (string | number; optional):
     TextDecoration.
@@ -657,6 +667,7 @@ Keyword arguments:
         portalProps: typing.Optional[dict] = None,
         middlewares: typing.Optional[dict] = None,
         autoContrast: typing.Optional[bool] = None,
+        target: typing.Optional[typing.Union[str]] = None,
         className: typing.Optional[str] = None,
         style: typing.Optional[typing.Any] = None,
         hiddenFrom: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
@@ -718,14 +729,15 @@ Keyword arguments:
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
         variant: typing.Optional[str] = None,
+        attributes: typing.Optional[typing.Any] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'autoContrast', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'boxWrapperProps', 'c', 'className', 'classNames', 'closeDelay', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'events', 'ff', 'flex', 'floatingStrategy', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inline', 'inset', 'keepMounted', 'label', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'middlewares', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'multiline', 'mx', 'my', 'offset', 'opacity', 'openDelay', 'opened', 'p', 'pb', 'pe', 'pl', 'portalProps', 'pos', 'position', 'positionDependencies', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionProps', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withArrow', 'withinPortal', 'zIndex']
+        self._prop_names = ['children', 'id', 'aria-*', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'attributes', 'autoContrast', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'boxWrapperProps', 'c', 'className', 'classNames', 'closeDelay', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'events', 'ff', 'flex', 'floatingStrategy', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inline', 'inset', 'keepMounted', 'label', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'middlewares', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'multiline', 'mx', 'my', 'offset', 'opacity', 'openDelay', 'opened', 'p', 'pb', 'pe', 'pl', 'portalProps', 'pos', 'position', 'positionDependencies', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'target', 'td', 'top', 'transitionProps', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withArrow', 'withinPortal', 'zIndex']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'autoContrast', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'boxWrapperProps', 'c', 'className', 'classNames', 'closeDelay', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'events', 'ff', 'flex', 'floatingStrategy', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inline', 'inset', 'keepMounted', 'label', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'middlewares', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'multiline', 'mx', 'my', 'offset', 'opacity', 'openDelay', 'opened', 'p', 'pb', 'pe', 'pl', 'portalProps', 'pos', 'position', 'positionDependencies', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'transitionProps', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withArrow', 'withinPortal', 'zIndex']
+        self.available_properties = ['children', 'id', 'aria-*', 'arrowOffset', 'arrowPosition', 'arrowRadius', 'arrowSize', 'attributes', 'autoContrast', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'boxWrapperProps', 'c', 'className', 'classNames', 'closeDelay', 'color', 'darkHidden', 'data-*', 'disabled', 'display', 'events', 'ff', 'flex', 'floatingStrategy', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inline', 'inset', 'keepMounted', 'label', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'middlewares', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'multiline', 'mx', 'my', 'offset', 'opacity', 'openDelay', 'opened', 'p', 'pb', 'pe', 'pl', 'portalProps', 'pos', 'position', 'positionDependencies', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'target', 'td', 'top', 'transitionProps', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withArrow', 'withinPortal', 'zIndex']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()
@@ -736,9 +748,6 @@ Keyword arguments:
             if k not in args:
                 raise TypeError(
                     'Required argument `' + k + '` was not specified.')
-
-        if 'children' not in _explicit_args:
-            raise TypeError('Required argument children was not specified.')
 
         super(Tooltip, self).__init__(children=children, **args)
 

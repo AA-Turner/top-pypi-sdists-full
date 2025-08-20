@@ -63,6 +63,7 @@ class CommandLineArguments:
     allow_empty: bool
     debug_traceback: bool
     enable: list[str]
+    clean_cache: bool
 
     @classmethod
     def defaults(cls) -> Self:
@@ -77,6 +78,7 @@ class CommandLineArguments:
             print_build_identifiers=False,
             debug_traceback=False,
             enable=[],
+            clean_cache=False,
         )
 
 
@@ -391,6 +393,7 @@ class OptionsReader:
     by the platform.
 
     Example:
+      >>> # xdoctest: +SKIP
       >>> options_reader = OptionsReader(config_file, platform='macos')
       >>> options_reader.get('cool-color')
 
@@ -657,7 +660,9 @@ class Options:
         )
         requires_python = None if requires_python_str is None else SpecifierSet(requires_python_str)
 
-        archs_config_str = args.archs or self.reader.get("archs", option_format=ListFormat(sep=" "))
+        archs_config_str = args.archs or self.reader.get(
+            "archs", option_format=ListFormat(sep=" "), ignore_empty=True
+        )
         architectures = Architecture.parse_config(archs_config_str, platform=self.platform)
 
         # Process `--only`

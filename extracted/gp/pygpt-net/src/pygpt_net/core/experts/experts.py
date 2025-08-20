@@ -651,7 +651,7 @@ class ExpertWorker(QRunnable):
 
             # index to use
             use_index = False
-            if db_idx:
+            if db_idx and db_idx != '_':
                 use_index = True
             if use_index:
                 index, llm = self.window.core.idx.chat.get_index(db_idx, model_data, stream=False)
@@ -693,10 +693,6 @@ class ExpertWorker(QRunnable):
                     
                 tools = self.window.core.agents.tools.prepare(
                     bridge_context, extra, verbose=False, force=True)
-
-                # disable tools if cmd is not enabled
-                if not self.window.core.command.is_cmd(inline=False):
-                    tools = []
 
                 # remove expert_call tool from tools
                 for tool in list(tools):

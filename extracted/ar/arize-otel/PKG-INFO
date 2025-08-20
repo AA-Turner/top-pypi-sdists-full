@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-otel
-Version: 0.9.0
+Version: 0.10.0
 Summary: Helper package for OTEL setup to send traces to Arize & Phoenix
 Project-URL: Documentation, https://docs.arize.com/arize/large-language-models/tracing
 Project-URL: Issues, https://github.com/Arize-ai/arize-otel-python/issues

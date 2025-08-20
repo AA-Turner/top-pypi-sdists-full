@@ -1,7 +1,7 @@
 r'''
 # `google_model_armor_floorsetting`
 
-Refer to the Terraform Registry for docs: [`google_model_armor_floorsetting`](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting).
+Refer to the Terraform Registry for docs: [`google_model_armor_floorsetting`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ModelArmorFloorsetting(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.modelArmorFloorsetting.ModelArmorFloorsetting",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting google_model_armor_floorsetting}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting google_model_armor_floorsetting}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class ModelArmorFloorsetting(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting google_model_armor_floorsetting} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting google_model_armor_floorsetting} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter_config: filter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_config ModelArmorFloorsetting#filter_config}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#location ModelArmorFloorsetting#location}
-        :param parent: Will be any one of these:. - 'projects/{project}' - 'folders/{folder}' - 'organizations/{organizationId}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#parent ModelArmorFloorsetting#parent}
-        :param ai_platform_floor_setting: ai_platform_floor_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#ai_platform_floor_setting ModelArmorFloorsetting#ai_platform_floor_setting}
-        :param enable_floor_setting_enforcement: Floor Settings enforcement status. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#enable_floor_setting_enforcement ModelArmorFloorsetting#enable_floor_setting_enforcement}
-        :param floor_setting_metadata: floor_setting_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#floor_setting_metadata ModelArmorFloorsetting#floor_setting_metadata}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#id ModelArmorFloorsetting#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param integrated_services: List of integrated services for which the floor setting is applicable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#integrated_services ModelArmorFloorsetting#integrated_services}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#timeouts ModelArmorFloorsetting#timeouts}
+        :param filter_config: filter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_config ModelArmorFloorsetting#filter_config}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#location ModelArmorFloorsetting#location}
+        :param parent: Will be any one of these:. - 'projects/{project}' - 'folders/{folder}' - 'organizations/{organizationId}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#parent ModelArmorFloorsetting#parent}
+        :param ai_platform_floor_setting: ai_platform_floor_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#ai_platform_floor_setting ModelArmorFloorsetting#ai_platform_floor_setting}
+        :param enable_floor_setting_enforcement: Floor Settings enforcement status. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#enable_floor_setting_enforcement ModelArmorFloorsetting#enable_floor_setting_enforcement}
+        :param floor_setting_metadata: floor_setting_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#floor_setting_metadata ModelArmorFloorsetting#floor_setting_metadata}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#id ModelArmorFloorsetting#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param integrated_services: List of integrated services for which the floor setting is applicable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#integrated_services ModelArmorFloorsetting#integrated_services}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#timeouts ModelArmorFloorsetting#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class ModelArmorFloorsetting(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ModelArmorFloorsetting to import.
-        :param import_from_id: The id of the existing ModelArmorFloorsetting that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ModelArmorFloorsetting that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ModelArmorFloorsetting to import is found.
         '''
         if __debug__:
@@ -147,9 +147,9 @@ class ModelArmorFloorsetting(
         inspect_only: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_cloud_logging: If true, log Model Armor filter results to Cloud Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#enable_cloud_logging ModelArmorFloorsetting#enable_cloud_logging}
-        :param inspect_and_block: If true, Model Armor filters will be run in inspect and block mode. Requests that trip Model Armor filters will be blocked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#inspect_and_block ModelArmorFloorsetting#inspect_and_block}
-        :param inspect_only: If true, Model Armor filters will be run in inspect only mode. No action will be taken on the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#inspect_only ModelArmorFloorsetting#inspect_only}
+        :param enable_cloud_logging: If true, log Model Armor filter results to Cloud Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#enable_cloud_logging ModelArmorFloorsetting#enable_cloud_logging}
+        :param inspect_and_block: If true, Model Armor filters will be run in inspect and block mode. Requests that trip Model Armor filters will be blocked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#inspect_and_block ModelArmorFloorsetting#inspect_and_block}
+        :param inspect_only: If true, Model Armor filters will be run in inspect only mode. No action will be taken on the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#inspect_only ModelArmorFloorsetting#inspect_only}
         '''
         value = ModelArmorFloorsettingAiPlatformFloorSetting(
             enable_cloud_logging=enable_cloud_logging,
@@ -169,10 +169,10 @@ class ModelArmorFloorsetting(
         sdp_settings: typing.Optional[typing.Union["ModelArmorFloorsettingFilterConfigSdpSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param malicious_uri_filter_settings: malicious_uri_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#malicious_uri_filter_settings ModelArmorFloorsetting#malicious_uri_filter_settings}
-        :param pi_and_jailbreak_filter_settings: pi_and_jailbreak_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#pi_and_jailbreak_filter_settings ModelArmorFloorsetting#pi_and_jailbreak_filter_settings}
-        :param rai_settings: rai_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#rai_settings ModelArmorFloorsetting#rai_settings}
-        :param sdp_settings: sdp_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#sdp_settings ModelArmorFloorsetting#sdp_settings}
+        :param malicious_uri_filter_settings: malicious_uri_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#malicious_uri_filter_settings ModelArmorFloorsetting#malicious_uri_filter_settings}
+        :param pi_and_jailbreak_filter_settings: pi_and_jailbreak_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#pi_and_jailbreak_filter_settings ModelArmorFloorsetting#pi_and_jailbreak_filter_settings}
+        :param rai_settings: rai_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#rai_settings ModelArmorFloorsetting#rai_settings}
+        :param sdp_settings: sdp_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#sdp_settings ModelArmorFloorsetting#sdp_settings}
         '''
         value = ModelArmorFloorsettingFilterConfig(
             malicious_uri_filter_settings=malicious_uri_filter_settings,
@@ -190,7 +190,7 @@ class ModelArmorFloorsetting(
         multi_language_detection: typing.Optional[typing.Union["ModelArmorFloorsettingFloorSettingMetadataMultiLanguageDetection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param multi_language_detection: multi_language_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#multi_language_detection ModelArmorFloorsetting#multi_language_detection}
+        :param multi_language_detection: multi_language_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#multi_language_detection ModelArmorFloorsetting#multi_language_detection}
         '''
         value = ModelArmorFloorsettingFloorSettingMetadata(
             multi_language_detection=multi_language_detection
@@ -207,9 +207,9 @@ class ModelArmorFloorsetting(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#create ModelArmorFloorsetting#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#delete ModelArmorFloorsetting#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#update ModelArmorFloorsetting#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#create ModelArmorFloorsetting#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#delete ModelArmorFloorsetting#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#update ModelArmorFloorsetting#update}.
         '''
         value = ModelArmorFloorsettingTimeouts(
             create=create, delete=delete, update=update
@@ -432,9 +432,9 @@ class ModelArmorFloorsettingAiPlatformFloorSetting:
         inspect_only: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_cloud_logging: If true, log Model Armor filter results to Cloud Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#enable_cloud_logging ModelArmorFloorsetting#enable_cloud_logging}
-        :param inspect_and_block: If true, Model Armor filters will be run in inspect and block mode. Requests that trip Model Armor filters will be blocked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#inspect_and_block ModelArmorFloorsetting#inspect_and_block}
-        :param inspect_only: If true, Model Armor filters will be run in inspect only mode. No action will be taken on the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#inspect_only ModelArmorFloorsetting#inspect_only}
+        :param enable_cloud_logging: If true, log Model Armor filter results to Cloud Logging. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#enable_cloud_logging ModelArmorFloorsetting#enable_cloud_logging}
+        :param inspect_and_block: If true, Model Armor filters will be run in inspect and block mode. Requests that trip Model Armor filters will be blocked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#inspect_and_block ModelArmorFloorsetting#inspect_and_block}
+        :param inspect_only: If true, Model Armor filters will be run in inspect only mode. No action will be taken on the request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#inspect_only ModelArmorFloorsetting#inspect_only}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__553d9855ba1dc5b33ca80fe6c7c4663040b9069d254acaa3151d6b8baf0ffa3c)
@@ -455,7 +455,7 @@ class ModelArmorFloorsettingAiPlatformFloorSetting:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, log Model Armor filter results to Cloud Logging.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#enable_cloud_logging ModelArmorFloorsetting#enable_cloud_logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#enable_cloud_logging ModelArmorFloorsetting#enable_cloud_logging}
         '''
         result = self._values.get("enable_cloud_logging")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -468,7 +468,7 @@ class ModelArmorFloorsettingAiPlatformFloorSetting:
 
         Requests that trip Model Armor filters will be blocked.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#inspect_and_block ModelArmorFloorsetting#inspect_and_block}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#inspect_and_block ModelArmorFloorsetting#inspect_and_block}
         '''
         result = self._values.get("inspect_and_block")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -479,7 +479,7 @@ class ModelArmorFloorsettingAiPlatformFloorSetting:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, Model Armor filters will be run in inspect only mode. No action will be taken on the request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#inspect_only ModelArmorFloorsetting#inspect_only}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#inspect_only ModelArmorFloorsetting#inspect_only}
         '''
         result = self._values.get("inspect_only")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -667,15 +667,15 @@ class ModelArmorFloorsettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter_config: filter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_config ModelArmorFloorsetting#filter_config}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#location ModelArmorFloorsetting#location}
-        :param parent: Will be any one of these:. - 'projects/{project}' - 'folders/{folder}' - 'organizations/{organizationId}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#parent ModelArmorFloorsetting#parent}
-        :param ai_platform_floor_setting: ai_platform_floor_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#ai_platform_floor_setting ModelArmorFloorsetting#ai_platform_floor_setting}
-        :param enable_floor_setting_enforcement: Floor Settings enforcement status. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#enable_floor_setting_enforcement ModelArmorFloorsetting#enable_floor_setting_enforcement}
-        :param floor_setting_metadata: floor_setting_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#floor_setting_metadata ModelArmorFloorsetting#floor_setting_metadata}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#id ModelArmorFloorsetting#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param integrated_services: List of integrated services for which the floor setting is applicable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#integrated_services ModelArmorFloorsetting#integrated_services}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#timeouts ModelArmorFloorsetting#timeouts}
+        :param filter_config: filter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_config ModelArmorFloorsetting#filter_config}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#location ModelArmorFloorsetting#location}
+        :param parent: Will be any one of these:. - 'projects/{project}' - 'folders/{folder}' - 'organizations/{organizationId}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#parent ModelArmorFloorsetting#parent}
+        :param ai_platform_floor_setting: ai_platform_floor_setting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#ai_platform_floor_setting ModelArmorFloorsetting#ai_platform_floor_setting}
+        :param enable_floor_setting_enforcement: Floor Settings enforcement status. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#enable_floor_setting_enforcement ModelArmorFloorsetting#enable_floor_setting_enforcement}
+        :param floor_setting_metadata: floor_setting_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#floor_setting_metadata ModelArmorFloorsetting#floor_setting_metadata}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#id ModelArmorFloorsetting#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param integrated_services: List of integrated services for which the floor setting is applicable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#integrated_services ModelArmorFloorsetting#integrated_services}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#timeouts ModelArmorFloorsetting#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -805,7 +805,7 @@ class ModelArmorFloorsettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter_config(self) -> "ModelArmorFloorsettingFilterConfig":
         '''filter_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_config ModelArmorFloorsetting#filter_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_config ModelArmorFloorsetting#filter_config}
         '''
         result = self._values.get("filter_config")
         assert result is not None, "Required property 'filter_config' is missing"
@@ -815,7 +815,7 @@ class ModelArmorFloorsettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#location ModelArmorFloorsetting#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#location ModelArmorFloorsetting#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -829,7 +829,7 @@ class ModelArmorFloorsettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - 'folders/{folder}'
         - 'organizations/{organizationId}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#parent ModelArmorFloorsetting#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#parent ModelArmorFloorsetting#parent}
         '''
         result = self._values.get("parent")
         assert result is not None, "Required property 'parent' is missing"
@@ -841,7 +841,7 @@ class ModelArmorFloorsettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[ModelArmorFloorsettingAiPlatformFloorSetting]:
         '''ai_platform_floor_setting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#ai_platform_floor_setting ModelArmorFloorsetting#ai_platform_floor_setting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#ai_platform_floor_setting ModelArmorFloorsetting#ai_platform_floor_setting}
         '''
         result = self._values.get("ai_platform_floor_setting")
         return typing.cast(typing.Optional[ModelArmorFloorsettingAiPlatformFloorSetting], result)
@@ -852,7 +852,7 @@ class ModelArmorFloorsettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Floor Settings enforcement status.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#enable_floor_setting_enforcement ModelArmorFloorsetting#enable_floor_setting_enforcement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#enable_floor_setting_enforcement ModelArmorFloorsetting#enable_floor_setting_enforcement}
         '''
         result = self._values.get("enable_floor_setting_enforcement")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -863,14 +863,14 @@ class ModelArmorFloorsettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ModelArmorFloorsettingFloorSettingMetadata"]:
         '''floor_setting_metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#floor_setting_metadata ModelArmorFloorsetting#floor_setting_metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#floor_setting_metadata ModelArmorFloorsetting#floor_setting_metadata}
         '''
         result = self._values.get("floor_setting_metadata")
         return typing.cast(typing.Optional["ModelArmorFloorsettingFloorSettingMetadata"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#id ModelArmorFloorsetting#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#id ModelArmorFloorsetting#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -882,7 +882,7 @@ class ModelArmorFloorsettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def integrated_services(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of integrated services for which the floor setting is applicable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#integrated_services ModelArmorFloorsetting#integrated_services}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#integrated_services ModelArmorFloorsetting#integrated_services}
         '''
         result = self._values.get("integrated_services")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -891,7 +891,7 @@ class ModelArmorFloorsettingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ModelArmorFloorsettingTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#timeouts ModelArmorFloorsetting#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#timeouts ModelArmorFloorsetting#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ModelArmorFloorsettingTimeouts"], result)
@@ -928,10 +928,10 @@ class ModelArmorFloorsettingFilterConfig:
         sdp_settings: typing.Optional[typing.Union["ModelArmorFloorsettingFilterConfigSdpSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param malicious_uri_filter_settings: malicious_uri_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#malicious_uri_filter_settings ModelArmorFloorsetting#malicious_uri_filter_settings}
-        :param pi_and_jailbreak_filter_settings: pi_and_jailbreak_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#pi_and_jailbreak_filter_settings ModelArmorFloorsetting#pi_and_jailbreak_filter_settings}
-        :param rai_settings: rai_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#rai_settings ModelArmorFloorsetting#rai_settings}
-        :param sdp_settings: sdp_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#sdp_settings ModelArmorFloorsetting#sdp_settings}
+        :param malicious_uri_filter_settings: malicious_uri_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#malicious_uri_filter_settings ModelArmorFloorsetting#malicious_uri_filter_settings}
+        :param pi_and_jailbreak_filter_settings: pi_and_jailbreak_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#pi_and_jailbreak_filter_settings ModelArmorFloorsetting#pi_and_jailbreak_filter_settings}
+        :param rai_settings: rai_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#rai_settings ModelArmorFloorsetting#rai_settings}
+        :param sdp_settings: sdp_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#sdp_settings ModelArmorFloorsetting#sdp_settings}
         '''
         if isinstance(malicious_uri_filter_settings, dict):
             malicious_uri_filter_settings = ModelArmorFloorsettingFilterConfigMaliciousUriFilterSettings(**malicious_uri_filter_settings)
@@ -963,7 +963,7 @@ class ModelArmorFloorsettingFilterConfig:
     ) -> typing.Optional["ModelArmorFloorsettingFilterConfigMaliciousUriFilterSettings"]:
         '''malicious_uri_filter_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#malicious_uri_filter_settings ModelArmorFloorsetting#malicious_uri_filter_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#malicious_uri_filter_settings ModelArmorFloorsetting#malicious_uri_filter_settings}
         '''
         result = self._values.get("malicious_uri_filter_settings")
         return typing.cast(typing.Optional["ModelArmorFloorsettingFilterConfigMaliciousUriFilterSettings"], result)
@@ -974,7 +974,7 @@ class ModelArmorFloorsettingFilterConfig:
     ) -> typing.Optional["ModelArmorFloorsettingFilterConfigPiAndJailbreakFilterSettings"]:
         '''pi_and_jailbreak_filter_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#pi_and_jailbreak_filter_settings ModelArmorFloorsetting#pi_and_jailbreak_filter_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#pi_and_jailbreak_filter_settings ModelArmorFloorsetting#pi_and_jailbreak_filter_settings}
         '''
         result = self._values.get("pi_and_jailbreak_filter_settings")
         return typing.cast(typing.Optional["ModelArmorFloorsettingFilterConfigPiAndJailbreakFilterSettings"], result)
@@ -985,7 +985,7 @@ class ModelArmorFloorsettingFilterConfig:
     ) -> typing.Optional["ModelArmorFloorsettingFilterConfigRaiSettings"]:
         '''rai_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#rai_settings ModelArmorFloorsetting#rai_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#rai_settings ModelArmorFloorsetting#rai_settings}
         '''
         result = self._values.get("rai_settings")
         return typing.cast(typing.Optional["ModelArmorFloorsettingFilterConfigRaiSettings"], result)
@@ -996,7 +996,7 @@ class ModelArmorFloorsettingFilterConfig:
     ) -> typing.Optional["ModelArmorFloorsettingFilterConfigSdpSettings"]:
         '''sdp_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#sdp_settings ModelArmorFloorsetting#sdp_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#sdp_settings ModelArmorFloorsetting#sdp_settings}
         '''
         result = self._values.get("sdp_settings")
         return typing.cast(typing.Optional["ModelArmorFloorsettingFilterConfigSdpSettings"], result)
@@ -1025,7 +1025,7 @@ class ModelArmorFloorsettingFilterConfigMaliciousUriFilterSettings:
         filter_enforcement: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_enforcement: Tells whether the Malicious URI filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
+        :param filter_enforcement: Tells whether the Malicious URI filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da98c8f0251677d6374d981a78632ea55a3279f69783729e5b93f2baf5e292af)
@@ -1038,7 +1038,7 @@ class ModelArmorFloorsettingFilterConfigMaliciousUriFilterSettings:
     def filter_enforcement(self) -> typing.Optional[builtins.str]:
         '''Tells whether the Malicious URI filter is enabled or disabled. Possible values: ENABLED DISABLED.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
         '''
         result = self._values.get("filter_enforcement")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1141,7 +1141,7 @@ class ModelArmorFloorsettingFilterConfigOutputReference(
         filter_enforcement: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_enforcement: Tells whether the Malicious URI filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
+        :param filter_enforcement: Tells whether the Malicious URI filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
         '''
         value = ModelArmorFloorsettingFilterConfigMaliciousUriFilterSettings(
             filter_enforcement=filter_enforcement
@@ -1157,8 +1157,8 @@ class ModelArmorFloorsettingFilterConfigOutputReference(
         filter_enforcement: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param confidence_level: Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#confidence_level ModelArmorFloorsetting#confidence_level}
-        :param filter_enforcement: Tells whether Prompt injection and Jailbreak filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
+        :param confidence_level: Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#confidence_level ModelArmorFloorsetting#confidence_level}
+        :param filter_enforcement: Tells whether Prompt injection and Jailbreak filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
         '''
         value = ModelArmorFloorsettingFilterConfigPiAndJailbreakFilterSettings(
             confidence_level=confidence_level, filter_enforcement=filter_enforcement
@@ -1173,7 +1173,7 @@ class ModelArmorFloorsettingFilterConfigOutputReference(
         rai_filters: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ModelArmorFloorsettingFilterConfigRaiSettingsRaiFilters", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param rai_filters: rai_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#rai_filters ModelArmorFloorsetting#rai_filters}
+        :param rai_filters: rai_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#rai_filters ModelArmorFloorsetting#rai_filters}
         '''
         value = ModelArmorFloorsettingFilterConfigRaiSettings(rai_filters=rai_filters)
 
@@ -1187,8 +1187,8 @@ class ModelArmorFloorsettingFilterConfigOutputReference(
         basic_config: typing.Optional[typing.Union["ModelArmorFloorsettingFilterConfigSdpSettingsBasicConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_config: advanced_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#advanced_config ModelArmorFloorsetting#advanced_config}
-        :param basic_config: basic_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#basic_config ModelArmorFloorsetting#basic_config}
+        :param advanced_config: advanced_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#advanced_config ModelArmorFloorsetting#advanced_config}
+        :param basic_config: basic_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#basic_config ModelArmorFloorsetting#basic_config}
         '''
         value = ModelArmorFloorsettingFilterConfigSdpSettings(
             advanced_config=advanced_config, basic_config=basic_config
@@ -1300,8 +1300,8 @@ class ModelArmorFloorsettingFilterConfigPiAndJailbreakFilterSettings:
         filter_enforcement: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param confidence_level: Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#confidence_level ModelArmorFloorsetting#confidence_level}
-        :param filter_enforcement: Tells whether Prompt injection and Jailbreak filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
+        :param confidence_level: Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#confidence_level ModelArmorFloorsetting#confidence_level}
+        :param filter_enforcement: Tells whether Prompt injection and Jailbreak filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d1ec6c6d9ba2acf92c90ba8d954b2576b58ec2eef6b3edcfd3755f6fa48a28a)
@@ -1317,7 +1317,7 @@ class ModelArmorFloorsettingFilterConfigPiAndJailbreakFilterSettings:
     def confidence_level(self) -> typing.Optional[builtins.str]:
         '''Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#confidence_level ModelArmorFloorsetting#confidence_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#confidence_level ModelArmorFloorsetting#confidence_level}
         '''
         result = self._values.get("confidence_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1326,7 +1326,7 @@ class ModelArmorFloorsettingFilterConfigPiAndJailbreakFilterSettings:
     def filter_enforcement(self) -> typing.Optional[builtins.str]:
         '''Tells whether Prompt injection and Jailbreak filter is enabled or disabled. Possible values: ENABLED DISABLED.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
         '''
         result = self._values.get("filter_enforcement")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1435,7 +1435,7 @@ class ModelArmorFloorsettingFilterConfigRaiSettings:
         rai_filters: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ModelArmorFloorsettingFilterConfigRaiSettingsRaiFilters", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param rai_filters: rai_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#rai_filters ModelArmorFloorsetting#rai_filters}
+        :param rai_filters: rai_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#rai_filters ModelArmorFloorsetting#rai_filters}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93cf3fba8255a72a2d27abaed41d91bb234dcca7d5ca0115134c2dde5cf4992f)
@@ -1450,7 +1450,7 @@ class ModelArmorFloorsettingFilterConfigRaiSettings:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ModelArmorFloorsettingFilterConfigRaiSettingsRaiFilters"]]:
         '''rai_filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#rai_filters ModelArmorFloorsetting#rai_filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#rai_filters ModelArmorFloorsetting#rai_filters}
         '''
         result = self._values.get("rai_filters")
         assert result is not None, "Required property 'rai_filters' is missing"
@@ -1546,8 +1546,8 @@ class ModelArmorFloorsettingFilterConfigRaiSettingsRaiFilters:
         confidence_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_type: Possible values: SEXUALLY_EXPLICIT HATE_SPEECH HARASSMENT DANGEROUS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_type ModelArmorFloorsetting#filter_type}
-        :param confidence_level: Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#confidence_level ModelArmorFloorsetting#confidence_level}
+        :param filter_type: Possible values: SEXUALLY_EXPLICIT HATE_SPEECH HARASSMENT DANGEROUS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_type ModelArmorFloorsetting#filter_type}
+        :param confidence_level: Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#confidence_level ModelArmorFloorsetting#confidence_level}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__79ace306a6c082d31e2d433c5a1cf32114928bc0cf4165fb0fdfdc898a698f8b)
@@ -1563,7 +1563,7 @@ class ModelArmorFloorsettingFilterConfigRaiSettingsRaiFilters:
     def filter_type(self) -> builtins.str:
         '''Possible values: SEXUALLY_EXPLICIT HATE_SPEECH HARASSMENT DANGEROUS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_type ModelArmorFloorsetting#filter_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_type ModelArmorFloorsetting#filter_type}
         '''
         result = self._values.get("filter_type")
         assert result is not None, "Required property 'filter_type' is missing"
@@ -1573,7 +1573,7 @@ class ModelArmorFloorsettingFilterConfigRaiSettingsRaiFilters:
     def confidence_level(self) -> typing.Optional[builtins.str]:
         '''Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#confidence_level ModelArmorFloorsetting#confidence_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#confidence_level ModelArmorFloorsetting#confidence_level}
         '''
         result = self._values.get("confidence_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1778,8 +1778,8 @@ class ModelArmorFloorsettingFilterConfigSdpSettings:
         basic_config: typing.Optional[typing.Union["ModelArmorFloorsettingFilterConfigSdpSettingsBasicConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_config: advanced_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#advanced_config ModelArmorFloorsetting#advanced_config}
-        :param basic_config: basic_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#basic_config ModelArmorFloorsetting#basic_config}
+        :param advanced_config: advanced_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#advanced_config ModelArmorFloorsetting#advanced_config}
+        :param basic_config: basic_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#basic_config ModelArmorFloorsetting#basic_config}
         '''
         if isinstance(advanced_config, dict):
             advanced_config = ModelArmorFloorsettingFilterConfigSdpSettingsAdvancedConfig(**advanced_config)
@@ -1801,7 +1801,7 @@ class ModelArmorFloorsettingFilterConfigSdpSettings:
     ) -> typing.Optional["ModelArmorFloorsettingFilterConfigSdpSettingsAdvancedConfig"]:
         '''advanced_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#advanced_config ModelArmorFloorsetting#advanced_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#advanced_config ModelArmorFloorsetting#advanced_config}
         '''
         result = self._values.get("advanced_config")
         return typing.cast(typing.Optional["ModelArmorFloorsettingFilterConfigSdpSettingsAdvancedConfig"], result)
@@ -1812,7 +1812,7 @@ class ModelArmorFloorsettingFilterConfigSdpSettings:
     ) -> typing.Optional["ModelArmorFloorsettingFilterConfigSdpSettingsBasicConfig"]:
         '''basic_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#basic_config ModelArmorFloorsetting#basic_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#basic_config ModelArmorFloorsetting#basic_config}
         '''
         result = self._values.get("basic_config")
         return typing.cast(typing.Optional["ModelArmorFloorsettingFilterConfigSdpSettingsBasicConfig"], result)
@@ -1845,8 +1845,8 @@ class ModelArmorFloorsettingFilterConfigSdpSettingsAdvancedConfig:
         inspect_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param deidentify_template: Optional Sensitive Data Protection Deidentify template resource name. If provided then DeidentifyContent action is performed during Sanitization using this template and inspect template. The De-identified data will be returned in SdpDeidentifyResult. Note that all info-types present in the deidentify template must be present in inspect template. e.g. 'projects/{project}/locations/{location}/deidentifyTemplates/{deidentify_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#deidentify_template ModelArmorFloorsetting#deidentify_template}
-        :param inspect_template: Sensitive Data Protection inspect template resource name. If only inspect template is provided (de-identify template not provided), then Sensitive Data Protection InspectContent action is performed during Sanitization. All Sensitive Data Protection findings identified during inspection will be returned as SdpFinding in SdpInsepctionResult. e.g:- 'projects/{project}/locations/{location}/inspectTemplates/{inspect_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#inspect_template ModelArmorFloorsetting#inspect_template}
+        :param deidentify_template: Optional Sensitive Data Protection Deidentify template resource name. If provided then DeidentifyContent action is performed during Sanitization using this template and inspect template. The De-identified data will be returned in SdpDeidentifyResult. Note that all info-types present in the deidentify template must be present in inspect template. e.g. 'projects/{project}/locations/{location}/deidentifyTemplates/{deidentify_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#deidentify_template ModelArmorFloorsetting#deidentify_template}
+        :param inspect_template: Sensitive Data Protection inspect template resource name. If only inspect template is provided (de-identify template not provided), then Sensitive Data Protection InspectContent action is performed during Sanitization. All Sensitive Data Protection findings identified during inspection will be returned as SdpFinding in SdpInsepctionResult. e.g:- 'projects/{project}/locations/{location}/inspectTemplates/{inspect_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#inspect_template ModelArmorFloorsetting#inspect_template}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cfc47c979194146e98bac101b6b64ba351785195f19e13d8a39527c261d24e67)
@@ -1871,7 +1871,7 @@ class ModelArmorFloorsettingFilterConfigSdpSettingsAdvancedConfig:
         e.g.
         'projects/{project}/locations/{location}/deidentifyTemplates/{deidentify_template}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#deidentify_template ModelArmorFloorsetting#deidentify_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#deidentify_template ModelArmorFloorsetting#deidentify_template}
         '''
         result = self._values.get("deidentify_template")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1888,7 +1888,7 @@ class ModelArmorFloorsettingFilterConfigSdpSettingsAdvancedConfig:
         e.g:-
         'projects/{project}/locations/{location}/inspectTemplates/{inspect_template}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#inspect_template ModelArmorFloorsetting#inspect_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#inspect_template ModelArmorFloorsetting#inspect_template}
         '''
         result = self._values.get("inspect_template")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1997,7 +1997,7 @@ class ModelArmorFloorsettingFilterConfigSdpSettingsBasicConfig:
         filter_enforcement: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_enforcement: Tells whether the Sensitive Data Protection basic config is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
+        :param filter_enforcement: Tells whether the Sensitive Data Protection basic config is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f183051329be7bc9e1a696ce653d069caad6ed7af06424d129f40c6fecb1d7f3)
@@ -2010,7 +2010,7 @@ class ModelArmorFloorsettingFilterConfigSdpSettingsBasicConfig:
     def filter_enforcement(self) -> typing.Optional[builtins.str]:
         '''Tells whether the Sensitive Data Protection basic config is enabled or disabled. Possible values: ENABLED DISABLED.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
         '''
         result = self._values.get("filter_enforcement")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2114,8 +2114,8 @@ class ModelArmorFloorsettingFilterConfigSdpSettingsOutputReference(
         inspect_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param deidentify_template: Optional Sensitive Data Protection Deidentify template resource name. If provided then DeidentifyContent action is performed during Sanitization using this template and inspect template. The De-identified data will be returned in SdpDeidentifyResult. Note that all info-types present in the deidentify template must be present in inspect template. e.g. 'projects/{project}/locations/{location}/deidentifyTemplates/{deidentify_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#deidentify_template ModelArmorFloorsetting#deidentify_template}
-        :param inspect_template: Sensitive Data Protection inspect template resource name. If only inspect template is provided (de-identify template not provided), then Sensitive Data Protection InspectContent action is performed during Sanitization. All Sensitive Data Protection findings identified during inspection will be returned as SdpFinding in SdpInsepctionResult. e.g:- 'projects/{project}/locations/{location}/inspectTemplates/{inspect_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#inspect_template ModelArmorFloorsetting#inspect_template}
+        :param deidentify_template: Optional Sensitive Data Protection Deidentify template resource name. If provided then DeidentifyContent action is performed during Sanitization using this template and inspect template. The De-identified data will be returned in SdpDeidentifyResult. Note that all info-types present in the deidentify template must be present in inspect template. e.g. 'projects/{project}/locations/{location}/deidentifyTemplates/{deidentify_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#deidentify_template ModelArmorFloorsetting#deidentify_template}
+        :param inspect_template: Sensitive Data Protection inspect template resource name. If only inspect template is provided (de-identify template not provided), then Sensitive Data Protection InspectContent action is performed during Sanitization. All Sensitive Data Protection findings identified during inspection will be returned as SdpFinding in SdpInsepctionResult. e.g:- 'projects/{project}/locations/{location}/inspectTemplates/{inspect_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#inspect_template ModelArmorFloorsetting#inspect_template}
         '''
         value = ModelArmorFloorsettingFilterConfigSdpSettingsAdvancedConfig(
             deidentify_template=deidentify_template, inspect_template=inspect_template
@@ -2130,7 +2130,7 @@ class ModelArmorFloorsettingFilterConfigSdpSettingsOutputReference(
         filter_enforcement: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_enforcement: Tells whether the Sensitive Data Protection basic config is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
+        :param filter_enforcement: Tells whether the Sensitive Data Protection basic config is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#filter_enforcement ModelArmorFloorsetting#filter_enforcement}
         '''
         value = ModelArmorFloorsettingFilterConfigSdpSettingsBasicConfig(
             filter_enforcement=filter_enforcement
@@ -2204,7 +2204,7 @@ class ModelArmorFloorsettingFloorSettingMetadata:
         multi_language_detection: typing.Optional[typing.Union["ModelArmorFloorsettingFloorSettingMetadataMultiLanguageDetection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param multi_language_detection: multi_language_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#multi_language_detection ModelArmorFloorsetting#multi_language_detection}
+        :param multi_language_detection: multi_language_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#multi_language_detection ModelArmorFloorsetting#multi_language_detection}
         '''
         if isinstance(multi_language_detection, dict):
             multi_language_detection = ModelArmorFloorsettingFloorSettingMetadataMultiLanguageDetection(**multi_language_detection)
@@ -2221,7 +2221,7 @@ class ModelArmorFloorsettingFloorSettingMetadata:
     ) -> typing.Optional["ModelArmorFloorsettingFloorSettingMetadataMultiLanguageDetection"]:
         '''multi_language_detection block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#multi_language_detection ModelArmorFloorsetting#multi_language_detection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#multi_language_detection ModelArmorFloorsetting#multi_language_detection}
         '''
         result = self._values.get("multi_language_detection")
         return typing.cast(typing.Optional["ModelArmorFloorsettingFloorSettingMetadataMultiLanguageDetection"], result)
@@ -2250,7 +2250,7 @@ class ModelArmorFloorsettingFloorSettingMetadataMultiLanguageDetection:
         enable_multi_language_detection: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable_multi_language_detection: If true, multi language detection will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#enable_multi_language_detection ModelArmorFloorsetting#enable_multi_language_detection}
+        :param enable_multi_language_detection: If true, multi language detection will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#enable_multi_language_detection ModelArmorFloorsetting#enable_multi_language_detection}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__efe17355f4f17145924e41e6ec3936526a895edabb2df1a34c78f14085203d05)
@@ -2265,7 +2265,7 @@ class ModelArmorFloorsettingFloorSettingMetadataMultiLanguageDetection:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''If true, multi language detection will be enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#enable_multi_language_detection ModelArmorFloorsetting#enable_multi_language_detection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#enable_multi_language_detection ModelArmorFloorsetting#enable_multi_language_detection}
         '''
         result = self._values.get("enable_multi_language_detection")
         assert result is not None, "Required property 'enable_multi_language_detection' is missing"
@@ -2372,7 +2372,7 @@ class ModelArmorFloorsettingFloorSettingMetadataOutputReference(
         enable_multi_language_detection: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable_multi_language_detection: If true, multi language detection will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#enable_multi_language_detection ModelArmorFloorsetting#enable_multi_language_detection}
+        :param enable_multi_language_detection: If true, multi language detection will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#enable_multi_language_detection ModelArmorFloorsetting#enable_multi_language_detection}
         '''
         value = ModelArmorFloorsettingFloorSettingMetadataMultiLanguageDetection(
             enable_multi_language_detection=enable_multi_language_detection
@@ -2430,9 +2430,9 @@ class ModelArmorFloorsettingTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#create ModelArmorFloorsetting#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#delete ModelArmorFloorsetting#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#update ModelArmorFloorsetting#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#create ModelArmorFloorsetting#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#delete ModelArmorFloorsetting#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#update ModelArmorFloorsetting#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d5e5d223dfd4d77fbf4b46eab537ec5028078ccfe38979ef4357c4dd0997c1cc)
@@ -2449,19 +2449,19 @@ class ModelArmorFloorsettingTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#create ModelArmorFloorsetting#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#create ModelArmorFloorsetting#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#delete ModelArmorFloorsetting#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#delete ModelArmorFloorsetting#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_floorsetting#update ModelArmorFloorsetting#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_floorsetting#update ModelArmorFloorsetting#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

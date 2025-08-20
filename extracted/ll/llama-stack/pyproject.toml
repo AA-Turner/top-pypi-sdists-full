@@ -2,9 +2,12 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.uv]
+required-version = ">=0.7.0"
+
 [project]
 name = "llama_stack"
-version = "0.2.17"
+version = "0.2.18"
 authors = [{ name = "Meta Llama", email = "llama-oss@meta.com" }]
 description = "Llama Stack"
 readme = "README.md"
@@ -28,9 +31,9 @@ dependencies = [
     "huggingface-hub>=0.34.0,<1.0",
     "jinja2>=3.1.6",
     "jsonschema",
-    "llama-stack-client>=0.2.17",
+    "llama-stack-client>=0.2.18",
     "llama-api-client>=0.1.2",
-    "openai>=1.66",
+    "openai>=1.99.6,<1.100.0",
     "prompt-toolkit",
     "python-dotenv",
     "python-jose[cryptography]",
@@ -53,7 +56,7 @@ dependencies = [
 ui = [
     "streamlit",
     "pandas",
-    "llama-stack-client>=0.2.17",
+    "llama-stack-client>=0.2.18",
     "streamlit-option-menu",
 ]
 
@@ -65,14 +68,14 @@ dev = [
     "pytest-cov",
     "pytest-html",
     "pytest-json-report",
-    "pytest-socket",      # For blocking network access in unit tests
-    "nbval",              # For notebook testing
+    "pytest-socket", # For blocking network access in unit tests
+    "nbval", # For notebook testing
     "black",
     "ruff",
     "types-requests",
     "types-setuptools",
     "pre-commit",
-    "ruamel.yaml",        # needed for openapi generator
+    "ruamel.yaml", # needed for openapi generator
 ]
 # These are the dependencies required for running unit tests.
 unit = [
@@ -90,6 +93,7 @@ unit = [
     "blobfile",
     "faiss-cpu",
     "pymilvus>=2.5.12",
+    "milvus-lite>=2.5.0",
     "litellm",
     "together",
     "coverage",
@@ -115,6 +119,7 @@ test = [
     "sqlalchemy[asyncio]>=2.0.41",
     "requests",
     "pymilvus>=2.5.12",
+    "milvus-lite>=2.5.0",
     "weaviate-client>=4.16.4",
 ]
 docs = [
@@ -137,6 +142,9 @@ docs = [
     "requests",
 ]
 codegen = ["rich", "pydantic", "jinja2>=3.1.6"]
+benchmark = [
+    "locust>=2.37.14",
+]
 
 [project.urls]
 Homepage = "https://github.com/meta-llama/llama-stack"
@@ -263,7 +271,6 @@ exclude = [
     "^llama_stack/providers/inline/post_training/common/validator\\.py$",
     "^llama_stack/providers/inline/safety/code_scanner/",
     "^llama_stack/providers/inline/safety/llama_guard/",
-    "^llama_stack/providers/inline/safety/prompt_guard/",
     "^llama_stack/providers/inline/scoring/basic/",
     "^llama_stack/providers/inline/scoring/braintrust/",
     "^llama_stack/providers/inline/scoring/llm_as_judge/",

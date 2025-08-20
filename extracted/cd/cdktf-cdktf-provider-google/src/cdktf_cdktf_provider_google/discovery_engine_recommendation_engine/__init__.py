@@ -1,7 +1,7 @@
 r'''
 # `google_discovery_engine_recommendation_engine`
 
-Refer to the Terraform Registry for docs: [`google_discovery_engine_recommendation_engine`](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine).
+Refer to the Terraform Registry for docs: [`google_discovery_engine_recommendation_engine`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DiscoveryEngineRecommendationEngine(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.discoveryEngineRecommendationEngine.DiscoveryEngineRecommendationEngine",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine google_discovery_engine_recommendation_engine}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine google_discovery_engine_recommendation_engine}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class DiscoveryEngineRecommendationEngine(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine google_discovery_engine_recommendation_engine} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine google_discovery_engine_recommendation_engine} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param data_store_ids: The data stores associated with this engine. For SOLUTION_TYPE_RECOMMENDATION type of engines, they can only associate with at most one data store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#data_store_ids DiscoveryEngineRecommendationEngine#data_store_ids}
-        :param display_name: Required. The display name of the engine. Should be human readable. UTF-8 encoded string with limit of 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#display_name DiscoveryEngineRecommendationEngine#display_name}
-        :param engine_id: Unique ID to use for Recommendation Engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#engine_id DiscoveryEngineRecommendationEngine#engine_id}
-        :param location: The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#location DiscoveryEngineRecommendationEngine#location}
-        :param common_config: common_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#common_config DiscoveryEngineRecommendationEngine#common_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#id DiscoveryEngineRecommendationEngine#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param industry_vertical: The industry vertical that the engine registers. The restriction of the Engine industry vertical is based on DataStore: If unspecified, default to GENERIC. Vertical on Engine has to match vertical of the DataStore liniked to the engine. Default value: "GENERIC" Possible values: ["GENERIC", "MEDIA"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#industry_vertical DiscoveryEngineRecommendationEngine#industry_vertical}
-        :param media_recommendation_engine_config: media_recommendation_engine_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#media_recommendation_engine_config DiscoveryEngineRecommendationEngine#media_recommendation_engine_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#project DiscoveryEngineRecommendationEngine#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#timeouts DiscoveryEngineRecommendationEngine#timeouts}
+        :param data_store_ids: The data stores associated with this engine. For SOLUTION_TYPE_RECOMMENDATION type of engines, they can only associate with at most one data store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#data_store_ids DiscoveryEngineRecommendationEngine#data_store_ids}
+        :param display_name: Required. The display name of the engine. Should be human readable. UTF-8 encoded string with limit of 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#display_name DiscoveryEngineRecommendationEngine#display_name}
+        :param engine_id: Unique ID to use for Recommendation Engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#engine_id DiscoveryEngineRecommendationEngine#engine_id}
+        :param location: The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#location DiscoveryEngineRecommendationEngine#location}
+        :param common_config: common_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#common_config DiscoveryEngineRecommendationEngine#common_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#id DiscoveryEngineRecommendationEngine#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param industry_vertical: The industry vertical that the engine registers. The restriction of the Engine industry vertical is based on DataStore: If unspecified, default to GENERIC. Vertical on Engine has to match vertical of the DataStore liniked to the engine. Default value: "GENERIC" Possible values: ["GENERIC", "MEDIA"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#industry_vertical DiscoveryEngineRecommendationEngine#industry_vertical}
+        :param media_recommendation_engine_config: media_recommendation_engine_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#media_recommendation_engine_config DiscoveryEngineRecommendationEngine#media_recommendation_engine_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#project DiscoveryEngineRecommendationEngine#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#timeouts DiscoveryEngineRecommendationEngine#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class DiscoveryEngineRecommendationEngine(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DiscoveryEngineRecommendationEngine to import.
-        :param import_from_id: The id of the existing DiscoveryEngineRecommendationEngine that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DiscoveryEngineRecommendationEngine that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DiscoveryEngineRecommendationEngine to import is found.
         '''
         if __debug__:
@@ -148,7 +148,7 @@ class DiscoveryEngineRecommendationEngine(
         company_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param company_name: The name of the company, business or entity that is associated with the engine. Setting this may help improve LLM related features.cd Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#company_name DiscoveryEngineRecommendationEngine#company_name}
+        :param company_name: The name of the company, business or entity that is associated with the engine. Setting this may help improve LLM related features.cd Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#company_name DiscoveryEngineRecommendationEngine#company_name}
         '''
         value = DiscoveryEngineRecommendationEngineCommonConfig(
             company_name=company_name
@@ -167,11 +167,11 @@ class DiscoveryEngineRecommendationEngine(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param engine_features_config: engine_features_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#engine_features_config DiscoveryEngineRecommendationEngine#engine_features_config}
-        :param optimization_objective: The optimization objective. e.g., 'cvr'. This field together with MediaRecommendationEngineConfig.type describes engine metadata to use to control engine training and serving. Currently supported values: 'ctr', 'cvr'. If not specified, we choose default based on engine type. Default depends on type of recommendation: 'recommended-for-you' => 'ctr' 'others-you-may-like' => 'ctr' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#optimization_objective DiscoveryEngineRecommendationEngine#optimization_objective}
-        :param optimization_objective_config: optimization_objective_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#optimization_objective_config DiscoveryEngineRecommendationEngine#optimization_objective_config}
-        :param training_state: The training state that the engine is in (e.g. 'TRAINING' or 'PAUSED'). Since part of the cost of running the service is frequency of training - this can be used to determine when to train engine in order to control cost. If not specified: the default value for 'CreateEngine' method is 'TRAINING'. The default value for 'UpdateEngine' method is to keep the state the same as before. Possible values: ["PAUSED", "TRAINING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#training_state DiscoveryEngineRecommendationEngine#training_state}
-        :param type: The type of engine. e.g., 'recommended-for-you'. This field together with MediaRecommendationEngineConfig.optimizationObjective describes engine metadata to use to control engine training and serving. Currently supported values: 'recommended-for-you', 'others-you-may-like', 'more-like-this', 'most-popular-items'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#type DiscoveryEngineRecommendationEngine#type}
+        :param engine_features_config: engine_features_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#engine_features_config DiscoveryEngineRecommendationEngine#engine_features_config}
+        :param optimization_objective: The optimization objective. e.g., 'cvr'. This field together with MediaRecommendationEngineConfig.type describes engine metadata to use to control engine training and serving. Currently supported values: 'ctr', 'cvr'. If not specified, we choose default based on engine type. Default depends on type of recommendation: 'recommended-for-you' => 'ctr' 'others-you-may-like' => 'ctr' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#optimization_objective DiscoveryEngineRecommendationEngine#optimization_objective}
+        :param optimization_objective_config: optimization_objective_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#optimization_objective_config DiscoveryEngineRecommendationEngine#optimization_objective_config}
+        :param training_state: The training state that the engine is in (e.g. 'TRAINING' or 'PAUSED'). Since part of the cost of running the service is frequency of training - this can be used to determine when to train engine in order to control cost. If not specified: the default value for 'CreateEngine' method is 'TRAINING'. The default value for 'UpdateEngine' method is to keep the state the same as before. Possible values: ["PAUSED", "TRAINING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#training_state DiscoveryEngineRecommendationEngine#training_state}
+        :param type: The type of engine. e.g., 'recommended-for-you'. This field together with MediaRecommendationEngineConfig.optimizationObjective describes engine metadata to use to control engine training and serving. Currently supported values: 'recommended-for-you', 'others-you-may-like', 'more-like-this', 'most-popular-items'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#type DiscoveryEngineRecommendationEngine#type}
         '''
         value = DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfig(
             engine_features_config=engine_features_config,
@@ -192,9 +192,9 @@ class DiscoveryEngineRecommendationEngine(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#create DiscoveryEngineRecommendationEngine#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#delete DiscoveryEngineRecommendationEngine#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#update DiscoveryEngineRecommendationEngine#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#create DiscoveryEngineRecommendationEngine#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#delete DiscoveryEngineRecommendationEngine#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#update DiscoveryEngineRecommendationEngine#update}.
         '''
         value = DiscoveryEngineRecommendationEngineTimeouts(
             create=create, delete=delete, update=update
@@ -422,7 +422,7 @@ class DiscoveryEngineRecommendationEngine(
 class DiscoveryEngineRecommendationEngineCommonConfig:
     def __init__(self, *, company_name: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param company_name: The name of the company, business or entity that is associated with the engine. Setting this may help improve LLM related features.cd Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#company_name DiscoveryEngineRecommendationEngine#company_name}
+        :param company_name: The name of the company, business or entity that is associated with the engine. Setting this may help improve LLM related features.cd Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#company_name DiscoveryEngineRecommendationEngine#company_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15f26efe8ec93f487864f6c1ae549946c853e442dfae517c9a430e1dd55b4214)
@@ -437,7 +437,7 @@ class DiscoveryEngineRecommendationEngineCommonConfig:
 
         Setting this may help improve LLM related features.cd
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#company_name DiscoveryEngineRecommendationEngine#company_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#company_name DiscoveryEngineRecommendationEngine#company_name}
         '''
         result = self._values.get("company_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -566,16 +566,16 @@ class DiscoveryEngineRecommendationEngineConfig(_cdktf_9a9027ec.TerraformMetaArg
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param data_store_ids: The data stores associated with this engine. For SOLUTION_TYPE_RECOMMENDATION type of engines, they can only associate with at most one data store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#data_store_ids DiscoveryEngineRecommendationEngine#data_store_ids}
-        :param display_name: Required. The display name of the engine. Should be human readable. UTF-8 encoded string with limit of 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#display_name DiscoveryEngineRecommendationEngine#display_name}
-        :param engine_id: Unique ID to use for Recommendation Engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#engine_id DiscoveryEngineRecommendationEngine#engine_id}
-        :param location: The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#location DiscoveryEngineRecommendationEngine#location}
-        :param common_config: common_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#common_config DiscoveryEngineRecommendationEngine#common_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#id DiscoveryEngineRecommendationEngine#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param industry_vertical: The industry vertical that the engine registers. The restriction of the Engine industry vertical is based on DataStore: If unspecified, default to GENERIC. Vertical on Engine has to match vertical of the DataStore liniked to the engine. Default value: "GENERIC" Possible values: ["GENERIC", "MEDIA"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#industry_vertical DiscoveryEngineRecommendationEngine#industry_vertical}
-        :param media_recommendation_engine_config: media_recommendation_engine_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#media_recommendation_engine_config DiscoveryEngineRecommendationEngine#media_recommendation_engine_config}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#project DiscoveryEngineRecommendationEngine#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#timeouts DiscoveryEngineRecommendationEngine#timeouts}
+        :param data_store_ids: The data stores associated with this engine. For SOLUTION_TYPE_RECOMMENDATION type of engines, they can only associate with at most one data store. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#data_store_ids DiscoveryEngineRecommendationEngine#data_store_ids}
+        :param display_name: Required. The display name of the engine. Should be human readable. UTF-8 encoded string with limit of 1024 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#display_name DiscoveryEngineRecommendationEngine#display_name}
+        :param engine_id: Unique ID to use for Recommendation Engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#engine_id DiscoveryEngineRecommendationEngine#engine_id}
+        :param location: The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#location DiscoveryEngineRecommendationEngine#location}
+        :param common_config: common_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#common_config DiscoveryEngineRecommendationEngine#common_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#id DiscoveryEngineRecommendationEngine#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param industry_vertical: The industry vertical that the engine registers. The restriction of the Engine industry vertical is based on DataStore: If unspecified, default to GENERIC. Vertical on Engine has to match vertical of the DataStore liniked to the engine. Default value: "GENERIC" Possible values: ["GENERIC", "MEDIA"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#industry_vertical DiscoveryEngineRecommendationEngine#industry_vertical}
+        :param media_recommendation_engine_config: media_recommendation_engine_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#media_recommendation_engine_config DiscoveryEngineRecommendationEngine#media_recommendation_engine_config}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#project DiscoveryEngineRecommendationEngine#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#timeouts DiscoveryEngineRecommendationEngine#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -707,7 +707,7 @@ class DiscoveryEngineRecommendationEngineConfig(_cdktf_9a9027ec.TerraformMetaArg
 
         For SOLUTION_TYPE_RECOMMENDATION type of engines, they can only associate with at most one data store.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#data_store_ids DiscoveryEngineRecommendationEngine#data_store_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#data_store_ids DiscoveryEngineRecommendationEngine#data_store_ids}
         '''
         result = self._values.get("data_store_ids")
         assert result is not None, "Required property 'data_store_ids' is missing"
@@ -717,7 +717,7 @@ class DiscoveryEngineRecommendationEngineConfig(_cdktf_9a9027ec.TerraformMetaArg
     def display_name(self) -> builtins.str:
         '''Required. The display name of the engine. Should be human readable. UTF-8 encoded string with limit of 1024 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#display_name DiscoveryEngineRecommendationEngine#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#display_name DiscoveryEngineRecommendationEngine#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -727,7 +727,7 @@ class DiscoveryEngineRecommendationEngineConfig(_cdktf_9a9027ec.TerraformMetaArg
     def engine_id(self) -> builtins.str:
         '''Unique ID to use for Recommendation Engine.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#engine_id DiscoveryEngineRecommendationEngine#engine_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#engine_id DiscoveryEngineRecommendationEngine#engine_id}
         '''
         result = self._values.get("engine_id")
         assert result is not None, "Required property 'engine_id' is missing"
@@ -737,7 +737,7 @@ class DiscoveryEngineRecommendationEngineConfig(_cdktf_9a9027ec.TerraformMetaArg
     def location(self) -> builtins.str:
         '''The geographic location where the data store should reside. The value can only be one of "global", "us" and "eu".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#location DiscoveryEngineRecommendationEngine#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#location DiscoveryEngineRecommendationEngine#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -749,14 +749,14 @@ class DiscoveryEngineRecommendationEngineConfig(_cdktf_9a9027ec.TerraformMetaArg
     ) -> typing.Optional[DiscoveryEngineRecommendationEngineCommonConfig]:
         '''common_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#common_config DiscoveryEngineRecommendationEngine#common_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#common_config DiscoveryEngineRecommendationEngine#common_config}
         '''
         result = self._values.get("common_config")
         return typing.cast(typing.Optional[DiscoveryEngineRecommendationEngineCommonConfig], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#id DiscoveryEngineRecommendationEngine#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#id DiscoveryEngineRecommendationEngine#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -770,7 +770,7 @@ class DiscoveryEngineRecommendationEngineConfig(_cdktf_9a9027ec.TerraformMetaArg
 
         The restriction of the Engine industry vertical is based on DataStore: If unspecified, default to GENERIC. Vertical on Engine has to match vertical of the DataStore liniked to the engine. Default value: "GENERIC" Possible values: ["GENERIC", "MEDIA"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#industry_vertical DiscoveryEngineRecommendationEngine#industry_vertical}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#industry_vertical DiscoveryEngineRecommendationEngine#industry_vertical}
         '''
         result = self._values.get("industry_vertical")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -781,14 +781,14 @@ class DiscoveryEngineRecommendationEngineConfig(_cdktf_9a9027ec.TerraformMetaArg
     ) -> typing.Optional["DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfig"]:
         '''media_recommendation_engine_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#media_recommendation_engine_config DiscoveryEngineRecommendationEngine#media_recommendation_engine_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#media_recommendation_engine_config DiscoveryEngineRecommendationEngine#media_recommendation_engine_config}
         '''
         result = self._values.get("media_recommendation_engine_config")
         return typing.cast(typing.Optional["DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfig"], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#project DiscoveryEngineRecommendationEngine#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#project DiscoveryEngineRecommendationEngine#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -798,7 +798,7 @@ class DiscoveryEngineRecommendationEngineConfig(_cdktf_9a9027ec.TerraformMetaArg
     ) -> typing.Optional["DiscoveryEngineRecommendationEngineTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#timeouts DiscoveryEngineRecommendationEngine#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#timeouts DiscoveryEngineRecommendationEngine#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DiscoveryEngineRecommendationEngineTimeouts"], result)
@@ -837,11 +837,11 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfig:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param engine_features_config: engine_features_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#engine_features_config DiscoveryEngineRecommendationEngine#engine_features_config}
-        :param optimization_objective: The optimization objective. e.g., 'cvr'. This field together with MediaRecommendationEngineConfig.type describes engine metadata to use to control engine training and serving. Currently supported values: 'ctr', 'cvr'. If not specified, we choose default based on engine type. Default depends on type of recommendation: 'recommended-for-you' => 'ctr' 'others-you-may-like' => 'ctr' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#optimization_objective DiscoveryEngineRecommendationEngine#optimization_objective}
-        :param optimization_objective_config: optimization_objective_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#optimization_objective_config DiscoveryEngineRecommendationEngine#optimization_objective_config}
-        :param training_state: The training state that the engine is in (e.g. 'TRAINING' or 'PAUSED'). Since part of the cost of running the service is frequency of training - this can be used to determine when to train engine in order to control cost. If not specified: the default value for 'CreateEngine' method is 'TRAINING'. The default value for 'UpdateEngine' method is to keep the state the same as before. Possible values: ["PAUSED", "TRAINING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#training_state DiscoveryEngineRecommendationEngine#training_state}
-        :param type: The type of engine. e.g., 'recommended-for-you'. This field together with MediaRecommendationEngineConfig.optimizationObjective describes engine metadata to use to control engine training and serving. Currently supported values: 'recommended-for-you', 'others-you-may-like', 'more-like-this', 'most-popular-items'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#type DiscoveryEngineRecommendationEngine#type}
+        :param engine_features_config: engine_features_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#engine_features_config DiscoveryEngineRecommendationEngine#engine_features_config}
+        :param optimization_objective: The optimization objective. e.g., 'cvr'. This field together with MediaRecommendationEngineConfig.type describes engine metadata to use to control engine training and serving. Currently supported values: 'ctr', 'cvr'. If not specified, we choose default based on engine type. Default depends on type of recommendation: 'recommended-for-you' => 'ctr' 'others-you-may-like' => 'ctr' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#optimization_objective DiscoveryEngineRecommendationEngine#optimization_objective}
+        :param optimization_objective_config: optimization_objective_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#optimization_objective_config DiscoveryEngineRecommendationEngine#optimization_objective_config}
+        :param training_state: The training state that the engine is in (e.g. 'TRAINING' or 'PAUSED'). Since part of the cost of running the service is frequency of training - this can be used to determine when to train engine in order to control cost. If not specified: the default value for 'CreateEngine' method is 'TRAINING'. The default value for 'UpdateEngine' method is to keep the state the same as before. Possible values: ["PAUSED", "TRAINING"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#training_state DiscoveryEngineRecommendationEngine#training_state}
+        :param type: The type of engine. e.g., 'recommended-for-you'. This field together with MediaRecommendationEngineConfig.optimizationObjective describes engine metadata to use to control engine training and serving. Currently supported values: 'recommended-for-you', 'others-you-may-like', 'more-like-this', 'most-popular-items'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#type DiscoveryEngineRecommendationEngine#type}
         '''
         if isinstance(engine_features_config, dict):
             engine_features_config = DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFeaturesConfig(**engine_features_config)
@@ -872,7 +872,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfig:
     ) -> typing.Optional["DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFeaturesConfig"]:
         '''engine_features_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#engine_features_config DiscoveryEngineRecommendationEngine#engine_features_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#engine_features_config DiscoveryEngineRecommendationEngine#engine_features_config}
         '''
         result = self._values.get("engine_features_config")
         return typing.cast(typing.Optional["DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFeaturesConfig"], result)
@@ -889,7 +889,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfig:
         'recommended-for-you' => 'ctr'
         'others-you-may-like' => 'ctr'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#optimization_objective DiscoveryEngineRecommendationEngine#optimization_objective}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#optimization_objective DiscoveryEngineRecommendationEngine#optimization_objective}
         '''
         result = self._values.get("optimization_objective")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -900,7 +900,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfig:
     ) -> typing.Optional["DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigOptimizationObjectiveConfig"]:
         '''optimization_objective_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#optimization_objective_config DiscoveryEngineRecommendationEngine#optimization_objective_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#optimization_objective_config DiscoveryEngineRecommendationEngine#optimization_objective_config}
         '''
         result = self._values.get("optimization_objective_config")
         return typing.cast(typing.Optional["DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigOptimizationObjectiveConfig"], result)
@@ -909,7 +909,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfig:
     def training_state(self) -> typing.Optional[builtins.str]:
         '''The training state that the engine is in (e.g. 'TRAINING' or 'PAUSED'). Since part of the cost of running the service is frequency of training - this can be used to determine when to train engine in order to control cost. If not specified: the default value for 'CreateEngine' method is 'TRAINING'. The default value for 'UpdateEngine' method is to keep the state the same as before. Possible values: ["PAUSED", "TRAINING"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#training_state DiscoveryEngineRecommendationEngine#training_state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#training_state DiscoveryEngineRecommendationEngine#training_state}
         '''
         result = self._values.get("training_state")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -924,7 +924,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfig:
         Currently supported values: 'recommended-for-you', 'others-you-may-like',
         'more-like-this', 'most-popular-items'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#type DiscoveryEngineRecommendationEngine#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#type DiscoveryEngineRecommendationEngine#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -957,8 +957,8 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFe
         recommended_for_you_config: typing.Optional[typing.Union["DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFeaturesConfigRecommendedForYouConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param most_popular_config: most_popular_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#most_popular_config DiscoveryEngineRecommendationEngine#most_popular_config}
-        :param recommended_for_you_config: recommended_for_you_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#recommended_for_you_config DiscoveryEngineRecommendationEngine#recommended_for_you_config}
+        :param most_popular_config: most_popular_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#most_popular_config DiscoveryEngineRecommendationEngine#most_popular_config}
+        :param recommended_for_you_config: recommended_for_you_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#recommended_for_you_config DiscoveryEngineRecommendationEngine#recommended_for_you_config}
         '''
         if isinstance(most_popular_config, dict):
             most_popular_config = DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFeaturesConfigMostPopularConfig(**most_popular_config)
@@ -980,7 +980,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFe
     ) -> typing.Optional["DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFeaturesConfigMostPopularConfig"]:
         '''most_popular_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#most_popular_config DiscoveryEngineRecommendationEngine#most_popular_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#most_popular_config DiscoveryEngineRecommendationEngine#most_popular_config}
         '''
         result = self._values.get("most_popular_config")
         return typing.cast(typing.Optional["DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFeaturesConfigMostPopularConfig"], result)
@@ -991,7 +991,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFe
     ) -> typing.Optional["DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFeaturesConfigRecommendedForYouConfig"]:
         '''recommended_for_you_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#recommended_for_you_config DiscoveryEngineRecommendationEngine#recommended_for_you_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#recommended_for_you_config DiscoveryEngineRecommendationEngine#recommended_for_you_config}
         '''
         result = self._values.get("recommended_for_you_config")
         return typing.cast(typing.Optional["DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFeaturesConfigRecommendedForYouConfig"], result)
@@ -1020,7 +1020,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFe
         time_window_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param time_window_days: The time window of which the engine is queried at training and prediction time. Positive integers only. The value translates to the last X days of events. Currently required for the 'most-popular-items' engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#time_window_days DiscoveryEngineRecommendationEngine#time_window_days}
+        :param time_window_days: The time window of which the engine is queried at training and prediction time. Positive integers only. The value translates to the last X days of events. Currently required for the 'most-popular-items' engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#time_window_days DiscoveryEngineRecommendationEngine#time_window_days}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1df94b569ea522f47bcf819a64573b0da739748b95dcf8e1549f19f91b4993a8)
@@ -1037,7 +1037,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFe
         last X days of events. Currently required for the 'most-popular-items'
         engine.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#time_window_days DiscoveryEngineRecommendationEngine#time_window_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#time_window_days DiscoveryEngineRecommendationEngine#time_window_days}
         '''
         result = self._values.get("time_window_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1140,7 +1140,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFe
         time_window_days: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param time_window_days: The time window of which the engine is queried at training and prediction time. Positive integers only. The value translates to the last X days of events. Currently required for the 'most-popular-items' engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#time_window_days DiscoveryEngineRecommendationEngine#time_window_days}
+        :param time_window_days: The time window of which the engine is queried at training and prediction time. Positive integers only. The value translates to the last X days of events. Currently required for the 'most-popular-items' engine. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#time_window_days DiscoveryEngineRecommendationEngine#time_window_days}
         '''
         value = DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFeaturesConfigMostPopularConfig(
             time_window_days=time_window_days
@@ -1155,7 +1155,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFe
         context_event_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param context_event_type: The type of event with which the engine is queried at prediction time. If set to 'generic', only 'view-item', 'media-play',and 'media-complete' will be used as 'context-event' in engine training. If set to 'view-home-page', 'view-home-page' will also be used as 'context-events' in addition to 'view-item', 'media-play', and 'media-complete'. Currently supported for the 'recommended-for-you' engine. Currently supported values: 'view-home-page', 'generic'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#context_event_type DiscoveryEngineRecommendationEngine#context_event_type}
+        :param context_event_type: The type of event with which the engine is queried at prediction time. If set to 'generic', only 'view-item', 'media-play',and 'media-complete' will be used as 'context-event' in engine training. If set to 'view-home-page', 'view-home-page' will also be used as 'context-events' in addition to 'view-item', 'media-play', and 'media-complete'. Currently supported for the 'recommended-for-you' engine. Currently supported values: 'view-home-page', 'generic'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#context_event_type DiscoveryEngineRecommendationEngine#context_event_type}
         '''
         value = DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFeaturesConfigRecommendedForYouConfig(
             context_event_type=context_event_type
@@ -1229,7 +1229,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFe
         context_event_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param context_event_type: The type of event with which the engine is queried at prediction time. If set to 'generic', only 'view-item', 'media-play',and 'media-complete' will be used as 'context-event' in engine training. If set to 'view-home-page', 'view-home-page' will also be used as 'context-events' in addition to 'view-item', 'media-play', and 'media-complete'. Currently supported for the 'recommended-for-you' engine. Currently supported values: 'view-home-page', 'generic'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#context_event_type DiscoveryEngineRecommendationEngine#context_event_type}
+        :param context_event_type: The type of event with which the engine is queried at prediction time. If set to 'generic', only 'view-item', 'media-play',and 'media-complete' will be used as 'context-event' in engine training. If set to 'view-home-page', 'view-home-page' will also be used as 'context-events' in addition to 'view-item', 'media-play', and 'media-complete'. Currently supported for the 'recommended-for-you' engine. Currently supported values: 'view-home-page', 'generic'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#context_event_type DiscoveryEngineRecommendationEngine#context_event_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6146b55137966a60911649d4f5d8601939639acb809927b372e4a41d3bdeefd6)
@@ -1249,7 +1249,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFe
         'media-complete'. Currently supported for the 'recommended-for-you'
         engine. Currently supported values: 'view-home-page', 'generic'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#context_event_type DiscoveryEngineRecommendationEngine#context_event_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#context_event_type DiscoveryEngineRecommendationEngine#context_event_type}
         '''
         result = self._values.get("context_event_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1341,8 +1341,8 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigOptimiza
         target_field_value_float: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param target_field: The name of the field to target. Currently supported values: 'watch-percentage', 'watch-time'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#target_field DiscoveryEngineRecommendationEngine#target_field}
-        :param target_field_value_float: The threshold to be applied to the target (e.g., 0.5). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#target_field_value_float DiscoveryEngineRecommendationEngine#target_field_value_float}
+        :param target_field: The name of the field to target. Currently supported values: 'watch-percentage', 'watch-time'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#target_field DiscoveryEngineRecommendationEngine#target_field}
+        :param target_field_value_float: The threshold to be applied to the target (e.g., 0.5). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#target_field_value_float DiscoveryEngineRecommendationEngine#target_field_value_float}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__919200fc714f90aa9b6d7ad609697d1e8d3c23bf492ffdd634ddccc692033916)
@@ -1358,7 +1358,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigOptimiza
     def target_field(self) -> typing.Optional[builtins.str]:
         '''The name of the field to target. Currently supported values: 'watch-percentage', 'watch-time'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#target_field DiscoveryEngineRecommendationEngine#target_field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#target_field DiscoveryEngineRecommendationEngine#target_field}
         '''
         result = self._values.get("target_field")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1367,7 +1367,7 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigOptimiza
     def target_field_value_float(self) -> typing.Optional[jsii.Number]:
         '''The threshold to be applied to the target (e.g., 0.5).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#target_field_value_float DiscoveryEngineRecommendationEngine#target_field_value_float}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#target_field_value_float DiscoveryEngineRecommendationEngine#target_field_value_float}
         '''
         result = self._values.get("target_field_value_float")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1492,8 +1492,8 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigOutputRe
         recommended_for_you_config: typing.Optional[typing.Union[DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFeaturesConfigRecommendedForYouConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param most_popular_config: most_popular_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#most_popular_config DiscoveryEngineRecommendationEngine#most_popular_config}
-        :param recommended_for_you_config: recommended_for_you_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#recommended_for_you_config DiscoveryEngineRecommendationEngine#recommended_for_you_config}
+        :param most_popular_config: most_popular_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#most_popular_config DiscoveryEngineRecommendationEngine#most_popular_config}
+        :param recommended_for_you_config: recommended_for_you_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#recommended_for_you_config DiscoveryEngineRecommendationEngine#recommended_for_you_config}
         '''
         value = DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigEngineFeaturesConfig(
             most_popular_config=most_popular_config,
@@ -1510,8 +1510,8 @@ class DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigOutputRe
         target_field_value_float: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param target_field: The name of the field to target. Currently supported values: 'watch-percentage', 'watch-time'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#target_field DiscoveryEngineRecommendationEngine#target_field}
-        :param target_field_value_float: The threshold to be applied to the target (e.g., 0.5). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#target_field_value_float DiscoveryEngineRecommendationEngine#target_field_value_float}
+        :param target_field: The name of the field to target. Currently supported values: 'watch-percentage', 'watch-time'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#target_field DiscoveryEngineRecommendationEngine#target_field}
+        :param target_field_value_float: The threshold to be applied to the target (e.g., 0.5). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#target_field_value_float DiscoveryEngineRecommendationEngine#target_field_value_float}
         '''
         value = DiscoveryEngineRecommendationEngineMediaRecommendationEngineConfigOptimizationObjectiveConfig(
             target_field=target_field,
@@ -1651,9 +1651,9 @@ class DiscoveryEngineRecommendationEngineTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#create DiscoveryEngineRecommendationEngine#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#delete DiscoveryEngineRecommendationEngine#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#update DiscoveryEngineRecommendationEngine#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#create DiscoveryEngineRecommendationEngine#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#delete DiscoveryEngineRecommendationEngine#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#update DiscoveryEngineRecommendationEngine#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__799caaab05fa58d25189d3054c39d07a833eb817bf00f970a4b383ea1641b113)
@@ -1670,19 +1670,19 @@ class DiscoveryEngineRecommendationEngineTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#create DiscoveryEngineRecommendationEngine#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#create DiscoveryEngineRecommendationEngine#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#delete DiscoveryEngineRecommendationEngine#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#delete DiscoveryEngineRecommendationEngine#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/discovery_engine_recommendation_engine#update DiscoveryEngineRecommendationEngine#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/discovery_engine_recommendation_engine#update DiscoveryEngineRecommendationEngine#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

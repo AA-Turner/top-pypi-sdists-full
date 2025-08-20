@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dandi
-Version: 0.69.3
+Version: 0.70.0
 Summary: Command line client for interaction with DANDI instances
 Home-page: http://dandiarchive.org
 Author: DANDI developers
@@ -46,6 +46,7 @@ Requires-Dist: platformdirs
 Requires-Dist: pycryptodomex
 Requires-Dist: pydantic~=2.0
 Requires-Dist: pynwb!=1.1.0,!=2.3.0,>=1.0.3
+Requires-Dist: numcodecs<0.16
 Requires-Dist: nwbinspector!=0.4.32,>=0.4.28
 Requires-Dist: pyout!=0.6.0,>=0.5
 Requires-Dist: python-dateutil
@@ -56,7 +57,7 @@ Requires-Dist: tenacity
 Requires-Dist: tensorstore
 Requires-Dist: urllib3>=2.0.0
 Requires-Dist: yarl~=1.9
-Requires-Dist: zarr~=2.10
+Requires-Dist: zarr<=3.0.8,>=2.10
 Requires-Dist: zarr_checksum~=0.4.0
 Provides-Extra: extensions
 Requires-Dist: allensdk; extra == "extensions"

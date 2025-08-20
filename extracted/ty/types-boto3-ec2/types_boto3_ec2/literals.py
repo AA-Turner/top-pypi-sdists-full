@@ -2757,7 +2757,7 @@ VolumeDeletedWaiterName = Literal["volume_deleted"]
 VolumeInUseWaiterName = Literal["volume_in_use"]
 VolumeModificationStateType = Literal["completed", "failed", "modifying", "optimizing"]
 VolumeStateType = Literal["available", "creating", "deleted", "deleting", "error", "in-use"]
-VolumeStatusInfoStatusType = Literal["impaired", "insufficient-data", "ok"]
+VolumeStatusInfoStatusType = Literal["impaired", "insufficient-data", "ok", "warning"]
 VolumeStatusNameType = Literal["initialization-state", "io-enabled", "io-performance"]
 VolumeTypeType = Literal["gp2", "gp3", "io1", "io2", "sc1", "st1", "standard"]
 VpcAttributeNameType = Literal[
@@ -2861,6 +2861,7 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
     "bcm-recommended-actions",

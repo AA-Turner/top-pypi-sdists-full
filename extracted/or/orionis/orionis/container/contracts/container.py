@@ -420,3 +420,32 @@ class IContainer(ABC):
             The result of the method call.
         """
         pass
+
+    @abstractmethod
+    async def callAsync(
+        self,
+        instance: Any,
+        method_name: str,
+        *args,
+        **kwargs
+    ) -> Any:
+        """
+        Async version of call for when you're in an async context and need to await the result.
+
+        Parameters
+        ----------
+        instance : Any
+            The instance on which to call the method.
+        method_name : str
+            The name of the method to call.
+        *args : tuple
+            Positional arguments to pass to the method.
+        **kwargs : dict
+            Keyword arguments to pass to the method.
+
+        Returns
+        -------
+        Any
+            The result of the method call, properly awaited if async.
+        """
+        pass

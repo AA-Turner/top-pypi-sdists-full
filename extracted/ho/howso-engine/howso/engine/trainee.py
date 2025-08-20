@@ -52,6 +52,7 @@ from howso.client.typing import (
     TabularData2D,
     TabularData3D,
     TargetedModel,
+    ValueMasses,
 )
 from howso.engine.client import get_client
 from howso.engine.project import Project
@@ -978,6 +979,9 @@ class Trainee(BaseTrainee):
         bypass_calculate_feature_residuals: t.Optional[bool] = None,
         bypass_calculate_feature_weights: t.Optional[bool] = None,
         bypass_hyperparameter_analysis: t.Optional[bool] = None,
+        convergence_min_size: t.Optional[int] = None,
+        convergence_samples_growth_rate: t.Optional[float] = None,
+        convergence_threshold: t.Optional[float] = None,
         dt_values: t.Optional[Collection[float]] = None,
         inverse_residuals_as_weights: t.Optional[bool] = None,
         k_folds: t.Optional[int] = None,
@@ -1010,6 +1014,21 @@ class Trainee(BaseTrainee):
             When True, bypasses calculation of feature weights.
         bypass_hyperparameter_analysis : bool, default False
             When True, bypasses hyperparameter analysis.
+        convergence_min_size: int, optional
+            The minimum size of the first batch of cases used when dynamically
+            sampling robust residuals used to determine feature probabilities.
+            Defaults to 5000 when unspecified.
+        convergence_samples_growth_rate: float, optional
+            Rate of increasing the size of each subsequent sample used to
+            dynamically limit the total number of samples used to determine
+            feature probabilities. Defaults to 1.05 when unspecified,
+            increasing samples by 5% until the delta between residuals is less
+            than ``convergence_threshold``.
+        convergence_threshold: float, optional
+            Percent threshold used to dynamically limit the number of
+            samples used to determine feature probabilities.
+            Defaults to 0.005 (0.5%) when unspecified. When set to 0 will use
+            all ``num_feature_probability_samples`` instead of converging.
         dt_values : Collection of float, optional
             The dt value hyperparameters to analyze with.
         inverse_residuals_as_weights : bool, default False
@@ -1083,6 +1102,9 @@ class Trainee(BaseTrainee):
                 bypass_calculate_feature_residuals=bypass_calculate_feature_residuals,  # noqa: E501
                 bypass_calculate_feature_weights=bypass_calculate_feature_weights,
                 bypass_hyperparameter_analysis=bypass_hyperparameter_analysis,  # noqa: E501
+                convergence_min_size=convergence_min_size,
+                convergence_samples_growth_rate=convergence_samples_growth_rate,
+                convergence_threshold=convergence_threshold,
                 dt_values=dt_values,
                 use_case_weights=use_case_weights,
                 inverse_residuals_as_weights=inverse_residuals_as_weights,
@@ -1272,9 +1294,9 @@ class Trainee(BaseTrainee):
 
                     - None
                     - A value, must match exactly.
-                    - An array of two numeric values, specifying an inclusive
-                      range. Only applicable to continuous and numeric ordinal
-                      features.
+                    - An array of two numeric values (or formatted datetimes),
+                      specifying an inclusive range. Only applicable to
+                      continuous and numeric ordinal features.
                     - An array of string values, must match any of these values
                       exactly. Only applicable to nominal and string ordinal
                       features.
@@ -1861,9 +1883,9 @@ class Trainee(BaseTrainee):
 
                     - None
                     - A value, must match exactly.
-                    - An array of two numeric values, specifying an inclusive
-                      range. Only applicable to continuous and numeric ordinal
-                      features.
+                    - An array of two numeric values (or formatted datetimes),
+                      specifying an inclusive range. Only applicable to
+                      continuous and numeric ordinal features.
                     - An array of string values, must match any of these values
                       exactly. Only applicable to nominal and string ordinal
                       features.
@@ -2117,9 +2139,9 @@ class Trainee(BaseTrainee):
 
                     - None
                     - A value, must match exactly.
-                    - An array of two numeric values, specifying an inclusive
-                      range. Only applicable to continuous and numeric ordinal
-                      features.
+                    - An array of two numeric values (or formatted datetimes),
+                      specifying an inclusive range. Only applicable to
+                      continuous and numeric ordinal features.
                     - An array of string values, must match any of these values
                       exactly. Only applicable to nominal and string ordinal
                       features.
@@ -2295,9 +2317,9 @@ class Trainee(BaseTrainee):
 
                     - None
                     - A value, must match exactly.
-                    - An array of two numeric values, specifying an inclusive
-                      range. Only applicable to continuous and numeric ordinal
-                      features.
+                    - An array of two numeric values (or formatted datetimes),
+                      specifying an inclusive range. Only applicable to
+                      continuous and numeric ordinal features.
                     - An array of string values, must match any of these values
                       exactly. Only applicable to nominal and string ordinal
                       features.
@@ -2389,9 +2411,9 @@ class Trainee(BaseTrainee):
 
                     - None
                     - A value, must match exactly.
-                    - An array of two numeric values, specifying an inclusive
-                      range. Only applicable to continuous and numeric ordinal
-                      features.
+                    - An array of two numeric values (or formatted datetimes),
+                      specifying an inclusive range. Only applicable to
+                      continuous and numeric ordinal features.
                     - An array of string values, must match any of these values
                       exactly. Only applicable to nominal and string ordinal
                       features.
@@ -2582,9 +2604,9 @@ class Trainee(BaseTrainee):
 
                     - None
                     - A value, must match exactly.
-                    - An array of two numeric values, specifying an inclusive
-                      range. Only applicable to continuous and numeric ordinal
-                      features.
+                    - An array of two numeric values (or formatted datetimes),
+                      specifying an inclusive range. Only applicable to
+                      continuous and numeric ordinal features.
                     - An array of string values, must match any of these values
                       exactly. Only applicable to nominal and string ordinal
                       features.
@@ -2751,9 +2773,9 @@ class Trainee(BaseTrainee):
 
                     - None
                     - A value, must match exactly.
-                    - An array of two numeric values, specifying an inclusive
-                      range. Only applicable to continuous and numeric ordinal
-                      features.
+                    - An array of two numeric values (or formatted datetimes),
+                      specifying an inclusive range. Only applicable to
+                      continuous and numeric ordinal features.
                     - An array of string values, must match any of these values
                       exactly. Only applicable to nominal and string ordinal
                       features.
@@ -2822,9 +2844,9 @@ class Trainee(BaseTrainee):
 
                     - None
                     - A value, must match exactly.
-                    - An array of two numeric values, specifying an inclusive
-                      range. Only applicable to continuous and numeric ordinal
-                      features.
+                    - An array of two numeric values (or formatted datetimes),
+                      specifying an inclusive range. Only applicable to
+                      continuous and numeric ordinal features.
                     - An array of string values, must match any of these values
                       exactly. Only applicable to nominal and string ordinal
                       features.
@@ -3007,9 +3029,9 @@ class Trainee(BaseTrainee):
 
                     - None
                     - A value, must match exactly.
-                    - An array of two numeric values, specifying an inclusive
-                      range. Only applicable to continuous and numeric ordinal
-                      features.
+                    - An array of two numeric values (or formatted datetimes),
+                      specifying an inclusive range. Only applicable to
+                      continuous and numeric ordinal features.
                     - An array of string values, must match any of these values
                       exactly. Only applicable to nominal and string ordinal
                       features.
@@ -3165,9 +3187,9 @@ class Trainee(BaseTrainee):
 
                     - None
                     - A value, must match exactly.
-                    - An array of two numeric values, specifying an inclusive
-                      range. Only applicable to continuous and numeric ordinal
-                      features.
+                    - An array of two numeric values (or formatted datetimes),
+                      specifying an inclusive range. Only applicable to
+                      continuous and numeric ordinal features.
                     - An array of string values, must match any of these values
                       exactly. Only applicable to nominal and string ordinal
                       features.
@@ -3200,10 +3222,108 @@ class Trainee(BaseTrainee):
         else:
             raise AssertionError("Client must have the 'get_marginal_stats' method.")
 
+    @t.overload
+    def get_value_masses(  # pyright: ignore[reportOverlappingOverload]
+        self,
+        features: str,
+        *,
+        condition: t.Optional[Mapping] = None,
+        minimum_mass_threshold: float = 0.0,
+        precision: t.Optional[Precision] = "exact",
+        weight_feature: t.Optional[str] = None
+    ) -> ValueMasses:
+        ...
+
+    @t.overload
+    def get_value_masses(
+        self,
+        features: Collection[str],
+        *,
+        condition: t.Optional[Mapping] = None,
+        minimum_mass_threshold: float = 0.0,
+        precision: t.Optional[Precision] = "exact",
+        weight_feature: t.Optional[str] = None
+    ) -> dict[str, ValueMasses]:
+        ...
+
+    def get_value_masses(
+        self,
+        features: str | Collection[str],
+        *,
+        condition: t.Optional[Mapping] = None,
+        minimum_mass_threshold: float = 0.0,
+        precision: t.Optional[Precision] = "exact",
+        weight_feature: t.Optional[str] = None
+    ) -> ValueMasses | dict[str, ValueMasses]:
+        """
+        Get the unique values and their respective masses for each specified feature.
+
+        Parameters
+        ----------
+        features : str | Collection[str]
+            The feature names for which to compute unique value masses.
+        condition : Mapping or None, optional
+            A condition map to select which cases to compute value masses
+            for.
+
+            .. NOTE::
+                The dictionary keys are feature names and values are one of:
+
+                    - None
+                    - A value, must match exactly.
+                    - An array of two numeric values (or formatted datetimes),
+                      specifying an inclusive range. Only applicable to
+                      continuous and numeric ordinal features.
+                    - An array of string values, must match any of these values
+                      exactly. Only applicable to nominal and string ordinal
+                      features.
+        minimum_mass_threshold : float, default 0.0
+            The minimum mass a feature value must possess to be returned in the
+            collection of value masses. If the given value is greater than zero,
+            the sum of the omitted feature value masses is returned under a
+            "remaining" key for each feature.
+        precision : str, default "exact"
+            The precision to use when selecting cases with ``condition``.
+            Options are 'exact' or 'similar'. Only used if `condition` is not
+            None.
+        weight_feature : str, optional
+            When specified, will return masses based on weights stored
+            in this weight_feature.
+
+        Returns
+        -------
+        ValueMasses | dict[str, ValueMasses]
+            If only a single feature is given, then a single dictionary
+            describing the value masses is returned, otherwise a dict is
+            returned with value masses for each specified feature. In the
+            per-feature dict, "values" maps to a DataFrame where each row
+            contains a unique feature value and its mass. When
+            ``minimum_mass_threshold`` is greater than zero, "remaining" maps
+            to a single value that is the sum of all omitted feature value
+            masses.
+        """
+        if isinstance(self.client, HowsoPandasClientMixin):
+            value_masses_response =  self.client.get_value_masses(
+                self.id,
+                features=[features] if isinstance(features, str) else features,
+                condition=condition,
+                minimum_mass_threshold=minimum_mass_threshold,
+                precision=precision,
+                weight_feature=weight_feature
+            )
+            if isinstance(features, str):
+                # Single feature flow
+                return value_masses_response[features]
+            else:
+                return value_masses_response
+
+        else:
+            raise AssertionError("Client must have the `get_value_masses` method.")
+
     def react_into_features(
         self,
         *,
-        analyze: bool = None,
+        analyze: t.Optional[bool] = None,
         distance_contribution: str | bool = False,
         familiarity_conviction_addition: str | bool = False,
         familiarity_conviction_removal: str | bool = False,
@@ -3287,6 +3407,9 @@ class Trainee(BaseTrainee):
         confusion_matrix_min_count: t.Optional[int] = None,
         context_features: t.Optional[Collection[str]] = None,
         details: t.Optional[dict] = None,
+        convergence_min_size: t.Optional[int] = None,
+        convergence_samples_growth_rate: t.Optional[float] = None,
+        convergence_threshold: t.Optional[float] = None,
         features_to_derive: t.Optional[Collection[str]] = None,
         feature_influences_action_feature: t.Optional[str] = None,
         forecast_window_length: t.Optional[float] = None,
@@ -3461,6 +3584,17 @@ class Trainee(BaseTrainee):
                   in the data. This helps alleviate limitations with smape when the values are 0 or near 0.
             - estimated_residual_lower_bound : bool, optional
                 When True, computes and outputs estimated lower bound of residuals for specified action features.
+        convergence_min_size: int, optional
+            The minimum size of the first batch of cases used when dynamically sampling robust
+            residuals used to determine feature accuracy contributions. Defaults to 5000 when unspecified.
+        convergence_samples_growth_rate: float, optional
+            Rate of increasing the size of each subsequent sample used to dynamically limit the total number of
+            samples used to determine robust feature accuracy contributions. Defaults to 1.05 when unspecified,
+            increasing samples by 5% until the delta between residuals is less than ``convergence_threshold``.
+        convergence_threshold: float, optional
+            Percent threshold used to dynamically limit the number of samples used to determine robust
+            accuracy contributions. Defaults to 0.005 (0.5%) when unspecified. When set to 0 will use
+            all ``num_robust_accuracy_contributions_samples`` instead of converging.
         features_to_derive: list of str, optional
             List of feature names whose values should be derived rather than interpolated from influential
             cases when predicted. If unspecified, then the features that have derivation logic defined will
@@ -3600,6 +3734,9 @@ class Trainee(BaseTrainee):
                 context_features=context_features,
                 confusion_matrix_min_count=confusion_matrix_min_count,
                 details=details,
+                convergence_min_size=convergence_min_size,
+                convergence_samples_growth_rate=convergence_samples_growth_rate,
+                convergence_threshold=convergence_threshold,
                 features_to_derive=features_to_derive,
                 feature_influences_action_feature=feature_influences_action_feature,
                 forecast_window_length=forecast_window_length,

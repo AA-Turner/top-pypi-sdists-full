@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: juliacall
-Version: 0.9.26
+Version: 0.9.27
 Summary: Julia and Python in seamless harmony
 License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: <4,>=3.8
+Requires-Python: <4,>=3.9
 Requires-Dist: juliapkg<0.2,>=0.1.17
 Description-Content-Type: text/markdown
 
@@ -26,7 +26,7 @@ Bringing [**Python®**](https://www.python.org/) and [**Julia**](https://juliala
 - Fast non-copying conversion of numeric arrays in either direction: modify Python arrays (e.g. `bytes`, `array.array`, `numpy.ndarray`) from Julia or Julia arrays from Python.
 - Helpful wrappers: interpret Python sequences, dictionaries, arrays, dataframes and IO streams as their Julia counterparts, and vice versa.
 - Beautiful stack-traces.
-- Supports modern systems: tested on Windows, MacOS and Linux, 64-bit, Julia 1.9 upwards and Python 3.8 upwards.
+- Supports modern systems: tested on Windows, MacOS and Linux, 64-bit, Julia 1.9 upwards and Python 3.9 upwards.
 
 ⭐ If you like this, a GitHub star would be lovely thank you. ⭐
 

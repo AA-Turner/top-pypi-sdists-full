@@ -415,16 +415,11 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
                 nop_to_be_select = buscar_nop(itens_to_select, '2202', 's/estc/fin')
         else:
             if uf_posto and uf_posto != uf_cliente:
-                # Primeiro tenta pegar o C FINAN (amarelo)
-                nop_to_be_select = buscar_nop(itens_to_select, '2662', 'sestcfinan')
-                if not nop_to_be_select:
-                    nop_to_be_select = buscar_nop(itens_to_select, '2662', 'devcombc/fi')
-                else:
-                    # # Primeiro tenta pegar o C FINAN (amarelo) - CASO DER PROBLEMA NO 1662 - TESTAR COM ESSA FUNÇÃO ABAIXO
-                    # nop_to_be_select = buscar_nop(itens_to_select, '1662', 'sestcfinan')
-                    # if not nop_to_be_select:
-                        nop_to_be_select = buscar_nop(itens_to_select, '1662', 'devcombc/fi')
+                nop_to_be_select = buscar_nop(itens_to_select, '2662', 'devcombc/fi')
+            else:
+                nop_to_be_select = buscar_nop(itens_to_select, '1662', 'devcombc/fi')
 
+        await worker_sleep(2)
         # Se encontrou, faz a seleção precisa no combobox
         if nop_to_be_select != '':
             console.print(f"Nop a ser considerada: {nop_to_be_select}...\n")

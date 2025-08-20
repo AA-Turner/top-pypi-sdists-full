@@ -112,7 +112,8 @@ class OllamaInferenceAdapter(
     @property
     def openai_client(self) -> AsyncOpenAI:
         if self._openai_client is None:
-            self._openai_client = AsyncOpenAI(base_url=f"{self.config.url}/v1", api_key="ollama")
+            url = self.config.url.rstrip("/")
+            self._openai_client = AsyncOpenAI(base_url=f"{url}/v1", api_key="ollama")
         return self._openai_client
 
     async def initialize(self) -> None:
@@ -456,9 +457,6 @@ class OllamaInferenceAdapter(
         user: str | None = None,
     ) -> OpenAIEmbeddingsResponse:
         model_obj = await self._get_model(model)
-        if model_obj.model_type != ModelType.embedding:
-            raise ValueError(f"Model {model} is not an embedding model")
-
         if model_obj.provider_resource_id is None:
             raise ValueError(f"Model {model} has no provider_resource_id set")
 

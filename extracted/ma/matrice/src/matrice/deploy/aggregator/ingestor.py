@@ -210,7 +210,9 @@ class ResultsIngestor:
                     # Handle the structured response format from stream_worker.py
                     result_value = result.get("value", {})
                     input_streams = result_value.get("input_streams", [])
-                    input_stream = input_streams[0]["input_stream"] if input_streams else {}
+                    # Handle both input_stream if key in dict and input_data if key is not in dict
+                    input_data = input_streams[0] if input_streams else {}
+                    input_stream = input_data.get("input_stream", input_data)
                     # input_order = input_stream.get("input_order")
                     camera_info = input_stream.get("camera_info") or {}
                     stream_key = camera_info.get("camera_name")
@@ -267,7 +269,7 @@ class ResultsIngestor:
             except Exception as exc:
                 if not self._stop_streaming.is_set():
                     logging.error(
-                        f"Error streaming results for deployment {deployment_id}: {exc}"
+                        f"Error streaming results for deployment {deployment_id}: {exc}", exc_info=True
                     )
                     with self._lock:
                         self.stats["errors"] += 1

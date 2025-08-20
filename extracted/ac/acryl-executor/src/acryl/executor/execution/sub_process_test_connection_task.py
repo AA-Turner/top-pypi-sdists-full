@@ -18,10 +18,17 @@ import os
 import subprocess
 import sys
 from collections import deque
+from pathlib import Path
 
 from acryl.executor.common.config import ConfigModel
 from acryl.executor.context.execution_context import ExecutionContext
 from acryl.executor.context.executor_context import ExecutorContext
+from acryl.executor.execution.runner import (
+    LogHolder,
+    SubprocessRunner,
+    VenvConfig,
+    setup_venv,
+)
 from acryl.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
     SubProcessTaskUtil,
@@ -75,24 +82,42 @@ class SubProcessTestConnectionTask(Task):
             exec_out_dir, recipe
         )
 
-        # 3. Spin off subprocess to run the run_ingest.sh script
+        # Prepare or resolve venv in Python (minimal change)
+        venv_config = VenvConfig(
+            version=validated_args.version,
+            main_plugin=plugin,
+            extra_pip_requirements=validated_args.extra_pip_requirements,
+            extra_pip_plugins=validated_args.extra_pip_plugins,
+            extra_env_vars=validated_args.extra_env_vars,
+        )
+        venv_setup_logs = LogHolder()
+        venv_runner = SubprocessRunner(logs=venv_setup_logs)
+        try:
+            venv_ref = await setup_venv(
+                venv_config=venv_config,
+                runner=venv_runner,
+                tmp_dir=Path(exec_out_dir),
+            )
+        except Exception as e:
+            raise TaskError(f"Failed to set up virtual environment: {e}") from e
+
+        # 3. Spin off subprocess to run the test-connection script with venv path
         command_script: str = "run_test_connection.sh"
         report_out_file: str = f"{exec_out_dir}/connection_report.json"
         stdout_lines: deque = deque(maxlen=SubProcessTaskUtil.MAX_LOG_LINES)
 
-        # TODO: Inject a token into the recipe to run such that it "just works" (currently, a token is required)
-
         ingest_process = subprocess.Popen(
             [
                 command_script,
-                validated_args.get_venv_name(plugin=plugin),
-                validated_args.version,
-                plugin,
-                self.tmp_dir,
+                str(venv_ref.venv_loc),
                 recipe_file_path,
                 report_out_file,
             ],
-            env=validated_args.get_combined_env_vars(),
+            env={
+                **validated_args.get_combined_env_vars(),
+                **venv_ref.extra_envs(),
+                "VENV_PATH": str(venv_ref.venv_loc),
+            },
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weave
-Version: 0.51.59
+Version: 0.52.1
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
 Project-URL: Documentation, https://docs.wandb.com/
@@ -248,6 +248,7 @@ Requires-Dist: autogen-agentchat>=0.5.7; extra == 'autogen'
 Provides-Extra: autogen-tests
 Requires-Dist: autogen-agentchat>=0.5.7; extra == 'autogen-tests'
 Requires-Dist: autogen-ext[openai]>=0.5.7; extra == 'autogen-tests'
+Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'autogen-tests'
 Provides-Extra: bedrock
 Requires-Dist: boto3; extra == 'bedrock'
 Requires-Dist: moto[bedrock]>=5.0.24; extra == 'bedrock'
@@ -258,6 +259,7 @@ Requires-Dist: cohere<5.9.3,>=5.9.1; extra == 'cohere'
 Provides-Extra: crewai
 Requires-Dist: crewai-tools>=0.38.0; extra == 'crewai'
 Requires-Dist: crewai<=0.108.0,>=0.100.1; extra == 'crewai'
+Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'crewai'
 Provides-Extra: dev
 Requires-Dist: python-multipart; extra == 'dev'
 Requires-Dist: tomlkit; extra == 'dev'
@@ -277,8 +279,8 @@ Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.3; extra == 'docs'
 Requires-Dist: playwright; extra == 'docs'
 Provides-Extra: dspy
 Requires-Dist: dspy>=2.6.27; extra == 'dspy'
-Provides-Extra: google-ai-studio
-Requires-Dist: google-generativeai>=0.8.3; extra == 'google-ai-studio'
+Requires-Dist: litellm[proxy]; extra == 'dspy'
+Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'dspy'
 Provides-Extra: google-genai
 Requires-Dist: google-genai<=1.23.0,>=1.0.0; extra == 'google-genai'
 Requires-Dist: pillow>=11.1.0; extra == 'google-genai'
@@ -290,15 +292,18 @@ Provides-Extra: instructor
 Requires-Dist: google-genai>=1.5.0; extra == 'instructor'
 Requires-Dist: instructor<1.7.0,>=1.4.3; (python_version <= '3.9') and extra == 'instructor'
 Requires-Dist: instructor>=1.4.3; (python_version > '3.9') and extra == 'instructor'
+Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'instructor'
 Provides-Extra: langchain
 Requires-Dist: chromadb>=0.5.0; extra == 'langchain'
 Requires-Dist: langchain-anthropic>=0.3.15; extra == 'langchain'
+Requires-Dist: langchain-cohere>=0.4.5; extra == 'langchain'
 Requires-Dist: langchain-community>=0.2.1; extra == 'langchain'
 Requires-Dist: langchain-core>=0.2.1; extra == 'langchain'
 Requires-Dist: langchain-google-genai>=2.1.5; extra == 'langchain'
 Requires-Dist: langchain-google-vertexai>=2.0.24; extra == 'langchain'
+Requires-Dist: langchain-litellm>=0.2.2; extra == 'langchain'
 Requires-Dist: langchain-openai>=0.1.7; extra == 'langchain'
-Requires-Dist: openai<1.92.0; extra == 'langchain'
+Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'langchain'
 Requires-Dist: opentelemetry-exporter-otlp; extra == 'langchain'
 Requires-Dist: pysqlite3; extra == 'langchain'
 Provides-Extra: langchain-nvidia-ai-endpoints
@@ -306,10 +311,11 @@ Requires-Dist: langchain-core>=0.2.1; extra == 'langchain-nvidia-ai-endpoints'
 Requires-Dist: langchain-nvidia-ai-endpoints; extra == 'langchain-nvidia-ai-endpoints'
 Provides-Extra: litellm
 Requires-Dist: litellm>=1.36.1; extra == 'litellm'
+Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'litellm'
 Provides-Extra: llamaindex
 Requires-Dist: llama-index-core<0.12.50; extra == 'llamaindex'
 Requires-Dist: llama-index<0.12.50,>=0.10.35; extra == 'llamaindex'
-Requires-Dist: openai<1.92.0; extra == 'llamaindex'
+Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'llamaindex'
 Provides-Extra: mcp
 Requires-Dist: mcp[cli]<1.10.0,>=1.6.0; extra == 'mcp'
 Provides-Extra: mistral
@@ -321,7 +327,7 @@ Provides-Extra: notdiamond
 Requires-Dist: litellm<=1.49.1; extra == 'notdiamond'
 Requires-Dist: notdiamond>=0.3.21; extra == 'notdiamond'
 Provides-Extra: openai
-Requires-Dist: openai<1.92.0,>=1.0.0; extra == 'openai'
+Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'openai'
 Provides-Extra: openai-agents
 Requires-Dist: openai-agents>=0.0.4; extra == 'openai-agents'
 Provides-Extra: pandas-test
@@ -345,7 +351,7 @@ Requires-Dist: transformers>=4.51.1; extra == 'scorers'
 Provides-Extra: smolagents
 Requires-Dist: huggingface-hub>=0.28.1; extra == 'smolagents'
 Requires-Dist: litellm>=1.58; extra == 'smolagents'
-Requires-Dist: openai>=1.0.0; extra == 'smolagents'
+Requires-Dist: openai<1.100.0,>=1.99.9; extra == 'smolagents'
 Requires-Dist: smolagents<1.19.0,>=1.17.0; extra == 'smolagents'
 Requires-Dist: sqlalchemy>=2.0.38; extra == 'smolagents'
 Provides-Extra: test
@@ -365,6 +371,7 @@ Requires-Dist: litellm>=1.36.1; extra == 'test'
 Requires-Dist: moto[s3]>=5.0.0; extra == 'test'
 Requires-Dist: moviepy<=1.0.3; extra == 'test'
 Requires-Dist: nox; extra == 'test'
+Requires-Dist: openai<1.100.0; extra == 'test'
 Requires-Dist: opencv-python; extra == 'test'
 Requires-Dist: openinference-semantic-conventions>=0.1.17; extra == 'test'
 Requires-Dist: opentelemetry-proto>=1.12.0; extra == 'test'
@@ -394,6 +401,7 @@ Requires-Dist: opentelemetry-proto>=1.12.0; extra == 'trace-server'
 Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.3; extra == 'trace-server'
 Provides-Extra: trace-server-tests
 Requires-Dist: moto[s3]>=5.0.0; extra == 'trace-server-tests'
+Requires-Dist: openai<1.100.0; extra == 'trace-server-tests'
 Provides-Extra: verdict
 Requires-Dist: verdict>=0.2.3; extra == 'verdict'
 Provides-Extra: vertexai

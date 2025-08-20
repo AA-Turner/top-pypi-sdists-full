@@ -472,6 +472,14 @@ class HTTPSpanExporter(_HTTPSpanExporter):
 
         if bound_args.arguments.get("endpoint") is None:
             bound_args.arguments["endpoint"] = endpoint
+
+        # Ensure HTTP endpoints have the correct /traces suffix for Arize endpoints only
+        current_endpoint = bound_args.arguments["endpoint"]
+        if isinstance(current_endpoint, Endpoint):
+            endpoint_url = current_endpoint.value
+            if not endpoint_url.endswith("/traces"):
+                bound_args.arguments["endpoint"] = f"{endpoint_url}/traces"
+
         super().__init__(*bound_args.args, **bound_args.kwargs)
 
 

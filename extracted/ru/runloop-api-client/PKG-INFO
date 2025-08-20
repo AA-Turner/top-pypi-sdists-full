@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: runloop_api_client
-Version: 0.54.0
+Version: 0.55.2
 Summary: The official Python library for the runloop API
 Project-URL: Homepage, https://github.com/runloopai/api-client-python
 Project-URL: Repository, https://github.com/runloopai/api-client-python

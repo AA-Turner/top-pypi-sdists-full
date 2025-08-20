@@ -1,20 +1,18 @@
 Metadata-Version: 2.4
 Name: pymgclient
-Version: 1.4.0
+Version: 1.5.0
 Summary: Memgraph database adapter for Python language
 Home-page: https://github.com/memgraph/pymgclient
-Author: Marin Tomic
-Author-email: marin.tomic@memgraph.com
-Maintainer: Benjamin Antal
-Maintainer-email: benjamin.antal@memgraph.com
+Author: Colin Barry
+Author-email: colin.barry@memgraph.io
+Maintainer: Matt James
+Maintainer-email: matthew.james@memgraph.io
 License: Apache2
 Project-URL: Source, https://github.com/memgraph/pymgclient
 Project-URL: Documentation, https://memgraph.github.io/pymgclient
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -28,11 +26,12 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pyopenssl
 Requires-Dist: networkx
+Requires-Dist: tzdata
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

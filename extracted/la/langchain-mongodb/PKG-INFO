@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-mongodb
-Version: 0.6.2
+Version: 0.7.0
 Summary: An integration package connecting MongoDB and LangChain
 License-File: LICENSE
 Requires-Python: >=3.9

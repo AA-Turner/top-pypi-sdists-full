@@ -30,6 +30,10 @@ Keyword arguments:
 - aria-* (string; optional):
     Wild card aria attributes.
 
+- attributes (boolean | number | string | dict | list; optional):
+    Passes attributes to inner elements of a component.  See Styles
+    API docs.
+
 - autoComplete (string; default 'off'):
     (string; default \"off\") Enables the browser to attempt
     autocompletion based on user history.  For more information, see:
@@ -69,7 +73,8 @@ Keyword arguments:
     Class added to the root element, if applicable.
 
 - classNames (dict; optional):
-    Adds class names to Mantine components.
+    Adds custom CSS class names to inner elements of a component.  See
+    Styles API docs.
 
 - darkHidden (boolean; optional):
     Determines whether component should be hidden in dark color scheme
@@ -270,7 +275,8 @@ Keyword arguments:
     truthy and hasn't changed from its previous value, a `value` that
     the user has changed while using the app will keep that change, as
     long as the new `value` also matches what was given originally.
-    Used in conjunction with `persistence_type`.
+    Used in conjunction with `persistence_type`. Note:  The component
+    must have an `id` for persistence to work.
 
 - persistence_type (a value equal to: 'local', 'session', 'memory'; optional):
     Where persisted user changes will be stored: memory: only kept in
@@ -342,7 +348,8 @@ Keyword arguments:
     default.
 
 - styles (boolean | number | string | dict | list; optional):
-    Mantine styles API.
+    Adds inline styles directly to inner elements of a component.  See
+    Styles API docs.
 
 - ta (optional):
     TextAlign.
@@ -500,6 +507,7 @@ Keyword arguments:
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
         variant: typing.Optional[str] = None,
+        attributes: typing.Optional[typing.Any] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
@@ -511,9 +519,9 @@ Keyword arguments:
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'autoComplete', 'autosize', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'error', 'errorProps', 'ff', 'flex', 'formatOnBlur', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxRows', 'mb', 'me', 'mih', 'minRows', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'resize', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'validationError', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'wrapperProps']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'autoComplete', 'autosize', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'error', 'errorProps', 'ff', 'flex', 'formatOnBlur', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxRows', 'mb', 'me', 'mih', 'minRows', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'resize', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'validationError', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'wrapperProps']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'autoComplete', 'autosize', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'error', 'errorProps', 'ff', 'flex', 'formatOnBlur', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxRows', 'mb', 'me', 'mih', 'minRows', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'resize', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'validationError', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'wrapperProps']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'autoComplete', 'autosize', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'error', 'errorProps', 'ff', 'flex', 'formatOnBlur', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxRows', 'mb', 'me', 'mih', 'minRows', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'resize', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'validationError', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'wrapperProps']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

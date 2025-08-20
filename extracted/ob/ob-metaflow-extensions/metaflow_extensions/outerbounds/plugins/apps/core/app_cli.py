@@ -484,6 +484,9 @@ def deploy(
                     dependencies.get("conda", None) is None,
                 ]
             ):
+                python_version = dependencies.get(
+                    "python"
+                )  # python gets a default value so it's always set.
                 # The user has not set any dependencies, so we can sniff the packaging directory
                 # for a dependencies file.
                 requirements_file = os.path.join(
@@ -492,14 +495,22 @@ def deploy(
                 pyproject_toml = os.path.join(packaging_directory, "pyproject.toml")
                 if os.path.exists(pyproject_toml):
                     app_config.set_state(
-                        "dependencies", {"from_pyproject_toml": pyproject_toml}
+                        "dependencies",
+                        {
+                            "from_pyproject_toml": pyproject_toml,
+                            "python": python_version,
+                        },
                     )
                     logger(
                         "📦 Using dependencies from pyproject.toml: %s" % pyproject_toml
                     )
                 elif os.path.exists(requirements_file):
                     app_config.set_state(
-                        "dependencies", {"from_requirements_file": requirements_file}
+                        "dependencies",
+                        {
+                            "from_requirements_file": requirements_file,
+                            "python": python_version,
+                        },
                     )
                     logger(
                         "📦 Using dependencies from requirements.txt: %s"

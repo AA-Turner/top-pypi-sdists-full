@@ -71,6 +71,7 @@ class SeeqNames:
         seeq_label_namespace = '__'
         usage_restricted_label_namespace = '__Seeq.'
         vantage_label_category_namespace = '__Vantage'
+        user_defined_context_label_category_namespace = 'UserDefinedContext'
     
     class MlService:
         class PrincipalComponentAnalysis:
@@ -1111,6 +1112,7 @@ class SeeqNames:
         metric_configuration_migration = 'MetricReconfigurationMigration'
         bounding_condition_maximum_duration = 'BoundingConditionMaximumDuration'
         neutral_color = 'NeutralColor'
+        unset = 'unset'
         is_generated = 'Is Generated'
         tree_type = 'Tree Type'
         manually_added = 'Manually Added'

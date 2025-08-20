@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optype
-Version: 0.13.3
+Version: 0.13.4
 Summary: Building Blocks for Precise & Flexible Type Hints
 Keywords: annotations,basedpyright,checker,checking,hinting,hints,mypy,numpy,numpy-typing-compat,pyright,protocols,stubs,type,typechecking,typehinting,typehints,typing
 Author: Joren Hammudoglu
@@ -20,7 +20,8 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
 Requires-Dist: typing-extensions>=4.10 ; python_full_version < '3.13'
-Requires-Dist: numpy-typing-compat>=1.25.20250814,<3 ; extra == 'numpy'
+Requires-Dist: numpy>=1.25 ; extra == 'numpy'
+Requires-Dist: numpy-typing-compat>=20250818.1.25,<20250819 ; extra == 'numpy'
 Requires-Python: >=3.11
 Project-URL: Changelog, https://github.com/jorenham/optype/releases
 Project-URL: Documentation, https://github.com/jorenham/optype/blob/master/README.md
@@ -107,10 +108,9 @@ Optype is available as [`optype`][PYPI] on PyPI:
 pip install optype
 ```
 
-For optional [NumPy][NUMPY] support, it is recommended to use the
-`numpy` extra.
-This ensures that the installed `numpy` version is compatible with
-`optype`, following [NEP 29][NEP29] and [SPEC 0][SPEC0].
+For optional [NumPy][NUMPY] support, ensure that you use the `optype[numpy]` extra.
+This ensures that the installed `numpy` and the required [`numpy-typing-compat`][NPTC]
+versions are compatible with each other.
 
 ```shell
 pip install "optype[numpy]"
@@ -126,9 +126,18 @@ Optype can also be installed with `conda` from the [`conda-forge`][CONDA] channe
 conda install conda-forge::optype
 ```
 
+If you want to use [`optype.numpy`](#optypenumpy), you should instead install
+[`optype-numpy`][CONDA-NP]:
+
+```shell
+conda install conda-forge::optype-numpy
+```
+
 [PYPI]: https://pypi.org/project/optype/
 [CONDA]: https://anaconda.org/conda-forge/optype
+[CONDA-NP]: https://anaconda.org/conda-forge/optype-numpy
 [NUMPY]: https://github.com/numpy/numpy
+[NPTC]: https://github.com/jorenham/numpy-typing-compat
 
 ## Example
 
@@ -2495,15 +2504,22 @@ internal type-codes of the `DLPack` data types.
 
 ### `optype.numpy`
 
-Optype supports both NumPy 1 and 2.
-The current minimum supported version is `1.25`,
+Optype supports both NumPy 1 and 2. The current minimum supported version is `1.25`,
 following [NEP 29][NEP29] and [SPEC 0][SPEC0].
 
-When using `optype.numpy`, it is recommended to install `optype` with the
-`numpy` extra, ensuring version compatibility:
+`optype.numpy` uses [`numpy-typing-compat`][NPTC] package to ensure compatibility for
+older versions of NumPy. To ensure that the correct versions of `numpy` and
+`numpy-typing-compat` are installed, you should install `optype` with the `numpy` extra:
 
 ```shell
 pip install "optype[numpy]"
+```
+
+If you're using `conda`, the [`optype-numpy`][CONDA-NP] package can be used, which
+will also install the required `numpy` and `numpy-typing-compat` versions:
+
+```shell
+conda install conda-forge::optype-numpy
 ```
 
 > [!NOTE]

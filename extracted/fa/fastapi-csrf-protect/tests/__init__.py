@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+# coding:utf-8
 # Copyright (C) 2020-2025 All rights reserved.
 # FILENAME:    ~~/tests/__init__.py
-# VERSION:     1.0.2
+# VERSION:     1.0.5
 # CREATED:     2020-11-26 18:50
 # AUTHOR:      Sitt Guruvanich <aekazitt+github@gmail.com>
 # DESCRIPTION: https://www.w3docs.com/snippets/python/what-is-init-py-for.html
@@ -10,7 +11,7 @@
 # *************************************************************
 
 ### Standard packages ###
-from typing import Tuple
+from collections.abc import Generator
 
 ### Third-party packages ###
 from fastapi import Depends, FastAPI, Request
@@ -24,7 +25,7 @@ from fastapi_csrf_protect.exceptions import CsrfProtectError
 
 
 @fixture
-def test_client() -> TestClient:
+def test_client() -> Generator[TestClient, None, None]:
   """
   Sets up a FastAPI TestClient wrapped around an application implementing both
   Context and Headers extension pattern
@@ -33,7 +34,7 @@ def test_client() -> TestClient:
   :return: test client fixture used for local testing
   :rtype: fastapi.testclient.TestClient
   """
-  app = FastAPI()
+  app: FastAPI = FastAPI()
 
   @app.get("/gen-token", response_class=JSONResponse)
   def read_resource(csrf_protect: CsrfProtect = Depends()) -> JSONResponse:
@@ -57,7 +58,8 @@ def test_client() -> TestClient:
   def csrf_protect_error_handler(request: Request, exc: CsrfProtectError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
-  return TestClient(app)
+  with TestClient(app) as client:
+    yield client
 
 
-__all__: Tuple[str, ...] = ("test_client",)
+__all__: tuple[str, ...] = ("test_client",)

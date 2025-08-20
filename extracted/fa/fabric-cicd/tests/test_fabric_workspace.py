@@ -88,7 +88,7 @@ def create_platform_metadata(dir_path, utf8_chars):
 def patched_fabric_workspace(mock_endpoint):
     """Return a factory function to create a patched FabricWorkspace."""
 
-    def _create_workspace(workspace_id, repository_directory, item_type_in_scope, **kwargs):
+    def _create_workspace(workspace_id, repository_directory, item_type_in_scope=None, **kwargs):
         fabric_endpoint_patch = patch("fabric_cicd.fabric_workspace.FabricEndpoint", return_value=mock_endpoint)
         refresh_items_patch = patch.object(
             FabricWorkspace, "_refresh_deployed_items", new=lambda self: setattr(self, "deployed_items", {})
@@ -814,3 +814,47 @@ def test_single_empty_logical_id_validation_message(temp_workspace_dir, patched_
     assert "logicalId cannot be empty in " in error_message
     assert "following files:" not in error_message
     assert str(platform_file_path) in error_message
+
+
+def test_fabric_workspace_with_none_item_types_defaults_to_all(
+    temp_workspace_dir, patched_fabric_workspace, valid_workspace_id
+):
+    """Test that FabricWorkspace works correctly when initialized with None item_type_in_scope (defaults to all available types)."""
+    # Create a sample item to test with
+    item_dir = temp_workspace_dir / "TestNotebook.Notebook"
+    item_dir.mkdir(parents=True, exist_ok=True)
+    platform_file_path = item_dir / ".platform"
+
+    metadata_content = {
+        "metadata": {
+            "type": "Notebook",
+            "displayName": "Test Notebook",
+            "description": "Test notebook for None item types test",
+        },
+        "config": {"logicalId": "test-logical-id-none"},
+    }
+
+    with platform_file_path.open("w", encoding="utf-8") as f:
+        json.dump(metadata_content, f, ensure_ascii=False)
+
+    # Create a dummy content file
+    with (item_dir / "dummy.txt").open("w", encoding="utf-8") as f:
+        f.write("Dummy file content")
+
+    # Test that workspace initializes correctly with None (default behavior)
+    workspace = patched_fabric_workspace(
+        workspace_id=valid_workspace_id,
+        repository_directory=str(temp_workspace_dir),  # item_type_in_scope=None (default)
+    )
+
+    # Verify that item_type_in_scope was expanded to all available types
+    import fabric_cicd.constants as constants
+
+    expected_types = list(constants.ACCEPTED_ITEM_TYPES)
+    assert set(workspace.item_type_in_scope) == set(expected_types), (
+        f"Expected all item types, got {workspace.item_type_in_scope}"
+    )
+
+    # Verify that the notebook item was loaded correctly
+    assert "Notebook" in workspace.repository_items
+    assert "Test Notebook" in workspace.repository_items["Notebook"]

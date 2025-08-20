@@ -323,6 +323,7 @@ class TestExasol(Validator):
         )
         self.validate_identity("SELECT TO_DATE('31-DECEMBER-1999', 'DD-MONTH-YYYY') AS TO_DATE")
         self.validate_identity("SELECT TO_DATE('31-DEC-1999', 'DD-MON-YYYY') AS TO_DATE")
+        self.validate_identity("SELECT WEEKOFYEAR('2024-05-22')", "SELECT WEEK('2024-05-22')")
 
         for fmt, alias in formats.items():
             with self.subTest(f"Testing TO_CHAR with format '{fmt}'"):
@@ -437,6 +438,7 @@ class TestExasol(Validator):
 
     def test_number_functions(self):
         self.validate_identity("SELECT TRUNC(123.456, 2) AS TRUNC")
+        self.validate_identity("SELECT DIV(1234, 2) AS DIV")
 
     def test_scalar(self):
         self.validate_all(

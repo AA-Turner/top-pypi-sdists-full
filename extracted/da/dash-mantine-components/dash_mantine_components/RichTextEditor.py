@@ -30,6 +30,10 @@ Keyword arguments:
 - aria-* (string; optional):
     Wild card aria attributes.
 
+- attributes (boolean | number | string | dict | list; optional):
+    Passes attributes to inner elements of a component.  See Styles
+    API docs.
+
 - bd (string | number; optional):
     Border.
 
@@ -60,7 +64,8 @@ Keyword arguments:
     Class added to the root element, if applicable.
 
 - classNames (dict; optional):
-    Adds class names to Mantine components.
+    Adds custom CSS class names to inner elements of a component.  See
+    Styles API docs.
 
 - darkHidden (boolean; optional):
     Determines whether component should be hidden in dark color scheme
@@ -217,6 +222,9 @@ Keyword arguments:
     - redoControlLabel (string; optional):
         RichTextEditor.Redo control aria-label.
 
+    - sourceCodeControlLabel (string; optional):
+        RichTextEditor.SourceCode control aria-label.
+
     - linkEditorInputLabel (string; optional):
         Aria-label for link editor url input.
 
@@ -362,7 +370,8 @@ Keyword arguments:
     truthy and hasn't changed from its previous value, a `value` that
     the user has changed while using the app will keep that change, as
     long as the new `value` also matches what was given originally.
-    Used in conjunction with `persistence_type`.
+    Used in conjunction with `persistence_type`. Note:  The component
+    must have an `id` for persistence to work.
 
 - persistence_type (a value equal to: 'local', 'session', 'memory'; optional):
     Where persisted user changes will be stored: memory: only kept in
@@ -397,7 +406,8 @@ Keyword arguments:
     Currently selected text. Affected by debounce.
 
 - styles (boolean | number | string | dict | list; optional):
-    Mantine styles API.
+    Adds inline styles directly to inner elements of a component.  See
+    Styles API docs.
 
 - ta (optional):
     TextAlign.
@@ -624,6 +634,7 @@ Keyword arguments:
             "highlightControlLabel": NotRequired[str],
             "undoControlLabel": NotRequired[str],
             "redoControlLabel": NotRequired[str],
+            "sourceCodeControlLabel": NotRequired[str],
             "linkEditorInputLabel": NotRequired[str],
             "linkEditorInputPlaceholder": NotRequired[str],
             "linkEditorExternalLink": NotRequired[str],
@@ -725,6 +736,7 @@ Keyword arguments:
         classNames: typing.Optional[dict] = None,
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
+        attributes: typing.Optional[typing.Any] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
@@ -733,9 +745,9 @@ Keyword arguments:
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'display', 'extensions', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'html', 'inset', 'json', 'labels', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'toolbar', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCodeHighlightStyles', 'withTypographyStyles']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'display', 'extensions', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'html', 'inset', 'json', 'labels', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'toolbar', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCodeHighlightStyles', 'withTypographyStyles']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'display', 'extensions', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'html', 'inset', 'json', 'labels', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'toolbar', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCodeHighlightStyles', 'withTypographyStyles']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'display', 'extensions', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'html', 'inset', 'json', 'labels', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'toolbar', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCodeHighlightStyles', 'withTypographyStyles']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

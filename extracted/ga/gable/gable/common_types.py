@@ -1,4 +1,8 @@
-from .openapi import SourceType
+from typing import List
+
+from pydantic import BaseModel
+
+from .openapi import SourceType, StaticAnalysisDataFlowPath
 
 ALL_SOURCE_TYPES = list(SourceType)
 
@@ -18,3 +22,7 @@ STATIC_CODE_ANALYSIS_SOURCE_TYPES = [
 ]
 
 SCHEMA_SOURCE_TYPES = DATABASE_SOURCE_TYPES + FILE_SOURCE_TYPES
+
+
+class LineageDataFile(BaseModel):
+    paths: List[StaticAnalysisDataFlowPath]

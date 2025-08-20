@@ -481,8 +481,10 @@ def _is_node_metric_valid(stage: str, node: pd.Series, session: Session) -> (boo
             return False, 'Metrics must have a Measured Item.'
     if _common.present(node, 'Metric Neutral Color'):
         neutral_color = _common.get(node, 'Metric Neutral Color')
-        if not neutral_color.startswith('#') or not (len(neutral_color) == 4 or len(neutral_color) == 7):
-            return False, "Metric neutral color must start with a '#' character and be a valid hex value."
+        if not neutral_color == 'unset':
+            if not neutral_color.startswith('#') or not (len(neutral_color) == 4 or len(neutral_color) == 7):
+                return False, ("Metric neutral color must be 'unset', or start with a '#' character and be a valid hex "
+                               "value.")
     if _common.present(node, 'Statistic'):
         try:
             _common.statistic_to_aggregation_function(node['Statistic'])

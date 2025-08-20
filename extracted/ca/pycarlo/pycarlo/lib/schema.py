@@ -70202,6 +70202,7 @@ class Event(sgqlc.types.Type, Node):
         "mc_sql",
         "source_sql",
         "is_merged",
+        "description",
     )
     event_type = sgqlc.types.Field(
         sgqlc.types.non_null(EventModelEventType), graphql_name="eventType"
@@ -70333,6 +70334,9 @@ class Event(sgqlc.types.Type, Node):
     """Whether the event originally belonged to another alert which was
     merged into the alert currently associated to this event.
     """
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Human-readable description of the event"""
 
 
 class EventDataIncidentCommentTimeline(sgqlc.types.Type, IEventDataBaseTimeline):

@@ -34,7 +34,6 @@ REQUIRED_PACKAGES = [
     'cheroot >= 10.0.1',
     'fsspec >= 2024.3.1',
     'gcsfs >= 2024.3.1',
-    'packaging >= 25.0',
 ]
 
 

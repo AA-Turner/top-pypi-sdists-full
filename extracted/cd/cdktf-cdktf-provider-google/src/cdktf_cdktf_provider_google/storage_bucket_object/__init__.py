@@ -1,7 +1,7 @@
 r'''
 # `google_storage_bucket_object`
 
-Refer to the Terraform Registry for docs: [`google_storage_bucket_object`](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object).
+Refer to the Terraform Registry for docs: [`google_storage_bucket_object`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class StorageBucketObject(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.storageBucketObject.StorageBucketObject",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object google_storage_bucket_object}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object google_storage_bucket_object}.'''
 
     def __init__(
         self,
@@ -81,32 +81,32 @@ class StorageBucketObject(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object google_storage_bucket_object} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object google_storage_bucket_object} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param bucket: The name of the containing bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#bucket StorageBucketObject#bucket}
-        :param name: The name of the object. If you're interpolating the name of this object, see output_name instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#name StorageBucketObject#name}
-        :param cache_control: Cache-Control directive to specify caching behavior of object data. If omitted and object is accessible to all anonymous users, the default will be public, max-age=3600 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#cache_control StorageBucketObject#cache_control}
-        :param content: Data as string to be uploaded. Must be defined if source is not. Note: The content field is marked as sensitive. To view the raw contents of the object, please define an output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content StorageBucketObject#content}
-        :param content_disposition: Content-Disposition of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content_disposition StorageBucketObject#content_disposition}
-        :param content_encoding: Content-Encoding of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content_encoding StorageBucketObject#content_encoding}
-        :param content_language: Content-Language of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content_language StorageBucketObject#content_language}
-        :param content_type: Content-Type of the object data. Defaults to "application/octet-stream" or "text/plain; charset=utf-8". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content_type StorageBucketObject#content_type}
-        :param customer_encryption: customer_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#customer_encryption StorageBucketObject#customer_encryption}
-        :param deletion_policy: The deletion policy for the object. Setting ABANDON allows the resource to be abandoned rather than deleted when removed from your Terraform configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#deletion_policy StorageBucketObject#deletion_policy}
-        :param detect_md5_hash: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#detect_md5hash StorageBucketObject#detect_md5hash}.
-        :param event_based_hold: Whether an object is under event-based hold. Event-based hold is a way to retain objects until an event occurs, which is signified by the hold's release (i.e. this value is set to false). After being released (set to false), such objects will be subject to bucket-level retention (if any). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#event_based_hold StorageBucketObject#event_based_hold}
-        :param force_empty_content_type: Flag to set empty Content-Type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#force_empty_content_type StorageBucketObject#force_empty_content_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#id StorageBucketObject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_name: Resource name of the Cloud KMS key that will be used to encrypt the object. Overrides the object metadata's kmsKeyName value, if any. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#kms_key_name StorageBucketObject#kms_key_name}
-        :param metadata: User-provided metadata, in key/value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#metadata StorageBucketObject#metadata}
-        :param retention: retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#retention StorageBucketObject#retention}
-        :param source: A path to the data you want to upload. Must be defined if content is not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#source StorageBucketObject#source}
-        :param source_md5_hash: User-provided md5hash, Base 64 MD5 hash of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#source_md5hash StorageBucketObject#source_md5hash}
-        :param storage_class: The StorageClass of the new bucket object. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE. If not provided, this defaults to the bucket's default storage class or to a standard class. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#storage_class StorageBucketObject#storage_class}
-        :param temporary_hold: Whether an object is under temporary hold. While this flag is set to true, the object is protected against deletion and overwrites. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#temporary_hold StorageBucketObject#temporary_hold}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#timeouts StorageBucketObject#timeouts}
+        :param bucket: The name of the containing bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#bucket StorageBucketObject#bucket}
+        :param name: The name of the object. If you're interpolating the name of this object, see output_name instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#name StorageBucketObject#name}
+        :param cache_control: Cache-Control directive to specify caching behavior of object data. If omitted and object is accessible to all anonymous users, the default will be public, max-age=3600 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#cache_control StorageBucketObject#cache_control}
+        :param content: Data as string to be uploaded. Must be defined if source is not. Note: The content field is marked as sensitive. To view the raw contents of the object, please define an output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content StorageBucketObject#content}
+        :param content_disposition: Content-Disposition of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content_disposition StorageBucketObject#content_disposition}
+        :param content_encoding: Content-Encoding of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content_encoding StorageBucketObject#content_encoding}
+        :param content_language: Content-Language of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content_language StorageBucketObject#content_language}
+        :param content_type: Content-Type of the object data. Defaults to "application/octet-stream" or "text/plain; charset=utf-8". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content_type StorageBucketObject#content_type}
+        :param customer_encryption: customer_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#customer_encryption StorageBucketObject#customer_encryption}
+        :param deletion_policy: The deletion policy for the object. Setting ABANDON allows the resource to be abandoned rather than deleted when removed from your Terraform configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#deletion_policy StorageBucketObject#deletion_policy}
+        :param detect_md5_hash: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#detect_md5hash StorageBucketObject#detect_md5hash}.
+        :param event_based_hold: Whether an object is under event-based hold. Event-based hold is a way to retain objects until an event occurs, which is signified by the hold's release (i.e. this value is set to false). After being released (set to false), such objects will be subject to bucket-level retention (if any). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#event_based_hold StorageBucketObject#event_based_hold}
+        :param force_empty_content_type: Flag to set empty Content-Type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#force_empty_content_type StorageBucketObject#force_empty_content_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#id StorageBucketObject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_name: Resource name of the Cloud KMS key that will be used to encrypt the object. Overrides the object metadata's kmsKeyName value, if any. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#kms_key_name StorageBucketObject#kms_key_name}
+        :param metadata: User-provided metadata, in key/value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#metadata StorageBucketObject#metadata}
+        :param retention: retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#retention StorageBucketObject#retention}
+        :param source: A path to the data you want to upload. Must be defined if content is not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#source StorageBucketObject#source}
+        :param source_md5_hash: User-provided md5hash, Base 64 MD5 hash of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#source_md5hash StorageBucketObject#source_md5hash}
+        :param storage_class: The StorageClass of the new bucket object. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE. If not provided, this defaults to the bucket's default storage class or to a standard class. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#storage_class StorageBucketObject#storage_class}
+        :param temporary_hold: Whether an object is under temporary hold. While this flag is set to true, the object is protected against deletion and overwrites. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#temporary_hold StorageBucketObject#temporary_hold}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#timeouts StorageBucketObject#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -166,7 +166,7 @@ class StorageBucketObject(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the StorageBucketObject to import.
-        :param import_from_id: The id of the existing StorageBucketObject that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing StorageBucketObject that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the StorageBucketObject to import is found.
         '''
         if __debug__:
@@ -185,8 +185,8 @@ class StorageBucketObject(
         encryption_algorithm: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encryption_key: Base64 encoded customer supplied encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#encryption_key StorageBucketObject#encryption_key}
-        :param encryption_algorithm: The encryption algorithm. Default: AES256. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#encryption_algorithm StorageBucketObject#encryption_algorithm}
+        :param encryption_key: Base64 encoded customer supplied encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#encryption_key StorageBucketObject#encryption_key}
+        :param encryption_algorithm: The encryption algorithm. Default: AES256. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#encryption_algorithm StorageBucketObject#encryption_algorithm}
         '''
         value = StorageBucketObjectCustomerEncryption(
             encryption_key=encryption_key, encryption_algorithm=encryption_algorithm
@@ -202,8 +202,8 @@ class StorageBucketObject(
         retain_until_time: builtins.str,
     ) -> None:
         '''
-        :param mode: The object retention mode. Supported values include: "Unlocked", "Locked". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#mode StorageBucketObject#mode}
-        :param retain_until_time: Time in RFC 3339 (e.g. 2030-01-01T02:03:04Z) until which object retention protects this object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#retain_until_time StorageBucketObject#retain_until_time}
+        :param mode: The object retention mode. Supported values include: "Unlocked", "Locked". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#mode StorageBucketObject#mode}
+        :param retain_until_time: Time in RFC 3339 (e.g. 2030-01-01T02:03:04Z) until which object retention protects this object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#retain_until_time StorageBucketObject#retain_until_time}
         '''
         value = StorageBucketObjectRetention(
             mode=mode, retain_until_time=retain_until_time
@@ -220,9 +220,9 @@ class StorageBucketObject(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#create StorageBucketObject#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#delete StorageBucketObject#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#update StorageBucketObject#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#create StorageBucketObject#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#delete StorageBucketObject#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#update StorageBucketObject#update}.
         '''
         value = StorageBucketObjectTimeouts(
             create=create, delete=delete, update=update
@@ -818,28 +818,28 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param bucket: The name of the containing bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#bucket StorageBucketObject#bucket}
-        :param name: The name of the object. If you're interpolating the name of this object, see output_name instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#name StorageBucketObject#name}
-        :param cache_control: Cache-Control directive to specify caching behavior of object data. If omitted and object is accessible to all anonymous users, the default will be public, max-age=3600 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#cache_control StorageBucketObject#cache_control}
-        :param content: Data as string to be uploaded. Must be defined if source is not. Note: The content field is marked as sensitive. To view the raw contents of the object, please define an output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content StorageBucketObject#content}
-        :param content_disposition: Content-Disposition of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content_disposition StorageBucketObject#content_disposition}
-        :param content_encoding: Content-Encoding of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content_encoding StorageBucketObject#content_encoding}
-        :param content_language: Content-Language of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content_language StorageBucketObject#content_language}
-        :param content_type: Content-Type of the object data. Defaults to "application/octet-stream" or "text/plain; charset=utf-8". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content_type StorageBucketObject#content_type}
-        :param customer_encryption: customer_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#customer_encryption StorageBucketObject#customer_encryption}
-        :param deletion_policy: The deletion policy for the object. Setting ABANDON allows the resource to be abandoned rather than deleted when removed from your Terraform configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#deletion_policy StorageBucketObject#deletion_policy}
-        :param detect_md5_hash: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#detect_md5hash StorageBucketObject#detect_md5hash}.
-        :param event_based_hold: Whether an object is under event-based hold. Event-based hold is a way to retain objects until an event occurs, which is signified by the hold's release (i.e. this value is set to false). After being released (set to false), such objects will be subject to bucket-level retention (if any). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#event_based_hold StorageBucketObject#event_based_hold}
-        :param force_empty_content_type: Flag to set empty Content-Type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#force_empty_content_type StorageBucketObject#force_empty_content_type}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#id StorageBucketObject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_name: Resource name of the Cloud KMS key that will be used to encrypt the object. Overrides the object metadata's kmsKeyName value, if any. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#kms_key_name StorageBucketObject#kms_key_name}
-        :param metadata: User-provided metadata, in key/value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#metadata StorageBucketObject#metadata}
-        :param retention: retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#retention StorageBucketObject#retention}
-        :param source: A path to the data you want to upload. Must be defined if content is not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#source StorageBucketObject#source}
-        :param source_md5_hash: User-provided md5hash, Base 64 MD5 hash of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#source_md5hash StorageBucketObject#source_md5hash}
-        :param storage_class: The StorageClass of the new bucket object. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE. If not provided, this defaults to the bucket's default storage class or to a standard class. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#storage_class StorageBucketObject#storage_class}
-        :param temporary_hold: Whether an object is under temporary hold. While this flag is set to true, the object is protected against deletion and overwrites. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#temporary_hold StorageBucketObject#temporary_hold}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#timeouts StorageBucketObject#timeouts}
+        :param bucket: The name of the containing bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#bucket StorageBucketObject#bucket}
+        :param name: The name of the object. If you're interpolating the name of this object, see output_name instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#name StorageBucketObject#name}
+        :param cache_control: Cache-Control directive to specify caching behavior of object data. If omitted and object is accessible to all anonymous users, the default will be public, max-age=3600 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#cache_control StorageBucketObject#cache_control}
+        :param content: Data as string to be uploaded. Must be defined if source is not. Note: The content field is marked as sensitive. To view the raw contents of the object, please define an output. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content StorageBucketObject#content}
+        :param content_disposition: Content-Disposition of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content_disposition StorageBucketObject#content_disposition}
+        :param content_encoding: Content-Encoding of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content_encoding StorageBucketObject#content_encoding}
+        :param content_language: Content-Language of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content_language StorageBucketObject#content_language}
+        :param content_type: Content-Type of the object data. Defaults to "application/octet-stream" or "text/plain; charset=utf-8". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content_type StorageBucketObject#content_type}
+        :param customer_encryption: customer_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#customer_encryption StorageBucketObject#customer_encryption}
+        :param deletion_policy: The deletion policy for the object. Setting ABANDON allows the resource to be abandoned rather than deleted when removed from your Terraform configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#deletion_policy StorageBucketObject#deletion_policy}
+        :param detect_md5_hash: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#detect_md5hash StorageBucketObject#detect_md5hash}.
+        :param event_based_hold: Whether an object is under event-based hold. Event-based hold is a way to retain objects until an event occurs, which is signified by the hold's release (i.e. this value is set to false). After being released (set to false), such objects will be subject to bucket-level retention (if any). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#event_based_hold StorageBucketObject#event_based_hold}
+        :param force_empty_content_type: Flag to set empty Content-Type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#force_empty_content_type StorageBucketObject#force_empty_content_type}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#id StorageBucketObject#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_name: Resource name of the Cloud KMS key that will be used to encrypt the object. Overrides the object metadata's kmsKeyName value, if any. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#kms_key_name StorageBucketObject#kms_key_name}
+        :param metadata: User-provided metadata, in key/value pairs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#metadata StorageBucketObject#metadata}
+        :param retention: retention block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#retention StorageBucketObject#retention}
+        :param source: A path to the data you want to upload. Must be defined if content is not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#source StorageBucketObject#source}
+        :param source_md5_hash: User-provided md5hash, Base 64 MD5 hash of the object data. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#source_md5hash StorageBucketObject#source_md5hash}
+        :param storage_class: The StorageClass of the new bucket object. Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE. If not provided, this defaults to the bucket's default storage class or to a standard class. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#storage_class StorageBucketObject#storage_class}
+        :param temporary_hold: Whether an object is under temporary hold. While this flag is set to true, the object is protected against deletion and overwrites. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#temporary_hold StorageBucketObject#temporary_hold}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#timeouts StorageBucketObject#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1007,7 +1007,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bucket(self) -> builtins.str:
         '''The name of the containing bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#bucket StorageBucketObject#bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#bucket StorageBucketObject#bucket}
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -1017,7 +1017,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the object. If you're interpolating the name of this object, see output_name instead.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#name StorageBucketObject#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#name StorageBucketObject#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1029,7 +1029,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If omitted and object is accessible to all anonymous users, the default will be public, max-age=3600
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#cache_control StorageBucketObject#cache_control}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#cache_control StorageBucketObject#cache_control}
         '''
         result = self._values.get("cache_control")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1040,7 +1040,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Must be defined if source is not. Note: The content field is marked as sensitive. To view the raw contents of the object, please define an output.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content StorageBucketObject#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content StorageBucketObject#content}
         '''
         result = self._values.get("content")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1049,7 +1049,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def content_disposition(self) -> typing.Optional[builtins.str]:
         '''Content-Disposition of the object data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content_disposition StorageBucketObject#content_disposition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content_disposition StorageBucketObject#content_disposition}
         '''
         result = self._values.get("content_disposition")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1058,7 +1058,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def content_encoding(self) -> typing.Optional[builtins.str]:
         '''Content-Encoding of the object data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content_encoding StorageBucketObject#content_encoding}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content_encoding StorageBucketObject#content_encoding}
         '''
         result = self._values.get("content_encoding")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1067,7 +1067,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def content_language(self) -> typing.Optional[builtins.str]:
         '''Content-Language of the object data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content_language StorageBucketObject#content_language}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content_language StorageBucketObject#content_language}
         '''
         result = self._values.get("content_language")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1076,7 +1076,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def content_type(self) -> typing.Optional[builtins.str]:
         '''Content-Type of the object data. Defaults to "application/octet-stream" or "text/plain; charset=utf-8".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#content_type StorageBucketObject#content_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#content_type StorageBucketObject#content_type}
         '''
         result = self._values.get("content_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1087,7 +1087,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["StorageBucketObjectCustomerEncryption"]:
         '''customer_encryption block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#customer_encryption StorageBucketObject#customer_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#customer_encryption StorageBucketObject#customer_encryption}
         '''
         result = self._values.get("customer_encryption")
         return typing.cast(typing.Optional["StorageBucketObjectCustomerEncryption"], result)
@@ -1098,14 +1098,14 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Setting ABANDON allows the resource to be abandoned rather than deleted when removed from your Terraform configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#deletion_policy StorageBucketObject#deletion_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#deletion_policy StorageBucketObject#deletion_policy}
         '''
         result = self._values.get("deletion_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def detect_md5_hash(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#detect_md5hash StorageBucketObject#detect_md5hash}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#detect_md5hash StorageBucketObject#detect_md5hash}.'''
         result = self._values.get("detect_md5_hash")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1117,7 +1117,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Event-based hold is a way to retain objects until an event occurs, which is signified by the hold's release (i.e. this value is set to false). After being released (set to false), such objects will be subject to bucket-level retention (if any).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#event_based_hold StorageBucketObject#event_based_hold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#event_based_hold StorageBucketObject#event_based_hold}
         '''
         result = self._values.get("event_based_hold")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1128,14 +1128,14 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Flag to set empty Content-Type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#force_empty_content_type StorageBucketObject#force_empty_content_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#force_empty_content_type StorageBucketObject#force_empty_content_type}
         '''
         result = self._values.get("force_empty_content_type")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#id StorageBucketObject#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#id StorageBucketObject#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1149,7 +1149,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Overrides the object metadata's kmsKeyName value, if any.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#kms_key_name StorageBucketObject#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#kms_key_name StorageBucketObject#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1158,7 +1158,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''User-provided metadata, in key/value pairs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#metadata StorageBucketObject#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#metadata StorageBucketObject#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1167,7 +1167,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def retention(self) -> typing.Optional["StorageBucketObjectRetention"]:
         '''retention block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#retention StorageBucketObject#retention}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#retention StorageBucketObject#retention}
         '''
         result = self._values.get("retention")
         return typing.cast(typing.Optional["StorageBucketObjectRetention"], result)
@@ -1176,7 +1176,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source(self) -> typing.Optional[builtins.str]:
         '''A path to the data you want to upload. Must be defined if content is not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#source StorageBucketObject#source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#source StorageBucketObject#source}
         '''
         result = self._values.get("source")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1185,7 +1185,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_md5_hash(self) -> typing.Optional[builtins.str]:
         '''User-provided md5hash, Base 64 MD5 hash of the object data.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#source_md5hash StorageBucketObject#source_md5hash}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#source_md5hash StorageBucketObject#source_md5hash}
         '''
         result = self._values.get("source_md5_hash")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1196,7 +1196,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Supported values include: MULTI_REGIONAL, REGIONAL, NEARLINE, COLDLINE, ARCHIVE. If not provided, this defaults to the bucket's default storage class or to a standard class.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#storage_class StorageBucketObject#storage_class}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#storage_class StorageBucketObject#storage_class}
         '''
         result = self._values.get("storage_class")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1209,7 +1209,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         While this flag is set to true, the object is protected against deletion and overwrites.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#temporary_hold StorageBucketObject#temporary_hold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#temporary_hold StorageBucketObject#temporary_hold}
         '''
         result = self._values.get("temporary_hold")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1218,7 +1218,7 @@ class StorageBucketObjectConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["StorageBucketObjectTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#timeouts StorageBucketObject#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#timeouts StorageBucketObject#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["StorageBucketObjectTimeouts"], result)
@@ -1251,8 +1251,8 @@ class StorageBucketObjectCustomerEncryption:
         encryption_algorithm: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encryption_key: Base64 encoded customer supplied encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#encryption_key StorageBucketObject#encryption_key}
-        :param encryption_algorithm: The encryption algorithm. Default: AES256. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#encryption_algorithm StorageBucketObject#encryption_algorithm}
+        :param encryption_key: Base64 encoded customer supplied encryption key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#encryption_key StorageBucketObject#encryption_key}
+        :param encryption_algorithm: The encryption algorithm. Default: AES256. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#encryption_algorithm StorageBucketObject#encryption_algorithm}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__011e310636edd47dc12206cabd4e6340d136449a504de44897c1aca44dc71192)
@@ -1268,7 +1268,7 @@ class StorageBucketObjectCustomerEncryption:
     def encryption_key(self) -> builtins.str:
         '''Base64 encoded customer supplied encryption key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#encryption_key StorageBucketObject#encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#encryption_key StorageBucketObject#encryption_key}
         '''
         result = self._values.get("encryption_key")
         assert result is not None, "Required property 'encryption_key' is missing"
@@ -1278,7 +1278,7 @@ class StorageBucketObjectCustomerEncryption:
     def encryption_algorithm(self) -> typing.Optional[builtins.str]:
         '''The encryption algorithm. Default: AES256.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#encryption_algorithm StorageBucketObject#encryption_algorithm}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#encryption_algorithm StorageBucketObject#encryption_algorithm}
         '''
         result = self._values.get("encryption_algorithm")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1377,8 +1377,8 @@ class StorageBucketObjectCustomerEncryptionOutputReference(
 class StorageBucketObjectRetention:
     def __init__(self, *, mode: builtins.str, retain_until_time: builtins.str) -> None:
         '''
-        :param mode: The object retention mode. Supported values include: "Unlocked", "Locked". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#mode StorageBucketObject#mode}
-        :param retain_until_time: Time in RFC 3339 (e.g. 2030-01-01T02:03:04Z) until which object retention protects this object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#retain_until_time StorageBucketObject#retain_until_time}
+        :param mode: The object retention mode. Supported values include: "Unlocked", "Locked". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#mode StorageBucketObject#mode}
+        :param retain_until_time: Time in RFC 3339 (e.g. 2030-01-01T02:03:04Z) until which object retention protects this object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#retain_until_time StorageBucketObject#retain_until_time}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d758485e6a11d02ffb44fdad5247b896e231ccc46c385a9fa78a6800e189592e)
@@ -1393,7 +1393,7 @@ class StorageBucketObjectRetention:
     def mode(self) -> builtins.str:
         '''The object retention mode. Supported values include: "Unlocked", "Locked".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#mode StorageBucketObject#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#mode StorageBucketObject#mode}
         '''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
@@ -1403,7 +1403,7 @@ class StorageBucketObjectRetention:
     def retain_until_time(self) -> builtins.str:
         '''Time in RFC 3339 (e.g. 2030-01-01T02:03:04Z) until which object retention protects this object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#retain_until_time StorageBucketObject#retain_until_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#retain_until_time StorageBucketObject#retain_until_time}
         '''
         result = self._values.get("retain_until_time")
         assert result is not None, "Required property 'retain_until_time' is missing"
@@ -1505,9 +1505,9 @@ class StorageBucketObjectTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#create StorageBucketObject#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#delete StorageBucketObject#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#update StorageBucketObject#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#create StorageBucketObject#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#delete StorageBucketObject#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#update StorageBucketObject#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__459f0971bc8f9a343bda38d44c558d0a9cc69466a7f6ef3ae94978378dd97aac)
@@ -1524,19 +1524,19 @@ class StorageBucketObjectTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#create StorageBucketObject#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#create StorageBucketObject#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#delete StorageBucketObject#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#delete StorageBucketObject#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/storage_bucket_object#update StorageBucketObject#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_bucket_object#update StorageBucketObject#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

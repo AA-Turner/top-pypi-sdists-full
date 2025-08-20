@@ -19,8 +19,9 @@ from etils import epath
 import tensorflow_datasets.public_api as tfds
 
 _URL_PATH = (
-    "https://huggingface.co/datasets/alexfabbri/multi_news/raw/main/data/"
+    "https://huggingface.co/datasets/alexfabbri/multi_news/resolve/main/data/"
 )
+_LICENSE = "For non-commercial research and educational purposes only"
 
 
 _DOCUMENT = "document"
@@ -30,7 +31,12 @@ _SUMMARY = "summary"
 class Builder(tfds.core.GeneratorBasedBuilder):
   """DatasetBuilder for multi_news dataset."""
 
-  VERSION = tfds.core.Version("2.0.0")
+  VERSION = tfds.core.Version("2.1.0")
+  RELEASE_NOTES = {
+      "1.0.0": "Initial release.",
+      "2.0.0": "Update the dataset with valid URLs.",
+      "2.1.0": "Update the dataset with cleaned URLs.",
+  }
 
   def _info(self) -> tfds.core.DatasetInfo:
     """Returns the dataset metadata."""
@@ -40,6 +46,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         ),
         supervised_keys=(_DOCUMENT, _SUMMARY),
         homepage="https://github.com/Alex-Fabbri/Multi-News",
+        license=_LICENSE,
     )
 
   def _split_generators(self, dl_manager: tfds.download.DownloadManager):

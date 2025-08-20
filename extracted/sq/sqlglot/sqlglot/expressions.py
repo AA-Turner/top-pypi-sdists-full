@@ -5301,7 +5301,7 @@ class TimeUnit(Expression):
 
     def __init__(self, **args):
         unit = args.get("unit")
-        if isinstance(unit, self.VAR_LIKE):
+        if type(unit) in self.VAR_LIKE:
             args["unit"] = Var(
                 this=(self.UNABBREVIATED_UNIT_NAME.get(unit.name) or unit.name).upper()
             )
@@ -5464,6 +5464,15 @@ class Transform(Func):
     arg_types = {"this": True, "expression": True}
 
 
+class Translate(Func):
+    arg_types = {"this": True, "from": True, "to": True}
+
+
+class Grouping(AggFunc):
+    arg_types = {"expressions": True}
+    is_var_len_args = True
+
+
 class Anonymous(Func):
     arg_types = {"this": True, "expressions": False}
     is_var_len_args = True
@@ -5531,7 +5540,12 @@ class Pad(Func):
 # https://docs.snowflake.com/en/sql-reference/functions/to_char
 # https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/TO_CHAR-number.html
 class ToChar(Func):
-    arg_types = {"this": True, "format": False, "nlsparam": False}
+    arg_types = {
+        "this": True,
+        "format": False,
+        "nlsparam": False,
+        "is_numeric": False,
+    }
 
 
 # https://docs.snowflake.com/en/sql-reference/functions/to_decimal
@@ -6508,7 +6522,13 @@ class JSONExtractArray(Func):
 
 
 class JSONExtractScalar(Binary, Func):
-    arg_types = {"this": True, "expression": True, "only_json_types": False, "expressions": False}
+    arg_types = {
+        "this": True,
+        "expression": True,
+        "only_json_types": False,
+        "expressions": False,
+        "json_type": False,
+    }
     _sql_names = ["JSON_EXTRACT_SCALAR"]
     is_var_len_args = True
 
@@ -6522,6 +6542,7 @@ class JSONBExtract(Binary, Func):
 
 
 class JSONBExtractScalar(Binary, Func):
+    arg_types = {"this": True, "expression": True, "json_type": False}
     _sql_names = ["JSONB_EXTRACT_SCALAR"]
 
 
@@ -6839,6 +6860,10 @@ class Sign(Func):
 
 class SortArray(Func):
     arg_types = {"this": True, "asc": False}
+
+
+class Soundex(Func):
+    pass
 
 
 class Split(Func):

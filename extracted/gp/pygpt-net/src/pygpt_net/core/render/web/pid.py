@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.12 19:00:00                  #
+# Updated Date: 2025.08.19 07:00:00                  #
 # ================================================== #
 
 import io
@@ -36,6 +36,7 @@ class PidData:
         self.last_time_called = 0
         self.cooldown = 1 / 6
         self.throttling_min_chars = 5000
+        self.header = None
 
     @property
     def buffer(self) -> str:
@@ -43,6 +44,9 @@ class PidData:
 
     @buffer.setter
     def buffer(self, value: str):
+        if value is None or value == "":
+            self._buffer.close()
+            self._buffer = io.StringIO()
         self._buffer.seek(0)
         self._buffer.truncate(0)
         if value:
@@ -57,6 +61,9 @@ class PidData:
 
     @live_buffer.setter
     def live_buffer(self, value: str):
+        if value is None or value == "":
+            self._live_buffer.close()
+            self._live_buffer = io.StringIO()
         self._live_buffer.seek(0)
         self._live_buffer.truncate(0)
         if value:
@@ -71,6 +78,9 @@ class PidData:
 
     @html.setter
     def html(self, value: str):
+        if value is None or value == "":
+            self._html.close()
+            self._html = io.StringIO()
         self._html.seek(0)
         self._html.truncate(0)
         if value:
@@ -85,6 +95,9 @@ class PidData:
 
     @document.setter
     def document(self, value: str):
+        if value is None or value == "":
+            self._document.close()
+            self._document = io.StringIO()
         self._document.seek(0)
         self._document.truncate(0)
         if value:
@@ -99,9 +112,12 @@ class PidData:
 
         :param all: If True, clear all data, otherwise only buffers
         """
-        for buf in (self._html, self._document, self._buffer, self._live_buffer):
-            buf.seek(0)
-            buf.truncate(0)
+        for name in ("_buffer", "_live_buffer", "_html", "_document"):
+            try:
+                getattr(self, name).close()
+            except Exception:
+                pass
+            setattr(self, name, io.StringIO())
 
         if all:
             self.item = None

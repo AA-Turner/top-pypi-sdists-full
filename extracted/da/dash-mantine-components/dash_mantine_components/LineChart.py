@@ -38,6 +38,10 @@ Keyword arguments:
 - aria-* (string; optional):
     Wild card aria attributes.
 
+- attributes (boolean | number | string | dict | list; optional):
+    Passes attributes to inner elements of a component.  See Styles
+    API docs.
+
 - bd (string | number; optional):
     Border.
 
@@ -68,7 +72,8 @@ Keyword arguments:
     Class added to the root element, if applicable.
 
 - classNames (dict; optional):
-    Adds class names to Mantine components.
+    Adds custom CSS class names to inner elements of a component.  See
+    Styles API docs.
 
 - clickData (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Click data.
@@ -310,7 +315,8 @@ Keyword arguments:
     Stroke width for the chart lines, `2` by default.
 
 - styles (boolean | number | string | dict | list; optional):
-    Mantine styles API.
+    Adds inline styles directly to inner elements of a component.  See
+    Styles API docs.
 
 - ta (optional):
     TextAlign.
@@ -540,14 +546,15 @@ Keyword arguments:
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
         variant: typing.Optional[str] = None,
+        attributes: typing.Optional[typing.Any] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'activeDotProps', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'connectNulls', 'curveType', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'dotProps', 'ff', 'fillOpacity', 'flex', 'fs', 'fw', 'fz', 'gradientStops', 'gridAxis', 'gridColor', 'gridProps', 'h', 'hiddenFrom', 'highlightHover', 'hoverData', 'hoverSeriesName', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'lineChartProps', 'lineProps', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'referenceLines', 'right', 'rightYAxisLabel', 'rightYAxisProps', 'series', 'strokeDasharray', 'strokeWidth', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tickLine', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'type', 'unit', 'unstyled', 'valueFormatter', 'variant', 'visibleFrom', 'w', 'withDots', 'withLegend', 'withPointLabels', 'withRightYAxis', 'withTooltip', 'withXAxis', 'withYAxis', 'xAxisLabel', 'xAxisProps', 'yAxisLabel', 'yAxisProps']
+        self._prop_names = ['children', 'id', 'activeDotProps', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'connectNulls', 'curveType', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'dotProps', 'ff', 'fillOpacity', 'flex', 'fs', 'fw', 'fz', 'gradientStops', 'gridAxis', 'gridColor', 'gridProps', 'h', 'hiddenFrom', 'highlightHover', 'hoverData', 'hoverSeriesName', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'lineChartProps', 'lineProps', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'referenceLines', 'right', 'rightYAxisLabel', 'rightYAxisProps', 'series', 'strokeDasharray', 'strokeWidth', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tickLine', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'type', 'unit', 'unstyled', 'valueFormatter', 'variant', 'visibleFrom', 'w', 'withDots', 'withLegend', 'withPointLabels', 'withRightYAxis', 'withTooltip', 'withXAxis', 'withYAxis', 'xAxisLabel', 'xAxisProps', 'yAxisLabel', 'yAxisProps']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'activeDotProps', 'aria-*', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'connectNulls', 'curveType', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'dotProps', 'ff', 'fillOpacity', 'flex', 'fs', 'fw', 'fz', 'gradientStops', 'gridAxis', 'gridColor', 'gridProps', 'h', 'hiddenFrom', 'highlightHover', 'hoverData', 'hoverSeriesName', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'lineChartProps', 'lineProps', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'referenceLines', 'right', 'rightYAxisLabel', 'rightYAxisProps', 'series', 'strokeDasharray', 'strokeWidth', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tickLine', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'type', 'unit', 'unstyled', 'valueFormatter', 'variant', 'visibleFrom', 'w', 'withDots', 'withLegend', 'withPointLabels', 'withRightYAxis', 'withTooltip', 'withXAxis', 'withYAxis', 'xAxisLabel', 'xAxisProps', 'yAxisLabel', 'yAxisProps']
+        self.available_properties = ['children', 'id', 'activeDotProps', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'connectNulls', 'curveType', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'dotProps', 'ff', 'fillOpacity', 'flex', 'fs', 'fw', 'fz', 'gradientStops', 'gridAxis', 'gridColor', 'gridProps', 'h', 'hiddenFrom', 'highlightHover', 'hoverData', 'hoverSeriesName', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'lineChartProps', 'lineProps', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'referenceLines', 'right', 'rightYAxisLabel', 'rightYAxisProps', 'series', 'strokeDasharray', 'strokeWidth', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tickLine', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'type', 'unit', 'unstyled', 'valueFormatter', 'variant', 'visibleFrom', 'w', 'withDots', 'withLegend', 'withPointLabels', 'withRightYAxis', 'withTooltip', 'withXAxis', 'withYAxis', 'xAxisLabel', 'xAxisProps', 'yAxisLabel', 'yAxisProps']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

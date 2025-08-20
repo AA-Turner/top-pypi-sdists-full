@@ -3265,13 +3265,11 @@ class Extensions(System.Object):
         ...
 
     @staticmethod
-    @overload
-    def get_universe_normalization_mode_or_default(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, security_type: QuantConnect.SecurityType, market: str) -> QuantConnect.DataMappingMode:
+    def get_universe_mapping_mode_or_default(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, security_type: QuantConnect.SecurityType, market: str) -> QuantConnect.DataMappingMode:
         """Helper method to determine the right data mapping mode to use by default"""
         ...
 
     @staticmethod
-    @overload
     def get_universe_normalization_mode_or_default(universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, security_type: QuantConnect.SecurityType) -> QuantConnect.DataNormalizationMode:
         """Helper method to determine the right data normalization mode to use by default"""
         ...

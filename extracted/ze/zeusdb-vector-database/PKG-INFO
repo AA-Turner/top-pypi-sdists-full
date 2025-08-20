@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zeusdb-vector-database
-Version: 0.4.0
+Version: 0.4.1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Dist: numpy>=2.2.6,<3.0.0

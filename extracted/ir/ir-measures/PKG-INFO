@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ir_measures
-Version: 0.4.0
+Version: 0.4.1
 Summary: Provides a common interface to many IR measure tools
 Author-email: Sean MacAvaney <sean.macavaney@glasgow.ac.uk>
 Maintainer-email: Sean MacAvaney <sean.macavaney@glasgow.ac.uk>

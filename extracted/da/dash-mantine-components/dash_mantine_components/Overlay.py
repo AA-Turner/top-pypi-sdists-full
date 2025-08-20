@@ -33,6 +33,10 @@ Keyword arguments:
 - aria-* (string; optional):
     Wild card aria attributes.
 
+- attributes (boolean | number | string | dict | list; optional):
+    Passes attributes to inner elements of a component.  See Styles
+    API docs.
+
 - backgroundOpacity (number; optional):
     Controls overlay `background-color` opacity 0–1, disregarded when
     `gradient` prop is set, `0.6` by default.
@@ -74,7 +78,8 @@ Keyword arguments:
     Class added to the root element, if applicable.
 
 - classNames (dict; optional):
-    Adds class names to Mantine components.
+    Adds custom CSS class names to inner elements of a component.  See
+    Styles API docs.
 
 - color (optional):
     Overlay `background-color`, `#000` by default.
@@ -227,7 +232,8 @@ Keyword arguments:
 - right (string | number; optional)
 
 - styles (boolean | number | string | dict | list; optional):
-    Mantine styles API.
+    Adds inline styles directly to inner elements of a component.  See
+    Styles API docs.
 
 - ta (optional):
     TextAlign.
@@ -344,14 +350,15 @@ Keyword arguments:
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
         variant: typing.Optional[str] = None,
+        attributes: typing.Optional[typing.Any] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'backgroundOpacity', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'blur', 'bottom', 'c', 'center', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'display', 'ff', 'fixed', 'flex', 'fs', 'fw', 'fz', 'gradient', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'zIndex']
+        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'backgroundOpacity', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'blur', 'bottom', 'c', 'center', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'display', 'ff', 'fixed', 'flex', 'fs', 'fw', 'fz', 'gradient', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'zIndex']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'backgroundOpacity', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'blur', 'bottom', 'c', 'center', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'display', 'ff', 'fixed', 'flex', 'fs', 'fw', 'fz', 'gradient', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'zIndex']
+        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'backgroundOpacity', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'blur', 'bottom', 'c', 'center', 'className', 'classNames', 'color', 'darkHidden', 'data-*', 'display', 'ff', 'fixed', 'flex', 'fs', 'fw', 'fz', 'gradient', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'right', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'zIndex']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

@@ -3,7 +3,7 @@ import inspect
 import logging
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Callable, Literal, Optional, TypeAlias, Union
+from typing import Any, Callable, Literal, TypeAlias
 
 from pydantic import BaseModel, PrivateAttr
 
@@ -33,12 +33,27 @@ class ScorerKind(Enum):
 _ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
 
 
+class ScorerStatus(Enum):
+    """Status of a scorer.
+
+    Scorer status is determined by the sample rate due to the backend not having
+    a notion of whether a scorer is started or stopped.
+    """
+
+    UNREGISTERED = "UNREGISTERED"  # sampling config not set
+    STARTED = "STARTED"  # sample_rate > 0
+    STOPPED = "STOPPED"  # sample_rate == 0
+
+
 @dataclass
 class ScorerSamplingConfig:
     """Configuration for registered scorer sampling."""
 
-    sample_rate: Optional[float] = None
-    filter_string: Optional[str] = None
+    sample_rate: float | None = None
+    filter_string: str | None = None
+
+
+AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
 
 
 @dataclass
@@ -49,20 +64,20 @@ class SerializedScorer:
 
     # Core scorer fields
     name: str
-    aggregations: Optional[list[str]] = None
+    aggregations: list[str] | None = None
 
     # Version metadata
     mlflow_version: str = mlflow.__version__
     serialization_version: int = _SERIALIZATION_VERSION
 
     # Builtin scorer fields (for scorers from mlflow.genai.scorers.builtin_scorers)
-    builtin_scorer_class: Optional[str] = None
-    builtin_scorer_pydantic_data: Optional[dict[str, Any]] = None
+    builtin_scorer_class: str | None = None
+    builtin_scorer_pydantic_data: dict[str, Any] | None = None
 
     # Decorator scorer fields (for @scorer decorated functions)
-    call_source: Optional[str] = None
-    call_signature: Optional[str] = None
-    original_func_name: Optional[str] = None
+    call_source: str | None = None
+    call_signature: str | None = None
+    original_func_name: str | None = None
 
     def __post_init__(self):
         """Validate that either builtin scorer fields or decorator scorer fields are present."""
@@ -87,20 +102,30 @@ class Scorer(BaseModel):
     name: str
     aggregations: list[_AggregationType] | None = None
 
-    _cached_dump: Optional[dict[str, Any]] = PrivateAttr(default=None)
-    _sampling_config: Optional[ScorerSamplingConfig] = PrivateAttr(default=None)
+    _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
+    _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
 
     @property
     @experimental(version="3.2.0")
-    def sample_rate(self) -> Optional[float]:
+    def sample_rate(self) -> float | None:
         """Get the sample rate for this scorer. Available when registered for monitoring."""
         return self._sampling_config.sample_rate if self._sampling_config else None
 
     @property
     @experimental(version="3.2.0")
-    def filter_string(self) -> Optional[str]:
+    def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
+
+    @property
+    @experimental(version="3.3.0")
+    def status(self) -> ScorerStatus:
+        """Get the status of this scorer, using only the local state."""
+
+        if self.sample_rate is None:
+            return ScorerStatus.UNREGISTERED
+
+        return ScorerStatus.STARTED if self.sample_rate > 0 else ScorerStatus.STOPPED
 
     def __repr__(self) -> str:
         # Get the standard representation from the parent class
@@ -147,7 +172,7 @@ class Scorer(BaseModel):
         )
         return asdict(serialized)
 
-    def _extract_source_code_info(self) -> dict[str, Optional[str]]:
+    def _extract_source_code_info(self) -> dict[str, str | None]:
         """Extract source code information for the original decorated function."""
         from mlflow.genai.scorers.scorer_utils import extract_function_body
 
@@ -299,9 +324,9 @@ class Scorer(BaseModel):
         *,
         inputs: Any = None,
         outputs: Any = None,
-        expectations: Optional[dict[str, Any]] = None,
-        trace: Optional[Trace] = None,
-    ) -> Union[int, float, bool, str, Feedback, list[Feedback]]:
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+    ) -> int | float | bool | str | Feedback | list[Feedback]:
         """
         Implement the custom scorer's logic here.
 
@@ -395,9 +420,7 @@ class Scorer(BaseModel):
         return ScorerKind.CLASS
 
     @experimental(version="3.2.0")
-    def register(
-        self, *, name: Optional[str] = None, experiment_id: Optional[str] = None
-    ) -> "Scorer":
+    def register(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Register this scorer with the MLflow server.
 
@@ -415,6 +438,7 @@ class Scorer(BaseModel):
             A new Scorer instance with server registration information.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -470,8 +494,8 @@ class Scorer(BaseModel):
     def start(
         self,
         *,
-        name: Optional[str] = None,
-        experiment_id: Optional[str] = None,
+        name: str | None = None,
+        experiment_id: str | None = None,
         sampling_config: ScorerSamplingConfig,
     ) -> "Scorer":
         """
@@ -516,6 +540,11 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
 
+        if sampling_config.sample_rate is not None and sampling_config.sample_rate <= 0:
+            raise MlflowException.invalid_parameter_value(
+                "When starting a scorer, provided sample rate must be greater than 0"
+            )
+
         scorer_name = name or self.name
 
         # Update the scorer on the server
@@ -531,8 +560,8 @@ class Scorer(BaseModel):
     def update(
         self,
         *,
-        name: Optional[str] = None,
-        experiment_id: Optional[str] = None,
+        name: str | None = None,
+        experiment_id: str | None = None,
         sampling_config: ScorerSamplingConfig,
     ) -> "Scorer":
         """
@@ -556,6 +585,7 @@ class Scorer(BaseModel):
             A new Scorer instance with updated configuration.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -594,7 +624,7 @@ class Scorer(BaseModel):
         )
 
     @experimental(version="3.2.0")
-    def stop(self, *, name: Optional[str] = None, experiment_id: Optional[str] = None) -> "Scorer":
+    def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
 
@@ -611,6 +641,7 @@ class Scorer(BaseModel):
             A new Scorer instance with sample rate set to 0.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -654,7 +685,7 @@ class Scorer(BaseModel):
             object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
         return copy
 
-    def _check_can_be_registered(self, error_message: Optional[str] = None) -> None:
+    def _check_can_be_registered(self, error_message: str | None = None) -> None:
         if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
             if error_message is None:
                 error_message = (
@@ -815,7 +846,7 @@ def scorer(
 
     class CustomScorer(Scorer):
         # Store reference to the original function
-        _original_func: Optional[Callable[..., Any]] = PrivateAttr(default=None)
+        _original_func: Callable[..., Any] | None = PrivateAttr(default=None)
 
         def __init__(self, **data):
             super().__init__(**data)

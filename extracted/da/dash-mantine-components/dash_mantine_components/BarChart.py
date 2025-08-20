@@ -34,6 +34,10 @@ Keyword arguments:
 - aria-* (string; optional):
     Wild card aria attributes.
 
+- attributes (boolean | number | string | dict | list; optional):
+    Passes attributes to inner elements of a component.  See Styles
+    API docs.
+
 - barChartProps (dict; optional):
     Props passed down to recharts `BarChart` component.
 
@@ -74,7 +78,8 @@ Keyword arguments:
     Class added to the root element, if applicable.
 
 - classNames (dict; optional):
-    Adds class names to Mantine components.
+    Adds custom CSS class names to inner elements of a component.  See
+    Styles API docs.
 
 - clickData (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Click data.
@@ -301,7 +306,8 @@ Keyword arguments:
     Dash array for the grid lines and cursor, `'5 5'` by default.
 
 - styles (boolean | number | string | dict | list; optional):
-    Mantine styles API.
+    Adds inline styles directly to inner elements of a component.  See
+    Styles API docs.
 
 - ta (optional):
     TextAlign.
@@ -344,6 +350,11 @@ Keyword arguments:
     A function to format values on Y axis and inside the tooltip. See
     https://www.dash-mantine-components.com/functions-as-props.
 
+- valueLabelProps (dict; optional):
+    Props passed down to recharts `LabelList` component. Can be an
+    object with props like \"position\" for valueLabel formatting.
+    Only relevant, if withBarValueLabel is True.
+
 - variant (string; optional):
     variant.
 
@@ -356,8 +367,10 @@ Keyword arguments:
 
 - withBarValueLabel (boolean; optional):
     Determines whether a label with bar value should be displayed on
-    top of each bar, incompatible with type=\"stacked\" and
-    type=\"percent\", False by default.
+    top of each bar. On type=\"stacked\" or type=\"percent\",
+    additionally use withBarValueLabel to customize the label (e.g.
+    use {position: 'inside'} to move the labels inside each bar).
+    False by default.
 
 - withLegend (boolean; optional):
     Determines whether chart legend should be displayed, `False` by
@@ -428,6 +441,7 @@ Keyword arguments:
         clickSeriesName: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         hoverSeriesName: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         withBarValueLabel: typing.Optional[bool] = None,
+        valueLabelProps: typing.Optional[dict] = None,
         highlightHover: typing.Optional[bool] = None,
         minBarSize: typing.Optional[NumberType] = None,
         maxBarWidth: typing.Optional[NumberType] = None,
@@ -519,14 +533,15 @@ Keyword arguments:
         styles: typing.Optional[typing.Any] = None,
         unstyled: typing.Optional[bool] = None,
         variant: typing.Optional[str] = None,
+        attributes: typing.Optional[typing.Any] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'barChartProps', 'barLabelColor', 'barProps', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'cursorFill', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'ff', 'fillOpacity', 'flex', 'fs', 'fw', 'fz', 'getBarColor', 'gridAxis', 'gridColor', 'gridProps', 'h', 'hiddenFrom', 'highlightHover', 'hoverData', 'hoverSeriesName', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxBarWidth', 'mb', 'me', 'mih', 'minBarSize', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'referenceLines', 'right', 'rightYAxisLabel', 'rightYAxisProps', 'series', 'strokeDasharray', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tickLine', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'type', 'unit', 'unstyled', 'valueFormatter', 'variant', 'visibleFrom', 'w', 'withBarValueLabel', 'withLegend', 'withRightYAxis', 'withTooltip', 'withXAxis', 'withYAxis', 'xAxisLabel', 'xAxisProps', 'yAxisLabel', 'yAxisProps']
+        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'barChartProps', 'barLabelColor', 'barProps', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'cursorFill', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'ff', 'fillOpacity', 'flex', 'fs', 'fw', 'fz', 'getBarColor', 'gridAxis', 'gridColor', 'gridProps', 'h', 'hiddenFrom', 'highlightHover', 'hoverData', 'hoverSeriesName', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxBarWidth', 'mb', 'me', 'mih', 'minBarSize', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'referenceLines', 'right', 'rightYAxisLabel', 'rightYAxisProps', 'series', 'strokeDasharray', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tickLine', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'type', 'unit', 'unstyled', 'valueFormatter', 'valueLabelProps', 'variant', 'visibleFrom', 'w', 'withBarValueLabel', 'withLegend', 'withRightYAxis', 'withTooltip', 'withXAxis', 'withYAxis', 'xAxisLabel', 'xAxisProps', 'yAxisLabel', 'yAxisProps']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'barChartProps', 'barLabelColor', 'barProps', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'cursorFill', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'ff', 'fillOpacity', 'flex', 'fs', 'fw', 'fz', 'getBarColor', 'gridAxis', 'gridColor', 'gridProps', 'h', 'hiddenFrom', 'highlightHover', 'hoverData', 'hoverSeriesName', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxBarWidth', 'mb', 'me', 'mih', 'minBarSize', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'referenceLines', 'right', 'rightYAxisLabel', 'rightYAxisProps', 'series', 'strokeDasharray', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tickLine', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'type', 'unit', 'unstyled', 'valueFormatter', 'variant', 'visibleFrom', 'w', 'withBarValueLabel', 'withLegend', 'withRightYAxis', 'withTooltip', 'withXAxis', 'withYAxis', 'xAxisLabel', 'xAxisProps', 'yAxisLabel', 'yAxisProps']
+        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'barChartProps', 'barLabelColor', 'barProps', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'clickSeriesName', 'cursorFill', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'ff', 'fillOpacity', 'flex', 'fs', 'fw', 'fz', 'getBarColor', 'gridAxis', 'gridColor', 'gridProps', 'h', 'hiddenFrom', 'highlightHover', 'hoverData', 'hoverSeriesName', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxBarWidth', 'mb', 'me', 'mih', 'minBarSize', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'orientation', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'referenceLines', 'right', 'rightYAxisLabel', 'rightYAxisProps', 'series', 'strokeDasharray', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tickLine', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'type', 'unit', 'unstyled', 'valueFormatter', 'valueLabelProps', 'variant', 'visibleFrom', 'w', 'withBarValueLabel', 'withLegend', 'withRightYAxis', 'withTooltip', 'withXAxis', 'withYAxis', 'xAxisLabel', 'xAxisProps', 'yAxisLabel', 'yAxisProps']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

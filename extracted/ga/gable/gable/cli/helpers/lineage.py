@@ -1,3 +1,4 @@
+import json
 import os
 import select
 import subprocess
@@ -7,10 +8,12 @@ from typing import List, Optional, Tuple, Union
 import click
 from click.core import Context as ClickContext
 from loguru import logger
+from pydantic import BaseModel
 
 from gable.api.client import GableAPIClient
 from gable.cli.helpers.npm import prepare_npm_environment
 from gable.cli.helpers.s3 import poll_sca_job_status, start_sca_run, upload_sca_results
+from gable.common_types import LineageDataFile
 from gable.openapi import (
     CheckDataAssetCommentMarkdownResponse,
     CheckDataAssetDetailedResponse,
@@ -185,7 +188,12 @@ def upload_results_and_poll(
 ):
     """Upload SCA results to S3 and poll job status; return outcomes dict."""
     logger.debug(f"Uploading SCA results from run {run_id} to S3: {presigned_url.url}")
-    upload_sca_results(run_id, presigned_url, results_dir)
+    with open(os.path.join(results_dir, "results.json"), "rb") as f:
+        file_content = f.read()
+
+    results_json = json.loads(file_content)
+    sca_results = LineageDataFile.model_validate(results_json)
+    upload_sca_results(run_id, presigned_url, sca_results)
     key = presigned_url.fields.get("key", "")
     parts = key.split("/")
     if len(parts) < 3:

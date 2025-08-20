@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: habluetooth
-Version: 5.0.2
+Version: 5.1.0
 Summary: High availability Bluetooth
 License: Apache-2.0
 Author: J. Nick Koston
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: async-interrupt (>=1.1.1)
 Requires-Dist: bleak (>=1.0.1)
-Requires-Dist: bleak-retry-connector (>=4)
+Requires-Dist: bleak-retry-connector (>=4.2.0)
 Requires-Dist: bluetooth-adapters (>=2)
 Requires-Dist: bluetooth-auto-recovery (>=1.5.1)
 Requires-Dist: bluetooth-data-tools (>=1.28.0)

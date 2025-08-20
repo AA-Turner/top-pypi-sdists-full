@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-18T05:26:57.998208                                                            #
+# Generated on 2025-08-19T23:54:56.024044                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
+    import metaflow.exception
     import io
     import metaflow.plugins.datatools.s3.s3
-    import metaflow.exception
 
 from ....flowspec import FlowSpec as FlowSpec
 from ....metaflow_current import current as current

@@ -18,6 +18,7 @@ else:
 
 import polyscope as ps
 import polyscope.imgui as psim
+import polyscope.implot as psimplot
 
 # Path to test assets
 assets_prefix = path.join(path.dirname(__file__), "assets/")
@@ -77,6 +78,7 @@ class TestCore(unittest.TestCase):
         ps.set_enable_render_error_checks(True)
         ps.set_enable_render_error_checks(True)
         ps.set_warn_for_invalid_values(True)
+        ps.set_warn_for_invalid_values(False)
         ps.set_display_message_popups(False)
         ps.set_autocenter_structures(False)
         ps.set_autoscale_structures(False)
@@ -84,6 +86,12 @@ class TestCore(unittest.TestCase):
         ps.request_redraw()
         self.assertTrue(ps.get_redraw_requested())
         ps.set_always_redraw(False)
+        ps.set_frame_tick_limit_fps_mode('ignore_limits')
+        ps.set_frame_tick_limit_fps_mode('block_to_hit_target')
+        ps.set_frame_tick_limit_fps_mode('skip_frames_to_hit_target')
+        
+        ps.set_ui_scale(0.8)
+        self.assertAlmostEqual(ps.get_ui_scale(), 0.8)
 
         ps.set_build_gui(True)
         ps.set_render_scene(True)
@@ -98,6 +106,10 @@ class TestCore(unittest.TestCase):
         ps.get_final_scene_color_texture_native_handle()
         
         ps.show(3)
+        
+        # these makes tests run a little faster 
+        ps.set_max_fps(-1)
+        ps.set_enable_vsync(False)
 
     def test_callbacks(self):
 
@@ -147,10 +159,17 @@ class TestCore(unittest.TestCase):
         ps.set_front_dir("neg_z_front")
         ps.set_front_dir(ps.get_front_dir())
         
+        ps.set_vertical_fov_degrees(50.)
+        self.assertEqual(ps.get_vertical_fov_degrees(), 50.)
+        self.assertGreater(ps.get_aspect_ratio_width_over_height(), 0.01)
+        
         ps.set_view_projection_mode("orthographic")
         ps.set_view_projection_mode("perspective")
         
         ps.set_camera_view_matrix(ps.get_camera_view_matrix())
+        
+        ps.set_view_center((0.1, 0.1, 0.2))
+        ps.set_view_center(ps.get_view_center(), fly_to=True)
 
         ps.set_window_size(800, 600)
         self.assertEqual(ps.get_window_size(), (800,600))
@@ -227,6 +246,7 @@ class TestCore(unittest.TestCase):
 
         ps.screenshot()
         ps.screenshot(transparent_bg=False)
+        ps.screenshot(include_UI=True)
         ps.screenshot("test_shot.png", transparent_bg=True)
         
         ps.set_screenshot_extension(".jpg")
@@ -235,6 +255,8 @@ class TestCore(unittest.TestCase):
         buff = ps.screenshot_to_buffer(False)
         w, h = ps.get_buffer_size()
         self.assertEqual(buff.shape, (h,w,4))
+        
+        buff = ps.screenshot_to_buffer(False, include_UI=True)
     
         ps.show(3)
 
@@ -316,10 +338,12 @@ class TestCore(unittest.TestCase):
 
         groupA.add_child_group(groupB)
         groupA.add_child_group("group_C")
+        self.assertTrue(set(groupA.get_child_group_names()) == set(["group_B", "group_C"]))
 
         pt_cloud_0.add_to_group(groupA)
         pt_cloud_1.add_to_group("group_A")
         groupA.add_child_structure(pt_cloud_2)
+        self.assertTrue(set(groupA.get_child_structure_names()) == set(["cloud0", "cloud1", "cloud2"]))
 
         groupA.set_enabled(False)
         groupB.set_show_child_details(True)
@@ -533,7 +557,89 @@ class TestImGuiBindings(unittest.TestCase):
         ps.show(3)
         
         ps.clear_user_callback()
+    
+    def test_implot(self):
 
+        # smoke tests for implot
+        def imgui_callback():
+
+            # PlotLine
+            psim.SetCursorPos((0,0)) # these calls ensure it's not clipped out and disabled
+            if psimplot.BeginPlot("test line plot"):
+                psimplot.PlotLine("line plot1", np.random.rand(10))
+                psimplot.PlotLine("line plot2", np.random.rand(10), np.random.rand(10))
+                psimplot.PlotLine("line plot3", np.random.rand(10), psimplot.ImPlotLineFlags_Shaded + psimplot.ImPlotLineFlags_Loop)
+
+                # test inf lines while we're at it
+                psimplot.PlotInfLines("inf line v", np.random.rand(3))
+                psimplot.PlotInfLines("inf line h", np.random.rand(3), psimplot.ImPlotInfLinesFlags_Horizontal)
+
+                psimplot.EndPlot()
+
+            # PlotScatter
+            psim.SetCursorPos((0,0))
+            if psimplot.BeginPlot("test scatter plot"):
+                psimplot.PlotScatter("scatter plot1", np.random.rand(10))
+                psimplot.PlotScatter("scatter plot2", np.random.rand(10), np.random.rand(10))
+                psimplot.PlotScatter("scatter plot3", np.random.rand(10), psimplot.ImPlotScatterFlags_NoClip)
+                psimplot.EndPlot()
+            
+            # PlotStairs
+            psim.SetCursorPos((0,0))
+            if psimplot.BeginPlot("test stairs plot"):
+                psimplot.PlotStairs("stairs plot1", np.random.rand(10))
+                psimplot.PlotStairs("stairs plot2", np.random.rand(10), np.random.rand(10))
+                psimplot.PlotStairs("stairs plot3", np.random.rand(10), psimplot.ImPlotStairsFlags_Shaded)
+                psimplot.EndPlot()
+            
+            # PlotShaded
+            psim.SetCursorPos((0,0))
+            if psimplot.BeginPlot("test shaded plot"):
+                psimplot.PlotShaded("shaded plot1", np.random.rand(10))
+                psimplot.PlotShaded("shaded plot1", np.random.rand(10), yref=1.0)
+                psimplot.PlotShaded("shaded plot2", np.random.rand(10), np.random.rand(10), psimplot.ImPlotShadedFlags_None)
+                psimplot.PlotShaded("shaded plot3", np.random.rand(10), np.random.rand(10), np.random.rand(10))
+                psimplot.EndPlot()
+            
+            # PlotBars TODO
+            
+            # PlotBarGroups TODO
+            
+            # PlotErrorBars TODO
+            
+            # PlotStems TODO
+
+            # PlotPieChart
+            psim.SetCursorPos((0,0))
+            if psimplot.BeginPlot("test pie chart plot"):
+                psimplot.PlotPieChart(["cat1", "cat2"], np.random.rand(2), 0.5, 0.5, 0.5)
+                psimplot.PlotPieChart(["cat1", "cat2"], np.random.rand(2), x=2., y=3., radius=4.)
+                psimplot.PlotPieChart(["cat1", "cat2"], np.random.rand(2), 2., 3., 4., flags=psimplot.ImPlotPieChartFlags_Exploding)
+                psimplot.EndPlot()
+
+            # PlotHeatMap TODO
+            
+            # PlotHistorgram
+            psim.SetCursorPos((0,0))
+            if psimplot.BeginPlot("test historgram plot"):
+                psimplot.PlotHistogram("hist", np.random.rand(10))
+                psimplot.PlotHistogram("hist2", np.random.rand(10), 3, range=(-2., 2.), flags=psimplot.ImPlotHistogramFlags_NoOutliers)
+                psimplot.EndPlot()
+            
+            # Subplots
+            psim.SetCursorPos((0,0))
+            if psimplot.BeginSubplots("test subplot", 2, 3, (800,400)):
+                for i in range(6):
+                    if psimplot.BeginPlot(f"test subplot_{i}"):
+                        psimplot.PlotLine("line plot", np.random.rand(10))
+
+                        psimplot.EndPlot()
+
+                psimplot.EndSubplots()
+        
+        ps.set_user_callback(imgui_callback)
+        ps.show(3)
+        ps.clear_user_callback()
 
 class TestStructureManagement(unittest.TestCase):
 
@@ -782,6 +888,36 @@ class TestPointCloud(unittest.TestCase):
         p.remove_all_quantities()
         ps.remove_all_structures()
     
+    def test_parameterization(self):
+
+        pts = self.generate_points()
+        N = pts.shape[0]
+        p = ps.register_point_cloud("test_cloud", pts)
+        vals = np.random.rand(N,2)
+
+
+        cA = (0.1, 0.2, 0.3)
+        cB = (0.4, 0.5, 0.6)
+
+        p.add_parameterization_quantity("test_vals1", vals, enabled=True)
+
+        p.add_parameterization_quantity("test_vals2", vals, coords_type='world')
+        p.add_parameterization_quantity("test_vals3", vals, coords_type='unit')
+
+        p.add_parameterization_quantity("test_vals4", vals, viz_style='checker')
+        p.add_parameterization_quantity("test_vals5", vals, viz_style='grid')
+        p.add_parameterization_quantity("test_vals6", vals, viz_style='local_check')
+        p.add_parameterization_quantity("test_vals7", vals, viz_style='local_rad')
+
+        p.add_parameterization_quantity("test_vals8", vals, grid_colors=(cA, cB))
+        p.add_parameterization_quantity("test_vals9", vals, checker_colors=(cA, cB))
+        p.add_parameterization_quantity("test_vals10", vals, checker_size=0.1)
+        p.add_parameterization_quantity("test_vals11", vals, cmap='blues')
+
+        ps.show(3)
+
+        p.remove_all_quantities()
+    
 
     def test_variable_radius(self):
         pts = self.generate_points()
@@ -910,6 +1046,35 @@ class TestCurveNetwork(unittest.TestCase):
         ps.show(3)
         ps.remove_all_structures()
         ps.set_transparency_mode('none')
+
+    def test_variable_render(self):
+
+        p = ps.register_curve_network("test_network", self.generate_points(), self.generate_edges())
+
+        p.add_scalar_quantity("test_vals_nodes", np.random.rand(p.n_nodes()), defined_on='nodes')
+        p.add_scalar_quantity("test_vals_edges", np.random.rand(p.n_edges()), defined_on='edges', enabled=True)
+
+        # node only
+        p.set_node_radius_quantity('test_vals_nodes')
+        ps.show(3)
+        p.set_node_radius_quantity('test_vals_nodes', autoscale=False)
+        ps.show(3)
+        p.clear_node_radius_quantity()
+        
+        # edge only
+        p.set_edge_radius_quantity('test_vals_edges')
+        ps.show(3)
+        p.set_edge_radius_quantity('test_vals_edges', autoscale=False)
+        ps.show(3)
+        p.clear_edge_radius_quantity()
+        
+        # both
+        p.set_node_radius_quantity('test_vals_nodes')
+        p.set_edge_radius_quantity('test_vals_edges')
+        ps.show(3)
+        p.clear_edge_radius_quantity()
+
+        ps.remove_all_structures()
     
     def test_transform(self):
 
@@ -1424,6 +1589,19 @@ class TestSurfaceMesh(unittest.TestCase):
 
             ps.show(3)
 
+            # Test island labels
+            island_labels = np.random.randint(0, 10, size=p.n_faces())
+            p.add_parameterization_quantity("test_vals_check_islands",vals, defined_on=on, enabled=True, 
+                                             viz_style='checker_islands', island_labels=island_labels)
+            ps.show(3)
+            
+            # Test curve network from seams
+            p.add_parameterization_quantity("test_vals_curve_network", vals, defined_on=on, enabled=True, 
+                                             create_curve_network_from_seams="")
+            p.add_parameterization_quantity("test_vals_curve_network", vals, defined_on=on, enabled=True, 
+                                             create_curve_network_from_seams="my network")
+            ps.show(3)
+
             p.remove_all_quantities()
 
         ps.remove_all_structures()
@@ -1445,6 +1623,7 @@ class TestSurfaceMesh(unittest.TestCase):
             p.add_vector_quantity("test_vals3", vals, defined_on=on, enabled=True, vectortype='ambient')
             p.add_vector_quantity("test_vals4", vals, defined_on=on, enabled=True, length=0.005)
             p.add_vector_quantity("test_vals5", vals, defined_on=on, enabled=True, radius=0.001)
+            p.add_vector_quantity("test_vals5", vals, defined_on=on, enabled=True, material="candy")
             p.add_vector_quantity("test_vals6", vals, defined_on=on, enabled=True, color=(0.2, 0.5, 0.5))
             
             # 2D 
@@ -2431,11 +2610,14 @@ if __name__ == '__main__':
                 ps_backend = a[len("backend="):]
                 sys.argv.remove(a)
 
+    print(f"Testing polyscope version: {ps.__version__}  test_backend: {ps_backend}")
+
     # Really global setup.
     # Note that since these tests depend on the bound object's global state, 
     # we generally cannot continue past the first failed test.
     ps.set_errors_throw_exceptions(True)
     ps.set_display_message_popups(False)
+    ps.set_warn_for_invalid_values(False)
     ps.init(ps_backend) 
 
     unittest.main()

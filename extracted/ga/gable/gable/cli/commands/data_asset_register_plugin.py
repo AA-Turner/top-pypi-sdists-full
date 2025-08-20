@@ -41,7 +41,7 @@ asset_plugins: List[AssetPluginAbstract] = [
     KotlinAssetPlugin(),
     ScaPrimePlugin(SourceType.swift),
     ScaPrimePlugin(SourceType.java),
-    ScaPrimePlugin(SourceType.kotlin),
+    # ScaPrimePlugin(SourceType.kotlin),
     ScaPrimePlugin(SourceType.golang),
     ScaPrimePlugin(SourceType.php),
     JsonSchemaAssetPlugin(),

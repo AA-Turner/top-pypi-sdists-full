@@ -26,10 +26,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger('bubus')
 
-BUBUS_LOG_LEVEL = os.getenv('BUBUS_LOG_LEVEL', 'WARNING')  # WARNING normally, otherwise DEBUG when testing
+BUBUS_LOGGING_LEVEL = os.getenv('BUBUS_LOGGING_LEVEL', 'WARNING').upper()  # WARNING normally, otherwise DEBUG when testing
 LIBRARY_VERSION = os.getenv('LIBRARY_VERSION', '1.0.0')
 
-logger.setLevel(BUBUS_LOG_LEVEL)
+logger.setLevel(BUBUS_LOGGING_LEVEL)
 
 
 def validate_event_name(s: str) -> str:
@@ -155,7 +155,7 @@ EventResultFilter = Callable[['EventResult[Any]'], bool]
 def get_handler_name(handler: ContravariantEventHandler[T_Event]) -> str:
     assert hasattr(handler, '__name__'), f'Handler {handler} has no __name__ attribute!'
     if inspect.ismethod(handler):
-        return f'{handler.__self__}.{handler.__name__}'
+        return f'{type(handler.__self__).__name__}.{handler.__name__}'
     elif callable(handler):
         return f'{handler.__module__}.{handler.__name__}'  # type: ignore
     else:
@@ -289,46 +289,65 @@ class BaseEvent(BaseModel, Generic[T_EventResultType]):
                 # We're inside a handler and hold the global lock
                 # Process events until this one completes
 
-                logger.debug(f'__await__ for {self} - inside handler context, processing child events')
+                # logger.debug(f'__await__ for {self} - inside handler context, processing child events')
 
                 # Keep processing events from all buses until this event is complete
                 max_iterations = 1000  # Prevent infinite loops
                 iterations = 0
 
-                while not self.event_completed_signal.is_set() and iterations < max_iterations:
-                    iterations += 1
-                    processed_any = False
+                try:
+                    while not self.event_completed_signal.is_set() and iterations < max_iterations:
+                        iterations += 1
+                        processed_any = False
 
-                    # Process any queued events on all buses
-                    # Create a list copy to avoid "Set changed size during iteration" error
-                    for bus in list(EventBus.all_instances):
-                        if not bus or not bus.event_queue:
-                            continue
+                        # Process any queued events on all buses
+                        # Create a list copy to avoid "Set changed size during iteration" error
+                        for bus in list(EventBus.all_instances):
+                            if not bus or not bus.event_queue:
+                                continue
 
-                        # Process one event from this bus if available
-                        try:
-                            if bus.event_queue.qsize() > 0:
-                                event = bus.event_queue.get_nowait()
-                                await bus.process_event(event)
-                                bus.event_queue.task_done()
-                                processed_any = True
-                        except asyncio.QueueEmpty:
-                            pass
+                            # Process one event from this bus if available
+                            try:
+                                if bus.event_queue.qsize() > 0:
+                                    event = bus.event_queue.get_nowait()
+                                    await bus.process_event(event)
+                                    bus.event_queue.task_done()
+                                    processed_any = True
+                                    # Check if the event we're waiting for is now complete
+                                    if self.event_completed_signal.is_set():
+                                        break
+                            except asyncio.QueueEmpty:
+                                pass
 
-                    if not processed_any:
-                        # No events to process, yield control
-                        await asyncio.sleep(0)
+                        # Break out of the loop if event completed after processing
+                        if self.event_completed_signal.is_set():
+                            break
+
+                        if not processed_any:
+                            # No events to process, yield control and check for cancellation
+                            try:
+                                await asyncio.sleep(0)
+                            except asyncio.CancelledError:
+                                raise
+                except asyncio.CancelledError:
+                    # Handler was cancelled due to timeout, exit cleanly
+                    logger.debug(f'Polling loop cancelled for {self}')
+                    raise
 
                 if iterations >= max_iterations:
-                    logger.error(f'Max iterations reached while waiting for {self}')
+                    # logger.error(f'Max iterations reached while waiting for {self}')
+                    pass
+            else:
+                # Not in handler context - wait for the event to complete normally
+                await self.event_completed_signal.wait()
 
-            try:
-                await asyncio.wait_for(self.event_completed_signal.wait(), timeout=self.event_timeout)
-            except TimeoutError:
-                raise RuntimeError(
-                    f'{self} waiting for results timed out after {self.event_timeout}s (being processed by {len(self.event_results)} handlers)'
-                )
+            # Check if any handlers had errors and raise the first one
+            # for result in self.event_results.values():
+            #     if result.error:
+            #         raise result.error
 
+            # Return the completed event without raising errors
+            # Errors should only be raised when explicitly requested via event_result() methods
             return self
 
         return wait_for_handlers_to_complete_then_return_event().__await__()
@@ -492,7 +511,7 @@ class BaseEvent(BaseModel, Generic[T_EventResultType]):
             )
 
         if raise_if_none and not included_results:
-            raise Exception(
+            raise ValueError(
                 f'Expected at least one handler to return a non-None result, but none did! {self} -> {self.event_results}'
             )
 
@@ -588,7 +607,7 @@ class BaseEvent(BaseModel, Generic[T_EventResultType]):
             # check for event results trampling each other / conflicting
             overlapping_keys: set[str] = merged_results.keys() & event_result.result.keys()  # type: ignore
             if raise_if_conflicts and overlapping_keys:  # type: ignore
-                raise Exception(
+                raise ValueError(
                     f'Event handler {event_result.handler_name} returned a dict with keys that would overwrite values from previous handlers: {overlapping_keys} (pass raise_if_conflicts=False to merge with last-handler-wins)'
                 )  # type: ignore
 
@@ -674,23 +693,23 @@ class BaseEvent(BaseModel, Generic[T_EventResultType]):
             # Check if all handler results are done
             all_handlers_done = all(result.status in ('completed', 'error') for result in self.event_results.values())
             if not all_handlers_done:
-                logger.debug(
-                    f'Event {self} not complete - waiting for handlers: {[r for r in self.event_results.values() if r.status not in ("completed", "error")]}'
-                )
+                # logger.debug(
+                #     f'Event {self} not complete - waiting for handlers: {[r for r in self.event_results.values() if r.status not in ("completed", "error")]}'
+                # )
                 return
 
             # Recursively check if all child events are also complete
             if not self.event_are_all_children_complete():
-                incomplete_children = [c for c in self.event_children if c.event_status != 'completed']
-                logger.debug(
-                    f'Event {self} not complete - waiting for {len(incomplete_children)} child events: {incomplete_children}'
-                )
+                # incomplete_children = [c for c in self.event_children if c.event_status != 'completed']
+                # logger.debug(
+                #     f'Event {self} not complete - waiting for {len(incomplete_children)} child events: {incomplete_children}'
+                # )
                 return
 
             # All handlers and all child events are done
             if hasattr(self, 'event_processed_at'):
                 self.event_processed_at = datetime.now(UTC)
-            logger.debug(f'Event {self} marking complete - all handlers and children done')
+            # logger.debug(f'Event {self} marking complete - all handlers and children done')
             self.event_completed_signal.set()
 
     def event_are_all_children_complete(self, _visited: set[str] | None = None) -> bool:
@@ -711,6 +730,19 @@ class BaseEvent(BaseModel, Generic[T_EventResultType]):
             if not child_event.event_are_all_children_complete(_visited):
                 return False
         return True
+
+    def event_cancel_pending_child_processing(self, error: BaseException) -> None:
+        """Cancel any pending child events that were dispatched during handler execution"""
+        if not isinstance(error, asyncio.CancelledError):
+            error = asyncio.CancelledError(
+                f'Cancelled pending handler as a result of parent error {error}'
+            )  # keep the word "pending" in the error, checked by print_handler_line()
+        for child_event in self.event_children:
+            for result in child_event.event_results.values():
+                if result.status == 'pending':
+                    # print('CANCELLING CHILD HANDLER', result, 'due to', error)
+                    result.update(error=error)
+            child_event.event_cancel_pending_child_processing(error)
 
     def event_log_safe_summary(self) -> dict[str, Any]:
         """only event metadata without contents, avoid potentially sensitive event contents in logs"""
@@ -733,7 +765,7 @@ class BaseEvent(BaseModel, Generic[T_EventResultType]):
         from bubus.service import EventBus, inside_handler_context
 
         if not inside_handler_context.get():
-            raise RuntimeError('event_bus property can only be accessed from within an event handler')
+            raise AttributeError('event_bus property can only be accessed from within an event handler')
 
         # The event_path contains all buses this event has passed through
         # The last one in the path is the one currently processing
@@ -779,7 +811,7 @@ class EventResult(BaseModel, Generic[T_EventResultType]):
         revalidate_instances='always',
     )
 
-    # Automatically set fields, setup at Event init and updated by the EventBus._execute_sync_or_async_handler() calling event_result.update(...)
+    # Automatically set fields, setup at Event init and updated by the EventBus.execute_handler() calling event_result.update(...)
     id: UUIDStr = Field(default_factory=uuid7str)
     status: Literal['pending', 'started', 'completed', 'error'] = 'pending'
     event_id: UUIDStr
@@ -791,7 +823,7 @@ class EventResult(BaseModel, Generic[T_EventResultType]):
     timeout: float | None = None
     started_at: datetime | None = None
 
-    # Result fields, updated by the EventBus._execute_sync_or_async_handler() calling event_result.update(...)
+    # Result fields, updated by the EventBus.execute_handler() calling event_result.update(...)
     result: T_EventResultType | BaseEvent[Any] | None = None
     error: BaseException | None = None
     completed_at: datetime | None = None
@@ -840,8 +872,10 @@ class EventResult(BaseModel, Generic[T_EventResultType]):
             try:
                 await asyncio.wait_for(self.handler_completed_signal.wait(), timeout=self.timeout)
             except TimeoutError:
-                self.handler_completed_signal.clear()
-                raise RuntimeError(f'Event handler {self.handler_name} timed out after {self.timeout}s')
+                # self.handler_completed_signal.clear()
+                raise TimeoutError(
+                    f'Event handler {self.eventbus_name}.{self.handler_name}(#{self.event_id[-4:]}) timed out after {self.timeout}s'
+                )
 
             if self.status == 'error' and self.error:
                 raise self.error if isinstance(self.error, BaseException) else Exception(self.error)  # pyright: ignore[reportUnnecessaryIsInstance]

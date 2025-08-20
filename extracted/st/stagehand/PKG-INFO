@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stagehand
-Version: 0.5.0
+Version: 0.5.1
 Summary: Python SDK for Stagehand
 Author-email: "Browserbase, Inc." <support@browserbase.com>
 License: MIT
@@ -18,9 +18,10 @@ Requires-Dist: playwright>=1.42.1
 Requires-Dist: requests>=2.31.0
 Requires-Dist: browserbase>=1.4.0
 Requires-Dist: rich>=13.7.0
-Requires-Dist: openai>=1.83.0
+Requires-Dist: openai<1.99.6,>=1.83.0
 Requires-Dist: anthropic>=0.51.0
-Requires-Dist: litellm>=1.72.0
+Requires-Dist: litellm<1.75.0,>=1.72.0
+Requires-Dist: nest-asyncio>=1.6.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.3.1; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"

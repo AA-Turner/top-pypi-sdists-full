@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: diffusers
-Version: 0.35.0
+Version: 0.35.1
 Summary: State-of-the-art diffusion in PyTorch and JAX.
 Home-page: https://github.com/huggingface/diffusers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/diffusers/graphs/contributors)

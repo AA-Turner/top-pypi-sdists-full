@@ -185,13 +185,25 @@ def extract_parameter_filters(workspace_obj: FabricWorkspace, param_dict: dict) 
     return item_type, item_name, file_path
 
 
+def process_environment_key(workspace_obj: FabricWorkspace, replace_value_dict: dict) -> dict:
+    """Processes the replace_value dictionary to replace the '_ALL_' environment key with the target environment when present."""
+    # If there's only one key, check if it's "_ALL_" (case insensitive) and replace it
+    if len(replace_value_dict) == 1:
+        key = next(iter(replace_value_dict))
+        if key.lower() == "_all_":
+            replace_value_dict[workspace_obj.environment] = replace_value_dict.pop(key)
+
+    return replace_value_dict
+
+
 """Functions to replace key values in JSON"""
 
 
-def replace_key_value(param_dict: dict, json_content: str, env: str) -> Union[dict]:
+def replace_key_value(workspace_obj: FabricWorkspace, param_dict: dict, json_content: str, env: str) -> Union[dict]:
     """A function to replace key values in a JSON using parameterization. It uses jsonpath_ng to find and replace values in the JSON.
 
     Args:
+        workspace_obj: The FabricWorkspace object.
         param_dict: The parameter dictionary.
         json_content: the JSON content to be modified.
         env: The environment variable to be used for replacement.
@@ -204,11 +216,12 @@ def replace_key_value(param_dict: dict, json_content: str, env: str) -> Union[di
 
     # Extract the jsonpath expression from the find_key attribute of the param_dict
     jsonpath_expr = parse(param_dict["find_key"])
+    replace_value = process_environment_key(workspace_obj, param_dict["replace_value"])
     for match in jsonpath_expr.find(data):
         # If the env is present in the replace_value array perform the replacement
-        if env in param_dict["replace_value"]:
+        if env in replace_value:
             try:
-                match.full_path.update(data, param_dict["replace_value"][env])
+                match.full_path.update(data, replace_value[env])
             except Exception as match_e:
                 raise ValueError(match_e) from match_e
 
@@ -261,7 +274,6 @@ def validate_parameter_file(
     """
     from azure.identity import DefaultAzureCredential
 
-    from fabric_cicd._common._fabric_endpoint import FabricEndpoint
     from fabric_cicd._common._validate_input import (
         validate_environment,
         validate_item_type_in_scope,
@@ -272,17 +284,17 @@ def validate_parameter_file(
     # Import the Parameter class here to avoid circular imports
     from fabric_cicd._parameter._parameter import Parameter
 
-    endpoint = FabricEndpoint(
-        # if credential is not defined, use DefaultAzureCredential
-        token_credential=(
-            # CodeQL [SM05139] Public library needing to have a default auth when user doesn't provide token. Not internal Azure product.
-            DefaultAzureCredential() if token_credential is None else validate_token_credential(token_credential)
-        )
-    )
+    # Set up authentication credential - use DefaultAzureCredential if none provided, otherwise validate provided credential
+    if token_credential is None:
+        # CodeQL [SM05139] Public library needing to have a default auth when user doesn't provide token. Not internal Azure product.
+        _credential = DefaultAzureCredential()
+    else:
+        validate_token_credential(token_credential)
+
     # Initialize the Parameter object with the validated inputs
     parameter_obj = Parameter(
         repository_directory=validate_repository_directory(repository_directory),
-        item_type_in_scope=validate_item_type_in_scope(item_type_in_scope, upn_auth=endpoint.upn_auth),
+        item_type_in_scope=validate_item_type_in_scope(item_type_in_scope),
         environment=validate_environment(environment),
         parameter_file_name=parameter_file_name,
     )

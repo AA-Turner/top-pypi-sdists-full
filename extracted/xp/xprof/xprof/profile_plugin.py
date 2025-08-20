@@ -434,7 +434,7 @@ class _TfProfiler:
     return ','.join(worker_list)
 
   def resolve_tpu_name(
-      self, tpu_name: str, worker_list: str | None
+      self, tpu_name: str, worker_list: str
   ) -> tuple[str, str, str]:
     """Resolves a TPU name to its master IP, service address, and worker list.
 
@@ -892,7 +892,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
       try:
         # Delegate to the helper class for all TF-related logic.
         service_addr, worker_list, master_ip = (
-            self._tf_profiler.resolve_tpu_name(service_addr, worker_list)
+            self._tf_profiler.resolve_tpu_name(service_addr, worker_list or '')
         )
         self.master_tpu_unsecure_channel = master_ip
       except (RuntimeError, ValueError) as err:

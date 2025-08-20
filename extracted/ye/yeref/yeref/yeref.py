@@ -155,6 +155,8 @@ logo_photo = 'https://telegra.ph/file/4882ddb35357f1b079659.jpg'
 collection_photo = 'https://telegra.ph/file/77bfaa86d45d85a40db0a.jpg'
 nft_photo = 'https://telegra.ph/file/835e01e37e17e28638e50.jpg'
 post_photo = 'https://telegra.ph/file/fceb60dfdc58efccf9585.jpg'
+template1_png = 'https://fereysitnerya.github.io/ferey/template1.png'
+template2_png = 'https://fereysitnerya.github.io/ferey/template2.png'
 
 photo_jpg = 'https://telegra.ph/file/d39e358971fc050e4fc88.jpg'
 gif_jpg = 'https://telegra.ph/file/e147d6798a43fb1fc4bea.jpg'
@@ -14759,8 +14761,8 @@ async def get_buttons_main(lz, bot_un, BASE_P):
     result = []
     try:
         result = [
-            # types.InlineKeyboardButton(text="👩🏽‍💼", url=f"tg://user?id={my_tid}"),
-            types.InlineKeyboardButton(text="👩🏽‍💼", url=f"https://t.me/FereySupportBot?profile"),
+            types.InlineKeyboardButton(text="👩🏽‍💼", url=f"tg://user?id={my_tid}"),
+            # types.InlineKeyboardButton(text="👩🏽‍💼", url=f"https://t.me/FereySupportBot?profile"),
                   types.InlineKeyboardButton(text="🔗",
                                              url=f'https://t.me/share/url?url=https%3A%2F%2Ft.me%2F{bot_un}&text=%40{bot_un}'),
                   types.InlineKeyboardButton(text=f"♥️{(await read_likes(BASE_P))}", callback_data=f"like"),

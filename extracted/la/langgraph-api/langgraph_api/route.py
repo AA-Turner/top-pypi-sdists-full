@@ -97,7 +97,8 @@ class ApiRoute(Route):
         include_in_schema: bool = True,
         middleware: typing.Sequence[Middleware] | None = None,
     ) -> None:
-        assert path.startswith("/"), "Routed paths must start with '/'"
+        if not path.startswith("/"):
+            raise ValueError("Routed paths must start with '/'")
         self.path = path
         self.endpoint = endpoint
         self.name = get_name(endpoint) if name is None else name

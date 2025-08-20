@@ -2,6 +2,7 @@ version: 2
 image_name: starter
 apis:
 - agents
+- batches
 - datasetio
 - eval
 - files
@@ -65,6 +66,11 @@ providers:
     provider_type: remote::gemini
     config:
       api_key: ${env.GEMINI_API_KEY:=}
+  - provider_id: ${env.VERTEX_AI_PROJECT:+vertexai}
+    provider_type: remote::vertexai
+    config:
+      project: ${env.VERTEX_AI_PROJECT:=}
+      location: ${env.VERTEX_AI_LOCATION:=us-central1}
   - provider_id: groq
     provider_type: remote::groq
     config:
@@ -129,6 +135,8 @@ providers:
     provider_type: inline::llama-guard
     config:
       excluded_categories: []
+  - provider_id: code-scanner
+    provider_type: inline::code-scanner
   agents:
   - provider_id: meta-reference
     provider_type: inline::meta-reference
@@ -154,6 +162,7 @@ providers:
       checkpoint_format: huggingface
       distributed_backend: null
       device: cpu
+      dpo_output_dir: ~/.llama/distributions/starter/dpo_output
   eval:
   - provider_id: meta-reference
     provider_type: inline::meta-reference
@@ -198,6 +207,13 @@ providers:
     provider_type: inline::rag-runtime
   - provider_id: model-context-protocol
     provider_type: remote::model-context-protocol
+  batches:
+  - provider_id: reference
+    provider_type: inline::reference
+    config:
+      kvstore:
+        type: sqlite
+        db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/batches.db
 metadata_store:
   type: sqlite
   db_path: ${env.SQLITE_STORE_DIR:=~/.llama/distributions/starter}/registry.db
@@ -209,6 +225,9 @@ shields:
 - shield_id: llama-guard
   provider_id: ${env.SAFETY_MODEL:+llama-guard}
   provider_shield_id: ${env.SAFETY_MODEL:=}
+- shield_id: code-scanner
+  provider_id: ${env.CODE_SCANNER_MODEL:+code-scanner}
+  provider_shield_id: ${env.CODE_SCANNER_MODEL:=}
 vector_dbs: []
 datasets: []
 scoring_fns: []

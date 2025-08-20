@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-from typing import Dict, Set
 
 import setuptools
 
@@ -44,12 +43,14 @@ base_requirements = {
     "mypy_extensions>=0.4.3",
     "sqlalchemy-stubs>=0.4",
     # Actual dependencies.
-    "pydantic>=1.5.1",  # Support both pydantic v1 and v2
-    "acryl-datahub[datahub-rest]>=0.15.0",
+    "pydantic>=1.10.0,<3.0",
+    "acryl-datahub[datahub-rest]>=1.0.0",
+    "loguru>=0.5.0",
+    "anyio>=3.0.0",
     *aws_common,
 }
 
-plugins: Dict[str, Set[str]] = {
+plugins: dict[str, set[str]] = {
     # Task plugins
     "aws-sqs-remote-executor": aws_common,
     # Secret store plugins
@@ -123,7 +124,6 @@ setuptools.setup(
     scripts=[
         "scripts/run_ingest.sh",
         "scripts/run_test_connection.sh",
-        "scripts/ingestion_common.sh",
         "scripts/install_acryl_datahub.sh",
     ],
     zip_safe=False,

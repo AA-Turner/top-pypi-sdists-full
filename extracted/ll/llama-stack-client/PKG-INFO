@@ -1,13 +1,13 @@
 Metadata-Version: 2.3
 Name: llama_stack_client
-Version: 0.2.17
+Version: 0.2.18
 Summary: The official Python library for the llama-stack-client API
 Project-URL: Homepage, https://github.com/llamastack/llama-stack-client-python
 Project-URL: Repository, https://github.com/llamastack/llama-stack-client-python
 Author-email: Meta Llama <llama-oss@meta.com>
-License: Apache-2.0
+License: MIT
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: OS Independent
@@ -35,6 +35,7 @@ Requires-Dist: typing-extensions<5,>=4.7
 Description-Content-Type: text/markdown
 
 # Llama Stack Client Python API library
+
 
 [![PyPI version](https://img.shields.io/pypi/v/llama_stack_client.svg)](https://pypi.org/project/llama_stack_client/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/llama-stack-client)](https://pypi.org/project/llama-stack-client/)
 [![Discord](https://img.shields.io/discord/1257833999603335178)](https://discord.gg/llama-stack)

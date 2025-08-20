@@ -288,7 +288,7 @@ class KafkaProducerWorker:
             "application_version": self.app_version,
             "ip_key_name": "TODO",
             "camera_info": camera_info,
-            "input_streams": [input_stream],
+            "input_streams": [{"input_stream": input_stream}], # TODO: Update in the aggregator and FE to use input_streams directly
             "output_streams": [output_stream],
             "model_streams": [
                 {

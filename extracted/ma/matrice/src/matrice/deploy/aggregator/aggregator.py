@@ -174,7 +174,9 @@ class ResultsAggregator:
             first_deployment_result = next(iter(deployment_results.values()))
             first_app_result = first_deployment_result.get("result", {})
             input_streams = first_app_result.get("input_streams", [])
-            input_stream = copy.deepcopy(input_streams[0]["input_stream"]) if input_streams else {}
+            # Handle both input_stream if key in dict and input_data if key is not in dict
+            input_data = input_streams[0] if input_streams else {}
+            input_stream = copy.deepcopy(input_data.get("input_stream", input_data))
             camera_info = copy.deepcopy(first_app_result.get("camera_info", {}))
             
             # Collect all app results for agg_apps
@@ -191,6 +193,8 @@ class ResultsAggregator:
                         for input_stream_item in app_result["input_streams"]:
                             if "input_stream" in input_stream_item and "content" in input_stream_item["input_stream"]:
                                 del input_stream_item["input_stream"]["content"]
+                            if "content" in input_stream_item:
+                                del input_stream_item["content"]
                     agg_apps.append(app_result)
 
             # Create camera_results structure as expected by the notebook

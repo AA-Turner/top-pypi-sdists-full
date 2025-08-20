@@ -7,7 +7,8 @@ import pytest
 from langchain.chains.query_constructor.schema import AttributeInfo
 from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain_core.documents import Document
-from langchain_openai import ChatOpenAI
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
+from langchain_openai.chat_models.base import BaseChatOpenAI
 
 from langchain_mongodb import MongoDBAtlasVectorSearch, index
 from langchain_mongodb.retrievers import MongoDBAtlasSelfQueryRetriever
@@ -17,7 +18,7 @@ from ..utils import CONNECTION_STRING, DB_NAME, PatchedMongoDBAtlasVectorSearch
 COLLECTION_NAME = "test_self_querying_retriever"
 TIMEOUT = 120
 
-if "OPENAI_API_KEY" not in os.environ:
+if "OPENAI_API_KEY" not in os.environ and "AZURE_OPENAI_ENDPOINT" not in os.environ:
     pytest.skip("Requires OpenAI for chat responses.", allow_module_level=True)
 
 
@@ -161,9 +162,11 @@ def vectorstore(
 
 
 @pytest.fixture
-def llm() -> ChatOpenAI:
+def llm() -> BaseChatOpenAI:
     """Model used for interpreting query."""
-    return ChatOpenAI(model="gpt-4o", temperature=0.0, cache=False)
+    if "AZURE_OPENAI_ENDPOINT" in os.environ:
+        return AzureChatOpenAI(model="gpt-4o", temperature=0.0, cache=False, seed=12345)
+    return ChatOpenAI(model="gpt-4o", temperature=0.0, cache=False, seed=1235)
 
 
 @pytest.fixture

@@ -5612,6 +5612,30 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    SAGE_MAKER_STUDIO_USER_IAM_DEFAULT_EXECUTION_POLICY = "SAGE_MAKER_STUDIO_USER_IAM_DEFAULT_EXECUTION_POLICY"
+    '''
+    :stability: experimental
+    '''
+    SAGE_MAKER_STUDIO_ADMIN_IAM_PERMISSIVE_EXECUTION_POLICY = "SAGE_MAKER_STUDIO_ADMIN_IAM_PERMISSIVE_EXECUTION_POLICY"
+    '''
+    :stability: experimental
+    '''
+    SAGE_MAKER_STUDIO_ADMIN_IAM_DEFAULT_EXECUTION_POLICY = "SAGE_MAKER_STUDIO_ADMIN_IAM_DEFAULT_EXECUTION_POLICY"
+    '''
+    :stability: experimental
+    '''
+    SAGE_MAKER_STUDIO_USER_IAM_PERMISSIVE_EXECUTION_POLICY = "SAGE_MAKER_STUDIO_USER_IAM_PERMISSIVE_EXECUTION_POLICY"
+    '''
+    :stability: experimental
+    '''
+    SAGE_MAKER_STUDIO_USER_IAM_CONSOLE_POLICY = "SAGE_MAKER_STUDIO_USER_IAM_CONSOLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    SAGE_MAKER_STUDIO_ADMIN_IAM_CONSOLE_POLICY = "SAGE_MAKER_STUDIO_ADMIN_IAM_CONSOLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

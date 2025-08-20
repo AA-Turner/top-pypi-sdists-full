@@ -10,7 +10,6 @@ from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from orionis.app import Orionis
 from orionis.foundation.config.testing.enums.drivers import PersistentDrivers
 from orionis.foundation.config.testing.enums.mode import ExecutionMode
 from orionis.foundation.config.testing.enums.verbosity import VerbosityMode
@@ -37,7 +36,7 @@ class UnitTest(IUnitTest):
 
     def __init__(
         self,
-        app: Optional[IApplication] = None
+        app: IApplication
     ) -> None:
         """
         Initialize a UnitTest instance with default configuration and internal state.
@@ -50,7 +49,7 @@ class UnitTest(IUnitTest):
         """
 
         # Application instance for dependency injection
-        self.__app: Optional[IApplication] = app or Orionis()
+        self.__app: IApplication = app
 
         # Storage path for test results
         self.__storage: Optional[str] = self.__app.path('storage_testing')

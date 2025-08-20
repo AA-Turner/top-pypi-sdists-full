@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-aws
-Version: 0.2.30
+Version: 0.2.31
 Summary: An integration package connecting AWS and LangChain
 Home-page: https://github.com/langchain-ai/langchain-aws
 License: MIT
@@ -15,7 +15,7 @@ Provides-Extra: tools
 Requires-Dist: beautifulsoup4 (>=4.13.4) ; extra == "tools"
 Requires-Dist: bedrock-agentcore (>=0.1.0) ; (python_version >= "3.10") and (extra == "tools")
 Requires-Dist: boto3 (>=1.39.7)
-Requires-Dist: langchain-core (>=0.3.72,<0.4.0)
+Requires-Dist: langchain-core (>=0.3.74,<0.4.0)
 Requires-Dist: numpy (>=1,<2) ; python_version < "3.12"
 Requires-Dist: numpy (>=1.26.0,<3) ; python_version >= "3.12"
 Requires-Dist: playwright (>=1.53.0) ; extra == "tools"
@@ -97,7 +97,11 @@ retriever = AmazonKnowledgeBasesRetriever(
 
 retriever.get_relevant_documents(query="What is the meaning of life?")
 ```
+
 ## VectorStores 
+
+### InMemoryVectorStore
+
 `InMemoryVectorStore` class provides a vectorstore to connect with Amazon MemoryDB.
 
 ```python
@@ -112,13 +116,36 @@ vds = InMemoryVectorStore.from_documents(
         )
 ```
 
-## MemoryDB as Retriever
+### MemoryDB as Retriever
 
 Here we go over different options for using the vector store as a retriever.
 
 There are three different search methods we can use to do retrieval. By default, it will use semantic similarity.
 
 ```python
-retriever=vds.as_retriever()
+retriever = vds.as_retriever()
+```
+
+### AmazonS3Vectors
+
+`AmazonS3Vectors` class provides a vectorstore to connect with Amazon S3 Vectors.
+
+```python
+from langchain_aws.vectorstores.s3_vectors import AmazonS3Vectors
+
+vector_store = AmazonS3Vectors.from_documents(
+            chunks,
+            vector_bucket_name=S3_VECTOR_BUCKET_NAME,
+            index_name=INDEX_NAME,
+            embeddings,
+        )
+```
+
+### AmazonS3Vectors as Retriever
+
+`AmazonS3VectorsRetriever` class initialized from this AmazonS3Vectors.
+
+```python
+retriever = vector_store.as_retriever()
 ```
 

@@ -1,7 +1,7 @@
 r'''
 # `google_container_node_pool`
 
-Refer to the Terraform Registry for docs: [`google_container_node_pool`](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool).
+Refer to the Terraform Registry for docs: [`google_container_node_pool`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ContainerNodePool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.containerNodePool.ContainerNodePool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool google_container_node_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool google_container_node_pool}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class ContainerNodePool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool google_container_node_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool google_container_node_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster: The cluster to create the node pool for. Cluster must be present in location provided for zonal clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cluster ContainerNodePool#cluster}
-        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#autoscaling ContainerNodePool#autoscaling}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#id ContainerNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_node_count: The initial number of nodes for the pool. In regional or multi-zonal clusters, this is the number of nodes per zone. Changing this will force recreation of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#initial_node_count ContainerNodePool#initial_node_count}
-        :param location: The location (region or zone) of the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#location ContainerNodePool#location}
-        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#management ContainerNodePool#management}
-        :param max_pods_per_node: The maximum number of pods per node in this node pool. Note that this does not work on node pools which are "route-based" - that is, node pools belonging to clusters that do not have IP Aliasing enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_pods_per_node ContainerNodePool#max_pods_per_node}
-        :param name: The name of the node pool. If left blank, Terraform will auto-generate a unique name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#name ContainerNodePool#name}
-        :param name_prefix: Creates a unique name for the node pool beginning with the specified prefix. Conflicts with name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#name_prefix ContainerNodePool#name_prefix}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#network_config ContainerNodePool#network_config}
-        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_config ContainerNodePool#node_config}
-        :param node_count: The number of nodes per instance group. This field can be used to update the number of nodes per instance group but should not be used alongside autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_count ContainerNodePool#node_count}
-        :param node_locations: The list of zones in which the node pool's nodes should be located. Nodes must be in the region of their regional cluster or in the same region as their cluster's zone for zonal clusters. If unspecified, the cluster-level node_locations will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_locations ContainerNodePool#node_locations}
-        :param placement_policy: placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#placement_policy ContainerNodePool#placement_policy}
-        :param project: The ID of the project in which to create the node pool. If blank, the provider-configured project will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#project ContainerNodePool#project}
-        :param queued_provisioning: queued_provisioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#queued_provisioning ContainerNodePool#queued_provisioning}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#timeouts ContainerNodePool#timeouts}
-        :param upgrade_settings: upgrade_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#upgrade_settings ContainerNodePool#upgrade_settings}
-        :param version: The Kubernetes version for the nodes in this pool. Note that if this field and auto_upgrade are both specified, they will fight each other for what the node version should be, so setting both is highly discouraged. While a fuzzy version can be specified, it's recommended that you specify explicit versions as Terraform will see spurious diffs when fuzzy versions are used. See the google_container_engine_versions data source's version_prefix field to approximate fuzzy versions in a Terraform-compatible way. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#version ContainerNodePool#version}
+        :param cluster: The cluster to create the node pool for. Cluster must be present in location provided for zonal clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cluster ContainerNodePool#cluster}
+        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#autoscaling ContainerNodePool#autoscaling}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#id ContainerNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_node_count: The initial number of nodes for the pool. In regional or multi-zonal clusters, this is the number of nodes per zone. Changing this will force recreation of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#initial_node_count ContainerNodePool#initial_node_count}
+        :param location: The location (region or zone) of the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#location ContainerNodePool#location}
+        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#management ContainerNodePool#management}
+        :param max_pods_per_node: The maximum number of pods per node in this node pool. Note that this does not work on node pools which are "route-based" - that is, node pools belonging to clusters that do not have IP Aliasing enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_pods_per_node ContainerNodePool#max_pods_per_node}
+        :param name: The name of the node pool. If left blank, Terraform will auto-generate a unique name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#name ContainerNodePool#name}
+        :param name_prefix: Creates a unique name for the node pool beginning with the specified prefix. Conflicts with name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#name_prefix ContainerNodePool#name_prefix}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#network_config ContainerNodePool#network_config}
+        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_config ContainerNodePool#node_config}
+        :param node_count: The number of nodes per instance group. This field can be used to update the number of nodes per instance group but should not be used alongside autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_count ContainerNodePool#node_count}
+        :param node_locations: The list of zones in which the node pool's nodes should be located. Nodes must be in the region of their regional cluster or in the same region as their cluster's zone for zonal clusters. If unspecified, the cluster-level node_locations will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_locations ContainerNodePool#node_locations}
+        :param placement_policy: placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#placement_policy ContainerNodePool#placement_policy}
+        :param project: The ID of the project in which to create the node pool. If blank, the provider-configured project will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#project ContainerNodePool#project}
+        :param queued_provisioning: queued_provisioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#queued_provisioning ContainerNodePool#queued_provisioning}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#timeouts ContainerNodePool#timeouts}
+        :param upgrade_settings: upgrade_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#upgrade_settings ContainerNodePool#upgrade_settings}
+        :param version: The Kubernetes version for the nodes in this pool. Note that if this field and auto_upgrade are both specified, they will fight each other for what the node version should be, so setting both is highly discouraged. While a fuzzy version can be specified, it's recommended that you specify explicit versions as Terraform will see spurious diffs when fuzzy versions are used. See the google_container_engine_versions data source's version_prefix field to approximate fuzzy versions in a Terraform-compatible way. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#version ContainerNodePool#version}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class ContainerNodePool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ContainerNodePool to import.
-        :param import_from_id: The id of the existing ContainerNodePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ContainerNodePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ContainerNodePool to import is found.
         '''
         if __debug__:
@@ -179,11 +179,11 @@ class ContainerNodePool(
         total_min_node_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param location_policy: Location policy specifies the algorithm used when scaling-up the node pool. "BALANCED" - Is a best effort policy that aims to balance the sizes of available zones. "ANY" - Instructs the cluster autoscaler to prioritize utilization of unused reservations, and reduces preemption risk for Spot VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#location_policy ContainerNodePool#location_policy}
-        :param max_node_count: Maximum number of nodes per zone in the node pool. Must be >= min_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_node_count ContainerNodePool#max_node_count}
-        :param min_node_count: Minimum number of nodes per zone in the node pool. Must be >=0 and <= max_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#min_node_count ContainerNodePool#min_node_count}
-        :param total_max_node_count: Maximum number of all nodes in the node pool. Must be >= total_min_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#total_max_node_count ContainerNodePool#total_max_node_count}
-        :param total_min_node_count: Minimum number of all nodes in the node pool. Must be >=0 and <= total_max_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#total_min_node_count ContainerNodePool#total_min_node_count}
+        :param location_policy: Location policy specifies the algorithm used when scaling-up the node pool. "BALANCED" - Is a best effort policy that aims to balance the sizes of available zones. "ANY" - Instructs the cluster autoscaler to prioritize utilization of unused reservations, and reduces preemption risk for Spot VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#location_policy ContainerNodePool#location_policy}
+        :param max_node_count: Maximum number of nodes per zone in the node pool. Must be >= min_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_node_count ContainerNodePool#max_node_count}
+        :param min_node_count: Minimum number of nodes per zone in the node pool. Must be >=0 and <= max_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#min_node_count ContainerNodePool#min_node_count}
+        :param total_max_node_count: Maximum number of all nodes in the node pool. Must be >= total_min_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#total_max_node_count ContainerNodePool#total_max_node_count}
+        :param total_min_node_count: Minimum number of all nodes in the node pool. Must be >=0 and <= total_max_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#total_min_node_count ContainerNodePool#total_min_node_count}
         '''
         value = ContainerNodePoolAutoscaling(
             location_policy=location_policy,
@@ -203,8 +203,8 @@ class ContainerNodePool(
         auto_upgrade: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param auto_repair: Whether the nodes will be automatically repaired. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#auto_repair ContainerNodePool#auto_repair}
-        :param auto_upgrade: Whether the nodes will be automatically upgraded. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#auto_upgrade ContainerNodePool#auto_upgrade}
+        :param auto_repair: Whether the nodes will be automatically repaired. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#auto_repair ContainerNodePool#auto_repair}
+        :param auto_upgrade: Whether the nodes will be automatically upgraded. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#auto_upgrade ContainerNodePool#auto_upgrade}
         '''
         value = ContainerNodePoolManagement(
             auto_repair=auto_repair, auto_upgrade=auto_upgrade
@@ -226,14 +226,14 @@ class ContainerNodePool(
         pod_range: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param additional_node_network_configs: additional_node_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#additional_node_network_configs ContainerNodePool#additional_node_network_configs}
-        :param additional_pod_network_configs: additional_pod_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#additional_pod_network_configs ContainerNodePool#additional_pod_network_configs}
-        :param create_pod_range: Whether to create a new range for pod IPs in this node pool. Defaults are provided for pod_range and pod_ipv4_cidr_block if they are not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#create_pod_range ContainerNodePool#create_pod_range}
-        :param enable_private_nodes: Whether nodes have internal IP addresses only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_private_nodes ContainerNodePool#enable_private_nodes}
-        :param network_performance_config: network_performance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#network_performance_config ContainerNodePool#network_performance_config}
-        :param pod_cidr_overprovision_config: pod_cidr_overprovision_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#pod_cidr_overprovision_config ContainerNodePool#pod_cidr_overprovision_config}
-        :param pod_ipv4_cidr_block: The IP address range for pod IPs in this node pool. Only applicable if create_pod_range is true. Set to blank to have a range chosen with the default size. Set to /netmask (e.g. /14) to have a range chosen with a specific netmask. Set to a CIDR notation (e.g. 10.96.0.0/14) to pick a specific range to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#pod_ipv4_cidr_block ContainerNodePool#pod_ipv4_cidr_block}
-        :param pod_range: The ID of the secondary range for pod IPs. If create_pod_range is true, this ID is used for the new range. If create_pod_range is false, uses an existing secondary range with this ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#pod_range ContainerNodePool#pod_range}
+        :param additional_node_network_configs: additional_node_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#additional_node_network_configs ContainerNodePool#additional_node_network_configs}
+        :param additional_pod_network_configs: additional_pod_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#additional_pod_network_configs ContainerNodePool#additional_pod_network_configs}
+        :param create_pod_range: Whether to create a new range for pod IPs in this node pool. Defaults are provided for pod_range and pod_ipv4_cidr_block if they are not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#create_pod_range ContainerNodePool#create_pod_range}
+        :param enable_private_nodes: Whether nodes have internal IP addresses only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_private_nodes ContainerNodePool#enable_private_nodes}
+        :param network_performance_config: network_performance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#network_performance_config ContainerNodePool#network_performance_config}
+        :param pod_cidr_overprovision_config: pod_cidr_overprovision_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pod_cidr_overprovision_config ContainerNodePool#pod_cidr_overprovision_config}
+        :param pod_ipv4_cidr_block: The IP address range for pod IPs in this node pool. Only applicable if create_pod_range is true. Set to blank to have a range chosen with the default size. Set to /netmask (e.g. /14) to have a range chosen with a specific netmask. Set to a CIDR notation (e.g. 10.96.0.0/14) to pick a specific range to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pod_ipv4_cidr_block ContainerNodePool#pod_ipv4_cidr_block}
+        :param pod_range: The ID of the secondary range for pod IPs. If create_pod_range is true, this ID is used for the new range. If create_pod_range is false, uses an existing secondary range with this ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pod_range ContainerNodePool#pod_range}
         '''
         value = ContainerNodePoolNetworkConfig(
             additional_node_network_configs=additional_node_network_configs,
@@ -297,49 +297,49 @@ class ContainerNodePool(
         workload_metadata_config: typing.Optional[typing.Union["ContainerNodePoolNodeConfigWorkloadMetadataConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#advanced_machine_features ContainerNodePool#advanced_machine_features}
-        :param boot_disk: boot_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#boot_disk ContainerNodePool#boot_disk}
-        :param boot_disk_kms_key: The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#boot_disk_kms_key ContainerNodePool#boot_disk_kms_key}
-        :param confidential_nodes: confidential_nodes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#confidential_nodes ContainerNodePool#confidential_nodes}
-        :param containerd_config: containerd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#containerd_config ContainerNodePool#containerd_config}
-        :param disk_size_gb: Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disk_size_gb ContainerNodePool#disk_size_gb}
-        :param disk_type: Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disk_type ContainerNodePool#disk_type}
-        :param enable_confidential_storage: If enabled boot disks are configured with confidential mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_confidential_storage ContainerNodePool#enable_confidential_storage}
-        :param ephemeral_storage_local_ssd_config: ephemeral_storage_local_ssd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#ephemeral_storage_local_ssd_config ContainerNodePool#ephemeral_storage_local_ssd_config}
-        :param fast_socket: fast_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#fast_socket ContainerNodePool#fast_socket}
-        :param flex_start: Enables Flex Start provisioning model for the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#flex_start ContainerNodePool#flex_start}
-        :param gcfs_config: gcfs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gcfs_config ContainerNodePool#gcfs_config}
-        :param guest_accelerator: guest_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#guest_accelerator ContainerNodePool#guest_accelerator}
-        :param gvnic: gvnic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gvnic ContainerNodePool#gvnic}
-        :param host_maintenance_policy: host_maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#host_maintenance_policy ContainerNodePool#host_maintenance_policy}
-        :param image_type: The image type to use for this node. Note that for a given image type, the latest version of it will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_type ContainerNodePool#image_type}
-        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#kubelet_config ContainerNodePool#kubelet_config}
-        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#labels ContainerNodePool#labels}
-        :param linux_node_config: linux_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#linux_node_config ContainerNodePool#linux_node_config}
-        :param local_nvme_ssd_block_config: local_nvme_ssd_block_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_nvme_ssd_block_config ContainerNodePool#local_nvme_ssd_block_config}
-        :param local_ssd_count: The number of local SSD disks to be attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
-        :param local_ssd_encryption_mode: LocalSsdEncryptionMode specified the method used for encrypting the local SSDs attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_ssd_encryption_mode ContainerNodePool#local_ssd_encryption_mode}
-        :param logging_variant: Type of logging agent that is used as the default value for node pools in the cluster. Valid values include DEFAULT and MAX_THROUGHPUT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#logging_variant ContainerNodePool#logging_variant}
-        :param machine_type: The name of a Google Compute Engine machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#machine_type ContainerNodePool#machine_type}
-        :param max_run_duration: The runtime of each node in the node pool in seconds, terminated by 's'. Example: "3600s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_run_duration ContainerNodePool#max_run_duration}
-        :param metadata: The metadata key/value pairs assigned to instances in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#metadata ContainerNodePool#metadata}
-        :param min_cpu_platform: Minimum CPU platform to be used by this instance. The instance may be scheduled on the specified or newer CPU platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#min_cpu_platform ContainerNodePool#min_cpu_platform}
-        :param node_group: Setting this field will assign instances of this pool to run on the specified node group. This is useful for running workloads on sole tenant nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_group ContainerNodePool#node_group}
-        :param oauth_scopes: The set of Google API scopes to be made available on all of the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#oauth_scopes ContainerNodePool#oauth_scopes}
-        :param preemptible: Whether the nodes are created as preemptible VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#preemptible ContainerNodePool#preemptible}
-        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#reservation_affinity ContainerNodePool#reservation_affinity}
-        :param resource_labels: The GCE resource labels (a map of key/value pairs) to be applied to the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#resource_labels ContainerNodePool#resource_labels}
-        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#resource_manager_tags ContainerNodePool#resource_manager_tags}
-        :param secondary_boot_disks: secondary_boot_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#secondary_boot_disks ContainerNodePool#secondary_boot_disks}
-        :param service_account: The Google Cloud Platform Service Account to be used by the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#service_account ContainerNodePool#service_account}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#shielded_instance_config ContainerNodePool#shielded_instance_config}
-        :param sole_tenant_config: sole_tenant_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#sole_tenant_config ContainerNodePool#sole_tenant_config}
-        :param spot: Whether the nodes are created as spot VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#spot ContainerNodePool#spot}
-        :param storage_pools: The list of Storage Pools where boot disks are provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#storage_pools ContainerNodePool#storage_pools}
-        :param tags: The list of instance tags applied to all nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#tags ContainerNodePool#tags}
-        :param taint: taint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#taint ContainerNodePool#taint}
-        :param windows_node_config: windows_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#windows_node_config ContainerNodePool#windows_node_config}
-        :param workload_metadata_config: workload_metadata_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#workload_metadata_config ContainerNodePool#workload_metadata_config}
+        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#advanced_machine_features ContainerNodePool#advanced_machine_features}
+        :param boot_disk: boot_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#boot_disk ContainerNodePool#boot_disk}
+        :param boot_disk_kms_key: The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#boot_disk_kms_key ContainerNodePool#boot_disk_kms_key}
+        :param confidential_nodes: confidential_nodes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#confidential_nodes ContainerNodePool#confidential_nodes}
+        :param containerd_config: containerd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#containerd_config ContainerNodePool#containerd_config}
+        :param disk_size_gb: Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disk_size_gb ContainerNodePool#disk_size_gb}
+        :param disk_type: Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disk_type ContainerNodePool#disk_type}
+        :param enable_confidential_storage: If enabled boot disks are configured with confidential mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_confidential_storage ContainerNodePool#enable_confidential_storage}
+        :param ephemeral_storage_local_ssd_config: ephemeral_storage_local_ssd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#ephemeral_storage_local_ssd_config ContainerNodePool#ephemeral_storage_local_ssd_config}
+        :param fast_socket: fast_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#fast_socket ContainerNodePool#fast_socket}
+        :param flex_start: Enables Flex Start provisioning model for the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#flex_start ContainerNodePool#flex_start}
+        :param gcfs_config: gcfs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gcfs_config ContainerNodePool#gcfs_config}
+        :param guest_accelerator: guest_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#guest_accelerator ContainerNodePool#guest_accelerator}
+        :param gvnic: gvnic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gvnic ContainerNodePool#gvnic}
+        :param host_maintenance_policy: host_maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#host_maintenance_policy ContainerNodePool#host_maintenance_policy}
+        :param image_type: The image type to use for this node. Note that for a given image type, the latest version of it will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_type ContainerNodePool#image_type}
+        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#kubelet_config ContainerNodePool#kubelet_config}
+        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#labels ContainerNodePool#labels}
+        :param linux_node_config: linux_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#linux_node_config ContainerNodePool#linux_node_config}
+        :param local_nvme_ssd_block_config: local_nvme_ssd_block_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_nvme_ssd_block_config ContainerNodePool#local_nvme_ssd_block_config}
+        :param local_ssd_count: The number of local SSD disks to be attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
+        :param local_ssd_encryption_mode: LocalSsdEncryptionMode specified the method used for encrypting the local SSDs attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_ssd_encryption_mode ContainerNodePool#local_ssd_encryption_mode}
+        :param logging_variant: Type of logging agent that is used as the default value for node pools in the cluster. Valid values include DEFAULT and MAX_THROUGHPUT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#logging_variant ContainerNodePool#logging_variant}
+        :param machine_type: The name of a Google Compute Engine machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#machine_type ContainerNodePool#machine_type}
+        :param max_run_duration: The runtime of each node in the node pool in seconds, terminated by 's'. Example: "3600s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_run_duration ContainerNodePool#max_run_duration}
+        :param metadata: The metadata key/value pairs assigned to instances in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#metadata ContainerNodePool#metadata}
+        :param min_cpu_platform: Minimum CPU platform to be used by this instance. The instance may be scheduled on the specified or newer CPU platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#min_cpu_platform ContainerNodePool#min_cpu_platform}
+        :param node_group: Setting this field will assign instances of this pool to run on the specified node group. This is useful for running workloads on sole tenant nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_group ContainerNodePool#node_group}
+        :param oauth_scopes: The set of Google API scopes to be made available on all of the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#oauth_scopes ContainerNodePool#oauth_scopes}
+        :param preemptible: Whether the nodes are created as preemptible VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#preemptible ContainerNodePool#preemptible}
+        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#reservation_affinity ContainerNodePool#reservation_affinity}
+        :param resource_labels: The GCE resource labels (a map of key/value pairs) to be applied to the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#resource_labels ContainerNodePool#resource_labels}
+        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#resource_manager_tags ContainerNodePool#resource_manager_tags}
+        :param secondary_boot_disks: secondary_boot_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#secondary_boot_disks ContainerNodePool#secondary_boot_disks}
+        :param service_account: The Google Cloud Platform Service Account to be used by the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#service_account ContainerNodePool#service_account}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#shielded_instance_config ContainerNodePool#shielded_instance_config}
+        :param sole_tenant_config: sole_tenant_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#sole_tenant_config ContainerNodePool#sole_tenant_config}
+        :param spot: Whether the nodes are created as spot VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#spot ContainerNodePool#spot}
+        :param storage_pools: The list of Storage Pools where boot disks are provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#storage_pools ContainerNodePool#storage_pools}
+        :param tags: The list of instance tags applied to all nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#tags ContainerNodePool#tags}
+        :param taint: taint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#taint ContainerNodePool#taint}
+        :param windows_node_config: windows_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#windows_node_config ContainerNodePool#windows_node_config}
+        :param workload_metadata_config: workload_metadata_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#workload_metadata_config ContainerNodePool#workload_metadata_config}
         '''
         value = ContainerNodePoolNodeConfig(
             advanced_machine_features=advanced_machine_features,
@@ -398,9 +398,9 @@ class ContainerNodePool(
         tpu_topology: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type defines the type of placement policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#type ContainerNodePool#type}
-        :param policy_name: If set, refers to the name of a custom resource policy supplied by the user. The resource policy must be in the same project and region as the node pool. If not found, InvalidArgument error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#policy_name ContainerNodePool#policy_name}
-        :param tpu_topology: The TPU topology like "2x4" or "2x2x2". https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus#topology. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#tpu_topology ContainerNodePool#tpu_topology}
+        :param type: Type defines the type of placement policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#type ContainerNodePool#type}
+        :param policy_name: If set, refers to the name of a custom resource policy supplied by the user. The resource policy must be in the same project and region as the node pool. If not found, InvalidArgument error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#policy_name ContainerNodePool#policy_name}
+        :param tpu_topology: The TPU topology like "2x4" or "2x2x2". https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus#topology. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#tpu_topology ContainerNodePool#tpu_topology}
         '''
         value = ContainerNodePoolPlacementPolicy(
             type=type, policy_name=policy_name, tpu_topology=tpu_topology
@@ -415,7 +415,7 @@ class ContainerNodePool(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether nodes in this node pool are obtainable solely through the ProvisioningRequest API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        :param enabled: Whether nodes in this node pool are obtainable solely through the ProvisioningRequest API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         value = ContainerNodePoolQueuedProvisioning(enabled=enabled)
 
@@ -430,9 +430,9 @@ class ContainerNodePool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#create ContainerNodePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#delete ContainerNodePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#update ContainerNodePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#create ContainerNodePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#delete ContainerNodePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#update ContainerNodePool#update}.
         '''
         value = ContainerNodePoolTimeouts(create=create, delete=delete, update=update)
 
@@ -448,10 +448,10 @@ class ContainerNodePool(
         strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param blue_green_settings: blue_green_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#blue_green_settings ContainerNodePool#blue_green_settings}
-        :param max_surge: The number of additional nodes that can be added to the node pool during an upgrade. Increasing max_surge raises the number of nodes that can be upgraded simultaneously. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_surge ContainerNodePool#max_surge}
-        :param max_unavailable: The number of nodes that can be simultaneously unavailable during an upgrade. Increasing max_unavailable raises the number of nodes that can be upgraded in parallel. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_unavailable ContainerNodePool#max_unavailable}
-        :param strategy: Update strategy for the given nodepool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#strategy ContainerNodePool#strategy}
+        :param blue_green_settings: blue_green_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#blue_green_settings ContainerNodePool#blue_green_settings}
+        :param max_surge: The number of additional nodes that can be added to the node pool during an upgrade. Increasing max_surge raises the number of nodes that can be upgraded simultaneously. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_surge ContainerNodePool#max_surge}
+        :param max_unavailable: The number of nodes that can be simultaneously unavailable during an upgrade. Increasing max_unavailable raises the number of nodes that can be upgraded in parallel. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_unavailable ContainerNodePool#max_unavailable}
+        :param strategy: Update strategy for the given nodepool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#strategy ContainerNodePool#strategy}
         '''
         value = ContainerNodePoolUpgradeSettings(
             blue_green_settings=blue_green_settings,
@@ -862,11 +862,11 @@ class ContainerNodePoolAutoscaling:
         total_min_node_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param location_policy: Location policy specifies the algorithm used when scaling-up the node pool. "BALANCED" - Is a best effort policy that aims to balance the sizes of available zones. "ANY" - Instructs the cluster autoscaler to prioritize utilization of unused reservations, and reduces preemption risk for Spot VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#location_policy ContainerNodePool#location_policy}
-        :param max_node_count: Maximum number of nodes per zone in the node pool. Must be >= min_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_node_count ContainerNodePool#max_node_count}
-        :param min_node_count: Minimum number of nodes per zone in the node pool. Must be >=0 and <= max_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#min_node_count ContainerNodePool#min_node_count}
-        :param total_max_node_count: Maximum number of all nodes in the node pool. Must be >= total_min_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#total_max_node_count ContainerNodePool#total_max_node_count}
-        :param total_min_node_count: Minimum number of all nodes in the node pool. Must be >=0 and <= total_max_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#total_min_node_count ContainerNodePool#total_min_node_count}
+        :param location_policy: Location policy specifies the algorithm used when scaling-up the node pool. "BALANCED" - Is a best effort policy that aims to balance the sizes of available zones. "ANY" - Instructs the cluster autoscaler to prioritize utilization of unused reservations, and reduces preemption risk for Spot VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#location_policy ContainerNodePool#location_policy}
+        :param max_node_count: Maximum number of nodes per zone in the node pool. Must be >= min_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_node_count ContainerNodePool#max_node_count}
+        :param min_node_count: Minimum number of nodes per zone in the node pool. Must be >=0 and <= max_node_count. Cannot be used with total limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#min_node_count ContainerNodePool#min_node_count}
+        :param total_max_node_count: Maximum number of all nodes in the node pool. Must be >= total_min_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#total_max_node_count ContainerNodePool#total_max_node_count}
+        :param total_min_node_count: Minimum number of all nodes in the node pool. Must be >=0 and <= total_max_node_count. Cannot be used with per zone limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#total_min_node_count ContainerNodePool#total_min_node_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7e69a00ccd28bc7146a8e3e75397c3f4ad4a26d9503125e9e93e95c042677bbe)
@@ -893,7 +893,7 @@ class ContainerNodePoolAutoscaling:
 
         "BALANCED" - Is a best effort policy that aims to balance the sizes of available zones. "ANY" - Instructs the cluster autoscaler to prioritize utilization of unused reservations, and reduces preemption risk for Spot VMs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#location_policy ContainerNodePool#location_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#location_policy ContainerNodePool#location_policy}
         '''
         result = self._values.get("location_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -904,7 +904,7 @@ class ContainerNodePoolAutoscaling:
 
         Must be >= min_node_count. Cannot be used with total limits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_node_count ContainerNodePool#max_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_node_count ContainerNodePool#max_node_count}
         '''
         result = self._values.get("max_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -915,7 +915,7 @@ class ContainerNodePoolAutoscaling:
 
         Must be >=0 and <= max_node_count. Cannot be used with total limits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#min_node_count ContainerNodePool#min_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#min_node_count ContainerNodePool#min_node_count}
         '''
         result = self._values.get("min_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -926,7 +926,7 @@ class ContainerNodePoolAutoscaling:
 
         Must be >= total_min_node_count. Cannot be used with per zone limits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#total_max_node_count ContainerNodePool#total_max_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#total_max_node_count ContainerNodePool#total_max_node_count}
         '''
         result = self._values.get("total_max_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -937,7 +937,7 @@ class ContainerNodePoolAutoscaling:
 
         Must be >=0 and <= total_max_node_count. Cannot be used with per zone limits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#total_min_node_count ContainerNodePool#total_min_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#total_min_node_count ContainerNodePool#total_min_node_count}
         '''
         result = self._values.get("total_min_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1166,25 +1166,25 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster: The cluster to create the node pool for. Cluster must be present in location provided for zonal clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cluster ContainerNodePool#cluster}
-        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#autoscaling ContainerNodePool#autoscaling}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#id ContainerNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initial_node_count: The initial number of nodes for the pool. In regional or multi-zonal clusters, this is the number of nodes per zone. Changing this will force recreation of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#initial_node_count ContainerNodePool#initial_node_count}
-        :param location: The location (region or zone) of the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#location ContainerNodePool#location}
-        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#management ContainerNodePool#management}
-        :param max_pods_per_node: The maximum number of pods per node in this node pool. Note that this does not work on node pools which are "route-based" - that is, node pools belonging to clusters that do not have IP Aliasing enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_pods_per_node ContainerNodePool#max_pods_per_node}
-        :param name: The name of the node pool. If left blank, Terraform will auto-generate a unique name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#name ContainerNodePool#name}
-        :param name_prefix: Creates a unique name for the node pool beginning with the specified prefix. Conflicts with name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#name_prefix ContainerNodePool#name_prefix}
-        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#network_config ContainerNodePool#network_config}
-        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_config ContainerNodePool#node_config}
-        :param node_count: The number of nodes per instance group. This field can be used to update the number of nodes per instance group but should not be used alongside autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_count ContainerNodePool#node_count}
-        :param node_locations: The list of zones in which the node pool's nodes should be located. Nodes must be in the region of their regional cluster or in the same region as their cluster's zone for zonal clusters. If unspecified, the cluster-level node_locations will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_locations ContainerNodePool#node_locations}
-        :param placement_policy: placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#placement_policy ContainerNodePool#placement_policy}
-        :param project: The ID of the project in which to create the node pool. If blank, the provider-configured project will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#project ContainerNodePool#project}
-        :param queued_provisioning: queued_provisioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#queued_provisioning ContainerNodePool#queued_provisioning}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#timeouts ContainerNodePool#timeouts}
-        :param upgrade_settings: upgrade_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#upgrade_settings ContainerNodePool#upgrade_settings}
-        :param version: The Kubernetes version for the nodes in this pool. Note that if this field and auto_upgrade are both specified, they will fight each other for what the node version should be, so setting both is highly discouraged. While a fuzzy version can be specified, it's recommended that you specify explicit versions as Terraform will see spurious diffs when fuzzy versions are used. See the google_container_engine_versions data source's version_prefix field to approximate fuzzy versions in a Terraform-compatible way. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#version ContainerNodePool#version}
+        :param cluster: The cluster to create the node pool for. Cluster must be present in location provided for zonal clusters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cluster ContainerNodePool#cluster}
+        :param autoscaling: autoscaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#autoscaling ContainerNodePool#autoscaling}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#id ContainerNodePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initial_node_count: The initial number of nodes for the pool. In regional or multi-zonal clusters, this is the number of nodes per zone. Changing this will force recreation of the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#initial_node_count ContainerNodePool#initial_node_count}
+        :param location: The location (region or zone) of the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#location ContainerNodePool#location}
+        :param management: management block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#management ContainerNodePool#management}
+        :param max_pods_per_node: The maximum number of pods per node in this node pool. Note that this does not work on node pools which are "route-based" - that is, node pools belonging to clusters that do not have IP Aliasing enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_pods_per_node ContainerNodePool#max_pods_per_node}
+        :param name: The name of the node pool. If left blank, Terraform will auto-generate a unique name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#name ContainerNodePool#name}
+        :param name_prefix: Creates a unique name for the node pool beginning with the specified prefix. Conflicts with name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#name_prefix ContainerNodePool#name_prefix}
+        :param network_config: network_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#network_config ContainerNodePool#network_config}
+        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_config ContainerNodePool#node_config}
+        :param node_count: The number of nodes per instance group. This field can be used to update the number of nodes per instance group but should not be used alongside autoscaling. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_count ContainerNodePool#node_count}
+        :param node_locations: The list of zones in which the node pool's nodes should be located. Nodes must be in the region of their regional cluster or in the same region as their cluster's zone for zonal clusters. If unspecified, the cluster-level node_locations will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_locations ContainerNodePool#node_locations}
+        :param placement_policy: placement_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#placement_policy ContainerNodePool#placement_policy}
+        :param project: The ID of the project in which to create the node pool. If blank, the provider-configured project will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#project ContainerNodePool#project}
+        :param queued_provisioning: queued_provisioning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#queued_provisioning ContainerNodePool#queued_provisioning}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#timeouts ContainerNodePool#timeouts}
+        :param upgrade_settings: upgrade_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#upgrade_settings ContainerNodePool#upgrade_settings}
+        :param version: The Kubernetes version for the nodes in this pool. Note that if this field and auto_upgrade are both specified, they will fight each other for what the node version should be, so setting both is highly discouraged. While a fuzzy version can be specified, it's recommended that you specify explicit versions as Terraform will see spurious diffs when fuzzy versions are used. See the google_container_engine_versions data source's version_prefix field to approximate fuzzy versions in a Terraform-compatible way. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#version ContainerNodePool#version}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1354,7 +1354,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster(self) -> builtins.str:
         '''The cluster to create the node pool for. Cluster must be present in location provided for zonal clusters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cluster ContainerNodePool#cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cluster ContainerNodePool#cluster}
         '''
         result = self._values.get("cluster")
         assert result is not None, "Required property 'cluster' is missing"
@@ -1364,14 +1364,14 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def autoscaling(self) -> typing.Optional[ContainerNodePoolAutoscaling]:
         '''autoscaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#autoscaling ContainerNodePool#autoscaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#autoscaling ContainerNodePool#autoscaling}
         '''
         result = self._values.get("autoscaling")
         return typing.cast(typing.Optional[ContainerNodePoolAutoscaling], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#id ContainerNodePool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#id ContainerNodePool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1385,7 +1385,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         In regional or multi-zonal clusters, this is the number of nodes per zone. Changing this will force recreation of the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#initial_node_count ContainerNodePool#initial_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#initial_node_count ContainerNodePool#initial_node_count}
         '''
         result = self._values.get("initial_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1394,7 +1394,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''The location (region or zone) of the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#location ContainerNodePool#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#location ContainerNodePool#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1403,7 +1403,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def management(self) -> typing.Optional["ContainerNodePoolManagement"]:
         '''management block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#management ContainerNodePool#management}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#management ContainerNodePool#management}
         '''
         result = self._values.get("management")
         return typing.cast(typing.Optional["ContainerNodePoolManagement"], result)
@@ -1414,7 +1414,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Note that this does not work on node pools which are "route-based" - that is, node pools belonging to clusters that do not have IP Aliasing enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_pods_per_node ContainerNodePool#max_pods_per_node}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_pods_per_node ContainerNodePool#max_pods_per_node}
         '''
         result = self._values.get("max_pods_per_node")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1423,7 +1423,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the node pool. If left blank, Terraform will auto-generate a unique name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#name ContainerNodePool#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#name ContainerNodePool#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1432,7 +1432,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name_prefix(self) -> typing.Optional[builtins.str]:
         '''Creates a unique name for the node pool beginning with the specified prefix. Conflicts with name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#name_prefix ContainerNodePool#name_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#name_prefix ContainerNodePool#name_prefix}
         '''
         result = self._values.get("name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1441,7 +1441,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def network_config(self) -> typing.Optional["ContainerNodePoolNetworkConfig"]:
         '''network_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#network_config ContainerNodePool#network_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#network_config ContainerNodePool#network_config}
         '''
         result = self._values.get("network_config")
         return typing.cast(typing.Optional["ContainerNodePoolNetworkConfig"], result)
@@ -1450,7 +1450,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def node_config(self) -> typing.Optional["ContainerNodePoolNodeConfig"]:
         '''node_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_config ContainerNodePool#node_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_config ContainerNodePool#node_config}
         '''
         result = self._values.get("node_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfig"], result)
@@ -1461,7 +1461,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This field can be used to update the number of nodes per instance group but should not be used alongside autoscaling.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_count ContainerNodePool#node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_count ContainerNodePool#node_count}
         '''
         result = self._values.get("node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1472,7 +1472,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Nodes must be in the region of their regional cluster or in the same region as their cluster's zone for zonal clusters. If unspecified, the cluster-level node_locations will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_locations ContainerNodePool#node_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_locations ContainerNodePool#node_locations}
         '''
         result = self._values.get("node_locations")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1481,7 +1481,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def placement_policy(self) -> typing.Optional["ContainerNodePoolPlacementPolicy"]:
         '''placement_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#placement_policy ContainerNodePool#placement_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#placement_policy ContainerNodePool#placement_policy}
         '''
         result = self._values.get("placement_policy")
         return typing.cast(typing.Optional["ContainerNodePoolPlacementPolicy"], result)
@@ -1492,7 +1492,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If blank, the provider-configured project will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#project ContainerNodePool#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#project ContainerNodePool#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1503,7 +1503,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ContainerNodePoolQueuedProvisioning"]:
         '''queued_provisioning block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#queued_provisioning ContainerNodePool#queued_provisioning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#queued_provisioning ContainerNodePool#queued_provisioning}
         '''
         result = self._values.get("queued_provisioning")
         return typing.cast(typing.Optional["ContainerNodePoolQueuedProvisioning"], result)
@@ -1512,7 +1512,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ContainerNodePoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#timeouts ContainerNodePool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#timeouts ContainerNodePool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ContainerNodePoolTimeouts"], result)
@@ -1521,7 +1521,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def upgrade_settings(self) -> typing.Optional["ContainerNodePoolUpgradeSettings"]:
         '''upgrade_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#upgrade_settings ContainerNodePool#upgrade_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#upgrade_settings ContainerNodePool#upgrade_settings}
         '''
         result = self._values.get("upgrade_settings")
         return typing.cast(typing.Optional["ContainerNodePoolUpgradeSettings"], result)
@@ -1532,7 +1532,7 @@ class ContainerNodePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Note that if this field and auto_upgrade are both specified, they will fight each other for what the node version should be, so setting both is highly discouraged. While a fuzzy version can be specified, it's recommended that you specify explicit versions as Terraform will see spurious diffs when fuzzy versions are used. See the google_container_engine_versions data source's version_prefix field to approximate fuzzy versions in a Terraform-compatible way.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#version ContainerNodePool#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#version ContainerNodePool#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1562,8 +1562,8 @@ class ContainerNodePoolManagement:
         auto_upgrade: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param auto_repair: Whether the nodes will be automatically repaired. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#auto_repair ContainerNodePool#auto_repair}
-        :param auto_upgrade: Whether the nodes will be automatically upgraded. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#auto_upgrade ContainerNodePool#auto_upgrade}
+        :param auto_repair: Whether the nodes will be automatically repaired. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#auto_repair ContainerNodePool#auto_repair}
+        :param auto_upgrade: Whether the nodes will be automatically upgraded. Enabled by default. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#auto_upgrade ContainerNodePool#auto_upgrade}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae5fb0d3da25e65124e9e67126562a8e2c5a46ce209000e4f96f66e236b8a950)
@@ -1581,7 +1581,7 @@ class ContainerNodePoolManagement:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the nodes will be automatically repaired. Enabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#auto_repair ContainerNodePool#auto_repair}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#auto_repair ContainerNodePool#auto_repair}
         '''
         result = self._values.get("auto_repair")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1592,7 +1592,7 @@ class ContainerNodePoolManagement:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the nodes will be automatically upgraded. Enabled by default.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#auto_upgrade ContainerNodePool#auto_upgrade}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#auto_upgrade ContainerNodePool#auto_upgrade}
         '''
         result = self._values.get("auto_upgrade")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1725,14 +1725,14 @@ class ContainerNodePoolNetworkConfig:
         pod_range: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param additional_node_network_configs: additional_node_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#additional_node_network_configs ContainerNodePool#additional_node_network_configs}
-        :param additional_pod_network_configs: additional_pod_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#additional_pod_network_configs ContainerNodePool#additional_pod_network_configs}
-        :param create_pod_range: Whether to create a new range for pod IPs in this node pool. Defaults are provided for pod_range and pod_ipv4_cidr_block if they are not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#create_pod_range ContainerNodePool#create_pod_range}
-        :param enable_private_nodes: Whether nodes have internal IP addresses only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_private_nodes ContainerNodePool#enable_private_nodes}
-        :param network_performance_config: network_performance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#network_performance_config ContainerNodePool#network_performance_config}
-        :param pod_cidr_overprovision_config: pod_cidr_overprovision_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#pod_cidr_overprovision_config ContainerNodePool#pod_cidr_overprovision_config}
-        :param pod_ipv4_cidr_block: The IP address range for pod IPs in this node pool. Only applicable if create_pod_range is true. Set to blank to have a range chosen with the default size. Set to /netmask (e.g. /14) to have a range chosen with a specific netmask. Set to a CIDR notation (e.g. 10.96.0.0/14) to pick a specific range to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#pod_ipv4_cidr_block ContainerNodePool#pod_ipv4_cidr_block}
-        :param pod_range: The ID of the secondary range for pod IPs. If create_pod_range is true, this ID is used for the new range. If create_pod_range is false, uses an existing secondary range with this ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#pod_range ContainerNodePool#pod_range}
+        :param additional_node_network_configs: additional_node_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#additional_node_network_configs ContainerNodePool#additional_node_network_configs}
+        :param additional_pod_network_configs: additional_pod_network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#additional_pod_network_configs ContainerNodePool#additional_pod_network_configs}
+        :param create_pod_range: Whether to create a new range for pod IPs in this node pool. Defaults are provided for pod_range and pod_ipv4_cidr_block if they are not specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#create_pod_range ContainerNodePool#create_pod_range}
+        :param enable_private_nodes: Whether nodes have internal IP addresses only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_private_nodes ContainerNodePool#enable_private_nodes}
+        :param network_performance_config: network_performance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#network_performance_config ContainerNodePool#network_performance_config}
+        :param pod_cidr_overprovision_config: pod_cidr_overprovision_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pod_cidr_overprovision_config ContainerNodePool#pod_cidr_overprovision_config}
+        :param pod_ipv4_cidr_block: The IP address range for pod IPs in this node pool. Only applicable if create_pod_range is true. Set to blank to have a range chosen with the default size. Set to /netmask (e.g. /14) to have a range chosen with a specific netmask. Set to a CIDR notation (e.g. 10.96.0.0/14) to pick a specific range to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pod_ipv4_cidr_block ContainerNodePool#pod_ipv4_cidr_block}
+        :param pod_range: The ID of the secondary range for pod IPs. If create_pod_range is true, this ID is used for the new range. If create_pod_range is false, uses an existing secondary range with this ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pod_range ContainerNodePool#pod_range}
         '''
         if isinstance(network_performance_config, dict):
             network_performance_config = ContainerNodePoolNetworkConfigNetworkPerformanceConfig(**network_performance_config)
@@ -1772,7 +1772,7 @@ class ContainerNodePoolNetworkConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNetworkConfigAdditionalNodeNetworkConfigs"]]]:
         '''additional_node_network_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#additional_node_network_configs ContainerNodePool#additional_node_network_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#additional_node_network_configs ContainerNodePool#additional_node_network_configs}
         '''
         result = self._values.get("additional_node_network_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNetworkConfigAdditionalNodeNetworkConfigs"]]], result)
@@ -1783,7 +1783,7 @@ class ContainerNodePoolNetworkConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNetworkConfigAdditionalPodNetworkConfigs"]]]:
         '''additional_pod_network_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#additional_pod_network_configs ContainerNodePool#additional_pod_network_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#additional_pod_network_configs ContainerNodePool#additional_pod_network_configs}
         '''
         result = self._values.get("additional_pod_network_configs")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNetworkConfigAdditionalPodNetworkConfigs"]]], result)
@@ -1796,7 +1796,7 @@ class ContainerNodePoolNetworkConfig:
 
         Defaults are provided for pod_range and pod_ipv4_cidr_block if they are not specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#create_pod_range ContainerNodePool#create_pod_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#create_pod_range ContainerNodePool#create_pod_range}
         '''
         result = self._values.get("create_pod_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1807,7 +1807,7 @@ class ContainerNodePoolNetworkConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether nodes have internal IP addresses only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_private_nodes ContainerNodePool#enable_private_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_private_nodes ContainerNodePool#enable_private_nodes}
         '''
         result = self._values.get("enable_private_nodes")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1818,7 +1818,7 @@ class ContainerNodePoolNetworkConfig:
     ) -> typing.Optional["ContainerNodePoolNetworkConfigNetworkPerformanceConfig"]:
         '''network_performance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#network_performance_config ContainerNodePool#network_performance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#network_performance_config ContainerNodePool#network_performance_config}
         '''
         result = self._values.get("network_performance_config")
         return typing.cast(typing.Optional["ContainerNodePoolNetworkConfigNetworkPerformanceConfig"], result)
@@ -1829,7 +1829,7 @@ class ContainerNodePoolNetworkConfig:
     ) -> typing.Optional["ContainerNodePoolNetworkConfigPodCidrOverprovisionConfig"]:
         '''pod_cidr_overprovision_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#pod_cidr_overprovision_config ContainerNodePool#pod_cidr_overprovision_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pod_cidr_overprovision_config ContainerNodePool#pod_cidr_overprovision_config}
         '''
         result = self._values.get("pod_cidr_overprovision_config")
         return typing.cast(typing.Optional["ContainerNodePoolNetworkConfigPodCidrOverprovisionConfig"], result)
@@ -1840,7 +1840,7 @@ class ContainerNodePoolNetworkConfig:
 
         Only applicable if create_pod_range is true. Set to blank to have a range chosen with the default size. Set to /netmask (e.g. /14) to have a range chosen with a specific netmask. Set to a CIDR notation (e.g. 10.96.0.0/14) to pick a specific range to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#pod_ipv4_cidr_block ContainerNodePool#pod_ipv4_cidr_block}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pod_ipv4_cidr_block ContainerNodePool#pod_ipv4_cidr_block}
         '''
         result = self._values.get("pod_ipv4_cidr_block")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1851,7 +1851,7 @@ class ContainerNodePoolNetworkConfig:
 
         If create_pod_range is true, this ID is used for the new range. If create_pod_range is false, uses an existing secondary range with this ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#pod_range ContainerNodePool#pod_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pod_range ContainerNodePool#pod_range}
         '''
         result = self._values.get("pod_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1881,8 +1881,8 @@ class ContainerNodePoolNetworkConfigAdditionalNodeNetworkConfigs:
         subnetwork: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param network: Name of the VPC where the additional interface belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#network ContainerNodePool#network}
-        :param subnetwork: Name of the subnetwork where the additional interface belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#subnetwork ContainerNodePool#subnetwork}
+        :param network: Name of the VPC where the additional interface belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#network ContainerNodePool#network}
+        :param subnetwork: Name of the subnetwork where the additional interface belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#subnetwork ContainerNodePool#subnetwork}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c6e317f25e78dbaf6222110e5e2eaa615f49056cc5f6fda2c248c51dbe250d97)
@@ -1898,7 +1898,7 @@ class ContainerNodePoolNetworkConfigAdditionalNodeNetworkConfigs:
     def network(self) -> typing.Optional[builtins.str]:
         '''Name of the VPC where the additional interface belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#network ContainerNodePool#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#network ContainerNodePool#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1907,7 +1907,7 @@ class ContainerNodePoolNetworkConfigAdditionalNodeNetworkConfigs:
     def subnetwork(self) -> typing.Optional[builtins.str]:
         '''Name of the subnetwork where the additional interface belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#subnetwork ContainerNodePool#subnetwork}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#subnetwork ContainerNodePool#subnetwork}
         '''
         result = self._values.get("subnetwork")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2121,9 +2121,9 @@ class ContainerNodePoolNetworkConfigAdditionalPodNetworkConfigs:
         subnetwork: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_pods_per_node: The maximum number of pods per node which use this pod network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_pods_per_node ContainerNodePool#max_pods_per_node}
-        :param secondary_pod_range: The name of the secondary range on the subnet which provides IP address for this pod range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#secondary_pod_range ContainerNodePool#secondary_pod_range}
-        :param subnetwork: Name of the subnetwork where the additional pod network belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#subnetwork ContainerNodePool#subnetwork}
+        :param max_pods_per_node: The maximum number of pods per node which use this pod network. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_pods_per_node ContainerNodePool#max_pods_per_node}
+        :param secondary_pod_range: The name of the secondary range on the subnet which provides IP address for this pod range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#secondary_pod_range ContainerNodePool#secondary_pod_range}
+        :param subnetwork: Name of the subnetwork where the additional pod network belongs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#subnetwork ContainerNodePool#subnetwork}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f715e27736028e3be84e89c925de969cd88f3522188bbbde6159595831834f3a)
@@ -2142,7 +2142,7 @@ class ContainerNodePoolNetworkConfigAdditionalPodNetworkConfigs:
     def max_pods_per_node(self) -> typing.Optional[jsii.Number]:
         '''The maximum number of pods per node which use this pod network.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_pods_per_node ContainerNodePool#max_pods_per_node}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_pods_per_node ContainerNodePool#max_pods_per_node}
         '''
         result = self._values.get("max_pods_per_node")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2151,7 +2151,7 @@ class ContainerNodePoolNetworkConfigAdditionalPodNetworkConfigs:
     def secondary_pod_range(self) -> typing.Optional[builtins.str]:
         '''The name of the secondary range on the subnet which provides IP address for this pod range.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#secondary_pod_range ContainerNodePool#secondary_pod_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#secondary_pod_range ContainerNodePool#secondary_pod_range}
         '''
         result = self._values.get("secondary_pod_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2160,7 +2160,7 @@ class ContainerNodePoolNetworkConfigAdditionalPodNetworkConfigs:
     def subnetwork(self) -> typing.Optional[builtins.str]:
         '''Name of the subnetwork where the additional pod network belongs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#subnetwork ContainerNodePool#subnetwork}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#subnetwork ContainerNodePool#subnetwork}
         '''
         result = self._values.get("subnetwork")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2385,7 +2385,7 @@ class ContainerNodePoolNetworkConfigAdditionalPodNetworkConfigsOutputReference(
 class ContainerNodePoolNetworkConfigNetworkPerformanceConfig:
     def __init__(self, *, total_egress_bandwidth_tier: builtins.str) -> None:
         '''
-        :param total_egress_bandwidth_tier: Specifies the total network bandwidth tier for the NodePool. `Valid values <https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.locations.clusters.nodePools#NodePool.Tier>`_ include: "TIER_1" and "TIER_UNSPECIFIED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#total_egress_bandwidth_tier ContainerNodePool#total_egress_bandwidth_tier}
+        :param total_egress_bandwidth_tier: Specifies the total network bandwidth tier for the NodePool. `Valid values <https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.locations.clusters.nodePools#NodePool.Tier>`_ include: "TIER_1" and "TIER_UNSPECIFIED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#total_egress_bandwidth_tier ContainerNodePool#total_egress_bandwidth_tier}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__988cf913d91635960c4fd13d48fe53df3dc9c52d1b5402c0cf34e5349055046f)
@@ -2398,7 +2398,7 @@ class ContainerNodePoolNetworkConfigNetworkPerformanceConfig:
     def total_egress_bandwidth_tier(self) -> builtins.str:
         '''Specifies the total network bandwidth tier for the NodePool. `Valid values <https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.locations.clusters.nodePools#NodePool.Tier>`_ include: "TIER_1" and "TIER_UNSPECIFIED".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#total_egress_bandwidth_tier ContainerNodePool#total_egress_bandwidth_tier}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#total_egress_bandwidth_tier ContainerNodePool#total_egress_bandwidth_tier}
         '''
         result = self._values.get("total_egress_bandwidth_tier")
         assert result is not None, "Required property 'total_egress_bandwidth_tier' is missing"
@@ -2524,7 +2524,7 @@ class ContainerNodePoolNetworkConfigOutputReference(
         total_egress_bandwidth_tier: builtins.str,
     ) -> None:
         '''
-        :param total_egress_bandwidth_tier: Specifies the total network bandwidth tier for the NodePool. `Valid values <https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.locations.clusters.nodePools#NodePool.Tier>`_ include: "TIER_1" and "TIER_UNSPECIFIED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#total_egress_bandwidth_tier ContainerNodePool#total_egress_bandwidth_tier}
+        :param total_egress_bandwidth_tier: Specifies the total network bandwidth tier for the NodePool. `Valid values <https://cloud.google.com/kubernetes-engine/docs/reference/rest/v1/projects.locations.clusters.nodePools#NodePool.Tier>`_ include: "TIER_1" and "TIER_UNSPECIFIED". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#total_egress_bandwidth_tier ContainerNodePool#total_egress_bandwidth_tier}
         '''
         value = ContainerNodePoolNetworkConfigNetworkPerformanceConfig(
             total_egress_bandwidth_tier=total_egress_bandwidth_tier
@@ -2539,7 +2539,7 @@ class ContainerNodePoolNetworkConfigOutputReference(
         disabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disabled ContainerNodePool#disabled}.
+        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disabled ContainerNodePool#disabled}.
         '''
         value = ContainerNodePoolNetworkConfigPodCidrOverprovisionConfig(
             disabled=disabled
@@ -2750,7 +2750,7 @@ class ContainerNodePoolNetworkConfigPodCidrOverprovisionConfig:
         disabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disabled ContainerNodePool#disabled}.
+        :param disabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disabled ContainerNodePool#disabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__890b871384eeb45ea20d1c79149edeac85e821cf7fcc6444357184e6e0b5eaf5)
@@ -2761,7 +2761,7 @@ class ContainerNodePoolNetworkConfigPodCidrOverprovisionConfig:
 
     @builtins.property
     def disabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disabled ContainerNodePool#disabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disabled ContainerNodePool#disabled}.'''
         result = self._values.get("disabled")
         assert result is not None, "Required property 'disabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -2936,49 +2936,49 @@ class ContainerNodePoolNodeConfig:
         workload_metadata_config: typing.Optional[typing.Union["ContainerNodePoolNodeConfigWorkloadMetadataConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#advanced_machine_features ContainerNodePool#advanced_machine_features}
-        :param boot_disk: boot_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#boot_disk ContainerNodePool#boot_disk}
-        :param boot_disk_kms_key: The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#boot_disk_kms_key ContainerNodePool#boot_disk_kms_key}
-        :param confidential_nodes: confidential_nodes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#confidential_nodes ContainerNodePool#confidential_nodes}
-        :param containerd_config: containerd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#containerd_config ContainerNodePool#containerd_config}
-        :param disk_size_gb: Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disk_size_gb ContainerNodePool#disk_size_gb}
-        :param disk_type: Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disk_type ContainerNodePool#disk_type}
-        :param enable_confidential_storage: If enabled boot disks are configured with confidential mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_confidential_storage ContainerNodePool#enable_confidential_storage}
-        :param ephemeral_storage_local_ssd_config: ephemeral_storage_local_ssd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#ephemeral_storage_local_ssd_config ContainerNodePool#ephemeral_storage_local_ssd_config}
-        :param fast_socket: fast_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#fast_socket ContainerNodePool#fast_socket}
-        :param flex_start: Enables Flex Start provisioning model for the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#flex_start ContainerNodePool#flex_start}
-        :param gcfs_config: gcfs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gcfs_config ContainerNodePool#gcfs_config}
-        :param guest_accelerator: guest_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#guest_accelerator ContainerNodePool#guest_accelerator}
-        :param gvnic: gvnic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gvnic ContainerNodePool#gvnic}
-        :param host_maintenance_policy: host_maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#host_maintenance_policy ContainerNodePool#host_maintenance_policy}
-        :param image_type: The image type to use for this node. Note that for a given image type, the latest version of it will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_type ContainerNodePool#image_type}
-        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#kubelet_config ContainerNodePool#kubelet_config}
-        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#labels ContainerNodePool#labels}
-        :param linux_node_config: linux_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#linux_node_config ContainerNodePool#linux_node_config}
-        :param local_nvme_ssd_block_config: local_nvme_ssd_block_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_nvme_ssd_block_config ContainerNodePool#local_nvme_ssd_block_config}
-        :param local_ssd_count: The number of local SSD disks to be attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
-        :param local_ssd_encryption_mode: LocalSsdEncryptionMode specified the method used for encrypting the local SSDs attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_ssd_encryption_mode ContainerNodePool#local_ssd_encryption_mode}
-        :param logging_variant: Type of logging agent that is used as the default value for node pools in the cluster. Valid values include DEFAULT and MAX_THROUGHPUT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#logging_variant ContainerNodePool#logging_variant}
-        :param machine_type: The name of a Google Compute Engine machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#machine_type ContainerNodePool#machine_type}
-        :param max_run_duration: The runtime of each node in the node pool in seconds, terminated by 's'. Example: "3600s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_run_duration ContainerNodePool#max_run_duration}
-        :param metadata: The metadata key/value pairs assigned to instances in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#metadata ContainerNodePool#metadata}
-        :param min_cpu_platform: Minimum CPU platform to be used by this instance. The instance may be scheduled on the specified or newer CPU platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#min_cpu_platform ContainerNodePool#min_cpu_platform}
-        :param node_group: Setting this field will assign instances of this pool to run on the specified node group. This is useful for running workloads on sole tenant nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_group ContainerNodePool#node_group}
-        :param oauth_scopes: The set of Google API scopes to be made available on all of the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#oauth_scopes ContainerNodePool#oauth_scopes}
-        :param preemptible: Whether the nodes are created as preemptible VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#preemptible ContainerNodePool#preemptible}
-        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#reservation_affinity ContainerNodePool#reservation_affinity}
-        :param resource_labels: The GCE resource labels (a map of key/value pairs) to be applied to the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#resource_labels ContainerNodePool#resource_labels}
-        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#resource_manager_tags ContainerNodePool#resource_manager_tags}
-        :param secondary_boot_disks: secondary_boot_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#secondary_boot_disks ContainerNodePool#secondary_boot_disks}
-        :param service_account: The Google Cloud Platform Service Account to be used by the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#service_account ContainerNodePool#service_account}
-        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#shielded_instance_config ContainerNodePool#shielded_instance_config}
-        :param sole_tenant_config: sole_tenant_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#sole_tenant_config ContainerNodePool#sole_tenant_config}
-        :param spot: Whether the nodes are created as spot VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#spot ContainerNodePool#spot}
-        :param storage_pools: The list of Storage Pools where boot disks are provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#storage_pools ContainerNodePool#storage_pools}
-        :param tags: The list of instance tags applied to all nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#tags ContainerNodePool#tags}
-        :param taint: taint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#taint ContainerNodePool#taint}
-        :param windows_node_config: windows_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#windows_node_config ContainerNodePool#windows_node_config}
-        :param workload_metadata_config: workload_metadata_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#workload_metadata_config ContainerNodePool#workload_metadata_config}
+        :param advanced_machine_features: advanced_machine_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#advanced_machine_features ContainerNodePool#advanced_machine_features}
+        :param boot_disk: boot_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#boot_disk ContainerNodePool#boot_disk}
+        :param boot_disk_kms_key: The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#boot_disk_kms_key ContainerNodePool#boot_disk_kms_key}
+        :param confidential_nodes: confidential_nodes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#confidential_nodes ContainerNodePool#confidential_nodes}
+        :param containerd_config: containerd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#containerd_config ContainerNodePool#containerd_config}
+        :param disk_size_gb: Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disk_size_gb ContainerNodePool#disk_size_gb}
+        :param disk_type: Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disk_type ContainerNodePool#disk_type}
+        :param enable_confidential_storage: If enabled boot disks are configured with confidential mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_confidential_storage ContainerNodePool#enable_confidential_storage}
+        :param ephemeral_storage_local_ssd_config: ephemeral_storage_local_ssd_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#ephemeral_storage_local_ssd_config ContainerNodePool#ephemeral_storage_local_ssd_config}
+        :param fast_socket: fast_socket block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#fast_socket ContainerNodePool#fast_socket}
+        :param flex_start: Enables Flex Start provisioning model for the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#flex_start ContainerNodePool#flex_start}
+        :param gcfs_config: gcfs_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gcfs_config ContainerNodePool#gcfs_config}
+        :param guest_accelerator: guest_accelerator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#guest_accelerator ContainerNodePool#guest_accelerator}
+        :param gvnic: gvnic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gvnic ContainerNodePool#gvnic}
+        :param host_maintenance_policy: host_maintenance_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#host_maintenance_policy ContainerNodePool#host_maintenance_policy}
+        :param image_type: The image type to use for this node. Note that for a given image type, the latest version of it will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_type ContainerNodePool#image_type}
+        :param kubelet_config: kubelet_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#kubelet_config ContainerNodePool#kubelet_config}
+        :param labels: The map of Kubernetes labels (key/value pairs) to be applied to each node. These will added in addition to any default label(s) that Kubernetes may apply to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#labels ContainerNodePool#labels}
+        :param linux_node_config: linux_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#linux_node_config ContainerNodePool#linux_node_config}
+        :param local_nvme_ssd_block_config: local_nvme_ssd_block_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_nvme_ssd_block_config ContainerNodePool#local_nvme_ssd_block_config}
+        :param local_ssd_count: The number of local SSD disks to be attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
+        :param local_ssd_encryption_mode: LocalSsdEncryptionMode specified the method used for encrypting the local SSDs attached to the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_ssd_encryption_mode ContainerNodePool#local_ssd_encryption_mode}
+        :param logging_variant: Type of logging agent that is used as the default value for node pools in the cluster. Valid values include DEFAULT and MAX_THROUGHPUT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#logging_variant ContainerNodePool#logging_variant}
+        :param machine_type: The name of a Google Compute Engine machine type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#machine_type ContainerNodePool#machine_type}
+        :param max_run_duration: The runtime of each node in the node pool in seconds, terminated by 's'. Example: "3600s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_run_duration ContainerNodePool#max_run_duration}
+        :param metadata: The metadata key/value pairs assigned to instances in the cluster. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#metadata ContainerNodePool#metadata}
+        :param min_cpu_platform: Minimum CPU platform to be used by this instance. The instance may be scheduled on the specified or newer CPU platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#min_cpu_platform ContainerNodePool#min_cpu_platform}
+        :param node_group: Setting this field will assign instances of this pool to run on the specified node group. This is useful for running workloads on sole tenant nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_group ContainerNodePool#node_group}
+        :param oauth_scopes: The set of Google API scopes to be made available on all of the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#oauth_scopes ContainerNodePool#oauth_scopes}
+        :param preemptible: Whether the nodes are created as preemptible VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#preemptible ContainerNodePool#preemptible}
+        :param reservation_affinity: reservation_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#reservation_affinity ContainerNodePool#reservation_affinity}
+        :param resource_labels: The GCE resource labels (a map of key/value pairs) to be applied to the node pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#resource_labels ContainerNodePool#resource_labels}
+        :param resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#resource_manager_tags ContainerNodePool#resource_manager_tags}
+        :param secondary_boot_disks: secondary_boot_disks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#secondary_boot_disks ContainerNodePool#secondary_boot_disks}
+        :param service_account: The Google Cloud Platform Service Account to be used by the node VMs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#service_account ContainerNodePool#service_account}
+        :param shielded_instance_config: shielded_instance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#shielded_instance_config ContainerNodePool#shielded_instance_config}
+        :param sole_tenant_config: sole_tenant_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#sole_tenant_config ContainerNodePool#sole_tenant_config}
+        :param spot: Whether the nodes are created as spot VM instances. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#spot ContainerNodePool#spot}
+        :param storage_pools: The list of Storage Pools where boot disks are provisioned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#storage_pools ContainerNodePool#storage_pools}
+        :param tags: The list of instance tags applied to all nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#tags ContainerNodePool#tags}
+        :param taint: taint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#taint ContainerNodePool#taint}
+        :param windows_node_config: windows_node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#windows_node_config ContainerNodePool#windows_node_config}
+        :param workload_metadata_config: workload_metadata_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#workload_metadata_config ContainerNodePool#workload_metadata_config}
         '''
         if isinstance(advanced_machine_features, dict):
             advanced_machine_features = ContainerNodePoolNodeConfigAdvancedMachineFeatures(**advanced_machine_features)
@@ -3153,7 +3153,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigAdvancedMachineFeatures"]:
         '''advanced_machine_features block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#advanced_machine_features ContainerNodePool#advanced_machine_features}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#advanced_machine_features ContainerNodePool#advanced_machine_features}
         '''
         result = self._values.get("advanced_machine_features")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigAdvancedMachineFeatures"], result)
@@ -3162,7 +3162,7 @@ class ContainerNodePoolNodeConfig:
     def boot_disk(self) -> typing.Optional["ContainerNodePoolNodeConfigBootDisk"]:
         '''boot_disk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#boot_disk ContainerNodePool#boot_disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#boot_disk ContainerNodePool#boot_disk}
         '''
         result = self._values.get("boot_disk")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigBootDisk"], result)
@@ -3171,7 +3171,7 @@ class ContainerNodePoolNodeConfig:
     def boot_disk_kms_key(self) -> typing.Optional[builtins.str]:
         '''The Customer Managed Encryption Key used to encrypt the boot disk attached to each node in the node pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#boot_disk_kms_key ContainerNodePool#boot_disk_kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#boot_disk_kms_key ContainerNodePool#boot_disk_kms_key}
         '''
         result = self._values.get("boot_disk_kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3182,7 +3182,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigConfidentialNodes"]:
         '''confidential_nodes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#confidential_nodes ContainerNodePool#confidential_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#confidential_nodes ContainerNodePool#confidential_nodes}
         '''
         result = self._values.get("confidential_nodes")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigConfidentialNodes"], result)
@@ -3193,7 +3193,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigContainerdConfig"]:
         '''containerd_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#containerd_config ContainerNodePool#containerd_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#containerd_config ContainerNodePool#containerd_config}
         '''
         result = self._values.get("containerd_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigContainerdConfig"], result)
@@ -3202,7 +3202,7 @@ class ContainerNodePoolNodeConfig:
     def disk_size_gb(self) -> typing.Optional[jsii.Number]:
         '''Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disk_size_gb ContainerNodePool#disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disk_size_gb ContainerNodePool#disk_size_gb}
         '''
         result = self._values.get("disk_size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3211,7 +3211,7 @@ class ContainerNodePoolNodeConfig:
     def disk_type(self) -> typing.Optional[builtins.str]:
         '''Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disk_type ContainerNodePool#disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disk_type ContainerNodePool#disk_type}
         '''
         result = self._values.get("disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3222,7 +3222,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If enabled boot disks are configured with confidential mode.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_confidential_storage ContainerNodePool#enable_confidential_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_confidential_storage ContainerNodePool#enable_confidential_storage}
         '''
         result = self._values.get("enable_confidential_storage")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3233,7 +3233,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigEphemeralStorageLocalSsdConfig"]:
         '''ephemeral_storage_local_ssd_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#ephemeral_storage_local_ssd_config ContainerNodePool#ephemeral_storage_local_ssd_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#ephemeral_storage_local_ssd_config ContainerNodePool#ephemeral_storage_local_ssd_config}
         '''
         result = self._values.get("ephemeral_storage_local_ssd_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigEphemeralStorageLocalSsdConfig"], result)
@@ -3242,7 +3242,7 @@ class ContainerNodePoolNodeConfig:
     def fast_socket(self) -> typing.Optional["ContainerNodePoolNodeConfigFastSocket"]:
         '''fast_socket block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#fast_socket ContainerNodePool#fast_socket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#fast_socket ContainerNodePool#fast_socket}
         '''
         result = self._values.get("fast_socket")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigFastSocket"], result)
@@ -3253,7 +3253,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enables Flex Start provisioning model for the node pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#flex_start ContainerNodePool#flex_start}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#flex_start ContainerNodePool#flex_start}
         '''
         result = self._values.get("flex_start")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3262,7 +3262,7 @@ class ContainerNodePoolNodeConfig:
     def gcfs_config(self) -> typing.Optional["ContainerNodePoolNodeConfigGcfsConfig"]:
         '''gcfs_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gcfs_config ContainerNodePool#gcfs_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gcfs_config ContainerNodePool#gcfs_config}
         '''
         result = self._values.get("gcfs_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigGcfsConfig"], result)
@@ -3273,7 +3273,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNodeConfigGuestAccelerator"]]]:
         '''guest_accelerator block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#guest_accelerator ContainerNodePool#guest_accelerator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#guest_accelerator ContainerNodePool#guest_accelerator}
         '''
         result = self._values.get("guest_accelerator")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNodeConfigGuestAccelerator"]]], result)
@@ -3282,7 +3282,7 @@ class ContainerNodePoolNodeConfig:
     def gvnic(self) -> typing.Optional["ContainerNodePoolNodeConfigGvnic"]:
         '''gvnic block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gvnic ContainerNodePool#gvnic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gvnic ContainerNodePool#gvnic}
         '''
         result = self._values.get("gvnic")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigGvnic"], result)
@@ -3293,7 +3293,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigHostMaintenancePolicy"]:
         '''host_maintenance_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#host_maintenance_policy ContainerNodePool#host_maintenance_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#host_maintenance_policy ContainerNodePool#host_maintenance_policy}
         '''
         result = self._values.get("host_maintenance_policy")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigHostMaintenancePolicy"], result)
@@ -3304,7 +3304,7 @@ class ContainerNodePoolNodeConfig:
 
         Note that for a given image type, the latest version of it will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_type ContainerNodePool#image_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_type ContainerNodePool#image_type}
         '''
         result = self._values.get("image_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3315,7 +3315,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigKubeletConfig"]:
         '''kubelet_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#kubelet_config ContainerNodePool#kubelet_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#kubelet_config ContainerNodePool#kubelet_config}
         '''
         result = self._values.get("kubelet_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigKubeletConfig"], result)
@@ -3326,7 +3326,7 @@ class ContainerNodePoolNodeConfig:
 
         These will added in addition to any default label(s) that Kubernetes may apply to the node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#labels ContainerNodePool#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#labels ContainerNodePool#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3337,7 +3337,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigLinuxNodeConfig"]:
         '''linux_node_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#linux_node_config ContainerNodePool#linux_node_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#linux_node_config ContainerNodePool#linux_node_config}
         '''
         result = self._values.get("linux_node_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigLinuxNodeConfig"], result)
@@ -3348,7 +3348,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigLocalNvmeSsdBlockConfig"]:
         '''local_nvme_ssd_block_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_nvme_ssd_block_config ContainerNodePool#local_nvme_ssd_block_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_nvme_ssd_block_config ContainerNodePool#local_nvme_ssd_block_config}
         '''
         result = self._values.get("local_nvme_ssd_block_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigLocalNvmeSsdBlockConfig"], result)
@@ -3357,7 +3357,7 @@ class ContainerNodePoolNodeConfig:
     def local_ssd_count(self) -> typing.Optional[jsii.Number]:
         '''The number of local SSD disks to be attached to the node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
         '''
         result = self._values.get("local_ssd_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3366,7 +3366,7 @@ class ContainerNodePoolNodeConfig:
     def local_ssd_encryption_mode(self) -> typing.Optional[builtins.str]:
         '''LocalSsdEncryptionMode specified the method used for encrypting the local SSDs attached to the node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_ssd_encryption_mode ContainerNodePool#local_ssd_encryption_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_ssd_encryption_mode ContainerNodePool#local_ssd_encryption_mode}
         '''
         result = self._values.get("local_ssd_encryption_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3377,7 +3377,7 @@ class ContainerNodePoolNodeConfig:
 
         Valid values include DEFAULT and MAX_THROUGHPUT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#logging_variant ContainerNodePool#logging_variant}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#logging_variant ContainerNodePool#logging_variant}
         '''
         result = self._values.get("logging_variant")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3386,7 +3386,7 @@ class ContainerNodePoolNodeConfig:
     def machine_type(self) -> typing.Optional[builtins.str]:
         '''The name of a Google Compute Engine machine type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#machine_type ContainerNodePool#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#machine_type ContainerNodePool#machine_type}
         '''
         result = self._values.get("machine_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3395,7 +3395,7 @@ class ContainerNodePoolNodeConfig:
     def max_run_duration(self) -> typing.Optional[builtins.str]:
         '''The runtime of each node in the node pool in seconds, terminated by 's'. Example: "3600s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_run_duration ContainerNodePool#max_run_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_run_duration ContainerNodePool#max_run_duration}
         '''
         result = self._values.get("max_run_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3404,7 +3404,7 @@ class ContainerNodePoolNodeConfig:
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The metadata key/value pairs assigned to instances in the cluster.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#metadata ContainerNodePool#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#metadata ContainerNodePool#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3415,7 +3415,7 @@ class ContainerNodePoolNodeConfig:
 
         The instance may be scheduled on the specified or newer CPU platform.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#min_cpu_platform ContainerNodePool#min_cpu_platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#min_cpu_platform ContainerNodePool#min_cpu_platform}
         '''
         result = self._values.get("min_cpu_platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3426,7 +3426,7 @@ class ContainerNodePoolNodeConfig:
 
         This is useful for running workloads on sole tenant nodes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_group ContainerNodePool#node_group}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_group ContainerNodePool#node_group}
         '''
         result = self._values.get("node_group")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3435,7 +3435,7 @@ class ContainerNodePoolNodeConfig:
     def oauth_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The set of Google API scopes to be made available on all of the node VMs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#oauth_scopes ContainerNodePool#oauth_scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#oauth_scopes ContainerNodePool#oauth_scopes}
         '''
         result = self._values.get("oauth_scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3446,7 +3446,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the nodes are created as preemptible VM instances.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#preemptible ContainerNodePool#preemptible}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#preemptible ContainerNodePool#preemptible}
         '''
         result = self._values.get("preemptible")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3457,7 +3457,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigReservationAffinity"]:
         '''reservation_affinity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#reservation_affinity ContainerNodePool#reservation_affinity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#reservation_affinity ContainerNodePool#reservation_affinity}
         '''
         result = self._values.get("reservation_affinity")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigReservationAffinity"], result)
@@ -3468,7 +3468,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The GCE resource labels (a map of key/value pairs) to be applied to the node pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#resource_labels ContainerNodePool#resource_labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#resource_labels ContainerNodePool#resource_labels}
         '''
         result = self._values.get("resource_labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3481,7 +3481,7 @@ class ContainerNodePoolNodeConfig:
 
         Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#resource_manager_tags ContainerNodePool#resource_manager_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#resource_manager_tags ContainerNodePool#resource_manager_tags}
         '''
         result = self._values.get("resource_manager_tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -3492,7 +3492,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNodeConfigSecondaryBootDisks"]]]:
         '''secondary_boot_disks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#secondary_boot_disks ContainerNodePool#secondary_boot_disks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#secondary_boot_disks ContainerNodePool#secondary_boot_disks}
         '''
         result = self._values.get("secondary_boot_disks")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNodeConfigSecondaryBootDisks"]]], result)
@@ -3501,7 +3501,7 @@ class ContainerNodePoolNodeConfig:
     def service_account(self) -> typing.Optional[builtins.str]:
         '''The Google Cloud Platform Service Account to be used by the node VMs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#service_account ContainerNodePool#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#service_account ContainerNodePool#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3512,7 +3512,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigShieldedInstanceConfig"]:
         '''shielded_instance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#shielded_instance_config ContainerNodePool#shielded_instance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#shielded_instance_config ContainerNodePool#shielded_instance_config}
         '''
         result = self._values.get("shielded_instance_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigShieldedInstanceConfig"], result)
@@ -3523,7 +3523,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigSoleTenantConfig"]:
         '''sole_tenant_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#sole_tenant_config ContainerNodePool#sole_tenant_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#sole_tenant_config ContainerNodePool#sole_tenant_config}
         '''
         result = self._values.get("sole_tenant_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigSoleTenantConfig"], result)
@@ -3534,7 +3534,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the nodes are created as spot VM instances.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#spot ContainerNodePool#spot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#spot ContainerNodePool#spot}
         '''
         result = self._values.get("spot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3543,7 +3543,7 @@ class ContainerNodePoolNodeConfig:
     def storage_pools(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of Storage Pools where boot disks are provisioned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#storage_pools ContainerNodePool#storage_pools}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#storage_pools ContainerNodePool#storage_pools}
         '''
         result = self._values.get("storage_pools")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3552,7 +3552,7 @@ class ContainerNodePoolNodeConfig:
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of instance tags applied to all nodes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#tags ContainerNodePool#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#tags ContainerNodePool#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -3563,7 +3563,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNodeConfigTaint"]]]:
         '''taint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#taint ContainerNodePool#taint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#taint ContainerNodePool#taint}
         '''
         result = self._values.get("taint")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNodeConfigTaint"]]], result)
@@ -3574,7 +3574,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigWindowsNodeConfig"]:
         '''windows_node_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#windows_node_config ContainerNodePool#windows_node_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#windows_node_config ContainerNodePool#windows_node_config}
         '''
         result = self._values.get("windows_node_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigWindowsNodeConfig"], result)
@@ -3585,7 +3585,7 @@ class ContainerNodePoolNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigWorkloadMetadataConfig"]:
         '''workload_metadata_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#workload_metadata_config ContainerNodePool#workload_metadata_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#workload_metadata_config ContainerNodePool#workload_metadata_config}
         '''
         result = self._values.get("workload_metadata_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigWorkloadMetadataConfig"], result)
@@ -3620,9 +3620,9 @@ class ContainerNodePoolNodeConfigAdvancedMachineFeatures:
         performance_monitoring_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param threads_per_core: The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#threads_per_core ContainerNodePool#threads_per_core}
-        :param enable_nested_virtualization: Whether the node should have nested virtualization enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_nested_virtualization ContainerNodePool#enable_nested_virtualization}
-        :param performance_monitoring_unit: Level of Performance Monitoring Unit (PMU) requested. If unset, no access to the PMU is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#performance_monitoring_unit ContainerNodePool#performance_monitoring_unit}
+        :param threads_per_core: The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#threads_per_core ContainerNodePool#threads_per_core}
+        :param enable_nested_virtualization: Whether the node should have nested virtualization enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_nested_virtualization ContainerNodePool#enable_nested_virtualization}
+        :param performance_monitoring_unit: Level of Performance Monitoring Unit (PMU) requested. If unset, no access to the PMU is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#performance_monitoring_unit ContainerNodePool#performance_monitoring_unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__038c9a601363c15f56828a2ec1f0acc6f1ca14f133f87347af706e5541fd32f7)
@@ -3643,7 +3643,7 @@ class ContainerNodePoolNodeConfigAdvancedMachineFeatures:
 
         To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#threads_per_core ContainerNodePool#threads_per_core}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#threads_per_core ContainerNodePool#threads_per_core}
         '''
         result = self._values.get("threads_per_core")
         assert result is not None, "Required property 'threads_per_core' is missing"
@@ -3655,7 +3655,7 @@ class ContainerNodePoolNodeConfigAdvancedMachineFeatures:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether the node should have nested virtualization enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_nested_virtualization ContainerNodePool#enable_nested_virtualization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_nested_virtualization ContainerNodePool#enable_nested_virtualization}
         '''
         result = self._values.get("enable_nested_virtualization")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3664,7 +3664,7 @@ class ContainerNodePoolNodeConfigAdvancedMachineFeatures:
     def performance_monitoring_unit(self) -> typing.Optional[builtins.str]:
         '''Level of Performance Monitoring Unit (PMU) requested. If unset, no access to the PMU is assumed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#performance_monitoring_unit ContainerNodePool#performance_monitoring_unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#performance_monitoring_unit ContainerNodePool#performance_monitoring_unit}
         '''
         result = self._values.get("performance_monitoring_unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3805,10 +3805,10 @@ class ContainerNodePoolNodeConfigBootDisk:
         size_gb: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param disk_type: Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disk_type ContainerNodePool#disk_type}
-        :param provisioned_iops: Configured IOPs provisioning. Only valid with disk type hyperdisk-balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#provisioned_iops ContainerNodePool#provisioned_iops}
-        :param provisioned_throughput: Configured throughput provisioning. Only valid with disk type hyperdisk-balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#provisioned_throughput ContainerNodePool#provisioned_throughput}
-        :param size_gb: Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#size_gb ContainerNodePool#size_gb}
+        :param disk_type: Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disk_type ContainerNodePool#disk_type}
+        :param provisioned_iops: Configured IOPs provisioning. Only valid with disk type hyperdisk-balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#provisioned_iops ContainerNodePool#provisioned_iops}
+        :param provisioned_throughput: Configured throughput provisioning. Only valid with disk type hyperdisk-balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#provisioned_throughput ContainerNodePool#provisioned_throughput}
+        :param size_gb: Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#size_gb ContainerNodePool#size_gb}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0ebb6b7850ad22ffc5306fa80a3e6772c4ec885e286cee309b8f3804864ab7fc)
@@ -3830,7 +3830,7 @@ class ContainerNodePoolNodeConfigBootDisk:
     def disk_type(self) -> typing.Optional[builtins.str]:
         '''Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disk_type ContainerNodePool#disk_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disk_type ContainerNodePool#disk_type}
         '''
         result = self._values.get("disk_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3839,7 +3839,7 @@ class ContainerNodePoolNodeConfigBootDisk:
     def provisioned_iops(self) -> typing.Optional[jsii.Number]:
         '''Configured IOPs provisioning. Only valid with disk type hyperdisk-balanced.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#provisioned_iops ContainerNodePool#provisioned_iops}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#provisioned_iops ContainerNodePool#provisioned_iops}
         '''
         result = self._values.get("provisioned_iops")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3848,7 +3848,7 @@ class ContainerNodePoolNodeConfigBootDisk:
     def provisioned_throughput(self) -> typing.Optional[jsii.Number]:
         '''Configured throughput provisioning. Only valid with disk type hyperdisk-balanced.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#provisioned_throughput ContainerNodePool#provisioned_throughput}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#provisioned_throughput ContainerNodePool#provisioned_throughput}
         '''
         result = self._values.get("provisioned_throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3857,7 +3857,7 @@ class ContainerNodePoolNodeConfigBootDisk:
     def size_gb(self) -> typing.Optional[jsii.Number]:
         '''Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#size_gb ContainerNodePool#size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#size_gb ContainerNodePool#size_gb}
         '''
         result = self._values.get("size_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4010,8 +4010,8 @@ class ContainerNodePoolNodeConfigConfidentialNodes:
         confidential_instance_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Whether Confidential Nodes feature is enabled for all nodes in this pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
-        :param confidential_instance_type: Defines the type of technology used by the confidential node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#confidential_instance_type ContainerNodePool#confidential_instance_type}
+        :param enabled: Whether Confidential Nodes feature is enabled for all nodes in this pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        :param confidential_instance_type: Defines the type of technology used by the confidential node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#confidential_instance_type ContainerNodePool#confidential_instance_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d53cf282a7b3f4c3213a1bc296099aa561d6d1817aa9bab22dfd52c6e8ff5b6f)
@@ -4027,7 +4027,7 @@ class ContainerNodePoolNodeConfigConfidentialNodes:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether Confidential Nodes feature is enabled for all nodes in this pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -4037,7 +4037,7 @@ class ContainerNodePoolNodeConfigConfidentialNodes:
     def confidential_instance_type(self) -> typing.Optional[builtins.str]:
         '''Defines the type of technology used by the confidential node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#confidential_instance_type ContainerNodePool#confidential_instance_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#confidential_instance_type ContainerNodePool#confidential_instance_type}
         '''
         result = self._values.get("confidential_instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4147,7 +4147,7 @@ class ContainerNodePoolNodeConfigContainerdConfig:
         private_registry_access_config: typing.Optional[typing.Union["ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param private_registry_access_config: private_registry_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#private_registry_access_config ContainerNodePool#private_registry_access_config}
+        :param private_registry_access_config: private_registry_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#private_registry_access_config ContainerNodePool#private_registry_access_config}
         '''
         if isinstance(private_registry_access_config, dict):
             private_registry_access_config = ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig(**private_registry_access_config)
@@ -4164,7 +4164,7 @@ class ContainerNodePoolNodeConfigContainerdConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig"]:
         '''private_registry_access_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#private_registry_access_config ContainerNodePool#private_registry_access_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#private_registry_access_config ContainerNodePool#private_registry_access_config}
         '''
         result = self._values.get("private_registry_access_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig"], result)
@@ -4209,8 +4209,8 @@ class ContainerNodePoolNodeConfigContainerdConfigOutputReference(
         certificate_authority_domain_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Whether or not private registries are configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
-        :param certificate_authority_domain_config: certificate_authority_domain_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#certificate_authority_domain_config ContainerNodePool#certificate_authority_domain_config}
+        :param enabled: Whether or not private registries are configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        :param certificate_authority_domain_config: certificate_authority_domain_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#certificate_authority_domain_config ContainerNodePool#certificate_authority_domain_config}
         '''
         value = ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig(
             enabled=enabled,
@@ -4271,8 +4271,8 @@ class ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig:
         certificate_authority_domain_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Whether or not private registries are configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
-        :param certificate_authority_domain_config: certificate_authority_domain_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#certificate_authority_domain_config ContainerNodePool#certificate_authority_domain_config}
+        :param enabled: Whether or not private registries are configured. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        :param certificate_authority_domain_config: certificate_authority_domain_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#certificate_authority_domain_config ContainerNodePool#certificate_authority_domain_config}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__985fc8f22cba01d24a1aee5fe9ec1ec35433262b68c887feee46093f8ad61945)
@@ -4288,7 +4288,7 @@ class ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether or not private registries are configured.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -4300,7 +4300,7 @@ class ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfig"]]]:
         '''certificate_authority_domain_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#certificate_authority_domain_config ContainerNodePool#certificate_authority_domain_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#certificate_authority_domain_config ContainerNodePool#certificate_authority_domain_config}
         '''
         result = self._values.get("certificate_authority_domain_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfig"]]], result)
@@ -4333,8 +4333,8 @@ class ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCert
         gcp_secret_manager_certificate_config: typing.Union["ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfigGcpSecretManagerCertificateConfig", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param fqdns: List of fully-qualified-domain-names. IPv4s and port specification are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#fqdns ContainerNodePool#fqdns}
-        :param gcp_secret_manager_certificate_config: gcp_secret_manager_certificate_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gcp_secret_manager_certificate_config ContainerNodePool#gcp_secret_manager_certificate_config}
+        :param fqdns: List of fully-qualified-domain-names. IPv4s and port specification are supported. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#fqdns ContainerNodePool#fqdns}
+        :param gcp_secret_manager_certificate_config: gcp_secret_manager_certificate_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gcp_secret_manager_certificate_config ContainerNodePool#gcp_secret_manager_certificate_config}
         '''
         if isinstance(gcp_secret_manager_certificate_config, dict):
             gcp_secret_manager_certificate_config = ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfigGcpSecretManagerCertificateConfig(**gcp_secret_manager_certificate_config)
@@ -4351,7 +4351,7 @@ class ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCert
     def fqdns(self) -> typing.List[builtins.str]:
         '''List of fully-qualified-domain-names. IPv4s and port specification are supported.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#fqdns ContainerNodePool#fqdns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#fqdns ContainerNodePool#fqdns}
         '''
         result = self._values.get("fqdns")
         assert result is not None, "Required property 'fqdns' is missing"
@@ -4363,7 +4363,7 @@ class ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCert
     ) -> "ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfigGcpSecretManagerCertificateConfig":
         '''gcp_secret_manager_certificate_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gcp_secret_manager_certificate_config ContainerNodePool#gcp_secret_manager_certificate_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gcp_secret_manager_certificate_config ContainerNodePool#gcp_secret_manager_certificate_config}
         '''
         result = self._values.get("gcp_secret_manager_certificate_config")
         assert result is not None, "Required property 'gcp_secret_manager_certificate_config' is missing"
@@ -4389,7 +4389,7 @@ class ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCert
 class ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfigGcpSecretManagerCertificateConfig:
     def __init__(self, *, secret_uri: builtins.str) -> None:
         '''
-        :param secret_uri: URI for the secret that hosts a certificate. Must be in the format 'projects/PROJECT_NUM/secrets/SECRET_NAME/versions/VERSION_OR_LATEST'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#secret_uri ContainerNodePool#secret_uri}
+        :param secret_uri: URI for the secret that hosts a certificate. Must be in the format 'projects/PROJECT_NUM/secrets/SECRET_NAME/versions/VERSION_OR_LATEST'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#secret_uri ContainerNodePool#secret_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d8e49ef5dcf7472d653c4e8fe7a3e8349dd901f317ea2065ea1331638ca7d9fe)
@@ -4402,7 +4402,7 @@ class ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCert
     def secret_uri(self) -> builtins.str:
         '''URI for the secret that hosts a certificate. Must be in the format 'projects/PROJECT_NUM/secrets/SECRET_NAME/versions/VERSION_OR_LATEST'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#secret_uri ContainerNodePool#secret_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#secret_uri ContainerNodePool#secret_uri}
         '''
         result = self._values.get("secret_uri")
         assert result is not None, "Required property 'secret_uri' is missing"
@@ -4601,7 +4601,7 @@ class ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCert
         secret_uri: builtins.str,
     ) -> None:
         '''
-        :param secret_uri: URI for the secret that hosts a certificate. Must be in the format 'projects/PROJECT_NUM/secrets/SECRET_NAME/versions/VERSION_OR_LATEST'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#secret_uri ContainerNodePool#secret_uri}
+        :param secret_uri: URI for the secret that hosts a certificate. Must be in the format 'projects/PROJECT_NUM/secrets/SECRET_NAME/versions/VERSION_OR_LATEST'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#secret_uri ContainerNodePool#secret_uri}
         '''
         value = ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfigCertificateAuthorityDomainConfigGcpSecretManagerCertificateConfig(
             secret_uri=secret_uri
@@ -4921,8 +4921,8 @@ class ContainerNodePoolNodeConfigEphemeralStorageLocalSsdConfig:
         data_cache_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param local_ssd_count: Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
-        :param data_cache_count: Number of local SSDs to be utilized for GKE Data Cache. Uses NVMe interfaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#data_cache_count ContainerNodePool#data_cache_count}
+        :param local_ssd_count: Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
+        :param data_cache_count: Number of local SSDs to be utilized for GKE Data Cache. Uses NVMe interfaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#data_cache_count ContainerNodePool#data_cache_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__96a188e5167c88cf94b597447090b14745a4557a719fc4d664547de5858949ac)
@@ -4940,7 +4940,7 @@ class ContainerNodePoolNodeConfigEphemeralStorageLocalSsdConfig:
 
         Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
         '''
         result = self._values.get("local_ssd_count")
         assert result is not None, "Required property 'local_ssd_count' is missing"
@@ -4950,7 +4950,7 @@ class ContainerNodePoolNodeConfigEphemeralStorageLocalSsdConfig:
     def data_cache_count(self) -> typing.Optional[jsii.Number]:
         '''Number of local SSDs to be utilized for GKE Data Cache. Uses NVMe interfaces.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#data_cache_count ContainerNodePool#data_cache_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#data_cache_count ContainerNodePool#data_cache_count}
         '''
         result = self._values.get("data_cache_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5055,7 +5055,7 @@ class ContainerNodePoolNodeConfigFastSocket:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether or not NCCL Fast Socket is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        :param enabled: Whether or not NCCL Fast Socket is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5244a4a18a95bcbe02f47db1a602339491f1a817319853beeefe17ff406e0113)
@@ -5068,7 +5068,7 @@ class ContainerNodePoolNodeConfigFastSocket:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether or not NCCL Fast Socket is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -5156,7 +5156,7 @@ class ContainerNodePoolNodeConfigGcfsConfig:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether or not GCFS is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        :param enabled: Whether or not GCFS is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__09b8b74f601eefff327c9378411729253b3cdcbfbe1d193444de384a0ed35822)
@@ -5169,7 +5169,7 @@ class ContainerNodePoolNodeConfigGcfsConfig:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether or not GCFS is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -5267,11 +5267,11 @@ class ContainerNodePoolNodeConfigGuestAccelerator:
         gpu_sharing_config: typing.Optional[typing.Union["ContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param count: The number of the accelerator cards exposed to an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#count ContainerNodePool#count}
-        :param type: The accelerator type resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#type ContainerNodePool#type}
-        :param gpu_driver_installation_config: gpu_driver_installation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gpu_driver_installation_config ContainerNodePool#gpu_driver_installation_config}
-        :param gpu_partition_size: Size of partitions to create on the GPU. Valid values are described in the NVIDIA mig user guide (https://docs.nvidia.com/datacenter/tesla/mig-user-guide/#partitioning). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gpu_partition_size ContainerNodePool#gpu_partition_size}
-        :param gpu_sharing_config: gpu_sharing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gpu_sharing_config ContainerNodePool#gpu_sharing_config}
+        :param count: The number of the accelerator cards exposed to an instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#count ContainerNodePool#count}
+        :param type: The accelerator type resource name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#type ContainerNodePool#type}
+        :param gpu_driver_installation_config: gpu_driver_installation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gpu_driver_installation_config ContainerNodePool#gpu_driver_installation_config}
+        :param gpu_partition_size: Size of partitions to create on the GPU. Valid values are described in the NVIDIA mig user guide (https://docs.nvidia.com/datacenter/tesla/mig-user-guide/#partitioning). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gpu_partition_size ContainerNodePool#gpu_partition_size}
+        :param gpu_sharing_config: gpu_sharing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gpu_sharing_config ContainerNodePool#gpu_sharing_config}
         '''
         if isinstance(gpu_driver_installation_config, dict):
             gpu_driver_installation_config = ContainerNodePoolNodeConfigGuestAcceleratorGpuDriverInstallationConfig(**gpu_driver_installation_config)
@@ -5299,7 +5299,7 @@ class ContainerNodePoolNodeConfigGuestAccelerator:
     def count(self) -> jsii.Number:
         '''The number of the accelerator cards exposed to an instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#count ContainerNodePool#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#count ContainerNodePool#count}
         '''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
@@ -5309,7 +5309,7 @@ class ContainerNodePoolNodeConfigGuestAccelerator:
     def type(self) -> builtins.str:
         '''The accelerator type resource name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#type ContainerNodePool#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#type ContainerNodePool#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -5321,7 +5321,7 @@ class ContainerNodePoolNodeConfigGuestAccelerator:
     ) -> typing.Optional["ContainerNodePoolNodeConfigGuestAcceleratorGpuDriverInstallationConfig"]:
         '''gpu_driver_installation_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gpu_driver_installation_config ContainerNodePool#gpu_driver_installation_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gpu_driver_installation_config ContainerNodePool#gpu_driver_installation_config}
         '''
         result = self._values.get("gpu_driver_installation_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigGuestAcceleratorGpuDriverInstallationConfig"], result)
@@ -5330,7 +5330,7 @@ class ContainerNodePoolNodeConfigGuestAccelerator:
     def gpu_partition_size(self) -> typing.Optional[builtins.str]:
         '''Size of partitions to create on the GPU. Valid values are described in the NVIDIA mig user guide (https://docs.nvidia.com/datacenter/tesla/mig-user-guide/#partitioning).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gpu_partition_size ContainerNodePool#gpu_partition_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gpu_partition_size ContainerNodePool#gpu_partition_size}
         '''
         result = self._values.get("gpu_partition_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5341,7 +5341,7 @@ class ContainerNodePoolNodeConfigGuestAccelerator:
     ) -> typing.Optional["ContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig"]:
         '''gpu_sharing_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gpu_sharing_config ContainerNodePool#gpu_sharing_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gpu_sharing_config ContainerNodePool#gpu_sharing_config}
         '''
         result = self._values.get("gpu_sharing_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig"], result)
@@ -5366,7 +5366,7 @@ class ContainerNodePoolNodeConfigGuestAccelerator:
 class ContainerNodePoolNodeConfigGuestAcceleratorGpuDriverInstallationConfig:
     def __init__(self, *, gpu_driver_version: builtins.str) -> None:
         '''
-        :param gpu_driver_version: Mode for how the GPU driver is installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gpu_driver_version ContainerNodePool#gpu_driver_version}
+        :param gpu_driver_version: Mode for how the GPU driver is installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gpu_driver_version ContainerNodePool#gpu_driver_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ce3318984671ac11c6550e3a977ea351fcec58006d3a53b833cbf41ff94cd9c8)
@@ -5379,7 +5379,7 @@ class ContainerNodePoolNodeConfigGuestAcceleratorGpuDriverInstallationConfig:
     def gpu_driver_version(self) -> builtins.str:
         '''Mode for how the GPU driver is installed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gpu_driver_version ContainerNodePool#gpu_driver_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gpu_driver_version ContainerNodePool#gpu_driver_version}
         '''
         result = self._values.get("gpu_driver_version")
         assert result is not None, "Required property 'gpu_driver_version' is missing"
@@ -5468,8 +5468,8 @@ class ContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig:
         max_shared_clients_per_gpu: jsii.Number,
     ) -> None:
         '''
-        :param gpu_sharing_strategy: The type of GPU sharing strategy to enable on the GPU node. Possible values are described in the API package (https://pkg.go.dev/google.golang.org/api/container/v1#GPUSharingConfig) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gpu_sharing_strategy ContainerNodePool#gpu_sharing_strategy}
-        :param max_shared_clients_per_gpu: The maximum number of containers that can share a GPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_shared_clients_per_gpu ContainerNodePool#max_shared_clients_per_gpu}
+        :param gpu_sharing_strategy: The type of GPU sharing strategy to enable on the GPU node. Possible values are described in the API package (https://pkg.go.dev/google.golang.org/api/container/v1#GPUSharingConfig) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gpu_sharing_strategy ContainerNodePool#gpu_sharing_strategy}
+        :param max_shared_clients_per_gpu: The maximum number of containers that can share a GPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_shared_clients_per_gpu ContainerNodePool#max_shared_clients_per_gpu}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9aa4a423ead67dfc69d4e555095531f42430bf374fd08cee74d176e119d3cc14)
@@ -5486,7 +5486,7 @@ class ContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig:
 
         Possible values are described in the API package (https://pkg.go.dev/google.golang.org/api/container/v1#GPUSharingConfig)
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gpu_sharing_strategy ContainerNodePool#gpu_sharing_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gpu_sharing_strategy ContainerNodePool#gpu_sharing_strategy}
         '''
         result = self._values.get("gpu_sharing_strategy")
         assert result is not None, "Required property 'gpu_sharing_strategy' is missing"
@@ -5496,7 +5496,7 @@ class ContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig:
     def max_shared_clients_per_gpu(self) -> jsii.Number:
         '''The maximum number of containers that can share a GPU.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_shared_clients_per_gpu ContainerNodePool#max_shared_clients_per_gpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_shared_clients_per_gpu ContainerNodePool#max_shared_clients_per_gpu}
         '''
         result = self._values.get("max_shared_clients_per_gpu")
         assert result is not None, "Required property 'max_shared_clients_per_gpu' is missing"
@@ -5712,7 +5712,7 @@ class ContainerNodePoolNodeConfigGuestAcceleratorOutputReference(
         gpu_driver_version: builtins.str,
     ) -> None:
         '''
-        :param gpu_driver_version: Mode for how the GPU driver is installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gpu_driver_version ContainerNodePool#gpu_driver_version}
+        :param gpu_driver_version: Mode for how the GPU driver is installed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gpu_driver_version ContainerNodePool#gpu_driver_version}
         '''
         value = ContainerNodePoolNodeConfigGuestAcceleratorGpuDriverInstallationConfig(
             gpu_driver_version=gpu_driver_version
@@ -5728,8 +5728,8 @@ class ContainerNodePoolNodeConfigGuestAcceleratorOutputReference(
         max_shared_clients_per_gpu: jsii.Number,
     ) -> None:
         '''
-        :param gpu_sharing_strategy: The type of GPU sharing strategy to enable on the GPU node. Possible values are described in the API package (https://pkg.go.dev/google.golang.org/api/container/v1#GPUSharingConfig) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#gpu_sharing_strategy ContainerNodePool#gpu_sharing_strategy}
-        :param max_shared_clients_per_gpu: The maximum number of containers that can share a GPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_shared_clients_per_gpu ContainerNodePool#max_shared_clients_per_gpu}
+        :param gpu_sharing_strategy: The type of GPU sharing strategy to enable on the GPU node. Possible values are described in the API package (https://pkg.go.dev/google.golang.org/api/container/v1#GPUSharingConfig) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#gpu_sharing_strategy ContainerNodePool#gpu_sharing_strategy}
+        :param max_shared_clients_per_gpu: The maximum number of containers that can share a GPU. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_shared_clients_per_gpu ContainerNodePool#max_shared_clients_per_gpu}
         '''
         value = ContainerNodePoolNodeConfigGuestAcceleratorGpuSharingConfig(
             gpu_sharing_strategy=gpu_sharing_strategy,
@@ -5859,7 +5859,7 @@ class ContainerNodePoolNodeConfigGvnic:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether or not gvnic is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        :param enabled: Whether or not gvnic is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e47d3bc40512a41cc51d7990d937743c3151685667c2db6170d85ebeb880899a)
@@ -5872,7 +5872,7 @@ class ContainerNodePoolNodeConfigGvnic:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether or not gvnic is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -5956,7 +5956,7 @@ class ContainerNodePoolNodeConfigGvnicOutputReference(
 class ContainerNodePoolNodeConfigHostMaintenancePolicy:
     def __init__(self, *, maintenance_interval: builtins.str) -> None:
         '''
-        :param maintenance_interval: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#maintenance_interval ContainerNodePool#maintenance_interval}
+        :param maintenance_interval: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#maintenance_interval ContainerNodePool#maintenance_interval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2a0f9d7139ba32901ab0ec356932d505a176abcb97ad6734e4a744686cef95d)
@@ -5969,7 +5969,7 @@ class ContainerNodePoolNodeConfigHostMaintenancePolicy:
     def maintenance_interval(self) -> builtins.str:
         '''.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#maintenance_interval ContainerNodePool#maintenance_interval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#maintenance_interval ContainerNodePool#maintenance_interval}
         '''
         result = self._values.get("maintenance_interval")
         assert result is not None, "Required property 'maintenance_interval' is missing"
@@ -6052,11 +6052,16 @@ class ContainerNodePoolNodeConfigHostMaintenancePolicyOutputReference(
         "cpu_cfs_quota": "cpuCfsQuota",
         "cpu_cfs_quota_period": "cpuCfsQuotaPeriod",
         "cpu_manager_policy": "cpuManagerPolicy",
+        "eviction_max_pod_grace_period_seconds": "evictionMaxPodGracePeriodSeconds",
+        "eviction_minimum_reclaim": "evictionMinimumReclaim",
+        "eviction_soft": "evictionSoft",
+        "eviction_soft_grace_period": "evictionSoftGracePeriod",
         "image_gc_high_threshold_percent": "imageGcHighThresholdPercent",
         "image_gc_low_threshold_percent": "imageGcLowThresholdPercent",
         "image_maximum_gc_age": "imageMaximumGcAge",
         "image_minimum_gc_age": "imageMinimumGcAge",
         "insecure_kubelet_readonly_port_enabled": "insecureKubeletReadonlyPortEnabled",
+        "max_parallel_image_pulls": "maxParallelImagePulls",
         "pod_pids_limit": "podPidsLimit",
         "single_process_oom_kill": "singleProcessOomKill",
     },
@@ -6071,29 +6076,45 @@ class ContainerNodePoolNodeConfigKubeletConfig:
         cpu_cfs_quota: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         cpu_cfs_quota_period: typing.Optional[builtins.str] = None,
         cpu_manager_policy: typing.Optional[builtins.str] = None,
+        eviction_max_pod_grace_period_seconds: typing.Optional[jsii.Number] = None,
+        eviction_minimum_reclaim: typing.Optional[typing.Union["ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim", typing.Dict[builtins.str, typing.Any]]] = None,
+        eviction_soft: typing.Optional[typing.Union["ContainerNodePoolNodeConfigKubeletConfigEvictionSoft", typing.Dict[builtins.str, typing.Any]]] = None,
+        eviction_soft_grace_period: typing.Optional[typing.Union["ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod", typing.Dict[builtins.str, typing.Any]]] = None,
         image_gc_high_threshold_percent: typing.Optional[jsii.Number] = None,
         image_gc_low_threshold_percent: typing.Optional[jsii.Number] = None,
         image_maximum_gc_age: typing.Optional[builtins.str] = None,
         image_minimum_gc_age: typing.Optional[builtins.str] = None,
         insecure_kubelet_readonly_port_enabled: typing.Optional[builtins.str] = None,
+        max_parallel_image_pulls: typing.Optional[jsii.Number] = None,
         pod_pids_limit: typing.Optional[jsii.Number] = None,
         single_process_oom_kill: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allowed_unsafe_sysctls: Defines a comma-separated allowlist of unsafe sysctls or sysctl patterns which can be set on the Pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#allowed_unsafe_sysctls ContainerNodePool#allowed_unsafe_sysctls}
-        :param container_log_max_files: Defines the maximum number of container log files that can be present for a container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#container_log_max_files ContainerNodePool#container_log_max_files}
-        :param container_log_max_size: Defines the maximum size of the container log file before it is rotated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#container_log_max_size ContainerNodePool#container_log_max_size}
-        :param cpu_cfs_quota: Enable CPU CFS quota enforcement for containers that specify CPU limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cpu_cfs_quota ContainerNodePool#cpu_cfs_quota}
-        :param cpu_cfs_quota_period: Set the CPU CFS quota period value 'cpu.cfs_period_us'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cpu_cfs_quota_period ContainerNodePool#cpu_cfs_quota_period}
-        :param cpu_manager_policy: Control the CPU management policy on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cpu_manager_policy ContainerNodePool#cpu_manager_policy}
-        :param image_gc_high_threshold_percent: Defines the percent of disk usage after which image garbage collection is always run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_gc_high_threshold_percent ContainerNodePool#image_gc_high_threshold_percent}
-        :param image_gc_low_threshold_percent: Defines the percent of disk usage before which image garbage collection is never run. Lowest disk usage to garbage collect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_gc_low_threshold_percent ContainerNodePool#image_gc_low_threshold_percent}
-        :param image_maximum_gc_age: Defines the maximum age an image can be unused before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_maximum_gc_age ContainerNodePool#image_maximum_gc_age}
-        :param image_minimum_gc_age: Defines the minimum age for an unused image before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_minimum_gc_age ContainerNodePool#image_minimum_gc_age}
-        :param insecure_kubelet_readonly_port_enabled: Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to ``FALSE``. Possible values: ``TRUE``, ``FALSE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#insecure_kubelet_readonly_port_enabled ContainerNodePool#insecure_kubelet_readonly_port_enabled}
-        :param pod_pids_limit: Controls the maximum number of processes allowed to run in a pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#pod_pids_limit ContainerNodePool#pod_pids_limit}
-        :param single_process_oom_kill: Defines whether to enable single process OOM killer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#single_process_oom_kill ContainerNodePool#single_process_oom_kill}
+        :param allowed_unsafe_sysctls: Defines a comma-separated allowlist of unsafe sysctls or sysctl patterns which can be set on the Pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#allowed_unsafe_sysctls ContainerNodePool#allowed_unsafe_sysctls}
+        :param container_log_max_files: Defines the maximum number of container log files that can be present for a container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#container_log_max_files ContainerNodePool#container_log_max_files}
+        :param container_log_max_size: Defines the maximum size of the container log file before it is rotated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#container_log_max_size ContainerNodePool#container_log_max_size}
+        :param cpu_cfs_quota: Enable CPU CFS quota enforcement for containers that specify CPU limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cpu_cfs_quota ContainerNodePool#cpu_cfs_quota}
+        :param cpu_cfs_quota_period: Set the CPU CFS quota period value 'cpu.cfs_period_us'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cpu_cfs_quota_period ContainerNodePool#cpu_cfs_quota_period}
+        :param cpu_manager_policy: Control the CPU management policy on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cpu_manager_policy ContainerNodePool#cpu_manager_policy}
+        :param eviction_max_pod_grace_period_seconds: Defines the maximum allowed grace period (in seconds) to use when terminating pods in response to a soft eviction threshold being met. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#eviction_max_pod_grace_period_seconds ContainerNodePool#eviction_max_pod_grace_period_seconds}
+        :param eviction_minimum_reclaim: eviction_minimum_reclaim block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#eviction_minimum_reclaim ContainerNodePool#eviction_minimum_reclaim}
+        :param eviction_soft: eviction_soft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#eviction_soft ContainerNodePool#eviction_soft}
+        :param eviction_soft_grace_period: eviction_soft_grace_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#eviction_soft_grace_period ContainerNodePool#eviction_soft_grace_period}
+        :param image_gc_high_threshold_percent: Defines the percent of disk usage after which image garbage collection is always run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_gc_high_threshold_percent ContainerNodePool#image_gc_high_threshold_percent}
+        :param image_gc_low_threshold_percent: Defines the percent of disk usage before which image garbage collection is never run. Lowest disk usage to garbage collect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_gc_low_threshold_percent ContainerNodePool#image_gc_low_threshold_percent}
+        :param image_maximum_gc_age: Defines the maximum age an image can be unused before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_maximum_gc_age ContainerNodePool#image_maximum_gc_age}
+        :param image_minimum_gc_age: Defines the minimum age for an unused image before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_minimum_gc_age ContainerNodePool#image_minimum_gc_age}
+        :param insecure_kubelet_readonly_port_enabled: Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to ``FALSE``. Possible values: ``TRUE``, ``FALSE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#insecure_kubelet_readonly_port_enabled ContainerNodePool#insecure_kubelet_readonly_port_enabled}
+        :param max_parallel_image_pulls: Set the maximum number of image pulls in parallel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_parallel_image_pulls ContainerNodePool#max_parallel_image_pulls}
+        :param pod_pids_limit: Controls the maximum number of processes allowed to run in a pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pod_pids_limit ContainerNodePool#pod_pids_limit}
+        :param single_process_oom_kill: Defines whether to enable single process OOM killer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#single_process_oom_kill ContainerNodePool#single_process_oom_kill}
         '''
+        if isinstance(eviction_minimum_reclaim, dict):
+            eviction_minimum_reclaim = ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim(**eviction_minimum_reclaim)
+        if isinstance(eviction_soft, dict):
+            eviction_soft = ContainerNodePoolNodeConfigKubeletConfigEvictionSoft(**eviction_soft)
+        if isinstance(eviction_soft_grace_period, dict):
+            eviction_soft_grace_period = ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod(**eviction_soft_grace_period)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba35fbf8f2f5b8bedf5e350dde661105e29aa7385a444c7dab33b0385adff671)
             check_type(argname="argument allowed_unsafe_sysctls", value=allowed_unsafe_sysctls, expected_type=type_hints["allowed_unsafe_sysctls"])
@@ -6102,11 +6123,16 @@ class ContainerNodePoolNodeConfigKubeletConfig:
             check_type(argname="argument cpu_cfs_quota", value=cpu_cfs_quota, expected_type=type_hints["cpu_cfs_quota"])
             check_type(argname="argument cpu_cfs_quota_period", value=cpu_cfs_quota_period, expected_type=type_hints["cpu_cfs_quota_period"])
             check_type(argname="argument cpu_manager_policy", value=cpu_manager_policy, expected_type=type_hints["cpu_manager_policy"])
+            check_type(argname="argument eviction_max_pod_grace_period_seconds", value=eviction_max_pod_grace_period_seconds, expected_type=type_hints["eviction_max_pod_grace_period_seconds"])
+            check_type(argname="argument eviction_minimum_reclaim", value=eviction_minimum_reclaim, expected_type=type_hints["eviction_minimum_reclaim"])
+            check_type(argname="argument eviction_soft", value=eviction_soft, expected_type=type_hints["eviction_soft"])
+            check_type(argname="argument eviction_soft_grace_period", value=eviction_soft_grace_period, expected_type=type_hints["eviction_soft_grace_period"])
             check_type(argname="argument image_gc_high_threshold_percent", value=image_gc_high_threshold_percent, expected_type=type_hints["image_gc_high_threshold_percent"])
             check_type(argname="argument image_gc_low_threshold_percent", value=image_gc_low_threshold_percent, expected_type=type_hints["image_gc_low_threshold_percent"])
             check_type(argname="argument image_maximum_gc_age", value=image_maximum_gc_age, expected_type=type_hints["image_maximum_gc_age"])
             check_type(argname="argument image_minimum_gc_age", value=image_minimum_gc_age, expected_type=type_hints["image_minimum_gc_age"])
             check_type(argname="argument insecure_kubelet_readonly_port_enabled", value=insecure_kubelet_readonly_port_enabled, expected_type=type_hints["insecure_kubelet_readonly_port_enabled"])
+            check_type(argname="argument max_parallel_image_pulls", value=max_parallel_image_pulls, expected_type=type_hints["max_parallel_image_pulls"])
             check_type(argname="argument pod_pids_limit", value=pod_pids_limit, expected_type=type_hints["pod_pids_limit"])
             check_type(argname="argument single_process_oom_kill", value=single_process_oom_kill, expected_type=type_hints["single_process_oom_kill"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6122,6 +6148,14 @@ class ContainerNodePoolNodeConfigKubeletConfig:
             self._values["cpu_cfs_quota_period"] = cpu_cfs_quota_period
         if cpu_manager_policy is not None:
             self._values["cpu_manager_policy"] = cpu_manager_policy
+        if eviction_max_pod_grace_period_seconds is not None:
+            self._values["eviction_max_pod_grace_period_seconds"] = eviction_max_pod_grace_period_seconds
+        if eviction_minimum_reclaim is not None:
+            self._values["eviction_minimum_reclaim"] = eviction_minimum_reclaim
+        if eviction_soft is not None:
+            self._values["eviction_soft"] = eviction_soft
+        if eviction_soft_grace_period is not None:
+            self._values["eviction_soft_grace_period"] = eviction_soft_grace_period
         if image_gc_high_threshold_percent is not None:
             self._values["image_gc_high_threshold_percent"] = image_gc_high_threshold_percent
         if image_gc_low_threshold_percent is not None:
@@ -6132,6 +6166,8 @@ class ContainerNodePoolNodeConfigKubeletConfig:
             self._values["image_minimum_gc_age"] = image_minimum_gc_age
         if insecure_kubelet_readonly_port_enabled is not None:
             self._values["insecure_kubelet_readonly_port_enabled"] = insecure_kubelet_readonly_port_enabled
+        if max_parallel_image_pulls is not None:
+            self._values["max_parallel_image_pulls"] = max_parallel_image_pulls
         if pod_pids_limit is not None:
             self._values["pod_pids_limit"] = pod_pids_limit
         if single_process_oom_kill is not None:
@@ -6141,7 +6177,7 @@ class ContainerNodePoolNodeConfigKubeletConfig:
     def allowed_unsafe_sysctls(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Defines a comma-separated allowlist of unsafe sysctls or sysctl patterns which can be set on the Pods.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#allowed_unsafe_sysctls ContainerNodePool#allowed_unsafe_sysctls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#allowed_unsafe_sysctls ContainerNodePool#allowed_unsafe_sysctls}
         '''
         result = self._values.get("allowed_unsafe_sysctls")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -6150,7 +6186,7 @@ class ContainerNodePoolNodeConfigKubeletConfig:
     def container_log_max_files(self) -> typing.Optional[jsii.Number]:
         '''Defines the maximum number of container log files that can be present for a container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#container_log_max_files ContainerNodePool#container_log_max_files}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#container_log_max_files ContainerNodePool#container_log_max_files}
         '''
         result = self._values.get("container_log_max_files")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6159,7 +6195,7 @@ class ContainerNodePoolNodeConfigKubeletConfig:
     def container_log_max_size(self) -> typing.Optional[builtins.str]:
         '''Defines the maximum size of the container log file before it is rotated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#container_log_max_size ContainerNodePool#container_log_max_size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#container_log_max_size ContainerNodePool#container_log_max_size}
         '''
         result = self._values.get("container_log_max_size")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6170,7 +6206,7 @@ class ContainerNodePoolNodeConfigKubeletConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable CPU CFS quota enforcement for containers that specify CPU limits.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cpu_cfs_quota ContainerNodePool#cpu_cfs_quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cpu_cfs_quota ContainerNodePool#cpu_cfs_quota}
         '''
         result = self._values.get("cpu_cfs_quota")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6179,7 +6215,7 @@ class ContainerNodePoolNodeConfigKubeletConfig:
     def cpu_cfs_quota_period(self) -> typing.Optional[builtins.str]:
         '''Set the CPU CFS quota period value 'cpu.cfs_period_us'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cpu_cfs_quota_period ContainerNodePool#cpu_cfs_quota_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cpu_cfs_quota_period ContainerNodePool#cpu_cfs_quota_period}
         '''
         result = self._values.get("cpu_cfs_quota_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6188,16 +6224,58 @@ class ContainerNodePoolNodeConfigKubeletConfig:
     def cpu_manager_policy(self) -> typing.Optional[builtins.str]:
         '''Control the CPU management policy on the node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cpu_manager_policy ContainerNodePool#cpu_manager_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cpu_manager_policy ContainerNodePool#cpu_manager_policy}
         '''
         result = self._values.get("cpu_manager_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def eviction_max_pod_grace_period_seconds(self) -> typing.Optional[jsii.Number]:
+        '''Defines the maximum allowed grace period (in seconds) to use when terminating pods in response to a soft eviction threshold being met.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#eviction_max_pod_grace_period_seconds ContainerNodePool#eviction_max_pod_grace_period_seconds}
+        '''
+        result = self._values.get("eviction_max_pod_grace_period_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def eviction_minimum_reclaim(
+        self,
+    ) -> typing.Optional["ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim"]:
+        '''eviction_minimum_reclaim block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#eviction_minimum_reclaim ContainerNodePool#eviction_minimum_reclaim}
+        '''
+        result = self._values.get("eviction_minimum_reclaim")
+        return typing.cast(typing.Optional["ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim"], result)
+
+    @builtins.property
+    def eviction_soft(
+        self,
+    ) -> typing.Optional["ContainerNodePoolNodeConfigKubeletConfigEvictionSoft"]:
+        '''eviction_soft block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#eviction_soft ContainerNodePool#eviction_soft}
+        '''
+        result = self._values.get("eviction_soft")
+        return typing.cast(typing.Optional["ContainerNodePoolNodeConfigKubeletConfigEvictionSoft"], result)
+
+    @builtins.property
+    def eviction_soft_grace_period(
+        self,
+    ) -> typing.Optional["ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod"]:
+        '''eviction_soft_grace_period block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#eviction_soft_grace_period ContainerNodePool#eviction_soft_grace_period}
+        '''
+        result = self._values.get("eviction_soft_grace_period")
+        return typing.cast(typing.Optional["ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod"], result)
+
+    @builtins.property
     def image_gc_high_threshold_percent(self) -> typing.Optional[jsii.Number]:
         '''Defines the percent of disk usage after which image garbage collection is always run.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_gc_high_threshold_percent ContainerNodePool#image_gc_high_threshold_percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_gc_high_threshold_percent ContainerNodePool#image_gc_high_threshold_percent}
         '''
         result = self._values.get("image_gc_high_threshold_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6208,7 +6286,7 @@ class ContainerNodePoolNodeConfigKubeletConfig:
 
         Lowest disk usage to garbage collect to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_gc_low_threshold_percent ContainerNodePool#image_gc_low_threshold_percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_gc_low_threshold_percent ContainerNodePool#image_gc_low_threshold_percent}
         '''
         result = self._values.get("image_gc_low_threshold_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6217,7 +6295,7 @@ class ContainerNodePoolNodeConfigKubeletConfig:
     def image_maximum_gc_age(self) -> typing.Optional[builtins.str]:
         '''Defines the maximum age an image can be unused before it is garbage collected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_maximum_gc_age ContainerNodePool#image_maximum_gc_age}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_maximum_gc_age ContainerNodePool#image_maximum_gc_age}
         '''
         result = self._values.get("image_maximum_gc_age")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6226,7 +6304,7 @@ class ContainerNodePoolNodeConfigKubeletConfig:
     def image_minimum_gc_age(self) -> typing.Optional[builtins.str]:
         '''Defines the minimum age for an unused image before it is garbage collected.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_minimum_gc_age ContainerNodePool#image_minimum_gc_age}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_minimum_gc_age ContainerNodePool#image_minimum_gc_age}
         '''
         result = self._values.get("image_minimum_gc_age")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6237,16 +6315,25 @@ class ContainerNodePoolNodeConfigKubeletConfig:
 
         It is strongly recommended to set this to ``FALSE``. Possible values: ``TRUE``, ``FALSE``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#insecure_kubelet_readonly_port_enabled ContainerNodePool#insecure_kubelet_readonly_port_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#insecure_kubelet_readonly_port_enabled ContainerNodePool#insecure_kubelet_readonly_port_enabled}
         '''
         result = self._values.get("insecure_kubelet_readonly_port_enabled")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def max_parallel_image_pulls(self) -> typing.Optional[jsii.Number]:
+        '''Set the maximum number of image pulls in parallel.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_parallel_image_pulls ContainerNodePool#max_parallel_image_pulls}
+        '''
+        result = self._values.get("max_parallel_image_pulls")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
     def pod_pids_limit(self) -> typing.Optional[jsii.Number]:
         '''Controls the maximum number of processes allowed to run in a pod.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#pod_pids_limit ContainerNodePool#pod_pids_limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pod_pids_limit ContainerNodePool#pod_pids_limit}
         '''
         result = self._values.get("pod_pids_limit")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6257,7 +6344,7 @@ class ContainerNodePoolNodeConfigKubeletConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether to enable single process OOM killer.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#single_process_oom_kill ContainerNodePool#single_process_oom_kill}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#single_process_oom_kill ContainerNodePool#single_process_oom_kill}
         '''
         result = self._values.get("single_process_oom_kill")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -6272,6 +6359,855 @@ class ContainerNodePoolNodeConfigKubeletConfig:
         return "ContainerNodePoolNodeConfigKubeletConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.containerNodePool.ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim",
+    jsii_struct_bases=[],
+    name_mapping={
+        "imagefs_available": "imagefsAvailable",
+        "imagefs_inodes_free": "imagefsInodesFree",
+        "memory_available": "memoryAvailable",
+        "nodefs_available": "nodefsAvailable",
+        "nodefs_inodes_free": "nodefsInodesFree",
+        "pid_available": "pidAvailable",
+    },
+)
+class ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim:
+    def __init__(
+        self,
+        *,
+        imagefs_available: typing.Optional[builtins.str] = None,
+        imagefs_inodes_free: typing.Optional[builtins.str] = None,
+        memory_available: typing.Optional[builtins.str] = None,
+        nodefs_available: typing.Optional[builtins.str] = None,
+        nodefs_inodes_free: typing.Optional[builtins.str] = None,
+        pid_available: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param imagefs_available: Defines percentage of minimum reclaim for imagefs.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_available ContainerNodePool#imagefs_available}
+        :param imagefs_inodes_free: Defines percentage of minimum reclaim for imagefs.inodesFree. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_inodes_free ContainerNodePool#imagefs_inodes_free}
+        :param memory_available: Defines percentage of minimum reclaim for memory.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#memory_available ContainerNodePool#memory_available}
+        :param nodefs_available: Defines percentage of minimum reclaim for nodefs.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_available ContainerNodePool#nodefs_available}
+        :param nodefs_inodes_free: Defines percentage of minimum reclaim for nodefs.inodesFree. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_inodes_free ContainerNodePool#nodefs_inodes_free}
+        :param pid_available: Defines percentage of minimum reclaim for pid.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pid_available ContainerNodePool#pid_available}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43e896e81c43a061c59e688d5f90b3e95b3ea4f8090b53edda649405a5c5d0a9)
+            check_type(argname="argument imagefs_available", value=imagefs_available, expected_type=type_hints["imagefs_available"])
+            check_type(argname="argument imagefs_inodes_free", value=imagefs_inodes_free, expected_type=type_hints["imagefs_inodes_free"])
+            check_type(argname="argument memory_available", value=memory_available, expected_type=type_hints["memory_available"])
+            check_type(argname="argument nodefs_available", value=nodefs_available, expected_type=type_hints["nodefs_available"])
+            check_type(argname="argument nodefs_inodes_free", value=nodefs_inodes_free, expected_type=type_hints["nodefs_inodes_free"])
+            check_type(argname="argument pid_available", value=pid_available, expected_type=type_hints["pid_available"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if imagefs_available is not None:
+            self._values["imagefs_available"] = imagefs_available
+        if imagefs_inodes_free is not None:
+            self._values["imagefs_inodes_free"] = imagefs_inodes_free
+        if memory_available is not None:
+            self._values["memory_available"] = memory_available
+        if nodefs_available is not None:
+            self._values["nodefs_available"] = nodefs_available
+        if nodefs_inodes_free is not None:
+            self._values["nodefs_inodes_free"] = nodefs_inodes_free
+        if pid_available is not None:
+            self._values["pid_available"] = pid_available
+
+    @builtins.property
+    def imagefs_available(self) -> typing.Optional[builtins.str]:
+        '''Defines percentage of minimum reclaim for imagefs.available.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_available ContainerNodePool#imagefs_available}
+        '''
+        result = self._values.get("imagefs_available")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def imagefs_inodes_free(self) -> typing.Optional[builtins.str]:
+        '''Defines percentage of minimum reclaim for imagefs.inodesFree.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_inodes_free ContainerNodePool#imagefs_inodes_free}
+        '''
+        result = self._values.get("imagefs_inodes_free")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def memory_available(self) -> typing.Optional[builtins.str]:
+        '''Defines percentage of minimum reclaim for memory.available.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#memory_available ContainerNodePool#memory_available}
+        '''
+        result = self._values.get("memory_available")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def nodefs_available(self) -> typing.Optional[builtins.str]:
+        '''Defines percentage of minimum reclaim for nodefs.available.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_available ContainerNodePool#nodefs_available}
+        '''
+        result = self._values.get("nodefs_available")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def nodefs_inodes_free(self) -> typing.Optional[builtins.str]:
+        '''Defines percentage of minimum reclaim for nodefs.inodesFree.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_inodes_free ContainerNodePool#nodefs_inodes_free}
+        '''
+        result = self._values.get("nodefs_inodes_free")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pid_available(self) -> typing.Optional[builtins.str]:
+        '''Defines percentage of minimum reclaim for pid.available.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pid_available ContainerNodePool#pid_available}
+        '''
+        result = self._values.get("pid_available")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.containerNodePool.ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__817365e368f04220facab85d5f796aa4931f8f2ed42516220a9dc01e4e27bc43)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetImagefsAvailable")
+    def reset_imagefs_available(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetImagefsAvailable", []))
+
+    @jsii.member(jsii_name="resetImagefsInodesFree")
+    def reset_imagefs_inodes_free(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetImagefsInodesFree", []))
+
+    @jsii.member(jsii_name="resetMemoryAvailable")
+    def reset_memory_available(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMemoryAvailable", []))
+
+    @jsii.member(jsii_name="resetNodefsAvailable")
+    def reset_nodefs_available(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetNodefsAvailable", []))
+
+    @jsii.member(jsii_name="resetNodefsInodesFree")
+    def reset_nodefs_inodes_free(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetNodefsInodesFree", []))
+
+    @jsii.member(jsii_name="resetPidAvailable")
+    def reset_pid_available(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPidAvailable", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsAvailableInput")
+    def imagefs_available_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "imagefsAvailableInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsInodesFreeInput")
+    def imagefs_inodes_free_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "imagefsInodesFreeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="memoryAvailableInput")
+    def memory_available_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "memoryAvailableInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsAvailableInput")
+    def nodefs_available_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nodefsAvailableInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsInodesFreeInput")
+    def nodefs_inodes_free_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nodefsInodesFreeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pidAvailableInput")
+    def pid_available_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "pidAvailableInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsAvailable")
+    def imagefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsAvailable"))
+
+    @imagefs_available.setter
+    def imagefs_available(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8b11e11caa83cd005d77c61b022397fc0c3c5bbbe22960bc0fc2c4671b224cae)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "imagefsAvailable", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsInodesFree"))
+
+    @imagefs_inodes_free.setter
+    def imagefs_inodes_free(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a52f54ce7842073bf3f963abf77a6443532f7fa55ab6c4fae4c3e20eb3e10a8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "imagefsInodesFree", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="memoryAvailable")
+    def memory_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "memoryAvailable"))
+
+    @memory_available.setter
+    def memory_available(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__10a2c49e233b4b0cbc12d706cb2a3423f1e5cab4d81c92ddd57529cec045c6ab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "memoryAvailable", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsAvailable")
+    def nodefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsAvailable"))
+
+    @nodefs_available.setter
+    def nodefs_available(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ba17910cc62e42d0cf304af722e835b4e4c10ecdcae9b14c967a7b418cefdc8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nodefsAvailable", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsInodesFree"))
+
+    @nodefs_inodes_free.setter
+    def nodefs_inodes_free(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a9db50ad2eb0b8c8a0402b0069300ce665b1410f0f9cbb9268b5d4ea4d35df0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nodefsInodesFree", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pidAvailable")
+    def pid_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "pidAvailable"))
+
+    @pid_available.setter
+    def pid_available(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc169ec3232c658cbdb6c7366a57a63a9bb8fcfc490f869cc75372d77b032ea0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pidAvailable", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim]:
+        return typing.cast(typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__61a6a27b71aa6e987fc0cece9dc43f2d52fa88251105b1cc820717754590a84c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.containerNodePool.ContainerNodePoolNodeConfigKubeletConfigEvictionSoft",
+    jsii_struct_bases=[],
+    name_mapping={
+        "imagefs_available": "imagefsAvailable",
+        "imagefs_inodes_free": "imagefsInodesFree",
+        "memory_available": "memoryAvailable",
+        "nodefs_available": "nodefsAvailable",
+        "nodefs_inodes_free": "nodefsInodesFree",
+        "pid_available": "pidAvailable",
+    },
+)
+class ContainerNodePoolNodeConfigKubeletConfigEvictionSoft:
+    def __init__(
+        self,
+        *,
+        imagefs_available: typing.Optional[builtins.str] = None,
+        imagefs_inodes_free: typing.Optional[builtins.str] = None,
+        memory_available: typing.Optional[builtins.str] = None,
+        nodefs_available: typing.Optional[builtins.str] = None,
+        nodefs_inodes_free: typing.Optional[builtins.str] = None,
+        pid_available: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param imagefs_available: Defines percentage of soft eviction threshold for imagefs.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_available ContainerNodePool#imagefs_available}
+        :param imagefs_inodes_free: Defines percentage of soft eviction threshold for imagefs.inodesFree. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_inodes_free ContainerNodePool#imagefs_inodes_free}
+        :param memory_available: Defines quantity of soft eviction threshold for memory.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#memory_available ContainerNodePool#memory_available}
+        :param nodefs_available: Defines percentage of soft eviction threshold for nodefs.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_available ContainerNodePool#nodefs_available}
+        :param nodefs_inodes_free: Defines percentage of soft eviction threshold for nodefs.inodesFree. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_inodes_free ContainerNodePool#nodefs_inodes_free}
+        :param pid_available: Defines percentage of soft eviction threshold for pid.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pid_available ContainerNodePool#pid_available}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27cc02eb117d029842208dd018cc052ad37cd1c6805698dc3f739d8a9354e4ae)
+            check_type(argname="argument imagefs_available", value=imagefs_available, expected_type=type_hints["imagefs_available"])
+            check_type(argname="argument imagefs_inodes_free", value=imagefs_inodes_free, expected_type=type_hints["imagefs_inodes_free"])
+            check_type(argname="argument memory_available", value=memory_available, expected_type=type_hints["memory_available"])
+            check_type(argname="argument nodefs_available", value=nodefs_available, expected_type=type_hints["nodefs_available"])
+            check_type(argname="argument nodefs_inodes_free", value=nodefs_inodes_free, expected_type=type_hints["nodefs_inodes_free"])
+            check_type(argname="argument pid_available", value=pid_available, expected_type=type_hints["pid_available"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if imagefs_available is not None:
+            self._values["imagefs_available"] = imagefs_available
+        if imagefs_inodes_free is not None:
+            self._values["imagefs_inodes_free"] = imagefs_inodes_free
+        if memory_available is not None:
+            self._values["memory_available"] = memory_available
+        if nodefs_available is not None:
+            self._values["nodefs_available"] = nodefs_available
+        if nodefs_inodes_free is not None:
+            self._values["nodefs_inodes_free"] = nodefs_inodes_free
+        if pid_available is not None:
+            self._values["pid_available"] = pid_available
+
+    @builtins.property
+    def imagefs_available(self) -> typing.Optional[builtins.str]:
+        '''Defines percentage of soft eviction threshold for imagefs.available.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_available ContainerNodePool#imagefs_available}
+        '''
+        result = self._values.get("imagefs_available")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def imagefs_inodes_free(self) -> typing.Optional[builtins.str]:
+        '''Defines percentage of soft eviction threshold for imagefs.inodesFree.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_inodes_free ContainerNodePool#imagefs_inodes_free}
+        '''
+        result = self._values.get("imagefs_inodes_free")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def memory_available(self) -> typing.Optional[builtins.str]:
+        '''Defines quantity of soft eviction threshold for memory.available.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#memory_available ContainerNodePool#memory_available}
+        '''
+        result = self._values.get("memory_available")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def nodefs_available(self) -> typing.Optional[builtins.str]:
+        '''Defines percentage of soft eviction threshold for nodefs.available.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_available ContainerNodePool#nodefs_available}
+        '''
+        result = self._values.get("nodefs_available")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def nodefs_inodes_free(self) -> typing.Optional[builtins.str]:
+        '''Defines percentage of soft eviction threshold for nodefs.inodesFree.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_inodes_free ContainerNodePool#nodefs_inodes_free}
+        '''
+        result = self._values.get("nodefs_inodes_free")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pid_available(self) -> typing.Optional[builtins.str]:
+        '''Defines percentage of soft eviction threshold for pid.available.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pid_available ContainerNodePool#pid_available}
+        '''
+        result = self._values.get("pid_available")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContainerNodePoolNodeConfigKubeletConfigEvictionSoft(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.containerNodePool.ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod",
+    jsii_struct_bases=[],
+    name_mapping={
+        "imagefs_available": "imagefsAvailable",
+        "imagefs_inodes_free": "imagefsInodesFree",
+        "memory_available": "memoryAvailable",
+        "nodefs_available": "nodefsAvailable",
+        "nodefs_inodes_free": "nodefsInodesFree",
+        "pid_available": "pidAvailable",
+    },
+)
+class ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod:
+    def __init__(
+        self,
+        *,
+        imagefs_available: typing.Optional[builtins.str] = None,
+        imagefs_inodes_free: typing.Optional[builtins.str] = None,
+        memory_available: typing.Optional[builtins.str] = None,
+        nodefs_available: typing.Optional[builtins.str] = None,
+        nodefs_inodes_free: typing.Optional[builtins.str] = None,
+        pid_available: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param imagefs_available: Defines grace period for the imagefs.available soft eviction threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_available ContainerNodePool#imagefs_available}
+        :param imagefs_inodes_free: Defines grace period for the imagefs.inodesFree soft eviction threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_inodes_free ContainerNodePool#imagefs_inodes_free}
+        :param memory_available: Defines grace period for the memory.available soft eviction threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#memory_available ContainerNodePool#memory_available}
+        :param nodefs_available: Defines grace period for the nodefs.available soft eviction threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_available ContainerNodePool#nodefs_available}
+        :param nodefs_inodes_free: Defines grace period for the nodefs.inodesFree soft eviction threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_inodes_free ContainerNodePool#nodefs_inodes_free}
+        :param pid_available: Defines grace period for the pid.available soft eviction threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pid_available ContainerNodePool#pid_available}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__548b45d71c3ddf43f552bb798102e0ebac4506666dd79154cfe4bdef34591292)
+            check_type(argname="argument imagefs_available", value=imagefs_available, expected_type=type_hints["imagefs_available"])
+            check_type(argname="argument imagefs_inodes_free", value=imagefs_inodes_free, expected_type=type_hints["imagefs_inodes_free"])
+            check_type(argname="argument memory_available", value=memory_available, expected_type=type_hints["memory_available"])
+            check_type(argname="argument nodefs_available", value=nodefs_available, expected_type=type_hints["nodefs_available"])
+            check_type(argname="argument nodefs_inodes_free", value=nodefs_inodes_free, expected_type=type_hints["nodefs_inodes_free"])
+            check_type(argname="argument pid_available", value=pid_available, expected_type=type_hints["pid_available"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if imagefs_available is not None:
+            self._values["imagefs_available"] = imagefs_available
+        if imagefs_inodes_free is not None:
+            self._values["imagefs_inodes_free"] = imagefs_inodes_free
+        if memory_available is not None:
+            self._values["memory_available"] = memory_available
+        if nodefs_available is not None:
+            self._values["nodefs_available"] = nodefs_available
+        if nodefs_inodes_free is not None:
+            self._values["nodefs_inodes_free"] = nodefs_inodes_free
+        if pid_available is not None:
+            self._values["pid_available"] = pid_available
+
+    @builtins.property
+    def imagefs_available(self) -> typing.Optional[builtins.str]:
+        '''Defines grace period for the imagefs.available soft eviction threshold.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_available ContainerNodePool#imagefs_available}
+        '''
+        result = self._values.get("imagefs_available")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def imagefs_inodes_free(self) -> typing.Optional[builtins.str]:
+        '''Defines grace period for the imagefs.inodesFree soft eviction threshold.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_inodes_free ContainerNodePool#imagefs_inodes_free}
+        '''
+        result = self._values.get("imagefs_inodes_free")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def memory_available(self) -> typing.Optional[builtins.str]:
+        '''Defines grace period for the memory.available soft eviction threshold.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#memory_available ContainerNodePool#memory_available}
+        '''
+        result = self._values.get("memory_available")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def nodefs_available(self) -> typing.Optional[builtins.str]:
+        '''Defines grace period for the nodefs.available soft eviction threshold.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_available ContainerNodePool#nodefs_available}
+        '''
+        result = self._values.get("nodefs_available")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def nodefs_inodes_free(self) -> typing.Optional[builtins.str]:
+        '''Defines grace period for the nodefs.inodesFree soft eviction threshold.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_inodes_free ContainerNodePool#nodefs_inodes_free}
+        '''
+        result = self._values.get("nodefs_inodes_free")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pid_available(self) -> typing.Optional[builtins.str]:
+        '''Defines grace period for the pid.available soft eviction threshold.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pid_available ContainerNodePool#pid_available}
+        '''
+        result = self._values.get("pid_available")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.containerNodePool.ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21a7d0cc36210aa888caa8772fd6ac02a94ad2ff9fea11a43f5616716c92bee3)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetImagefsAvailable")
+    def reset_imagefs_available(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetImagefsAvailable", []))
+
+    @jsii.member(jsii_name="resetImagefsInodesFree")
+    def reset_imagefs_inodes_free(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetImagefsInodesFree", []))
+
+    @jsii.member(jsii_name="resetMemoryAvailable")
+    def reset_memory_available(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMemoryAvailable", []))
+
+    @jsii.member(jsii_name="resetNodefsAvailable")
+    def reset_nodefs_available(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetNodefsAvailable", []))
+
+    @jsii.member(jsii_name="resetNodefsInodesFree")
+    def reset_nodefs_inodes_free(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetNodefsInodesFree", []))
+
+    @jsii.member(jsii_name="resetPidAvailable")
+    def reset_pid_available(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPidAvailable", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsAvailableInput")
+    def imagefs_available_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "imagefsAvailableInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsInodesFreeInput")
+    def imagefs_inodes_free_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "imagefsInodesFreeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="memoryAvailableInput")
+    def memory_available_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "memoryAvailableInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsAvailableInput")
+    def nodefs_available_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nodefsAvailableInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsInodesFreeInput")
+    def nodefs_inodes_free_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nodefsInodesFreeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pidAvailableInput")
+    def pid_available_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "pidAvailableInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsAvailable")
+    def imagefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsAvailable"))
+
+    @imagefs_available.setter
+    def imagefs_available(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d0a13fee9c1051b4d8df459e23fcb69566e19edb1a3fba90abeac9f36a192629)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "imagefsAvailable", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsInodesFree"))
+
+    @imagefs_inodes_free.setter
+    def imagefs_inodes_free(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__389509315e8689fa89c870654a8e4456d0d165dfdca267c2ee620968b2c39dd4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "imagefsInodesFree", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="memoryAvailable")
+    def memory_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "memoryAvailable"))
+
+    @memory_available.setter
+    def memory_available(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a1d29459dc143f41a02373c42a79dffe2332054f34d163db8df8027c32623119)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "memoryAvailable", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsAvailable")
+    def nodefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsAvailable"))
+
+    @nodefs_available.setter
+    def nodefs_available(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e48131bba9e2d9380d55a1743ba17b3f1c584edf57ca42293e17fa0426e23e56)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nodefsAvailable", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsInodesFree"))
+
+    @nodefs_inodes_free.setter
+    def nodefs_inodes_free(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc1c085c02f7534f5f2a3fb2ac1dcb149cf135384c76fddaa06ad3db018ee376)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nodefsInodesFree", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pidAvailable")
+    def pid_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "pidAvailable"))
+
+    @pid_available.setter
+    def pid_available(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b61b54bf81b312bb89fe65ae92442bf1163aa94e0810f689a431725759439b43)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pidAvailable", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod]:
+        return typing.cast(typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd93924190d72578801d50b2cdf79dafa88b8ca4c9f6afce3640dcc1d7e0a35e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class ContainerNodePoolNodeConfigKubeletConfigEvictionSoftOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.containerNodePool.ContainerNodePoolNodeConfigKubeletConfigEvictionSoftOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ac79f9977337fe6e9e9f81866af18c70c2828bf7b4a837bcf2245b6d16f89961)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetImagefsAvailable")
+    def reset_imagefs_available(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetImagefsAvailable", []))
+
+    @jsii.member(jsii_name="resetImagefsInodesFree")
+    def reset_imagefs_inodes_free(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetImagefsInodesFree", []))
+
+    @jsii.member(jsii_name="resetMemoryAvailable")
+    def reset_memory_available(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMemoryAvailable", []))
+
+    @jsii.member(jsii_name="resetNodefsAvailable")
+    def reset_nodefs_available(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetNodefsAvailable", []))
+
+    @jsii.member(jsii_name="resetNodefsInodesFree")
+    def reset_nodefs_inodes_free(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetNodefsInodesFree", []))
+
+    @jsii.member(jsii_name="resetPidAvailable")
+    def reset_pid_available(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetPidAvailable", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsAvailableInput")
+    def imagefs_available_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "imagefsAvailableInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsInodesFreeInput")
+    def imagefs_inodes_free_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "imagefsInodesFreeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="memoryAvailableInput")
+    def memory_available_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "memoryAvailableInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsAvailableInput")
+    def nodefs_available_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nodefsAvailableInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsInodesFreeInput")
+    def nodefs_inodes_free_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nodefsInodesFreeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pidAvailableInput")
+    def pid_available_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "pidAvailableInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsAvailable")
+    def imagefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsAvailable"))
+
+    @imagefs_available.setter
+    def imagefs_available(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8a61adb105f9f8a8b78c36f27b76857c0a1d11824746ec06a92a048fdad2366a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "imagefsAvailable", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsInodesFree"))
+
+    @imagefs_inodes_free.setter
+    def imagefs_inodes_free(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__66e054dafd0ec4905514111931a488a54e7549d25750dbc036df4634f1324bb5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "imagefsInodesFree", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="memoryAvailable")
+    def memory_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "memoryAvailable"))
+
+    @memory_available.setter
+    def memory_available(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d431f7bba3a43055251a71695b000b0bc8b0386d5a4571abf143cd669a28049)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "memoryAvailable", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsAvailable")
+    def nodefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsAvailable"))
+
+    @nodefs_available.setter
+    def nodefs_available(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__003f4df7d0b016faf4bbd95d292a13b67edb08d02fca3b4e27757450b7ce4b96)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nodefsAvailable", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsInodesFree"))
+
+    @nodefs_inodes_free.setter
+    def nodefs_inodes_free(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42673f6af4e802633606d0a2476df284e08291b051624ce73dc370bb092cba4c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nodefsInodesFree", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pidAvailable")
+    def pid_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "pidAvailable"))
+
+    @pid_available.setter
+    def pid_available(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d02e870de8682c7648f1c4880e302f9cc00144088b07c3467545e249b889faf7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pidAvailable", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionSoft]:
+        return typing.cast(typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionSoft], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionSoft],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e0ec88b4f93ac0926bfd3208b6851525e5a2a28859555c620f91eaad695b98fe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 class ContainerNodePoolNodeConfigKubeletConfigOutputReference(
@@ -6293,6 +7229,96 @@ class ContainerNodePoolNodeConfigKubeletConfigOutputReference(
             check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putEvictionMinimumReclaim")
+    def put_eviction_minimum_reclaim(
+        self,
+        *,
+        imagefs_available: typing.Optional[builtins.str] = None,
+        imagefs_inodes_free: typing.Optional[builtins.str] = None,
+        memory_available: typing.Optional[builtins.str] = None,
+        nodefs_available: typing.Optional[builtins.str] = None,
+        nodefs_inodes_free: typing.Optional[builtins.str] = None,
+        pid_available: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param imagefs_available: Defines percentage of minimum reclaim for imagefs.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_available ContainerNodePool#imagefs_available}
+        :param imagefs_inodes_free: Defines percentage of minimum reclaim for imagefs.inodesFree. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_inodes_free ContainerNodePool#imagefs_inodes_free}
+        :param memory_available: Defines percentage of minimum reclaim for memory.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#memory_available ContainerNodePool#memory_available}
+        :param nodefs_available: Defines percentage of minimum reclaim for nodefs.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_available ContainerNodePool#nodefs_available}
+        :param nodefs_inodes_free: Defines percentage of minimum reclaim for nodefs.inodesFree. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_inodes_free ContainerNodePool#nodefs_inodes_free}
+        :param pid_available: Defines percentage of minimum reclaim for pid.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pid_available ContainerNodePool#pid_available}
+        '''
+        value = ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim(
+            imagefs_available=imagefs_available,
+            imagefs_inodes_free=imagefs_inodes_free,
+            memory_available=memory_available,
+            nodefs_available=nodefs_available,
+            nodefs_inodes_free=nodefs_inodes_free,
+            pid_available=pid_available,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putEvictionMinimumReclaim", [value]))
+
+    @jsii.member(jsii_name="putEvictionSoft")
+    def put_eviction_soft(
+        self,
+        *,
+        imagefs_available: typing.Optional[builtins.str] = None,
+        imagefs_inodes_free: typing.Optional[builtins.str] = None,
+        memory_available: typing.Optional[builtins.str] = None,
+        nodefs_available: typing.Optional[builtins.str] = None,
+        nodefs_inodes_free: typing.Optional[builtins.str] = None,
+        pid_available: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param imagefs_available: Defines percentage of soft eviction threshold for imagefs.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_available ContainerNodePool#imagefs_available}
+        :param imagefs_inodes_free: Defines percentage of soft eviction threshold for imagefs.inodesFree. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_inodes_free ContainerNodePool#imagefs_inodes_free}
+        :param memory_available: Defines quantity of soft eviction threshold for memory.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#memory_available ContainerNodePool#memory_available}
+        :param nodefs_available: Defines percentage of soft eviction threshold for nodefs.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_available ContainerNodePool#nodefs_available}
+        :param nodefs_inodes_free: Defines percentage of soft eviction threshold for nodefs.inodesFree. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_inodes_free ContainerNodePool#nodefs_inodes_free}
+        :param pid_available: Defines percentage of soft eviction threshold for pid.available. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pid_available ContainerNodePool#pid_available}
+        '''
+        value = ContainerNodePoolNodeConfigKubeletConfigEvictionSoft(
+            imagefs_available=imagefs_available,
+            imagefs_inodes_free=imagefs_inodes_free,
+            memory_available=memory_available,
+            nodefs_available=nodefs_available,
+            nodefs_inodes_free=nodefs_inodes_free,
+            pid_available=pid_available,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putEvictionSoft", [value]))
+
+    @jsii.member(jsii_name="putEvictionSoftGracePeriod")
+    def put_eviction_soft_grace_period(
+        self,
+        *,
+        imagefs_available: typing.Optional[builtins.str] = None,
+        imagefs_inodes_free: typing.Optional[builtins.str] = None,
+        memory_available: typing.Optional[builtins.str] = None,
+        nodefs_available: typing.Optional[builtins.str] = None,
+        nodefs_inodes_free: typing.Optional[builtins.str] = None,
+        pid_available: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param imagefs_available: Defines grace period for the imagefs.available soft eviction threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_available ContainerNodePool#imagefs_available}
+        :param imagefs_inodes_free: Defines grace period for the imagefs.inodesFree soft eviction threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#imagefs_inodes_free ContainerNodePool#imagefs_inodes_free}
+        :param memory_available: Defines grace period for the memory.available soft eviction threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#memory_available ContainerNodePool#memory_available}
+        :param nodefs_available: Defines grace period for the nodefs.available soft eviction threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_available ContainerNodePool#nodefs_available}
+        :param nodefs_inodes_free: Defines grace period for the nodefs.inodesFree soft eviction threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#nodefs_inodes_free ContainerNodePool#nodefs_inodes_free}
+        :param pid_available: Defines grace period for the pid.available soft eviction threshold. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pid_available ContainerNodePool#pid_available}
+        '''
+        value = ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod(
+            imagefs_available=imagefs_available,
+            imagefs_inodes_free=imagefs_inodes_free,
+            memory_available=memory_available,
+            nodefs_available=nodefs_available,
+            nodefs_inodes_free=nodefs_inodes_free,
+            pid_available=pid_available,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putEvictionSoftGracePeriod", [value]))
 
     @jsii.member(jsii_name="resetAllowedUnsafeSysctls")
     def reset_allowed_unsafe_sysctls(self) -> None:
@@ -6318,6 +7344,22 @@ class ContainerNodePoolNodeConfigKubeletConfigOutputReference(
     def reset_cpu_manager_policy(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetCpuManagerPolicy", []))
 
+    @jsii.member(jsii_name="resetEvictionMaxPodGracePeriodSeconds")
+    def reset_eviction_max_pod_grace_period_seconds(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEvictionMaxPodGracePeriodSeconds", []))
+
+    @jsii.member(jsii_name="resetEvictionMinimumReclaim")
+    def reset_eviction_minimum_reclaim(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEvictionMinimumReclaim", []))
+
+    @jsii.member(jsii_name="resetEvictionSoft")
+    def reset_eviction_soft(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEvictionSoft", []))
+
+    @jsii.member(jsii_name="resetEvictionSoftGracePeriod")
+    def reset_eviction_soft_grace_period(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEvictionSoftGracePeriod", []))
+
     @jsii.member(jsii_name="resetImageGcHighThresholdPercent")
     def reset_image_gc_high_threshold_percent(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetImageGcHighThresholdPercent", []))
@@ -6338,6 +7380,10 @@ class ContainerNodePoolNodeConfigKubeletConfigOutputReference(
     def reset_insecure_kubelet_readonly_port_enabled(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetInsecureKubeletReadonlyPortEnabled", []))
 
+    @jsii.member(jsii_name="resetMaxParallelImagePulls")
+    def reset_max_parallel_image_pulls(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMaxParallelImagePulls", []))
+
     @jsii.member(jsii_name="resetPodPidsLimit")
     def reset_pod_pids_limit(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetPodPidsLimit", []))
@@ -6345,6 +7391,27 @@ class ContainerNodePoolNodeConfigKubeletConfigOutputReference(
     @jsii.member(jsii_name="resetSingleProcessOomKill")
     def reset_single_process_oom_kill(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetSingleProcessOomKill", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="evictionMinimumReclaim")
+    def eviction_minimum_reclaim(
+        self,
+    ) -> ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference:
+        return typing.cast(ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference, jsii.get(self, "evictionMinimumReclaim"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evictionSoft")
+    def eviction_soft(
+        self,
+    ) -> ContainerNodePoolNodeConfigKubeletConfigEvictionSoftOutputReference:
+        return typing.cast(ContainerNodePoolNodeConfigKubeletConfigEvictionSoftOutputReference, jsii.get(self, "evictionSoft"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evictionSoftGracePeriod")
+    def eviction_soft_grace_period(
+        self,
+    ) -> ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference:
+        return typing.cast(ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference, jsii.get(self, "evictionSoftGracePeriod"))
 
     @builtins.property
     @jsii.member(jsii_name="allowedUnsafeSysctlsInput")
@@ -6381,6 +7448,34 @@ class ContainerNodePoolNodeConfigKubeletConfigOutputReference(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cpuManagerPolicyInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="evictionMaxPodGracePeriodSecondsInput")
+    def eviction_max_pod_grace_period_seconds_input(
+        self,
+    ) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "evictionMaxPodGracePeriodSecondsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evictionMinimumReclaimInput")
+    def eviction_minimum_reclaim_input(
+        self,
+    ) -> typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim]:
+        return typing.cast(typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim], jsii.get(self, "evictionMinimumReclaimInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evictionSoftGracePeriodInput")
+    def eviction_soft_grace_period_input(
+        self,
+    ) -> typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod]:
+        return typing.cast(typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod], jsii.get(self, "evictionSoftGracePeriodInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evictionSoftInput")
+    def eviction_soft_input(
+        self,
+    ) -> typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionSoft]:
+        return typing.cast(typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionSoft], jsii.get(self, "evictionSoftInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="imageGcHighThresholdPercentInput")
     def image_gc_high_threshold_percent_input(self) -> typing.Optional[jsii.Number]:
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "imageGcHighThresholdPercentInput"))
@@ -6406,6 +7501,11 @@ class ContainerNodePoolNodeConfigKubeletConfigOutputReference(
         self,
     ) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "insecureKubeletReadonlyPortEnabledInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxParallelImagePullsInput")
+    def max_parallel_image_pulls_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxParallelImagePullsInput"))
 
     @builtins.property
     @jsii.member(jsii_name="podPidsLimitInput")
@@ -6495,6 +7595,18 @@ class ContainerNodePoolNodeConfigKubeletConfigOutputReference(
         jsii.set(self, "cpuManagerPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="evictionMaxPodGracePeriodSeconds")
+    def eviction_max_pod_grace_period_seconds(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "evictionMaxPodGracePeriodSeconds"))
+
+    @eviction_max_pod_grace_period_seconds.setter
+    def eviction_max_pod_grace_period_seconds(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6386820e4fd7e65821b884caf091c58d94e867db1a129e6c72abb6f063822c0c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "evictionMaxPodGracePeriodSeconds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="imageGcHighThresholdPercent")
     def image_gc_high_threshold_percent(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "imageGcHighThresholdPercent"))
@@ -6555,6 +7667,18 @@ class ContainerNodePoolNodeConfigKubeletConfigOutputReference(
         jsii.set(self, "insecureKubeletReadonlyPortEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="maxParallelImagePulls")
+    def max_parallel_image_pulls(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "maxParallelImagePulls"))
+
+    @max_parallel_image_pulls.setter
+    def max_parallel_image_pulls(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9b40abd81bc036187141b3be2293eca5629f7cad9ac3c0e619836f7d8e57d450)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxParallelImagePulls", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="podPidsLimit")
     def pod_pids_limit(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "podPidsLimit"))
@@ -6608,6 +7732,8 @@ class ContainerNodePoolNodeConfigKubeletConfigOutputReference(
         "cgroup_mode": "cgroupMode",
         "hugepages_config": "hugepagesConfig",
         "sysctls": "sysctls",
+        "transparent_hugepage_defrag": "transparentHugepageDefrag",
+        "transparent_hugepage_enabled": "transparentHugepageEnabled",
     },
 )
 class ContainerNodePoolNodeConfigLinuxNodeConfig:
@@ -6617,11 +7743,15 @@ class ContainerNodePoolNodeConfigLinuxNodeConfig:
         cgroup_mode: typing.Optional[builtins.str] = None,
         hugepages_config: typing.Optional[typing.Union["ContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         sysctls: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        transparent_hugepage_defrag: typing.Optional[builtins.str] = None,
+        transparent_hugepage_enabled: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cgroup_mode: cgroupMode specifies the cgroup mode to be used on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cgroup_mode ContainerNodePool#cgroup_mode}
-        :param hugepages_config: hugepages_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#hugepages_config ContainerNodePool#hugepages_config}
-        :param sysctls: The Linux kernel parameters to be applied to the nodes and all pods running on the nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#sysctls ContainerNodePool#sysctls}
+        :param cgroup_mode: cgroupMode specifies the cgroup mode to be used on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cgroup_mode ContainerNodePool#cgroup_mode}
+        :param hugepages_config: hugepages_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#hugepages_config ContainerNodePool#hugepages_config}
+        :param sysctls: The Linux kernel parameters to be applied to the nodes and all pods running on the nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#sysctls ContainerNodePool#sysctls}
+        :param transparent_hugepage_defrag: The Linux kernel transparent hugepage defrag setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#transparent_hugepage_defrag ContainerNodePool#transparent_hugepage_defrag}
+        :param transparent_hugepage_enabled: The Linux kernel transparent hugepage setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#transparent_hugepage_enabled ContainerNodePool#transparent_hugepage_enabled}
         '''
         if isinstance(hugepages_config, dict):
             hugepages_config = ContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig(**hugepages_config)
@@ -6630,6 +7760,8 @@ class ContainerNodePoolNodeConfigLinuxNodeConfig:
             check_type(argname="argument cgroup_mode", value=cgroup_mode, expected_type=type_hints["cgroup_mode"])
             check_type(argname="argument hugepages_config", value=hugepages_config, expected_type=type_hints["hugepages_config"])
             check_type(argname="argument sysctls", value=sysctls, expected_type=type_hints["sysctls"])
+            check_type(argname="argument transparent_hugepage_defrag", value=transparent_hugepage_defrag, expected_type=type_hints["transparent_hugepage_defrag"])
+            check_type(argname="argument transparent_hugepage_enabled", value=transparent_hugepage_enabled, expected_type=type_hints["transparent_hugepage_enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if cgroup_mode is not None:
             self._values["cgroup_mode"] = cgroup_mode
@@ -6637,12 +7769,16 @@ class ContainerNodePoolNodeConfigLinuxNodeConfig:
             self._values["hugepages_config"] = hugepages_config
         if sysctls is not None:
             self._values["sysctls"] = sysctls
+        if transparent_hugepage_defrag is not None:
+            self._values["transparent_hugepage_defrag"] = transparent_hugepage_defrag
+        if transparent_hugepage_enabled is not None:
+            self._values["transparent_hugepage_enabled"] = transparent_hugepage_enabled
 
     @builtins.property
     def cgroup_mode(self) -> typing.Optional[builtins.str]:
         '''cgroupMode specifies the cgroup mode to be used on the node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cgroup_mode ContainerNodePool#cgroup_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cgroup_mode ContainerNodePool#cgroup_mode}
         '''
         result = self._values.get("cgroup_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6653,7 +7789,7 @@ class ContainerNodePoolNodeConfigLinuxNodeConfig:
     ) -> typing.Optional["ContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig"]:
         '''hugepages_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#hugepages_config ContainerNodePool#hugepages_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#hugepages_config ContainerNodePool#hugepages_config}
         '''
         result = self._values.get("hugepages_config")
         return typing.cast(typing.Optional["ContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig"], result)
@@ -6662,10 +7798,28 @@ class ContainerNodePoolNodeConfigLinuxNodeConfig:
     def sysctls(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The Linux kernel parameters to be applied to the nodes and all pods running on the nodes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#sysctls ContainerNodePool#sysctls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#sysctls ContainerNodePool#sysctls}
         '''
         result = self._values.get("sysctls")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def transparent_hugepage_defrag(self) -> typing.Optional[builtins.str]:
+        '''The Linux kernel transparent hugepage defrag setting.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#transparent_hugepage_defrag ContainerNodePool#transparent_hugepage_defrag}
+        '''
+        result = self._values.get("transparent_hugepage_defrag")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def transparent_hugepage_enabled(self) -> typing.Optional[builtins.str]:
+        '''The Linux kernel transparent hugepage setting.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#transparent_hugepage_enabled ContainerNodePool#transparent_hugepage_enabled}
+        '''
+        result = self._values.get("transparent_hugepage_enabled")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6695,8 +7849,8 @@ class ContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig:
         hugepage_size2_m: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hugepage_size1_g: Amount of 1G hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#hugepage_size_1g ContainerNodePool#hugepage_size_1g}
-        :param hugepage_size2_m: Amount of 2M hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#hugepage_size_2m ContainerNodePool#hugepage_size_2m}
+        :param hugepage_size1_g: Amount of 1G hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#hugepage_size_1g ContainerNodePool#hugepage_size_1g}
+        :param hugepage_size2_m: Amount of 2M hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#hugepage_size_2m ContainerNodePool#hugepage_size_2m}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a489ee8c4d58a71fe3574d56ad1784304ed38e113d774afecae2d8b491739cc)
@@ -6712,7 +7866,7 @@ class ContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig:
     def hugepage_size1_g(self) -> typing.Optional[jsii.Number]:
         '''Amount of 1G hugepages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#hugepage_size_1g ContainerNodePool#hugepage_size_1g}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#hugepage_size_1g ContainerNodePool#hugepage_size_1g}
         '''
         result = self._values.get("hugepage_size1_g")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6721,7 +7875,7 @@ class ContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig:
     def hugepage_size2_m(self) -> typing.Optional[jsii.Number]:
         '''Amount of 2M hugepages.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#hugepage_size_2m ContainerNodePool#hugepage_size_2m}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#hugepage_size_2m ContainerNodePool#hugepage_size_2m}
         '''
         result = self._values.get("hugepage_size2_m")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6846,8 +8000,8 @@ class ContainerNodePoolNodeConfigLinuxNodeConfigOutputReference(
         hugepage_size2_m: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hugepage_size1_g: Amount of 1G hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#hugepage_size_1g ContainerNodePool#hugepage_size_1g}
-        :param hugepage_size2_m: Amount of 2M hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#hugepage_size_2m ContainerNodePool#hugepage_size_2m}
+        :param hugepage_size1_g: Amount of 1G hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#hugepage_size_1g ContainerNodePool#hugepage_size_1g}
+        :param hugepage_size2_m: Amount of 2M hugepages. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#hugepage_size_2m ContainerNodePool#hugepage_size_2m}
         '''
         value = ContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig(
             hugepage_size1_g=hugepage_size1_g, hugepage_size2_m=hugepage_size2_m
@@ -6866,6 +8020,14 @@ class ContainerNodePoolNodeConfigLinuxNodeConfigOutputReference(
     @jsii.member(jsii_name="resetSysctls")
     def reset_sysctls(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetSysctls", []))
+
+    @jsii.member(jsii_name="resetTransparentHugepageDefrag")
+    def reset_transparent_hugepage_defrag(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTransparentHugepageDefrag", []))
+
+    @jsii.member(jsii_name="resetTransparentHugepageEnabled")
+    def reset_transparent_hugepage_enabled(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTransparentHugepageEnabled", []))
 
     @builtins.property
     @jsii.member(jsii_name="hugepagesConfig")
@@ -6894,6 +8056,16 @@ class ContainerNodePoolNodeConfigLinuxNodeConfigOutputReference(
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "sysctlsInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="transparentHugepageDefragInput")
+    def transparent_hugepage_defrag_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "transparentHugepageDefragInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="transparentHugepageEnabledInput")
+    def transparent_hugepage_enabled_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "transparentHugepageEnabledInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="cgroupMode")
     def cgroup_mode(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "cgroupMode"))
@@ -6916,6 +8088,30 @@ class ContainerNodePoolNodeConfigLinuxNodeConfigOutputReference(
             type_hints = typing.get_type_hints(_typecheckingstub__f508b6be4bf1c1074acaed306517780fd016714139e866a1821151c7a2f604a6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "sysctls", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="transparentHugepageDefrag")
+    def transparent_hugepage_defrag(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "transparentHugepageDefrag"))
+
+    @transparent_hugepage_defrag.setter
+    def transparent_hugepage_defrag(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f3eb4641f4d6fa2a2e68282ab45eb49408eda022b8acf06971354b6d7b80239)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "transparentHugepageDefrag", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="transparentHugepageEnabled")
+    def transparent_hugepage_enabled(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "transparentHugepageEnabled"))
+
+    @transparent_hugepage_enabled.setter
+    def transparent_hugepage_enabled(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5bf7746af6d66332429be7316797c5f66c4343faaf763a434302f4b0740eae8e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "transparentHugepageEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
@@ -6943,7 +8139,7 @@ class ContainerNodePoolNodeConfigLinuxNodeConfigOutputReference(
 class ContainerNodePoolNodeConfigLocalNvmeSsdBlockConfig:
     def __init__(self, *, local_ssd_count: jsii.Number) -> None:
         '''
-        :param local_ssd_count: Number of raw-block local NVMe SSD disks to be attached to the node. Each local SSD is 375 GB in size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
+        :param local_ssd_count: Number of raw-block local NVMe SSD disks to be attached to the node. Each local SSD is 375 GB in size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__65981ffdb6e267ef9da5fd2280da58fae8ab4507b53d2bbd5c731b8d316388d6)
@@ -6958,7 +8154,7 @@ class ContainerNodePoolNodeConfigLocalNvmeSsdBlockConfig:
 
         Each local SSD is 375 GB in size.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
         '''
         result = self._values.get("local_ssd_count")
         assert result is not None, "Required property 'local_ssd_count' is missing"
@@ -7060,9 +8256,9 @@ class ContainerNodePoolNodeConfigOutputReference(
         performance_monitoring_unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param threads_per_core: The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#threads_per_core ContainerNodePool#threads_per_core}
-        :param enable_nested_virtualization: Whether the node should have nested virtualization enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_nested_virtualization ContainerNodePool#enable_nested_virtualization}
-        :param performance_monitoring_unit: Level of Performance Monitoring Unit (PMU) requested. If unset, no access to the PMU is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#performance_monitoring_unit ContainerNodePool#performance_monitoring_unit}
+        :param threads_per_core: The number of threads per physical core. To disable simultaneous multithreading (SMT) set this to 1. If unset, the maximum number of threads supported per core by the underlying processor is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#threads_per_core ContainerNodePool#threads_per_core}
+        :param enable_nested_virtualization: Whether the node should have nested virtualization enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_nested_virtualization ContainerNodePool#enable_nested_virtualization}
+        :param performance_monitoring_unit: Level of Performance Monitoring Unit (PMU) requested. If unset, no access to the PMU is assumed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#performance_monitoring_unit ContainerNodePool#performance_monitoring_unit}
         '''
         value = ContainerNodePoolNodeConfigAdvancedMachineFeatures(
             threads_per_core=threads_per_core,
@@ -7082,10 +8278,10 @@ class ContainerNodePoolNodeConfigOutputReference(
         size_gb: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param disk_type: Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disk_type ContainerNodePool#disk_type}
-        :param provisioned_iops: Configured IOPs provisioning. Only valid with disk type hyperdisk-balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#provisioned_iops ContainerNodePool#provisioned_iops}
-        :param provisioned_throughput: Configured throughput provisioning. Only valid with disk type hyperdisk-balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#provisioned_throughput ContainerNodePool#provisioned_throughput}
-        :param size_gb: Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#size_gb ContainerNodePool#size_gb}
+        :param disk_type: Type of the disk attached to each node. Such as pd-standard, pd-balanced or pd-ssd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disk_type ContainerNodePool#disk_type}
+        :param provisioned_iops: Configured IOPs provisioning. Only valid with disk type hyperdisk-balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#provisioned_iops ContainerNodePool#provisioned_iops}
+        :param provisioned_throughput: Configured throughput provisioning. Only valid with disk type hyperdisk-balanced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#provisioned_throughput ContainerNodePool#provisioned_throughput}
+        :param size_gb: Size of the disk attached to each node, specified in GB. The smallest allowed disk size is 10GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#size_gb ContainerNodePool#size_gb}
         '''
         value = ContainerNodePoolNodeConfigBootDisk(
             disk_type=disk_type,
@@ -7104,8 +8300,8 @@ class ContainerNodePoolNodeConfigOutputReference(
         confidential_instance_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Whether Confidential Nodes feature is enabled for all nodes in this pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
-        :param confidential_instance_type: Defines the type of technology used by the confidential node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#confidential_instance_type ContainerNodePool#confidential_instance_type}
+        :param enabled: Whether Confidential Nodes feature is enabled for all nodes in this pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        :param confidential_instance_type: Defines the type of technology used by the confidential node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#confidential_instance_type ContainerNodePool#confidential_instance_type}
         '''
         value = ContainerNodePoolNodeConfigConfidentialNodes(
             enabled=enabled, confidential_instance_type=confidential_instance_type
@@ -7120,7 +8316,7 @@ class ContainerNodePoolNodeConfigOutputReference(
         private_registry_access_config: typing.Optional[typing.Union[ContainerNodePoolNodeConfigContainerdConfigPrivateRegistryAccessConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param private_registry_access_config: private_registry_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#private_registry_access_config ContainerNodePool#private_registry_access_config}
+        :param private_registry_access_config: private_registry_access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#private_registry_access_config ContainerNodePool#private_registry_access_config}
         '''
         value = ContainerNodePoolNodeConfigContainerdConfig(
             private_registry_access_config=private_registry_access_config
@@ -7136,8 +8332,8 @@ class ContainerNodePoolNodeConfigOutputReference(
         data_cache_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param local_ssd_count: Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
-        :param data_cache_count: Number of local SSDs to be utilized for GKE Data Cache. Uses NVMe interfaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#data_cache_count ContainerNodePool#data_cache_count}
+        :param local_ssd_count: Number of local SSDs to use to back ephemeral storage. Uses NVMe interfaces. Each local SSD must be 375 or 3000 GB in size, and all local SSDs must share the same size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
+        :param data_cache_count: Number of local SSDs to be utilized for GKE Data Cache. Uses NVMe interfaces. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#data_cache_count ContainerNodePool#data_cache_count}
         '''
         value = ContainerNodePoolNodeConfigEphemeralStorageLocalSsdConfig(
             local_ssd_count=local_ssd_count, data_cache_count=data_cache_count
@@ -7152,7 +8348,7 @@ class ContainerNodePoolNodeConfigOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether or not NCCL Fast Socket is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        :param enabled: Whether or not NCCL Fast Socket is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         value = ContainerNodePoolNodeConfigFastSocket(enabled=enabled)
 
@@ -7165,7 +8361,7 @@ class ContainerNodePoolNodeConfigOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether or not GCFS is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        :param enabled: Whether or not GCFS is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         value = ContainerNodePoolNodeConfigGcfsConfig(enabled=enabled)
 
@@ -7191,7 +8387,7 @@ class ContainerNodePoolNodeConfigOutputReference(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether or not gvnic is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        :param enabled: Whether or not gvnic is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         value = ContainerNodePoolNodeConfigGvnic(enabled=enabled)
 
@@ -7204,7 +8400,7 @@ class ContainerNodePoolNodeConfigOutputReference(
         maintenance_interval: builtins.str,
     ) -> None:
         '''
-        :param maintenance_interval: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#maintenance_interval ContainerNodePool#maintenance_interval}
+        :param maintenance_interval: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#maintenance_interval ContainerNodePool#maintenance_interval}
         '''
         value = ContainerNodePoolNodeConfigHostMaintenancePolicy(
             maintenance_interval=maintenance_interval
@@ -7222,28 +8418,38 @@ class ContainerNodePoolNodeConfigOutputReference(
         cpu_cfs_quota: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         cpu_cfs_quota_period: typing.Optional[builtins.str] = None,
         cpu_manager_policy: typing.Optional[builtins.str] = None,
+        eviction_max_pod_grace_period_seconds: typing.Optional[jsii.Number] = None,
+        eviction_minimum_reclaim: typing.Optional[typing.Union[ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim, typing.Dict[builtins.str, typing.Any]]] = None,
+        eviction_soft: typing.Optional[typing.Union[ContainerNodePoolNodeConfigKubeletConfigEvictionSoft, typing.Dict[builtins.str, typing.Any]]] = None,
+        eviction_soft_grace_period: typing.Optional[typing.Union[ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod, typing.Dict[builtins.str, typing.Any]]] = None,
         image_gc_high_threshold_percent: typing.Optional[jsii.Number] = None,
         image_gc_low_threshold_percent: typing.Optional[jsii.Number] = None,
         image_maximum_gc_age: typing.Optional[builtins.str] = None,
         image_minimum_gc_age: typing.Optional[builtins.str] = None,
         insecure_kubelet_readonly_port_enabled: typing.Optional[builtins.str] = None,
+        max_parallel_image_pulls: typing.Optional[jsii.Number] = None,
         pod_pids_limit: typing.Optional[jsii.Number] = None,
         single_process_oom_kill: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param allowed_unsafe_sysctls: Defines a comma-separated allowlist of unsafe sysctls or sysctl patterns which can be set on the Pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#allowed_unsafe_sysctls ContainerNodePool#allowed_unsafe_sysctls}
-        :param container_log_max_files: Defines the maximum number of container log files that can be present for a container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#container_log_max_files ContainerNodePool#container_log_max_files}
-        :param container_log_max_size: Defines the maximum size of the container log file before it is rotated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#container_log_max_size ContainerNodePool#container_log_max_size}
-        :param cpu_cfs_quota: Enable CPU CFS quota enforcement for containers that specify CPU limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cpu_cfs_quota ContainerNodePool#cpu_cfs_quota}
-        :param cpu_cfs_quota_period: Set the CPU CFS quota period value 'cpu.cfs_period_us'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cpu_cfs_quota_period ContainerNodePool#cpu_cfs_quota_period}
-        :param cpu_manager_policy: Control the CPU management policy on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cpu_manager_policy ContainerNodePool#cpu_manager_policy}
-        :param image_gc_high_threshold_percent: Defines the percent of disk usage after which image garbage collection is always run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_gc_high_threshold_percent ContainerNodePool#image_gc_high_threshold_percent}
-        :param image_gc_low_threshold_percent: Defines the percent of disk usage before which image garbage collection is never run. Lowest disk usage to garbage collect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_gc_low_threshold_percent ContainerNodePool#image_gc_low_threshold_percent}
-        :param image_maximum_gc_age: Defines the maximum age an image can be unused before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_maximum_gc_age ContainerNodePool#image_maximum_gc_age}
-        :param image_minimum_gc_age: Defines the minimum age for an unused image before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#image_minimum_gc_age ContainerNodePool#image_minimum_gc_age}
-        :param insecure_kubelet_readonly_port_enabled: Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to ``FALSE``. Possible values: ``TRUE``, ``FALSE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#insecure_kubelet_readonly_port_enabled ContainerNodePool#insecure_kubelet_readonly_port_enabled}
-        :param pod_pids_limit: Controls the maximum number of processes allowed to run in a pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#pod_pids_limit ContainerNodePool#pod_pids_limit}
-        :param single_process_oom_kill: Defines whether to enable single process OOM killer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#single_process_oom_kill ContainerNodePool#single_process_oom_kill}
+        :param allowed_unsafe_sysctls: Defines a comma-separated allowlist of unsafe sysctls or sysctl patterns which can be set on the Pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#allowed_unsafe_sysctls ContainerNodePool#allowed_unsafe_sysctls}
+        :param container_log_max_files: Defines the maximum number of container log files that can be present for a container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#container_log_max_files ContainerNodePool#container_log_max_files}
+        :param container_log_max_size: Defines the maximum size of the container log file before it is rotated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#container_log_max_size ContainerNodePool#container_log_max_size}
+        :param cpu_cfs_quota: Enable CPU CFS quota enforcement for containers that specify CPU limits. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cpu_cfs_quota ContainerNodePool#cpu_cfs_quota}
+        :param cpu_cfs_quota_period: Set the CPU CFS quota period value 'cpu.cfs_period_us'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cpu_cfs_quota_period ContainerNodePool#cpu_cfs_quota_period}
+        :param cpu_manager_policy: Control the CPU management policy on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cpu_manager_policy ContainerNodePool#cpu_manager_policy}
+        :param eviction_max_pod_grace_period_seconds: Defines the maximum allowed grace period (in seconds) to use when terminating pods in response to a soft eviction threshold being met. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#eviction_max_pod_grace_period_seconds ContainerNodePool#eviction_max_pod_grace_period_seconds}
+        :param eviction_minimum_reclaim: eviction_minimum_reclaim block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#eviction_minimum_reclaim ContainerNodePool#eviction_minimum_reclaim}
+        :param eviction_soft: eviction_soft block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#eviction_soft ContainerNodePool#eviction_soft}
+        :param eviction_soft_grace_period: eviction_soft_grace_period block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#eviction_soft_grace_period ContainerNodePool#eviction_soft_grace_period}
+        :param image_gc_high_threshold_percent: Defines the percent of disk usage after which image garbage collection is always run. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_gc_high_threshold_percent ContainerNodePool#image_gc_high_threshold_percent}
+        :param image_gc_low_threshold_percent: Defines the percent of disk usage before which image garbage collection is never run. Lowest disk usage to garbage collect to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_gc_low_threshold_percent ContainerNodePool#image_gc_low_threshold_percent}
+        :param image_maximum_gc_age: Defines the maximum age an image can be unused before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_maximum_gc_age ContainerNodePool#image_maximum_gc_age}
+        :param image_minimum_gc_age: Defines the minimum age for an unused image before it is garbage collected. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#image_minimum_gc_age ContainerNodePool#image_minimum_gc_age}
+        :param insecure_kubelet_readonly_port_enabled: Controls whether the kubelet read-only port is enabled. It is strongly recommended to set this to ``FALSE``. Possible values: ``TRUE``, ``FALSE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#insecure_kubelet_readonly_port_enabled ContainerNodePool#insecure_kubelet_readonly_port_enabled}
+        :param max_parallel_image_pulls: Set the maximum number of image pulls in parallel. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_parallel_image_pulls ContainerNodePool#max_parallel_image_pulls}
+        :param pod_pids_limit: Controls the maximum number of processes allowed to run in a pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#pod_pids_limit ContainerNodePool#pod_pids_limit}
+        :param single_process_oom_kill: Defines whether to enable single process OOM killer. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#single_process_oom_kill ContainerNodePool#single_process_oom_kill}
         '''
         value = ContainerNodePoolNodeConfigKubeletConfig(
             allowed_unsafe_sysctls=allowed_unsafe_sysctls,
@@ -7252,11 +8458,16 @@ class ContainerNodePoolNodeConfigOutputReference(
             cpu_cfs_quota=cpu_cfs_quota,
             cpu_cfs_quota_period=cpu_cfs_quota_period,
             cpu_manager_policy=cpu_manager_policy,
+            eviction_max_pod_grace_period_seconds=eviction_max_pod_grace_period_seconds,
+            eviction_minimum_reclaim=eviction_minimum_reclaim,
+            eviction_soft=eviction_soft,
+            eviction_soft_grace_period=eviction_soft_grace_period,
             image_gc_high_threshold_percent=image_gc_high_threshold_percent,
             image_gc_low_threshold_percent=image_gc_low_threshold_percent,
             image_maximum_gc_age=image_maximum_gc_age,
             image_minimum_gc_age=image_minimum_gc_age,
             insecure_kubelet_readonly_port_enabled=insecure_kubelet_readonly_port_enabled,
+            max_parallel_image_pulls=max_parallel_image_pulls,
             pod_pids_limit=pod_pids_limit,
             single_process_oom_kill=single_process_oom_kill,
         )
@@ -7270,14 +8481,22 @@ class ContainerNodePoolNodeConfigOutputReference(
         cgroup_mode: typing.Optional[builtins.str] = None,
         hugepages_config: typing.Optional[typing.Union[ContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig, typing.Dict[builtins.str, typing.Any]]] = None,
         sysctls: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        transparent_hugepage_defrag: typing.Optional[builtins.str] = None,
+        transparent_hugepage_enabled: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cgroup_mode: cgroupMode specifies the cgroup mode to be used on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#cgroup_mode ContainerNodePool#cgroup_mode}
-        :param hugepages_config: hugepages_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#hugepages_config ContainerNodePool#hugepages_config}
-        :param sysctls: The Linux kernel parameters to be applied to the nodes and all pods running on the nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#sysctls ContainerNodePool#sysctls}
+        :param cgroup_mode: cgroupMode specifies the cgroup mode to be used on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#cgroup_mode ContainerNodePool#cgroup_mode}
+        :param hugepages_config: hugepages_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#hugepages_config ContainerNodePool#hugepages_config}
+        :param sysctls: The Linux kernel parameters to be applied to the nodes and all pods running on the nodes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#sysctls ContainerNodePool#sysctls}
+        :param transparent_hugepage_defrag: The Linux kernel transparent hugepage defrag setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#transparent_hugepage_defrag ContainerNodePool#transparent_hugepage_defrag}
+        :param transparent_hugepage_enabled: The Linux kernel transparent hugepage setting. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#transparent_hugepage_enabled ContainerNodePool#transparent_hugepage_enabled}
         '''
         value = ContainerNodePoolNodeConfigLinuxNodeConfig(
-            cgroup_mode=cgroup_mode, hugepages_config=hugepages_config, sysctls=sysctls
+            cgroup_mode=cgroup_mode,
+            hugepages_config=hugepages_config,
+            sysctls=sysctls,
+            transparent_hugepage_defrag=transparent_hugepage_defrag,
+            transparent_hugepage_enabled=transparent_hugepage_enabled,
         )
 
         return typing.cast(None, jsii.invoke(self, "putLinuxNodeConfig", [value]))
@@ -7285,7 +8504,7 @@ class ContainerNodePoolNodeConfigOutputReference(
     @jsii.member(jsii_name="putLocalNvmeSsdBlockConfig")
     def put_local_nvme_ssd_block_config(self, *, local_ssd_count: jsii.Number) -> None:
         '''
-        :param local_ssd_count: Number of raw-block local NVMe SSD disks to be attached to the node. Each local SSD is 375 GB in size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
+        :param local_ssd_count: Number of raw-block local NVMe SSD disks to be attached to the node. Each local SSD is 375 GB in size. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#local_ssd_count ContainerNodePool#local_ssd_count}
         '''
         value = ContainerNodePoolNodeConfigLocalNvmeSsdBlockConfig(
             local_ssd_count=local_ssd_count
@@ -7302,9 +8521,9 @@ class ContainerNodePoolNodeConfigOutputReference(
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param consume_reservation_type: Corresponds to the type of reservation consumption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#consume_reservation_type ContainerNodePool#consume_reservation_type}
-        :param key: The label key of a reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#key ContainerNodePool#key}
-        :param values: The label values of the reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#values ContainerNodePool#values}
+        :param consume_reservation_type: Corresponds to the type of reservation consumption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#consume_reservation_type ContainerNodePool#consume_reservation_type}
+        :param key: The label key of a reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#key ContainerNodePool#key}
+        :param values: The label values of the reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#values ContainerNodePool#values}
         '''
         value = ContainerNodePoolNodeConfigReservationAffinity(
             consume_reservation_type=consume_reservation_type, key=key, values=values
@@ -7333,8 +8552,8 @@ class ContainerNodePoolNodeConfigOutputReference(
         enable_secure_boot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_integrity_monitoring ContainerNodePool#enable_integrity_monitoring}
-        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_secure_boot ContainerNodePool#enable_secure_boot}
+        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_integrity_monitoring ContainerNodePool#enable_integrity_monitoring}
+        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_secure_boot ContainerNodePool#enable_secure_boot}
         '''
         value = ContainerNodePoolNodeConfigShieldedInstanceConfig(
             enable_integrity_monitoring=enable_integrity_monitoring,
@@ -7348,12 +8567,14 @@ class ContainerNodePoolNodeConfigOutputReference(
         self,
         *,
         node_affinity: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity", typing.Dict[builtins.str, typing.Any]]]],
+        min_node_cpus: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param node_affinity: node_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_affinity ContainerNodePool#node_affinity}
+        :param node_affinity: node_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_affinity ContainerNodePool#node_affinity}
+        :param min_node_cpus: Specifies the minimum number of vCPUs that each sole tenant node must have to use CPU overcommit. If not specified, the CPU overcommit feature is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#min_node_cpus ContainerNodePool#min_node_cpus}
         '''
         value = ContainerNodePoolNodeConfigSoleTenantConfig(
-            node_affinity=node_affinity
+            node_affinity=node_affinity, min_node_cpus=min_node_cpus
         )
 
         return typing.cast(None, jsii.invoke(self, "putSoleTenantConfig", [value]))
@@ -7378,7 +8599,7 @@ class ContainerNodePoolNodeConfigOutputReference(
         osversion: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param osversion: The OS Version of the windows nodepool.Values are OS_VERSION_UNSPECIFIED,OS_VERSION_LTSC2019 and OS_VERSION_LTSC2022. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#osversion ContainerNodePool#osversion}
+        :param osversion: The OS Version of the windows nodepool.Values are OS_VERSION_UNSPECIFIED,OS_VERSION_LTSC2019 and OS_VERSION_LTSC2022. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#osversion ContainerNodePool#osversion}
         '''
         value = ContainerNodePoolNodeConfigWindowsNodeConfig(osversion=osversion)
 
@@ -7387,7 +8608,7 @@ class ContainerNodePoolNodeConfigOutputReference(
     @jsii.member(jsii_name="putWorkloadMetadataConfig")
     def put_workload_metadata_config(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Mode is the configuration for how to expose metadata to workloads running on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#mode ContainerNodePool#mode}
+        :param mode: Mode is the configuration for how to expose metadata to workloads running on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#mode ContainerNodePool#mode}
         '''
         value = ContainerNodePoolNodeConfigWorkloadMetadataConfig(mode=mode)
 
@@ -8293,9 +9514,9 @@ class ContainerNodePoolNodeConfigReservationAffinity:
         values: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param consume_reservation_type: Corresponds to the type of reservation consumption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#consume_reservation_type ContainerNodePool#consume_reservation_type}
-        :param key: The label key of a reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#key ContainerNodePool#key}
-        :param values: The label values of the reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#values ContainerNodePool#values}
+        :param consume_reservation_type: Corresponds to the type of reservation consumption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#consume_reservation_type ContainerNodePool#consume_reservation_type}
+        :param key: The label key of a reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#key ContainerNodePool#key}
+        :param values: The label values of the reservation resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#values ContainerNodePool#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__088da2d8e80cb55ead4282afb73e46f00dadf9e3d2bd4f45cb367e875f1673d2)
@@ -8314,7 +9535,7 @@ class ContainerNodePoolNodeConfigReservationAffinity:
     def consume_reservation_type(self) -> builtins.str:
         '''Corresponds to the type of reservation consumption.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#consume_reservation_type ContainerNodePool#consume_reservation_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#consume_reservation_type ContainerNodePool#consume_reservation_type}
         '''
         result = self._values.get("consume_reservation_type")
         assert result is not None, "Required property 'consume_reservation_type' is missing"
@@ -8324,7 +9545,7 @@ class ContainerNodePoolNodeConfigReservationAffinity:
     def key(self) -> typing.Optional[builtins.str]:
         '''The label key of a reservation resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#key ContainerNodePool#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#key ContainerNodePool#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8333,7 +9554,7 @@ class ContainerNodePoolNodeConfigReservationAffinity:
     def values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The label values of the reservation resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#values ContainerNodePool#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#values ContainerNodePool#values}
         '''
         result = self._values.get("values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -8460,8 +9681,8 @@ class ContainerNodePoolNodeConfigSecondaryBootDisks:
         mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_image: Disk image to create the secondary boot disk from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disk_image ContainerNodePool#disk_image}
-        :param mode: Mode for how the secondary boot disk is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#mode ContainerNodePool#mode}
+        :param disk_image: Disk image to create the secondary boot disk from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disk_image ContainerNodePool#disk_image}
+        :param mode: Mode for how the secondary boot disk is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#mode ContainerNodePool#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1eab58d8968489b23e5fd4018a4e483add0697d842c865ff064c355ce28ce165)
@@ -8477,7 +9698,7 @@ class ContainerNodePoolNodeConfigSecondaryBootDisks:
     def disk_image(self) -> builtins.str:
         '''Disk image to create the secondary boot disk from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#disk_image ContainerNodePool#disk_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#disk_image ContainerNodePool#disk_image}
         '''
         result = self._values.get("disk_image")
         assert result is not None, "Required property 'disk_image' is missing"
@@ -8487,7 +9708,7 @@ class ContainerNodePoolNodeConfigSecondaryBootDisks:
     def mode(self) -> typing.Optional[builtins.str]:
         '''Mode for how the secondary boot disk is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#mode ContainerNodePool#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#mode ContainerNodePool#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8695,8 +9916,8 @@ class ContainerNodePoolNodeConfigShieldedInstanceConfig:
         enable_secure_boot: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_integrity_monitoring ContainerNodePool#enable_integrity_monitoring}
-        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_secure_boot ContainerNodePool#enable_secure_boot}
+        :param enable_integrity_monitoring: Defines whether the instance has integrity monitoring enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_integrity_monitoring ContainerNodePool#enable_integrity_monitoring}
+        :param enable_secure_boot: Defines whether the instance has Secure Boot enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_secure_boot ContainerNodePool#enable_secure_boot}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4bd4c5365f55d4bdcdaa43c31fc4b02241fb22d4b5dc84c4a9045a301deee8f7)
@@ -8714,7 +9935,7 @@ class ContainerNodePoolNodeConfigShieldedInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether the instance has integrity monitoring enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_integrity_monitoring ContainerNodePool#enable_integrity_monitoring}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_integrity_monitoring ContainerNodePool#enable_integrity_monitoring}
         '''
         result = self._values.get("enable_integrity_monitoring")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8725,7 +9946,7 @@ class ContainerNodePoolNodeConfigShieldedInstanceConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines whether the instance has Secure Boot enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enable_secure_boot ContainerNodePool#enable_secure_boot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enable_secure_boot ContainerNodePool#enable_secure_boot}
         '''
         result = self._values.get("enable_secure_boot")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -8839,23 +10060,28 @@ class ContainerNodePoolNodeConfigShieldedInstanceConfigOutputReference(
 @jsii.data_type(
     jsii_type="@cdktf/provider-google.containerNodePool.ContainerNodePoolNodeConfigSoleTenantConfig",
     jsii_struct_bases=[],
-    name_mapping={"node_affinity": "nodeAffinity"},
+    name_mapping={"node_affinity": "nodeAffinity", "min_node_cpus": "minNodeCpus"},
 )
 class ContainerNodePoolNodeConfigSoleTenantConfig:
     def __init__(
         self,
         *,
         node_affinity: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity", typing.Dict[builtins.str, typing.Any]]]],
+        min_node_cpus: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param node_affinity: node_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_affinity ContainerNodePool#node_affinity}
+        :param node_affinity: node_affinity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_affinity ContainerNodePool#node_affinity}
+        :param min_node_cpus: Specifies the minimum number of vCPUs that each sole tenant node must have to use CPU overcommit. If not specified, the CPU overcommit feature is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#min_node_cpus ContainerNodePool#min_node_cpus}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f01db3ae9bc1942532dd9be66837c1ac53e0609e050fcfca7cc7d64d4f64976d)
             check_type(argname="argument node_affinity", value=node_affinity, expected_type=type_hints["node_affinity"])
+            check_type(argname="argument min_node_cpus", value=min_node_cpus, expected_type=type_hints["min_node_cpus"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "node_affinity": node_affinity,
         }
+        if min_node_cpus is not None:
+            self._values["min_node_cpus"] = min_node_cpus
 
     @builtins.property
     def node_affinity(
@@ -8863,11 +10089,22 @@ class ContainerNodePoolNodeConfigSoleTenantConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity"]]:
         '''node_affinity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_affinity ContainerNodePool#node_affinity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_affinity ContainerNodePool#node_affinity}
         '''
         result = self._values.get("node_affinity")
         assert result is not None, "Required property 'node_affinity' is missing"
         return typing.cast(typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity"]], result)
+
+    @builtins.property
+    def min_node_cpus(self) -> typing.Optional[jsii.Number]:
+        '''Specifies the minimum number of vCPUs that each sole tenant node must have to use CPU overcommit.
+
+        If not specified, the CPU overcommit feature is disabled.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#min_node_cpus ContainerNodePool#min_node_cpus}
+        '''
+        result = self._values.get("min_node_cpus")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8895,9 +10132,9 @@ class ContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param key: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#key ContainerNodePool#key}
-        :param operator: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#operator ContainerNodePool#operator}
-        :param values: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#values ContainerNodePool#values}
+        :param key: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#key ContainerNodePool#key}
+        :param operator: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#operator ContainerNodePool#operator}
+        :param values: . Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#values ContainerNodePool#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28b65e26105c363e9609cd55dcfed444420912892b520ffb3d025eeef0e65201)
@@ -8914,7 +10151,7 @@ class ContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity:
     def key(self) -> builtins.str:
         '''.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#key ContainerNodePool#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#key ContainerNodePool#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -8924,7 +10161,7 @@ class ContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity:
     def operator(self) -> builtins.str:
         '''.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#operator ContainerNodePool#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#operator ContainerNodePool#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -8934,7 +10171,7 @@ class ContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity:
     def values(self) -> typing.List[builtins.str]:
         '''.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#values ContainerNodePool#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#values ContainerNodePool#values}
         '''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
@@ -9173,6 +10410,10 @@ class ContainerNodePoolNodeConfigSoleTenantConfigOutputReference(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "putNodeAffinity", [value]))
 
+    @jsii.member(jsii_name="resetMinNodeCpus")
+    def reset_min_node_cpus(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMinNodeCpus", []))
+
     @builtins.property
     @jsii.member(jsii_name="nodeAffinity")
     def node_affinity(
@@ -9181,11 +10422,28 @@ class ContainerNodePoolNodeConfigSoleTenantConfigOutputReference(
         return typing.cast(ContainerNodePoolNodeConfigSoleTenantConfigNodeAffinityList, jsii.get(self, "nodeAffinity"))
 
     @builtins.property
+    @jsii.member(jsii_name="minNodeCpusInput")
+    def min_node_cpus_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "minNodeCpusInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="nodeAffinityInput")
     def node_affinity_input(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity]]]:
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity]]], jsii.get(self, "nodeAffinityInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="minNodeCpus")
+    def min_node_cpus(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "minNodeCpus"))
+
+    @min_node_cpus.setter
+    def min_node_cpus(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5cf54847addcd77e2b3386992d64f4a785ac510d602e6d5a2ddde7cdec3e6fae)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "minNodeCpus", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
@@ -9219,9 +10477,9 @@ class ContainerNodePoolNodeConfigTaint:
         value: builtins.str,
     ) -> None:
         '''
-        :param effect: Effect for taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#effect ContainerNodePool#effect}
-        :param key: Key for taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#key ContainerNodePool#key}
-        :param value: Value for taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#value ContainerNodePool#value}
+        :param effect: Effect for taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#effect ContainerNodePool#effect}
+        :param key: Key for taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#key ContainerNodePool#key}
+        :param value: Value for taint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#value ContainerNodePool#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0016f2b3e6f923bf4aafda4f4fcb84698611d975b253217eaa8988bd769ff342)
@@ -9238,7 +10496,7 @@ class ContainerNodePoolNodeConfigTaint:
     def effect(self) -> builtins.str:
         '''Effect for taint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#effect ContainerNodePool#effect}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#effect ContainerNodePool#effect}
         '''
         result = self._values.get("effect")
         assert result is not None, "Required property 'effect' is missing"
@@ -9248,7 +10506,7 @@ class ContainerNodePoolNodeConfigTaint:
     def key(self) -> builtins.str:
         '''Key for taint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#key ContainerNodePool#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#key ContainerNodePool#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -9258,7 +10516,7 @@ class ContainerNodePoolNodeConfigTaint:
     def value(self) -> builtins.str:
         '''Value for taint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#value ContainerNodePool#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#value ContainerNodePool#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -9472,7 +10730,7 @@ class ContainerNodePoolNodeConfigTaintOutputReference(
 class ContainerNodePoolNodeConfigWindowsNodeConfig:
     def __init__(self, *, osversion: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param osversion: The OS Version of the windows nodepool.Values are OS_VERSION_UNSPECIFIED,OS_VERSION_LTSC2019 and OS_VERSION_LTSC2022. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#osversion ContainerNodePool#osversion}
+        :param osversion: The OS Version of the windows nodepool.Values are OS_VERSION_UNSPECIFIED,OS_VERSION_LTSC2019 and OS_VERSION_LTSC2022. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#osversion ContainerNodePool#osversion}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ded0a6d5f90af61780a6dec7da9cf0735338931ec54c5586f01dbdf2bc90f318)
@@ -9485,7 +10743,7 @@ class ContainerNodePoolNodeConfigWindowsNodeConfig:
     def osversion(self) -> typing.Optional[builtins.str]:
         '''The OS Version of the windows nodepool.Values are OS_VERSION_UNSPECIFIED,OS_VERSION_LTSC2019 and OS_VERSION_LTSC2022.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#osversion ContainerNodePool#osversion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#osversion ContainerNodePool#osversion}
         '''
         result = self._values.get("osversion")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9569,7 +10827,7 @@ class ContainerNodePoolNodeConfigWindowsNodeConfigOutputReference(
 class ContainerNodePoolNodeConfigWorkloadMetadataConfig:
     def __init__(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Mode is the configuration for how to expose metadata to workloads running on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#mode ContainerNodePool#mode}
+        :param mode: Mode is the configuration for how to expose metadata to workloads running on the node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#mode ContainerNodePool#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ab9d9c2423d84eafa652f6e5531706f5eb79ba606d1e5853005903a69bb036ab)
@@ -9582,7 +10840,7 @@ class ContainerNodePoolNodeConfigWorkloadMetadataConfig:
     def mode(self) -> builtins.str:
         '''Mode is the configuration for how to expose metadata to workloads running on the node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#mode ContainerNodePool#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#mode ContainerNodePool#mode}
         '''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
@@ -9673,9 +10931,9 @@ class ContainerNodePoolPlacementPolicy:
         tpu_topology: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Type defines the type of placement policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#type ContainerNodePool#type}
-        :param policy_name: If set, refers to the name of a custom resource policy supplied by the user. The resource policy must be in the same project and region as the node pool. If not found, InvalidArgument error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#policy_name ContainerNodePool#policy_name}
-        :param tpu_topology: The TPU topology like "2x4" or "2x2x2". https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus#topology. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#tpu_topology ContainerNodePool#tpu_topology}
+        :param type: Type defines the type of placement policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#type ContainerNodePool#type}
+        :param policy_name: If set, refers to the name of a custom resource policy supplied by the user. The resource policy must be in the same project and region as the node pool. If not found, InvalidArgument error is returned. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#policy_name ContainerNodePool#policy_name}
+        :param tpu_topology: The TPU topology like "2x4" or "2x2x2". https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus#topology. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#tpu_topology ContainerNodePool#tpu_topology}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46e6642538ef61b97bc1af6976ae9895e8312a74aa0446e5079055f2904b6e87)
@@ -9694,7 +10952,7 @@ class ContainerNodePoolPlacementPolicy:
     def type(self) -> builtins.str:
         '''Type defines the type of placement policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#type ContainerNodePool#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#type ContainerNodePool#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -9706,7 +10964,7 @@ class ContainerNodePoolPlacementPolicy:
 
         The resource policy must be in the same project and region as the node pool. If not found, InvalidArgument error is returned.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#policy_name ContainerNodePool#policy_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#policy_name ContainerNodePool#policy_name}
         '''
         result = self._values.get("policy_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9715,7 +10973,7 @@ class ContainerNodePoolPlacementPolicy:
     def tpu_topology(self) -> typing.Optional[builtins.str]:
         '''The TPU topology like "2x4" or "2x2x2". https://cloud.google.com/kubernetes-engine/docs/concepts/plan-tpus#topology.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#tpu_topology ContainerNodePool#tpu_topology}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#tpu_topology ContainerNodePool#tpu_topology}
         '''
         result = self._values.get("tpu_topology")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9839,7 +11097,7 @@ class ContainerNodePoolQueuedProvisioning:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Whether nodes in this node pool are obtainable solely through the ProvisioningRequest API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        :param enabled: Whether nodes in this node pool are obtainable solely through the ProvisioningRequest API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1113f9e174ebb0cebf604def927211546818d61c540071d104673bc71b5a9f68)
@@ -9852,7 +11110,7 @@ class ContainerNodePoolQueuedProvisioning:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether nodes in this node pool are obtainable solely through the ProvisioningRequest API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#enabled ContainerNodePool#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -9942,9 +11200,9 @@ class ContainerNodePoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#create ContainerNodePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#delete ContainerNodePool#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#update ContainerNodePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#create ContainerNodePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#delete ContainerNodePool#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#update ContainerNodePool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__00d50d647b29f1cf517fadb60788122d1f12bf6f635e803cdf353f3e4064b142)
@@ -9961,19 +11219,19 @@ class ContainerNodePoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#create ContainerNodePool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#create ContainerNodePool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#delete ContainerNodePool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#delete ContainerNodePool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#update ContainerNodePool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#update ContainerNodePool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10110,10 +11368,10 @@ class ContainerNodePoolUpgradeSettings:
         strategy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param blue_green_settings: blue_green_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#blue_green_settings ContainerNodePool#blue_green_settings}
-        :param max_surge: The number of additional nodes that can be added to the node pool during an upgrade. Increasing max_surge raises the number of nodes that can be upgraded simultaneously. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_surge ContainerNodePool#max_surge}
-        :param max_unavailable: The number of nodes that can be simultaneously unavailable during an upgrade. Increasing max_unavailable raises the number of nodes that can be upgraded in parallel. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_unavailable ContainerNodePool#max_unavailable}
-        :param strategy: Update strategy for the given nodepool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#strategy ContainerNodePool#strategy}
+        :param blue_green_settings: blue_green_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#blue_green_settings ContainerNodePool#blue_green_settings}
+        :param max_surge: The number of additional nodes that can be added to the node pool during an upgrade. Increasing max_surge raises the number of nodes that can be upgraded simultaneously. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_surge ContainerNodePool#max_surge}
+        :param max_unavailable: The number of nodes that can be simultaneously unavailable during an upgrade. Increasing max_unavailable raises the number of nodes that can be upgraded in parallel. Can be set to 0 or greater. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_unavailable ContainerNodePool#max_unavailable}
+        :param strategy: Update strategy for the given nodepool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#strategy ContainerNodePool#strategy}
         '''
         if isinstance(blue_green_settings, dict):
             blue_green_settings = ContainerNodePoolUpgradeSettingsBlueGreenSettings(**blue_green_settings)
@@ -10139,7 +11397,7 @@ class ContainerNodePoolUpgradeSettings:
     ) -> typing.Optional["ContainerNodePoolUpgradeSettingsBlueGreenSettings"]:
         '''blue_green_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#blue_green_settings ContainerNodePool#blue_green_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#blue_green_settings ContainerNodePool#blue_green_settings}
         '''
         result = self._values.get("blue_green_settings")
         return typing.cast(typing.Optional["ContainerNodePoolUpgradeSettingsBlueGreenSettings"], result)
@@ -10150,7 +11408,7 @@ class ContainerNodePoolUpgradeSettings:
 
         Increasing max_surge raises the number of nodes that can be upgraded simultaneously. Can be set to 0 or greater.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_surge ContainerNodePool#max_surge}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_surge ContainerNodePool#max_surge}
         '''
         result = self._values.get("max_surge")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10161,7 +11419,7 @@ class ContainerNodePoolUpgradeSettings:
 
         Increasing max_unavailable raises the number of nodes that can be upgraded in parallel. Can be set to 0 or greater.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#max_unavailable ContainerNodePool#max_unavailable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#max_unavailable ContainerNodePool#max_unavailable}
         '''
         result = self._values.get("max_unavailable")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10170,7 +11428,7 @@ class ContainerNodePoolUpgradeSettings:
     def strategy(self) -> typing.Optional[builtins.str]:
         '''Update strategy for the given nodepool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#strategy ContainerNodePool#strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#strategy ContainerNodePool#strategy}
         '''
         result = self._values.get("strategy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10203,8 +11461,8 @@ class ContainerNodePoolUpgradeSettingsBlueGreenSettings:
         node_pool_soak_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param standard_rollout_policy: standard_rollout_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#standard_rollout_policy ContainerNodePool#standard_rollout_policy}
-        :param node_pool_soak_duration: Time needed after draining entire blue pool. After this period, blue pool will be cleaned up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_pool_soak_duration ContainerNodePool#node_pool_soak_duration}
+        :param standard_rollout_policy: standard_rollout_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#standard_rollout_policy ContainerNodePool#standard_rollout_policy}
+        :param node_pool_soak_duration: Time needed after draining entire blue pool. After this period, blue pool will be cleaned up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_pool_soak_duration ContainerNodePool#node_pool_soak_duration}
         '''
         if isinstance(standard_rollout_policy, dict):
             standard_rollout_policy = ContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPolicy(**standard_rollout_policy)
@@ -10224,7 +11482,7 @@ class ContainerNodePoolUpgradeSettingsBlueGreenSettings:
     ) -> "ContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPolicy":
         '''standard_rollout_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#standard_rollout_policy ContainerNodePool#standard_rollout_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#standard_rollout_policy ContainerNodePool#standard_rollout_policy}
         '''
         result = self._values.get("standard_rollout_policy")
         assert result is not None, "Required property 'standard_rollout_policy' is missing"
@@ -10234,7 +11492,7 @@ class ContainerNodePoolUpgradeSettingsBlueGreenSettings:
     def node_pool_soak_duration(self) -> typing.Optional[builtins.str]:
         '''Time needed after draining entire blue pool. After this period, blue pool will be cleaned up.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_pool_soak_duration ContainerNodePool#node_pool_soak_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_pool_soak_duration ContainerNodePool#node_pool_soak_duration}
         '''
         result = self._values.get("node_pool_soak_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10280,9 +11538,9 @@ class ContainerNodePoolUpgradeSettingsBlueGreenSettingsOutputReference(
         batch_soak_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param batch_node_count: Number of blue nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#batch_node_count ContainerNodePool#batch_node_count}
-        :param batch_percentage: Percentage of the blue pool nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#batch_percentage ContainerNodePool#batch_percentage}
-        :param batch_soak_duration: Soak time after each batch gets drained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#batch_soak_duration ContainerNodePool#batch_soak_duration}
+        :param batch_node_count: Number of blue nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#batch_node_count ContainerNodePool#batch_node_count}
+        :param batch_percentage: Percentage of the blue pool nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#batch_percentage ContainerNodePool#batch_percentage}
+        :param batch_soak_duration: Soak time after each batch gets drained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#batch_soak_duration ContainerNodePool#batch_soak_duration}
         '''
         value = ContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPolicy(
             batch_node_count=batch_node_count,
@@ -10363,9 +11621,9 @@ class ContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPolicy:
         batch_soak_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param batch_node_count: Number of blue nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#batch_node_count ContainerNodePool#batch_node_count}
-        :param batch_percentage: Percentage of the blue pool nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#batch_percentage ContainerNodePool#batch_percentage}
-        :param batch_soak_duration: Soak time after each batch gets drained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#batch_soak_duration ContainerNodePool#batch_soak_duration}
+        :param batch_node_count: Number of blue nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#batch_node_count ContainerNodePool#batch_node_count}
+        :param batch_percentage: Percentage of the blue pool nodes to drain in a batch. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#batch_percentage ContainerNodePool#batch_percentage}
+        :param batch_soak_duration: Soak time after each batch gets drained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#batch_soak_duration ContainerNodePool#batch_soak_duration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f880fd10db6be0e44d38df6749b4bd32fb05552fbced7b29e37806325b7753bb)
@@ -10384,7 +11642,7 @@ class ContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPolicy:
     def batch_node_count(self) -> typing.Optional[jsii.Number]:
         '''Number of blue nodes to drain in a batch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#batch_node_count ContainerNodePool#batch_node_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#batch_node_count ContainerNodePool#batch_node_count}
         '''
         result = self._values.get("batch_node_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10393,7 +11651,7 @@ class ContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPolicy:
     def batch_percentage(self) -> typing.Optional[jsii.Number]:
         '''Percentage of the blue pool nodes to drain in a batch.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#batch_percentage ContainerNodePool#batch_percentage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#batch_percentage ContainerNodePool#batch_percentage}
         '''
         result = self._values.get("batch_percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -10402,7 +11660,7 @@ class ContainerNodePoolUpgradeSettingsBlueGreenSettingsStandardRolloutPolicy:
     def batch_soak_duration(self) -> typing.Optional[builtins.str]:
         '''Soak time after each batch gets drained.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#batch_soak_duration ContainerNodePool#batch_soak_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#batch_soak_duration ContainerNodePool#batch_soak_duration}
         '''
         result = self._values.get("batch_soak_duration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10548,8 +11806,8 @@ class ContainerNodePoolUpgradeSettingsOutputReference(
         node_pool_soak_duration: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param standard_rollout_policy: standard_rollout_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#standard_rollout_policy ContainerNodePool#standard_rollout_policy}
-        :param node_pool_soak_duration: Time needed after draining entire blue pool. After this period, blue pool will be cleaned up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/container_node_pool#node_pool_soak_duration ContainerNodePool#node_pool_soak_duration}
+        :param standard_rollout_policy: standard_rollout_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#standard_rollout_policy ContainerNodePool#standard_rollout_policy}
+        :param node_pool_soak_duration: Time needed after draining entire blue pool. After this period, blue pool will be cleaned up. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/container_node_pool#node_pool_soak_duration ContainerNodePool#node_pool_soak_duration}
         '''
         value = ContainerNodePoolUpgradeSettingsBlueGreenSettings(
             standard_rollout_policy=standard_rollout_policy,
@@ -10711,6 +11969,12 @@ __all__ = [
     "ContainerNodePoolNodeConfigHostMaintenancePolicy",
     "ContainerNodePoolNodeConfigHostMaintenancePolicyOutputReference",
     "ContainerNodePoolNodeConfigKubeletConfig",
+    "ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim",
+    "ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference",
+    "ContainerNodePoolNodeConfigKubeletConfigEvictionSoft",
+    "ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod",
+    "ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference",
+    "ContainerNodePoolNodeConfigKubeletConfigEvictionSoftOutputReference",
     "ContainerNodePoolNodeConfigKubeletConfigOutputReference",
     "ContainerNodePoolNodeConfigLinuxNodeConfig",
     "ContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig",
@@ -11898,13 +13162,201 @@ def _typecheckingstub__ba35fbf8f2f5b8bedf5e350dde661105e29aa7385a444c7dab33b0385
     cpu_cfs_quota: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     cpu_cfs_quota_period: typing.Optional[builtins.str] = None,
     cpu_manager_policy: typing.Optional[builtins.str] = None,
+    eviction_max_pod_grace_period_seconds: typing.Optional[jsii.Number] = None,
+    eviction_minimum_reclaim: typing.Optional[typing.Union[ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim, typing.Dict[builtins.str, typing.Any]]] = None,
+    eviction_soft: typing.Optional[typing.Union[ContainerNodePoolNodeConfigKubeletConfigEvictionSoft, typing.Dict[builtins.str, typing.Any]]] = None,
+    eviction_soft_grace_period: typing.Optional[typing.Union[ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod, typing.Dict[builtins.str, typing.Any]]] = None,
     image_gc_high_threshold_percent: typing.Optional[jsii.Number] = None,
     image_gc_low_threshold_percent: typing.Optional[jsii.Number] = None,
     image_maximum_gc_age: typing.Optional[builtins.str] = None,
     image_minimum_gc_age: typing.Optional[builtins.str] = None,
     insecure_kubelet_readonly_port_enabled: typing.Optional[builtins.str] = None,
+    max_parallel_image_pulls: typing.Optional[jsii.Number] = None,
     pod_pids_limit: typing.Optional[jsii.Number] = None,
     single_process_oom_kill: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43e896e81c43a061c59e688d5f90b3e95b3ea4f8090b53edda649405a5c5d0a9(
+    *,
+    imagefs_available: typing.Optional[builtins.str] = None,
+    imagefs_inodes_free: typing.Optional[builtins.str] = None,
+    memory_available: typing.Optional[builtins.str] = None,
+    nodefs_available: typing.Optional[builtins.str] = None,
+    nodefs_inodes_free: typing.Optional[builtins.str] = None,
+    pid_available: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__817365e368f04220facab85d5f796aa4931f8f2ed42516220a9dc01e4e27bc43(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b11e11caa83cd005d77c61b022397fc0c3c5bbbe22960bc0fc2c4671b224cae(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a52f54ce7842073bf3f963abf77a6443532f7fa55ab6c4fae4c3e20eb3e10a8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10a2c49e233b4b0cbc12d706cb2a3423f1e5cab4d81c92ddd57529cec045c6ab(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ba17910cc62e42d0cf304af722e835b4e4c10ecdcae9b14c967a7b418cefdc8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a9db50ad2eb0b8c8a0402b0069300ce665b1410f0f9cbb9268b5d4ea4d35df0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc169ec3232c658cbdb6c7366a57a63a9bb8fcfc490f869cc75372d77b032ea0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__61a6a27b71aa6e987fc0cece9dc43f2d52fa88251105b1cc820717754590a84c(
+    value: typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27cc02eb117d029842208dd018cc052ad37cd1c6805698dc3f739d8a9354e4ae(
+    *,
+    imagefs_available: typing.Optional[builtins.str] = None,
+    imagefs_inodes_free: typing.Optional[builtins.str] = None,
+    memory_available: typing.Optional[builtins.str] = None,
+    nodefs_available: typing.Optional[builtins.str] = None,
+    nodefs_inodes_free: typing.Optional[builtins.str] = None,
+    pid_available: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__548b45d71c3ddf43f552bb798102e0ebac4506666dd79154cfe4bdef34591292(
+    *,
+    imagefs_available: typing.Optional[builtins.str] = None,
+    imagefs_inodes_free: typing.Optional[builtins.str] = None,
+    memory_available: typing.Optional[builtins.str] = None,
+    nodefs_available: typing.Optional[builtins.str] = None,
+    nodefs_inodes_free: typing.Optional[builtins.str] = None,
+    pid_available: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21a7d0cc36210aa888caa8772fd6ac02a94ad2ff9fea11a43f5616716c92bee3(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d0a13fee9c1051b4d8df459e23fcb69566e19edb1a3fba90abeac9f36a192629(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__389509315e8689fa89c870654a8e4456d0d165dfdca267c2ee620968b2c39dd4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1d29459dc143f41a02373c42a79dffe2332054f34d163db8df8027c32623119(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e48131bba9e2d9380d55a1743ba17b3f1c584edf57ca42293e17fa0426e23e56(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc1c085c02f7534f5f2a3fb2ac1dcb149cf135384c76fddaa06ad3db018ee376(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b61b54bf81b312bb89fe65ae92442bf1163aa94e0810f689a431725759439b43(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd93924190d72578801d50b2cdf79dafa88b8ca4c9f6afce3640dcc1d7e0a35e(
+    value: typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac79f9977337fe6e9e9f81866af18c70c2828bf7b4a837bcf2245b6d16f89961(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8a61adb105f9f8a8b78c36f27b76857c0a1d11824746ec06a92a048fdad2366a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66e054dafd0ec4905514111931a488a54e7549d25750dbc036df4634f1324bb5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d431f7bba3a43055251a71695b000b0bc8b0386d5a4571abf143cd669a28049(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__003f4df7d0b016faf4bbd95d292a13b67edb08d02fca3b4e27757450b7ce4b96(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42673f6af4e802633606d0a2476df284e08291b051624ce73dc370bb092cba4c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d02e870de8682c7648f1c4880e302f9cc00144088b07c3467545e249b889faf7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0ec88b4f93ac0926bfd3208b6851525e5a2a28859555c620f91eaad695b98fe(
+    value: typing.Optional[ContainerNodePoolNodeConfigKubeletConfigEvictionSoft],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11952,6 +13404,12 @@ def _typecheckingstub__c4e169b5b2e241247e5558a93d16c9e941eda0dbc8d11d79890215b4e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6386820e4fd7e65821b884caf091c58d94e867db1a129e6c72abb6f063822c0c(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__430b5018f363549178a4e68483e00c9bef2449409a1f793491f149bac1dd8f8e(
     value: jsii.Number,
 ) -> None:
@@ -11982,6 +13440,12 @@ def _typecheckingstub__65a713520d0250c4f99a546d716cc18a9fdb600c5cd90057abf49dc97
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9b40abd81bc036187141b3be2293eca5629f7cad9ac3c0e619836f7d8e57d450(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__417370ad149bd7e99953841a9b4f65088affa1c8376ce7cd5901246597e75992(
     value: jsii.Number,
 ) -> None:
@@ -12005,6 +13469,8 @@ def _typecheckingstub__16948441d4349ba63ed1b4710c36ed3e9de19ad2ec5116c02db8615cb
     cgroup_mode: typing.Optional[builtins.str] = None,
     hugepages_config: typing.Optional[typing.Union[ContainerNodePoolNodeConfigLinuxNodeConfigHugepagesConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     sysctls: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    transparent_hugepage_defrag: typing.Optional[builtins.str] = None,
+    transparent_hugepage_enabled: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12057,6 +13523,18 @@ def _typecheckingstub__ca4dec1f95cd23ad879ccf7e5dc53bc670bc0fe6ca80ede5ce3623566
 
 def _typecheckingstub__f508b6be4bf1c1074acaed306517780fd016714139e866a1821151c7a2f604a6(
     value: typing.Mapping[builtins.str, builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f3eb4641f4d6fa2a2e68282ab45eb49408eda022b8acf06971354b6d7b80239(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5bf7746af6d66332429be7316797c5f66c4343faaf763a434302f4b0740eae8e(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12411,6 +13889,7 @@ def _typecheckingstub__d9ef156292c2a9d0d878e672ae2467574f9c8893156418bf2d8e24129
 def _typecheckingstub__f01db3ae9bc1942532dd9be66837c1ac53e0609e050fcfca7cc7d64d4f64976d(
     *,
     node_affinity: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity, typing.Dict[builtins.str, typing.Any]]]],
+    min_node_cpus: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12504,6 +13983,12 @@ def _typecheckingstub__05c82808f909dadca9c92ab2bd308ca79cff911551c364cd9326bc09e
 
 def _typecheckingstub__3562adf12ca919893bfaf803b36585774ebd88b2c2a3a6be84f311bfe08a4a2e(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ContainerNodePoolNodeConfigSoleTenantConfigNodeAffinity, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5cf54847addcd77e2b3386992d64f4a785ac510d602e6d5a2ddde7cdec3e6fae(
+    value: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass

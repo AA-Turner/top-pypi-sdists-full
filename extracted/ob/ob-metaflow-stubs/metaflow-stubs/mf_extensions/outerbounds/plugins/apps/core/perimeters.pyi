@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-18T05:26:57.984078                                                            #
+# Generated on 2025-08-19T23:54:56.001064                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ class PerimeterExtractor(object, metaclass=type):
         """
         ...
     @classmethod
-    def during_metaflow_execution(cls) -> str:
+    def during_metaflow_execution(cls) -> typing.Union[typing.Tuple[str, str], typing.Tuple[None, None]]:
         ...
     ...
 

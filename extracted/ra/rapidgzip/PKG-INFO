@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: rapidgzip
-Version: 0.15.1
+Version: 0.15.2
 Summary: Parallel random access to gzip files
 Author-email: Maximilian Knespel <mxmlnknp@gmail.com>
 License: MIT

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+# coding:utf-8
 # Copyright (C) 2020-2025 All rights reserved.
 # FILENAME:    ~~/src/fastapi_csrf_protect/csrf_config.py
-# VERSION:     1.0.3
+# VERSION:     1.0.5
 # CREATED:     2020-11-25 14:35
 # AUTHOR:      Sitt Guruvanich <aekazitt+github@gmail.com>
 # DESCRIPTION:
@@ -10,10 +11,9 @@
 # *************************************************************
 
 ### Standard packages ###
-from typing import Any, ClassVar, Callable, Literal, Optional, Sequence, Set, Tuple, Union, cast
+from typing import Any, ClassVar, Callable, Literal, Optional, Sequence, Set, Union
 
 ### Third-party packages ###
-from pydantic import ValidationError
 from pydantic_settings import BaseSettings
 
 ### Local modules ###
@@ -42,29 +42,29 @@ class CsrfConfig(object):
 
   @classmethod
   def load_config(
-    cls, settings: Callable[..., Union[Sequence[Tuple[str, Any]], BaseSettings]]
+    cls, settings: Callable[..., Union[Sequence[tuple[str, Any]], BaseSettings]]
   ) -> None:
-    try:
-      config = LoadConfig(**{key.lower(): value for key, value in settings()})
-      cls._cookie_key = config.cookie_key or cls._cookie_key
-      cls._cookie_path = config.cookie_path or cls._cookie_path
-      cls._cookie_domain = config.cookie_domain
-      if config.cookie_samesite in {"lax", "none", "strict"}:
-        cls._cookie_samesite = cast(Literal["lax", "none", "strict"], config.cookie_samesite)
-      cls._cookie_secure = False if config.cookie_secure is None else config.cookie_secure
-      cls._header_name = config.header_name or cls._header_name
-      cls._header_type = config.header_type
-      cls._httponly = True if config.httponly is None else config.httponly
-      cls._max_age = config.max_age or cls._max_age
-      cls._methods = config.methods or cls._methods
-      cls._secret_key = config.secret_key
-      cls._token_location = config.token_location or cls._token_location
-      cls._token_key = config.token_key or cls._token_key
-    except ValidationError:
-      raise
-    except Exception as err:
-      print(err)
-      raise TypeError('CsrfConfig must be pydantic "BaseSettings" or list of tuple')
+    """Load CsrfProtect configurations via decorated method
+
+    ---
+    :param settings: callable returning either sequence of key-value tuples or pydantic BaseSettings
+    :type settings: Callable[..., BaseSettings | Sequence[tuple, Any]]
+    :raises pydantic_core.ValidationError: in case of settings' attribute type mismatched
+    """
+    config = LoadConfig(**{key.lower(): value for key, value in settings()})
+    cls._cookie_key = config.cookie_key or cls._cookie_key
+    cls._cookie_path = config.cookie_path or cls._cookie_path
+    cls._cookie_domain = config.cookie_domain
+    cls._cookie_samesite = config.cookie_samesite
+    cls._cookie_secure = False if config.cookie_secure is None else config.cookie_secure
+    cls._header_name = config.header_name or cls._header_name
+    cls._header_type = config.header_type
+    cls._httponly = True if config.httponly is None else config.httponly
+    cls._max_age = config.max_age or cls._max_age
+    cls._methods = config.methods or cls._methods
+    cls._secret_key = config.secret_key
+    cls._token_location = config.token_location or cls._token_location
+    cls._token_key = config.token_key or cls._token_key
 
 
-__all__: Tuple[str, ...] = ("CsrfConfig",)
+__all__: tuple[str, ...] = ("CsrfConfig",)

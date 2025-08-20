@@ -4,7 +4,7 @@
 """Constants for the fabric-cicd package."""
 
 # General
-VERSION = "0.1.24"
+VERSION = "0.1.25"
 DEFAULT_WORKSPACE_ID = "00000000-0000-0000-0000-000000000000"
 DEFAULT_API_ROOT_URL = "https://api.powerbi.com"
 FABRIC_API_ROOT_URL = "https://api.fabric.microsoft.com"
@@ -12,7 +12,7 @@ FEATURE_FLAG = set()
 USER_AGENT = f"ms-fabric-cicd/{VERSION}"
 
 # Item Type
-ACCEPTED_ITEM_TYPES_UPN = (
+ACCEPTED_ITEM_TYPES = (
     "DataPipeline",
     "Environment",
     "Notebook",
@@ -33,7 +33,6 @@ ACCEPTED_ITEM_TYPES_UPN = (
     "Dataflow",
     "GraphQLApi",
 )
-ACCEPTED_ITEM_TYPES_NON_UPN = ACCEPTED_ITEM_TYPES_UPN
 
 # Publish
 SHELL_ONLY_PUBLISH = ["Environment", "Lakehouse", "Warehouse", "SQLDatabase"]
@@ -102,6 +101,8 @@ PARAMETER_MSGS = {
     "valid parameter": "{} parameter is valid",
     "skip": "The {} '{}' replacement will be skipped due to {} in parameter {}",
     "no target env": "target environment '{}' not found",
+    "all target env": "The replace value: '{}' will be applied for any target environment",
+    "other target env": "The '{}' environment key can only be used alone. Other environment keys found in replace_value: '{}'",
     "no filter match": "unmatched optional filters",
 }
 

@@ -1,6 +1,7 @@
 from orionis.app import Orionis
 from orionis.console.base.command import BaseCommand
 from orionis.console.exceptions import CLIOrionisRuntimeError
+from orionis.foundation.contracts.application import IApplication
 from orionis.test.contracts.kernel import ITestKernel
 
 class TestCommand(BaseCommand):
@@ -26,28 +27,34 @@ class TestCommand(BaseCommand):
     # Command description
     description: str = "Executes all automated tests using the configured test kernel for the Orionis application."
 
-    def handle(self) -> dict:
+    def handle(self, app: IApplication) -> dict:
         """
-        Executes the test command for the Orionis CLI.
+        Executes all automated tests using the configured test kernel.
 
-        This method initializes the Orionis application, retrieves the test kernel instance,
-        and runs the test suite using the kernel's handle method. If any exception occurs during
-        execution, it raises a CLIOrionisRuntimeError with the error details.
+        This method retrieves the test kernel instance from the application container
+        and executes the test suite by invoking the kernel's handle method. If any
+        exception occurs during execution, it raises a CLIOrionisRuntimeError with
+        the error details.
+
+        Parameters
+        ----------
+        app : IApplication
+            The Orionis application instance providing access to the service container.
 
         Returns
         -------
         dict
-            The result of the test execution, typically containing test results or status.
+            A dictionary containing the results of the test execution, such as test
+            statuses, counts, or other relevant information.
 
         Raises
         ------
         CLIOrionisRuntimeError
             If an unexpected error occurs during the execution of the test command.
         """
-        try:
 
-            # Initialize the Orionis application instance
-            app = Orionis()
+        # Attempt to execute the test suite using the test kernel
+        try:
 
             # Retrieve the test kernel instance from the application container
             kernel: ITestKernel = app.make(ITestKernel)

@@ -567,8 +567,8 @@ class BasinProxy:
     def __getitem__(self, feat):
         if feat not in self._features:
             if feat == "contour":
-                raise NotImplementedError("Feature 'contour' cannot be "
-                                          "handled by BasinProxy.")
+                feat_obj = BasinProxyContour(feat_obj=self.ds[feat],
+                                             basinmap=self.basinmap)
             else:
                 feat_obj = BasinProxyFeature(feat_obj=self.ds[feat],
                                              basinmap=self.basinmap)
@@ -579,13 +579,60 @@ class BasinProxy:
         return len(self.basinmap)
 
 
+class BasinProxyContour:
+    def __init__(self, feat_obj, basinmap):
+        """Wrap around a contour, mapping it upon data access, no caching"""
+        self.feat_obj = feat_obj
+        self.basinmap = basinmap
+        self.is_scalar = False
+        self.shape = (len(self.basinmap), np.nan, 2)
+        self.identifier = feat_obj.identifier
+
+    def __getattr__(self, item):
+        if item in [
+            "dtype",
+        ]:
+            return getattr(self.feat_obj, item)
+        else:
+            raise AttributeError(
+                f"BasinProxyContour does not implement {item}")
+
+    def __getitem__(self, index):
+        if isinstance(index, numbers.Integral):
+            # single index, cheap operation
+            return self.feat_obj[self.basinmap[index]]
+        else:
+            raise NotImplementedError(
+                "Cannot index contours without anything else than integers.")
+
+    def __len__(self):
+        return self.shape[0]
+
+
 class BasinProxyFeature(np.lib.mixins.NDArrayOperatorsMixin):
     def __init__(self, feat_obj, basinmap):
         """Wrap around a feature object, mapping it upon data access"""
         self.feat_obj = feat_obj
         self.basinmap = basinmap
         self._cache = None
+        self._shape = None
+        self._size = None
         self.is_scalar = bool(len(self.feat_obj.shape) == 1)
+
+    @property
+    def shape(self):
+        if self._shape is None:
+            if self.is_scalar:
+                self._shape = self.basinmap.shape
+            else:
+                self._shape = (self.basinmap.size,) + self.feat_obj.shape[1:]
+        return self._shape
+
+    @property
+    def size(self):
+        if self._size is None:
+            self._size = np.prod(self.shape)
+        return self._size
 
     def __array__(self, dtype=None, copy=copy_if_needed, *args, **kwargs):
         if self._cache is None and self.is_scalar:
@@ -603,8 +650,6 @@ class BasinProxyFeature(np.lib.mixins.NDArrayOperatorsMixin):
     def __getattr__(self, item):
         if item in [
             "dtype",
-            "shape",
-            "size",
         ]:
             return getattr(self.feat_obj, item)
         else:

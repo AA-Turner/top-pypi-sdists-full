@@ -15,8 +15,8 @@ from canonmap.connectors.mysql_connector.utils.transforms import (
 
 # --- Strategy helpers and registry -----------------------------------------------------------
 
-def _execute_and_collect_names(db_connection_manager, sql: str, params: Iterable) -> set:
-    resp = db_connection_manager.execute_query(sql, list(params))
+def _execute_and_collect_names(db_connection_manager, sql: str, params: Iterable, limit: Optional[int] = None) -> set:
+    resp = db_connection_manager.execute_query(sql, list(params), allow_writes=False, limit=limit)
     rows = resp.get("data") or []
     return {row["name"] for row in rows}
 
@@ -42,23 +42,48 @@ def _prepare_exact_param(entity_name: str) -> Optional[str]:
     return entity_name.strip().lower()
 
 
-def _sql_phonetic(table_name: str, field_name: str) -> str:
+def _sql_phonetic(connector, table_name: str, field_name: str) -> Optional[str]:
+    primary = f"__{field_name}_phonetic__"
+    fallback = f"{field_name}_phonetic__"
+    helper_col = None
+    try:
+        if _column_exists(connector, table_name, primary):
+            helper_col = primary
+        elif _column_exists(connector, table_name, fallback):
+            helper_col = fallback
+    except Exception:
+        # If metadata lookup fails for any reason, do not build SQL
+        helper_col = None
+    if not helper_col:
+        return None
     return f"""
         SELECT DISTINCT `{field_name}` AS name
         FROM `{table_name}`
-        WHERE `__{field_name}_phonetic__` LIKE %s
+        WHERE `{helper_col}` LIKE %s
     """
 
 
-def _sql_initialism(table_name: str, field_name: str) -> str:
+def _sql_initialism(connector, table_name: str, field_name: str) -> Optional[str]:
+    primary = f"__{field_name}_initialism__"
+    fallback = f"{field_name}_initialism__"
+    helper_col = None
+    try:
+        if _column_exists(connector, table_name, primary):
+            helper_col = primary
+        elif _column_exists(connector, table_name, fallback):
+            helper_col = fallback
+    except Exception:
+        helper_col = None
+    if not helper_col:
+        return None
     return f"""
         SELECT DISTINCT `{field_name}` AS name
         FROM `{table_name}`
-        WHERE `__{field_name}_initialism__` = %s
+        WHERE `{helper_col}` = %s
     """
 
 
-def _sql_exact(table_name: str, field_name: str) -> str:
+def _sql_exact(connector, table_name: str, field_name: str) -> str:
     return f"""
         SELECT DISTINCT `{field_name}` AS name
         FROM `{table_name}`
@@ -72,23 +97,32 @@ def _simple_handler(
     table_name: str,
     field_name: str,
     prepare_param: Callable[[str], Optional[str]],
-    sql_builder: Callable[[str, str], str],
+    sql_builder: Callable[[object, str, str], Optional[str]],
+    limit: Optional[int] = None,
 ) -> set:
     param = prepare_param(entity_name)
     if not param:
         return set()
-    sql = sql_builder(table_name, field_name)
-    return _execute_and_collect_names(db_connection_manager, sql, (param,))
+    sql = sql_builder(db_connection_manager, table_name, field_name)
+    if not sql:
+        return set()
+    return _execute_and_collect_names(db_connection_manager, sql, (param,), limit=limit)
 
 
-def _soundex_handler(db_connection_manager, entity_name: str, table_name: str, field_name: str) -> set:
+def _soundex_handler(db_connection_manager, entity_name: str, table_name: str, field_name: str, limit: Optional[int] = None) -> set:
     """
     Block candidates using helper field if available; otherwise use MySQL's SOUNDEX.
     """
     # Prefer helper field column if present: __<field>_soundex__
     try:
-        helper_col_name = f"__{field_name}_soundex__"
-        if _column_exists(db_connection_manager, table_name, helper_col_name):
+        primary = f"__{field_name}_soundex__"
+        fallback = f"{field_name}_soundex__"
+        helper_col_name = None
+        if _column_exists(db_connection_manager, table_name, primary):
+            helper_col_name = primary
+        elif _column_exists(db_connection_manager, table_name, fallback):
+            helper_col_name = fallback
+        if helper_col_name:
             code = _to_soundex(entity_name)
             if not code:
                 return set()
@@ -97,7 +131,7 @@ def _soundex_handler(db_connection_manager, entity_name: str, table_name: str, f
                 FROM `{table_name}`
                 WHERE `{helper_col_name}` = %s
             """
-            resp = db_connection_manager.execute_query(helper_sql, [code])
+            resp = db_connection_manager.execute_query(helper_sql, [code], allow_writes=False, limit=limit)
             rows = resp.get("data") or []
             return {r["name"] for r in rows}
     except Exception:
@@ -109,16 +143,16 @@ def _soundex_handler(db_connection_manager, entity_name: str, table_name: str, f
         FROM `{table_name}`
         WHERE SOUNDEX(`{field_name}`) = SOUNDEX(%s)
     """
-    resp = db_connection_manager.execute_query(primary_sql, [entity_name])
+    resp = db_connection_manager.execute_query(primary_sql, [entity_name], allow_writes=False, limit=limit)
     rows = resp.get("data") or []
     return {r["name"] for r in rows}
 
 
 # Public registry mapping block type to handler callable
-BLOCKING_HANDLERS: Dict[str, Callable[[object, str, str, str], set]] = {
-    "phonetic": lambda db, e, t, f: _simple_handler(db, e, t, f, _prepare_phonetic_param, _sql_phonetic),
-    "initialism": lambda db, e, t, f: _simple_handler(db, e, t, f, _prepare_initialism_param, _sql_initialism),
-    "exact": lambda db, e, t, f: _simple_handler(db, e, t, f, _prepare_exact_param, _sql_exact),
+BLOCKING_HANDLERS: Dict[str, Callable[[object, str, str, str, Optional[int]], set]] = {
+    "phonetic": lambda db, e, t, f, lim=None: _simple_handler(db, e, t, f, _prepare_phonetic_param, _sql_phonetic, lim),
+    "initialism": lambda db, e, t, f, lim=None: _simple_handler(db, e, t, f, _prepare_initialism_param, _sql_initialism, lim),
+    "exact": lambda db, e, t, f, lim=None: _simple_handler(db, e, t, f, _prepare_exact_param, _sql_exact, lim),
     "soundex": _soundex_handler,
 }
 
@@ -129,6 +163,7 @@ def block_candidates(
     table_name: str,
     field_name: str,
     block_type: str,
+    limit: Optional[int] = None,
 ) -> set:
     """
     General blocking function using a strategy map.
@@ -137,22 +172,22 @@ def block_candidates(
     handler = BLOCKING_HANDLERS.get(block_type)
     if handler is None:
         raise ValueError(f"Unknown block_type '{block_type}'")
-    return handler(db_connection_manager, entity_name, table_name, field_name)
+    return handler(db_connection_manager, entity_name, table_name, field_name, limit)
 
 
 # --- Backward-compatible wrappers -------------------------------------------------------------
 
-def block_by_phonetic(db_connection_manager, entity_name: str, table_name: str, field_name: str) -> set:
-    return block_candidates(db_connection_manager, entity_name, table_name, field_name, "phonetic")
+def block_by_phonetic(db_connection_manager, entity_name: str, table_name: str, field_name: str, limit: Optional[int] = None) -> set:
+    return block_candidates(db_connection_manager, entity_name, table_name, field_name, "phonetic", limit)
 
 
-def block_by_soundex(db_connection_manager, entity_name: str, table_name: str, field_name: str) -> set:
-    return block_candidates(db_connection_manager, entity_name, table_name, field_name, "soundex")
+def block_by_soundex(db_connection_manager, entity_name: str, table_name: str, field_name: str, limit: Optional[int] = None) -> set:
+    return block_candidates(db_connection_manager, entity_name, table_name, field_name, "soundex", limit)
 
 
-def block_by_initialism(db_connection_manager, entity_name: str, table_name: str, field_name: str) -> set:
-    return block_candidates(db_connection_manager, entity_name, table_name, field_name, "initialism")
+def block_by_initialism(db_connection_manager, entity_name: str, table_name: str, field_name: str, limit: Optional[int] = None) -> set:
+    return block_candidates(db_connection_manager, entity_name, table_name, field_name, "initialism", limit)
 
 
-def block_by_exact_match(db_connection_manager, entity_name: str, table_name: str, field_name: str) -> set:
-    return block_candidates(db_connection_manager, entity_name, table_name, field_name, "exact")
+def block_by_exact_match(db_connection_manager, entity_name: str, table_name: str, field_name: str, limit: Optional[int] = None) -> set:
+    return block_candidates(db_connection_manager, entity_name, table_name, field_name, "exact", limit)

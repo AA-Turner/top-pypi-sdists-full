@@ -25,6 +25,7 @@ from collate_sqllineage.core.parser.sqlfluff.utils import (
     get_inner_from_expression,
     get_multiple_identifiers,
     get_subqueries,
+    get_table_alias,
     is_union,
     is_values_clause,
     retrieve_extra_segment,
@@ -87,8 +88,95 @@ class SourceHandler(SourceHandlerMixin, ConditionalSegmentBaseHandler):
         from_segment = get_inner_from_expression(segment)
         if from_segment.type == "from_expression_element":
             self._add_dataset_from_expression_element(from_segment, holder)
+
+        # Handle bracketed expressions with JOINs more thoroughly
+        from_expr = segment.get_child("from_expression")
+        if from_expr:
+            # Check for bracketed expressions
+            bracketed = from_expr.get_child("bracketed")
+            if bracketed:
+                self._handle_bracketed_joins(bracketed, holder)
+
         for extra_segment in retrieve_extra_segment(segment):
-            self._handle_table(extra_segment, holder)
+            # For join_clause segments, extract the from_expression_element within them
+            if extra_segment.type == "join_clause":
+                # Get the from_expression_element from the join_clause
+                from_exp_elem = extra_segment.get_child("from_expression_element")
+                if from_exp_elem:
+                    self._add_dataset_from_expression_element(from_exp_elem, holder)
+                # Also check if the join_clause has a from_expression that might contain more tables
+                # This handles cases where the left side of the join is a bracketed expression
+                from_expr = extra_segment.get_child("from_expression")
+                if from_expr:
+                    self._process_from_expression(from_expr, holder)
+            else:
+                self._handle_table(extra_segment, holder)
+
+    def _handle_bracketed_joins(
+        self, bracketed: BaseSegment, holder: SubQueryLineageHolder
+    ) -> None:
+        """
+        Recursively handle tables and joins within bracketed expressions
+        :param bracketed: bracketed segment to be handled
+        :param holder: 'SubQueryLineageHolder' to hold lineage
+        """
+        # First, check if this is a bracketed from_expression
+        from_expr = bracketed.get_child("from_expression")
+        if from_expr:
+            # Process all children of the from_expression
+            self._process_from_expression(from_expr, holder)
+            return
+
+        # Process all segments within brackets, including nested structures
+        for segment in bracketed.segments if hasattr(bracketed, "segments") else []:
+            if segment.type == "from_expression_element":
+                self._add_dataset_from_expression_element(segment, holder)
+            elif segment.type == "join_clause":
+                from_exp_elem = segment.get_child("from_expression_element")
+                if from_exp_elem:
+                    self._add_dataset_from_expression_element(from_exp_elem, holder)
+            elif segment.type == "bracketed":
+                # Recursively handle nested brackets
+                self._handle_bracketed_joins(segment, holder)
+            elif segment.type == "from_expression":
+                # Handle from_expression that might contain more tables
+                self._process_from_expression(segment, holder)
+
+    def _process_from_expression(
+        self, from_expr: BaseSegment, holder: SubQueryLineageHolder
+    ) -> None:
+        """
+        Process a from_expression segment to extract all tables
+        :param from_expr: from_expression segment
+        :param holder: 'SubQueryLineageHolder' to hold lineage
+        """
+        # Track if we've found any from_expression_element
+        found_element = False
+
+        for child in from_expr.segments if hasattr(from_expr, "segments") else []:
+            if child.type == "from_expression_element":
+                self._add_dataset_from_expression_element(child, holder)
+                found_element = True
+            elif child.type == "bracketed":
+                # Check if this bracketed contains another from_expression
+                inner_from_expr = child.get_child("from_expression")
+                if inner_from_expr:
+                    # Recursively process the inner from_expression
+                    self._process_from_expression(inner_from_expr, holder)
+                else:
+                    # Otherwise handle as regular bracketed joins
+                    self._handle_bracketed_joins(child, holder)
+                found_element = True
+            elif child.type == "join_clause":
+                from_exp_elem = child.get_child("from_expression_element")
+                if from_exp_elem:
+                    self._add_dataset_from_expression_element(from_exp_elem, holder)
+
+        # If we haven't found any elements but there's a bracketed segment, process it
+        if not found_element:
+            bracketed = from_expr.get_child("bracketed")
+            if bracketed:
+                self._handle_bracketed_joins(bracketed, holder)
 
     def _handle_table_from_select_statement(
         self, sub_segment: BaseSegment, holder: SubQueryLineageHolder
@@ -227,6 +315,64 @@ class SourceHandler(SourceHandlerMixin, ConditionalSegmentBaseHandler):
                     holder.extra_subqueries.add(read_sq)
                     self.tables.append(read_sq)
             else:
+                # Check if this is a bracketed expression with joins inside
+                # This handles cases like "(table1 JOIN table2)" used as a from_expression_element
+                if first_segment.type == "bracketed":
+                    # Check if it has a from_expression child
+                    from_expr = first_segment.get_child("from_expression")
+                    if from_expr:
+                        # Process all tables within this from_expression
+                        self._process_from_expression(from_expr, holder)
+                        return
+
+                    # Otherwise, check if it directly contains table_expression and join_clause
+                    # This handles cases like "(table1 t1 JOIN table2 t2)"
+                    has_joins = False
+                    table_expr = None
+                    table_alias = None
+
+                    for i, child in enumerate(
+                        first_segment.segments
+                        if hasattr(first_segment, "segments")
+                        else []
+                    ):
+                        if child.type == "table_expression":
+                            table_expr = child
+                            # Check if the next segment is an alias_expression
+                            next_segments = (
+                                first_segment.segments[i + 1 :]
+                                if hasattr(first_segment, "segments")
+                                else []
+                            )
+                            for next_seg in next_segments:
+                                if next_seg.type == "alias_expression":
+                                    table_alias = get_table_alias(
+                                        [table_expr, next_seg]
+                                    )
+                                    break
+                                elif next_seg.type not in ["whitespace", "newline"]:
+                                    break
+
+                            # Extract the first table with its alias
+                            table_id = find_table_identifier(table_expr)
+                            if table_id:
+                                dataset = retrieve_holder_data_from(
+                                    [table_expr], holder, table_id, alias=table_alias
+                                )
+                                self.tables.append(dataset)
+                        elif child.type == "join_clause":
+                            has_joins = True
+                            # Extract tables from the join clause
+                            from_exp_elem = child.get_child("from_expression_element")
+                            if from_exp_elem:
+                                self._add_dataset_from_expression_element(
+                                    from_exp_elem, holder
+                                )
+
+                    if has_joins:
+                        return  # We've processed this bracketed expression
+
+                # Otherwise, extract as a single table
                 table_identifier = find_table_identifier(segment)
                 if table_identifier:
                     dataset = retrieve_holder_data_from(

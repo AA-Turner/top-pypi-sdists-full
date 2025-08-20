@@ -511,35 +511,46 @@ class Container(IContainer):
         registered in the container under both the abstract and the alias.
         """
 
-        # Ensure that the abstract is an abstract class
-        IsAbstractClass(abstract, f"Instance {Lifetime.SINGLETON}")
+        # Validate the enforce_decoupling parameter
+        if isinstance(enforce_decoupling, bool):
 
-        # Ensure that the instance is a valid instance
-        IsInstance(instance)
+            # Ensure that the abstract is an abstract class
+            IsAbstractClass(abstract, f"Instance {Lifetime.SINGLETON}")
 
-        # Ensure that instance is NOT a subclass of abstract
-        if enforce_decoupling:
-            IsNotSubclass(abstract, instance.__class__)
+            # Ensure that the instance is a valid instance
+            IsInstance(instance)
 
-        # Validate that instance is a subclass of abstract
+            # Ensure that instance is NOT a subclass of abstract
+            if enforce_decoupling:
+                IsNotSubclass(abstract, instance.__class__)
+
+            # Validate that instance is a subclass of abstract
+            else:
+                IsSubclass(abstract, instance.__class__)
+
+            # Ensure implementation
+            ImplementsAbstractMethods(
+                abstract=abstract,
+                instance=instance
+            )
+
+            # Ensure that the alias is a valid string if provided
+            if alias:
+                IsValidAlias(alias)
+            else:
+                rf_asbtract = ReflectionAbstract(abstract)
+                alias = rf_asbtract.getModuleWithClassName()
+
+            # If the service is already registered, drop it
+            self.drop(abstract, alias)
+
         else:
-            IsSubclass(abstract, instance.__class__)
 
-        # Ensure implementation
-        ImplementsAbstractMethods(
-            abstract=abstract,
-            instance=instance
-        )
+            # Drop the existing alias if it exists
+            self.drop(alias=alias)
 
-        # Ensure that the alias is a valid string if provided
-        if alias:
-            IsValidAlias(alias)
-        else:
-            rf_asbtract = ReflectionAbstract(abstract)
-            alias = rf_asbtract.getModuleWithClassName()
-
-        # If the service is already registered, drop it
-        self.drop(abstract, alias)
+            # If enforce_decoupling is not a boolean, set it to False
+            enforce_decoupling = False
 
         # Register the instance with the abstract type
         self.__bindings[abstract] = Binding(

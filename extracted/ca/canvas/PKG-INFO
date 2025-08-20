@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: canvas
-Version: 0.53.2
+Version: 0.55.0
 Summary: SDK to customize event-driven actions in your Canvas instance
 Author-email: Canvas Team <engineering@canvasmedical.com>
 License-Expression: MIT

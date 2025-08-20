@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+# coding:utf-8
 # Copyright (C) 2020-2025 All rights reserved.
 # FILENAME:    ~~/src/fastapi_csrf_protect/core.py
-# VERSION:     1.0.3
+# VERSION:     1.0.5
 # CREATED:     2020-11-25 14:35
 # AUTHOR:      Sitt Guruvanich <aekazitt+github@gmail.com>
 # DESCRIPTION:
@@ -13,7 +14,7 @@
 from hashlib import sha1
 from re import match
 from os import urandom
-from typing import Dict, Optional, Tuple, Union
+from typing import Optional, Union
 
 ### Third-party packages ###
 from itsdangerous import BadData, SignatureExpired, URLSafeTimedSerializer
@@ -32,7 +33,7 @@ from fastapi_csrf_protect.exceptions import (
 
 
 class CsrfProtect(CsrfConfig):
-  def generate_csrf_tokens(self, secret_key: Optional[str] = None) -> Tuple[str, str]:
+  def generate_csrf_tokens(self, secret_key: Optional[str] = None) -> tuple[str, str]:
     """
     Generate a CSRF token and a signed CSRF token using server's secret key to be stored in cookie.
 
@@ -56,8 +57,8 @@ class CsrfProtect(CsrfConfig):
     :param data: attached request body containing cookie data with configured `token_key`
     :type data: bytes
     """
-    fields: Dict[str, Tuple[type, str]] = {self._token_key: (str, "csrf-token")}
-    Body = create_model("Body", **fields)
+    fields: dict[str, tuple[type, str]] = {self._token_key: (str, "csrf-token")}
+    Body = create_model("Body", **fields)  # type: ignore[call-overload]
     content: str = '{"' + data.decode("utf-8").replace("&", '","').replace("=", '":"') + '"}'
     body = Body.model_validate_json(content)
     token: str = body.model_dump()[self._token_key]
@@ -172,9 +173,9 @@ class CsrfProtect(CsrfConfig):
     if self._token_location == "header":
       token = self.get_csrf_from_headers(request.headers)
     else:
-      if hasattr(request, "_json"):
+      if hasattr(request, "_json") and isinstance(request._json, dict):
         token = request._json.get(self._token_key, "")
-      elif hasattr(request, "_form") and request._form is not None:
+      elif hasattr(request, "_form") and isinstance(request._form, dict):
         form_data: Union[None, UploadFile, str] = request._form.get(self._token_key)
         if not form_data or isinstance(form_data, UploadFile):
           raise MissingTokenError("Form data must be of type string")
@@ -192,4 +193,4 @@ class CsrfProtect(CsrfConfig):
       raise TokenValidationError("The CSRF token is invalid.")
 
 
-__all__: Tuple[str, ...] = ("CsrfProtect",)
+__all__: tuple[str, ...] = ("CsrfProtect",)

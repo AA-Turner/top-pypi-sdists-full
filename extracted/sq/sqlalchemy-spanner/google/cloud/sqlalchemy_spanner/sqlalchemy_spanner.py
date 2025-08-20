@@ -20,6 +20,7 @@ from alembic.ddl.base import (
     ColumnType,
     alter_column,
     alter_table,
+    format_server_default,
     format_type,
 )
 from google.api_core.client_options import ClientOptions
@@ -425,7 +426,14 @@ class SpannerSQLCompiler(SQLCompiler):
             self._label_select_column(
                 None, c, True, False, {"spanner_is_returning": True}
             )
-            for c in expression._select_iterables(returning_cols)
+            for c in expression._select_iterables(
+                filter(
+                    lambda col: not col.dialect_options.get("spanner", {}).get(
+                        "exclude_from_returning", False
+                    ),
+                    returning_cols,
+                )
+            )
         ]
 
         return "THEN RETURN " + ", ".join(columns)
@@ -572,7 +580,7 @@ class SpannerDDLCompiler(DDLCompiler):
         elif has_identity:
             colspec += " " + self.process(column.identity)
         elif default is not None:
-            colspec += " DEFAULT (" + default + ")"
+            colspec += f" DEFAULT {default}"
         elif hasattr(column, "computed") and column.computed is not None:
             colspec += " " + self.process(column.computed)
 
@@ -582,6 +590,13 @@ class SpannerDDLCompiler(DDLCompiler):
             colspec += " OPTIONS (allow_commit_timestamp=true)"
 
         return colspec
+
+    def get_column_default_string(self, column):
+        default = super().get_column_default_string(column)
+        if default is not None:
+            return f"({default})"
+
+        return default
 
     def visit_computed_column(self, generated, **kw):
         """Computed column operator."""
@@ -651,6 +666,12 @@ class SpannerDDLCompiler(DDLCompiler):
             "Spanner doesn't support direct UNIQUE constraints creation. "
             "Create UNIQUE indexes instead."
         )
+
+    def visit_foreign_key_constraint(self, constraint, **kw):
+        text = super().visit_foreign_key_constraint(constraint, **kw)
+        if constraint.dialect_options.get("spanner", {}).get("not_enforced", False):
+            text += " NOT ENFORCED"
+        return text
 
     def post_create_table(self, table):
         """Build statements to be executed after CREATE TABLE.
@@ -825,6 +846,7 @@ class SpannerDialect(DefaultDialect):
     update_returning = True
     delete_returning = True
     supports_multivalues_insert = True
+    use_insertmanyvalues = True
 
     ddl_compiler = SpannerDDLCompiler
     preparer = SpannerIdentifierPreparer
@@ -1100,7 +1122,8 @@ class SpannerDialect(DefaultDialect):
 
         sql = """
             SELECT col.table_schema, col.table_name, col.column_name,
-                col.spanner_type, col.is_nullable, col.generation_expression
+                col.spanner_type, col.is_nullable, col.generation_expression,
+                col.column_default
             FROM information_schema.columns as col
             JOIN information_schema.tables AS t
                 USING (TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME)
@@ -1128,7 +1151,7 @@ class SpannerDialect(DefaultDialect):
                     "name": col[2],
                     "type": self._designate_type(col[3]),
                     "nullable": col[4] == "YES",
-                    "default": None,
+                    "default": col[6] if col[6] is not None else None,
                 }
 
                 if col[5] is not None:
@@ -1846,11 +1869,14 @@ LIMIT 1
 def visit_column_nullable(
     element: "ColumnNullable", compiler: "SpannerDDLCompiler", **kw
 ) -> str:
-    return "%s %s %s %s" % (
-        alter_table(compiler, element.table_name, element.schema),
-        alter_column(compiler, element.column_name),
-        format_type(compiler, element.existing_type),
-        "" if element.nullable else "NOT NULL",
+    return _format_alter_column(
+        compiler,
+        element.table_name,
+        element.schema,
+        element.column_name,
+        element.existing_type,
+        element.nullable,
+        element.existing_server_default,
     )
 
 
@@ -1859,9 +1885,34 @@ def visit_column_nullable(
 def visit_column_type(
     element: "ColumnType", compiler: "SpannerDDLCompiler", **kw
 ) -> str:
-    return "%s %s %s %s" % (
-        alter_table(compiler, element.table_name, element.schema),
-        alter_column(compiler, element.column_name),
-        "%s" % format_type(compiler, element.type_),
-        "" if element.existing_nullable else "NOT NULL",
+    return _format_alter_column(
+        compiler,
+        element.table_name,
+        element.schema,
+        element.column_name,
+        element.type_,
+        element.existing_nullable,
+        element.existing_server_default,
+    )
+
+
+def _format_alter_column(
+    compiler, table_name, schema, column_name, type_, nullable, server_default
+):
+    # Older versions of SQLAlchemy pass in a boolean to indicate whether there
+    # is an existing DEFAULT constraint, instead of the actual DEFAULT constraint
+    # expression. In those cases, we do not want to explicitly include the DEFAULT
+    # constraint in the expression that is generated here.
+    if isinstance(server_default, bool):
+        server_default = None
+    return "%s %s %s%s%s" % (
+        alter_table(compiler, table_name, schema),
+        alter_column(compiler, column_name),
+        format_type(compiler, type_),
+        "" if nullable else " NOT NULL",
+        (
+            ""
+            if server_default is None
+            else f" DEFAULT {format_server_default(compiler, server_default)}"
+        ),
     )

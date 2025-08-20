@@ -1,20 +1,21 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: mdformat_myst
-Version: 0.2.1
+Version: 0.2.2
 Summary: Mdformat plugin for MyST compatibility.
 Home-page: https://github.com/hukkinj1/mdformat-myst
-License: MIT
 Keywords: mdformat,markdown,formatter,gfm
 Author: Taneli Hukkinen
 Maintainer: Executable Book Project
 Maintainer-email: executablebooks@gmail.com
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+License: MIT
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: mdformat >=0.7.0,<0.8.0
+License-File: LICENSE
+Requires-Dist: mdformat >=0.7.0
 Requires-Dist: mdit-py-plugins >=0.3.0
 Requires-Dist: mdformat-tables >=0.4.0
 Requires-Dist: mdformat-frontmatter >=0.3.2

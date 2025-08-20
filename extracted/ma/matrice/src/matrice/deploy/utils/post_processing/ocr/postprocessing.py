@@ -212,9 +212,35 @@ class TextPostprocessor:
         return None
     
     def _process_license_plate_qatar(self, text):
-        plate_text = text.upper()
+        """
+        Process Qatar license plate text by converting Arabic numerals to Latin and keeping only digits.
+        
+        Args:
+            text (str): License plate text to process.
+            
+        Returns:
+            str: Processed license plate text or None if invalid.
+        """
+        # Check for Unicode escape sequences (e.g., \u0664)
+        if r'\u' in str(text):
+            self.logger.warning(f"Invalid Qatar license plate format: '{text}' contains Unicode escape sequence")
+            return None
+
+        # Define Arabic to Latin numeral mapping
+        arabic_to_latin = str.maketrans('٠١٢٣٤٥٦٧٨٩', '0123456789')
+        
+        # Convert Arabic numerals to Latin and keep only alphanumeric characters
+        plate_text = text.translate(arabic_to_latin)
+        plate_text = ''.join(char for char in plate_text if char.isalnum())
+        
+        # Apply character substitutions for common OCR errors
+        for old, new in self.char_substitutions.items():
+            plate_text = plate_text.replace(old, new)
+        
+        # Keep only digits for Qatar license plates
         plate_text = ''.join(char for char in plate_text if char.isdigit())
         
+        # Validate: Ensure the text is 1 to 6 digits
         if re.match(r'^\d{1,6}$', plate_text):
             self.logger.info(f"Processed Qatar license plate: '{text}' -> '{plate_text}'")
             return plate_text

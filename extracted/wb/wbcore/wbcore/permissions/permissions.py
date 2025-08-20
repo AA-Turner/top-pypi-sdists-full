@@ -1,5 +1,5 @@
 from rest_framework import permissions
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import IsAuthenticated
 
 from wbcore.enums import WidgetType
 
@@ -40,7 +40,7 @@ class RestAPIModelPermissions(permissions.DjangoModelPermissions):
         return request.user.has_perms(perms)
 
 
-class IsInternalUser(BasePermission):
+class IsInternalUser(IsAuthenticated):
     def has_permission(self, request, view) -> bool:
         return is_internal_user(request.user, True)
 

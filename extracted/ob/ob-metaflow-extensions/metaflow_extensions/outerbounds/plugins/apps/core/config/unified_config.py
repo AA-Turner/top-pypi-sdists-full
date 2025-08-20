@@ -480,7 +480,7 @@ class DependencyConfig(metaclass=ConfigMeta):
             help="The Python version to use for the app.",
         ),
         field_type=str,
-        behavior=FieldBehavior.NOT_ALLOWED,
+        behavior=FieldBehavior.UNION,
         example="3.10",
     )
     pypi = ConfigField(

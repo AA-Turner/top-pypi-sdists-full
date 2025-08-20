@@ -6,7 +6,7 @@ requires = [
 
 [project]
 name = "time-machine"
-version = "2.18.0"
+version = "2.19.0"
 description = "Travel through time in your tests."
 readme = "README.rst"
 keywords = [
@@ -130,6 +130,7 @@ max_supported_python = "3.14"
 addopts = """\
     --strict-config
     --strict-markers
+    -p pytester
     """
 xfail_strict = true
 

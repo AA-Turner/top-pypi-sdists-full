@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Boolean, ForeignKey, Integer, Text, String
+from sqlalchemy import Column, DateTime, Boolean, ForeignKey, Integer, Text, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from ...database import Base
@@ -16,6 +16,7 @@ class WorkbookBlockModel(Base):
         ForeignKey("workbooks.id"),
         nullable=False,
     )
+    block_uid = Column(String(64), nullable=False)
     sequence_number = Column(Integer, nullable=False)
     type = Column(String(50), nullable=False)
     data = Column(Text, nullable=True)
@@ -42,4 +43,8 @@ class WorkbookBlockModel(Base):
                     "or_(WorkbookBlockCommentModel.is_deleted==False, WorkbookBlockCommentModel.is_deleted==None))",
         order_by=WorkbookBlockCommentModel.sequence_number,
         back_populates="workbook_block",
+    )
+
+    __table_args__ = (
+        UniqueConstraint('workbook_id', 'block_uid', name='uq_workbook_block_uid'),
     )

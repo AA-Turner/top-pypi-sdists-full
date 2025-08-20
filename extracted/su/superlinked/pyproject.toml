@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "superlinked"
-version = "33.7.7"  # The version will be dynamically updated
+version = "34.0.0"  # The version will be dynamically updated
 description = "The Superlinked vector computing library"
 authors = ["Superlinked Release <release@superlinked.com>"]
 readme = "PYPI_README.md"
@@ -50,7 +50,7 @@ jupyter = { version = "^1.0.0", optional = true }
 # --- Pub/Sub deps ----
 google-cloud-pubsub = { version = "^2.23.0", optional = true }
 # --- Storage deps ----
-google-cloud-storage = { version = "^2.18.2", optional = true }
+google-cloud-storage = { version = ">=2.18.2,<4.0.0", optional = true }
 # --- Connector deps ---
 mongo-types = { version = "~0.15.1", optional = true }
 pymongo = { version = "^4.7.3", optional = true }

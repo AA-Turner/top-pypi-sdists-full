@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bubus
-Version: 1.5.1
+Version: 1.5.4
 Summary: Advanced Pydantic-powered event bus with async support
 Project-URL: Repository, https://github.com/browser-use/bubus
 Author: Nick Sweeting
@@ -23,7 +23,11 @@ Bubus is a fully-featured, Pydantic-powered event bus library for async Python.
 
 It's designed for quickly building event-driven applications with Python in a way that "just works" with async support, proper support for nested events, and real concurrency control.
 
-It provides a [pydantic](https://docs.pydantic.dev/latest/)-based API for implementing publish-subscribe patterns with type safety, async/sync handler support, and advanced features like event forwarding between buses. It's inspired by the simplicity of `JS`'s async system and DOM events APIs, and it aims to bring a fully type-checked [`EventTarget`](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget)-style API to Python.
+It provides a [pydantic](https://docs.pydantic.dev/latest/)-based API for implementing publish-subscribe patterns with type safety, async/sync handler support, and advanced features like event forwarding between buses.
+
+♾️ It's inspired by the simplicity of async and events in `JS`, we aim to bring a fully type-checked [`EventTarget`](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget)-style API to Python.
+
+<br/>
 
 ## 🔢 Quickstart
 
@@ -38,25 +42,22 @@ import asyncio
 from bubus import EventBus, BaseEvent
 from your_auth_events import AuthRequestEvent, AuthResponseEvent
 
-bus = EventBus()
-
 class UserLoginEvent(BaseEvent):
     username: str
-    timestamp: float
+    is_admin: bool
 
-async def handle_login(login_event: UserLoginEvent):
-    auth_request = await bus.dispatch(AuthRequestEvent(...))  # dispatch a nested event
-    auth_response = await bus.expect(AuthResponseEvent)       # wait for an event to be seen
+async def handle_login(event: UserLoginEvent):
+    auth_request = await event.event_bus.dispatch(AuthRequestEvent(...))  # nested events supported
+    auth_response = await event.event_bus.expect(AuthResponseEvent, timeout=30.0)
+    return f"User {event.username} logged in admin={event.is_admin} with API response: {await auth_response.event_result()}"
 
-    print(f"User {event.username} logged in at {event.timestamp} with API key: {await auth_response.event_result()}")
-    return {"status": "success", "user": event.username}
-
-
+bus = EventBus()
 bus.on(UserLoginEvent, handle_login)
+bus.on(AuthRequestEvent, AuthAPI.post)
 
-event = bus.dispatch(UserLoginEvent(username="alice", timestamp=1234567890))
-result = await event
-print(f"Login handled: {result.event_results}")
+event = bus.dispatch(UserLoginEvent(username="alice", is_admin=True))
+print(await event.event_result())
+# User alice logged in admin=True with API response: {...}
 ```
 
 <br/>
@@ -66,6 +67,69 @@ print(f"Login handled: {result.event_results}")
 <br/>
 
 ## ✨ Features
+
+<br/>
+
+### 🔎 Event Pattern Matching
+
+Subscribe to events using multiple patterns:
+
+```python
+# By event model class (recommended for best type hinting)
+bus.on(UserActionEvent, handler)
+
+# By event type string
+bus.on('UserActionEvent', handler)
+
+# Wildcard - handle all events
+bus.on('*', universal_handler)
+```
+
+<br/>
+
+### 🔀 Async and Sync Handler Support
+
+Register both synchronous and asynchronous handlers for maximum flexibility:
+
+```python
+# Async handler
+async def async_handler(event: SomeEvent) -> str:
+    await asyncio.sleep(0.1)  # Simulate async work
+    return "async result"
+
+# Sync handler
+def sync_handler(event: SomeEvent) -> str:
+    return "sync result"
+
+bus.on(SomeEvent, async_handler)
+bus.on(SomeEvent, sync_handler)
+```
+
+Handlers can also be defined under classes for easier organization:
+
+```python
+class SomeService:
+    some_value = 'this works'
+
+    async def handlers_can_be_methods(self, event: SomeEvent) -> str:
+        return self.some_value
+    
+    @classmethod
+    async def handler_can_be_classmethods(cls, event: SomeEvent) -> str:
+        return cls.some_value
+
+    @staticmethod
+    async def handlers_can_be_staticmethods(event: SomeEvent) -> str:
+        return 'this works too'
+
+# All usage patterns behave the same:
+bus.on(SomeEvent, SomeClass().handlers_can_be_methods)
+bus.on(SomeEvent, SomeClass.handler_can_be_classmethods)
+bus.on(SomeEvent, SomeClass.handlers_can_be_staticmethods)
+```
+
+<br/>
+
 
 ### 🔠 Type-Safe Events with Pydantic
 
@@ -90,61 +154,12 @@ event = OrderCreatedEvent(
 )
 ```
 
-### 🔀 Async and Sync Handler Support
+> [!TIP]
+> You can also enforce the types of [event handler return values](#-event-handler-return-values).
 
-Register both synchronous and asynchronous handlers for maximum flexibility:
+<br/>
 
-```python
-# Async handler
-async def async_handler(event: BaseEvent):
-    await asyncio.sleep(0.1)  # Simulate async work
-    return "async result"
 
-# Sync handler
-def sync_handler(event: BaseEvent):
-    return "sync result"
-
-bus.on('MyEvent', async_handler)
-bus.on('MyEvent', sync_handler)
-```
-
-Handlers can also be defined under classes for easier organization:
-
-```python
-class SomeService:
-    some_value = 'this works'
-
-    async def handlers_can_be_methods(self, event: BaseEvent):
-        return self.some_value
-    
-    @classmethod
-    async def handler_can_be_classmethods(cls, event: BaseEvent):
-        return cls.some_value
-
-    @staticmethod
-    async def handlers_can_be_staticmethods(event: BaseEvent):
-        return 'this works too'
-
-# All usage patterns behave the same:
-bus.on('MyEvent', SomeClass().handlers_can_be_methods)
-bus.on('MyEvent', SomeClass.handler_can_be_classmethods)
-bus.on('MyEvent', SomeClass.handlers_can_be_staticmethods)
-```
-
-### 🔎 Event Pattern Matching
-
-Subscribe to events using multiple patterns:
-
-```python
-# By event type string
-bus.on('UserActionEvent', handler)
-
-# By event model class
-bus.on(UserActionEvent, handler)
-
-# Wildcard - handle all events
-bus.on('*', universal_handler)
-```
 
 ### ⏩ Forward `Events` Between `EventBus`s 
 
@@ -157,39 +172,44 @@ main_bus = EventBus(name='MainBus')
 auth_bus = EventBus(name='AuthBus')
 data_bus = EventBus(name='DataBus')
 
-# Forward events between buses
-main_bus.on('LoginEvent', auth_bus.dispatch)  # if main bus gets LoginEvent, will forward to AuthBus
+# Share all or specific events between buses
+main_bus.on('*', auth_bus.dispatch)  # if main bus gets LoginEvent, will forward to AuthBus
 auth_bus.on('*', data_bus.dispatch)  # auth bus will forward everything to DataBus
-data_bus.on('*', main_bus.dispatch)  # don't worry! infinite loops are automatically prevented
+data_bus.on('*', main_bus.dispatch)  # don't worry! event will only be processed once by each, no infinite loop occurs
 
 # Events flow through the hierarchy with tracking
-event = main_bus.dispatch(MyEvent())
+event = main_bus.dispatch(LoginEvent())
 await event
 print(event.event_path)  # ['MainBus', 'AuthBus', 'DataBus']  # list of buses that have already procssed the event
 ```
+
+<br/>
 
 ### 🔱 Event Results Aggregation
 
 Collect and aggregate results from multiple handlers:
 
 ```python
-async def load_user_config(event) -> dict[str, Any]:
+async def load_user_config(event: GetConfigEvent) -> dict[str, Any]:
     return {"debug": True, "port": 8080}
 
-async def load_system_config(event) -> dict[str, Any]:
+async def load_system_config(event: GetConfigEvent) -> dict[str, Any]:
     return {"debug": False, "timeout": 30}
 
-bus.on('GetConfig', load_user_config)
-bus.on('GetConfig', load_system_config)
+bus.on(GetConfigEvent, load_user_config)
+bus.on(GetConfigEvent, load_system_config)
 
 # Get a merger of all dict results
-event = await bus.dispatch(GetConfig())
+event = await bus.dispatch(GetConfigEvent())
 config = await event.event_results_flat_dict(raise_if_conflicts=False)
 # {'debug': False, 'port': 8080, 'timeout': 30}
 
 # Or get individual results
-results = await event.event_results()
+await event.event_results_by_handler_id()
+await event.event_results_list()
 ```
+
+<br/>
 
 ### 🚦 FIFO Event Processing
 
@@ -201,7 +221,7 @@ for i in range(10):
     bus.dispatch(ProcessTaskEvent(task_id=i))
 
 # Even with async handlers, order is preserved
-await bus.wait_until_idle()
+await bus.wait_until_idle(timeout=30.0)
 ```
 
 If a handler dispatches and awaits any child events during execution, those events will jump the FIFO queue and be processed immediately:
@@ -224,57 +244,7 @@ await bus.dispatch(MainEvent()).event_result()
 # result from awaiting child event: xyz123
 ```
 
-### 🧹 Memory Management
-
-EventBus includes automatic memory management to prevent unbounded growth in long-running applications:
-
-```python
-# Create a bus with memory limits (default: 50 events)
-bus = EventBus(max_history_size=100)  # Keep max 100 events in history
-
-# Or disable memory limits for unlimited history
-bus = EventBus(max_history_size=None)
-```
-
-**Automatic Cleanup:**
-- When `max_history_size` is set, EventBus automatically removes old events when the limit is exceeded
-- Completed events are removed first (oldest first), then started events, then pending events
-- This ensures active events are preserved while cleaning up old completed events
-
-**Manual Memory Management:**
-```python
-# For request-scoped buses (e.g. web servers), clear all memory after each request
-try:
-    event_service = EventService()  # Creates internal EventBus
-    await event_service.process_request()
-finally:
-    # Clear all event history and remove from global tracking
-    await event_service.eventbus.stop(clear=True)
-```
-
-**Memory Monitoring:**
-- EventBus automatically monitors total memory usage across all instances
-- Warnings are logged when total memory exceeds 50MB
-- Use `bus.stop(clear=True)` to completely free memory for unused buses
-- To avoid memory leaks from big events, the default limits are intentionally kept low. events are normally processed as they come in, and there is rarely a need to keep every event in memory longer after its complete. long-term storage should be accomplished using other mechanisms, like the WAL
-
-### ⛓️ Parallel Handler Execution
-
-Enable parallel processing of handlers for better performance.  
-The tradeoff is slightly less deterministic ordering as handler execution order will not be guaranteed when run in parallel.
-
-```python
-# Create bus with parallel handler execution
-bus = EventBus(parallel_handlers=True)
-
-# Multiple handlers run concurrently for each event
-bus.on('DataEvent', slow_handler_1)  # Takes 1 second
-bus.on('DataEvent', slow_handler_2)  # Takes 1 second
-
-start = time.time()
-await bus.dispatch(DataEvent())
-# Total time: ~1 second (not 2)
-```
+<br/>
 
 ### 🪆 Dispatch Nested Child Events From Handlers
 
@@ -313,8 +283,11 @@ if __name__ == '__main__':
     asyncio.run(run_main())
 ```
 
-<img width="1145" alt="image" src="https://github.com/user-attachments/assets/f94684a6-7694-4066-b948-46925f47b56c" />
+<img width="100%" alt="show the whole tree of events at any time using the logging helpers" src="https://github.com/user-attachments/assets/f94684a6-7694-4066-b948-46925f47b56c" /><br/>
+<img width="100%" alt="intelligent timeout handling to differentiate handler that timed out from handler that was interrupted" src="https://github.com/user-attachments/assets/8da341fd-6c26-4c68-8fec-aef1ca55c189" />
 
+
+<br/><br/>
 
 ### ⏳ Expect an Event to be Dispatched
 
@@ -347,7 +320,7 @@ async def on_generate_invoice_pdf(event: GenerateInvoiceEvent) -> pdf:
             exclude=lambda e: e.status != 'retrying',                 # optionally exclude certain events, overrides include
             timeout=30,                                               # raises asyncio.TimeoutError if no match is seen within 30sec
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         await bus.dispatch(TimedOutError(msg='timed out while waiting for response from server', request_id=request_event.id))
 
     return response_event.invoice_url
@@ -358,24 +331,7 @@ event_bus.on(GenerateInvoiceEvent, on_generate_invoice_pdf)
 > [!IMPORTANT]
 > `expect()` resolves when the event is first *dispatched* to the `EventBus`, not when it completes. `await response_event` to get the completed event.
 
-### 📝 Write-Ahead Logging
-
-Persist events automatically to a `jsonl` file for future replay and debugging:
-
-```python
-# Enable WAL event log persistence (optional)
-bus = EventBus(name='MyBus', wal_path='./events.jsonl')
-
-# All completed events are automatically appended as JSON lines to the end
-bus.dispatch(SecondEventAbc(some_key="banana"))
-```
-
-`./events.jsonl`:
-```json
-{"event_type": "FirstEventXyz", "event_created_at": "2025-07-10T20:39:56.462000+00:00", "some_key": "some_val", ...}
-{"event_type": "SecondEventAbc", ..., "some_key": "banana"}
-...
-```
+<br/>
 
 ### 🎯 Event Handler Return Values
 
@@ -384,7 +340,11 @@ There are two ways to get return values from event handlers:
 **1. Have handlers return their values directly, which puts them in `event.event_results`:**
 
 ```python
-def do_some_math(event: DoSomeMathEvent[int]) -> int:                                                                                                                        
+class DoSomeMathEvent(BaseEvent[int]):  # BaseEvent[int] = expect int returned from all event handlers
+    a: int
+    b: int
+
+def do_some_math(event: DoSomeMathEvent) -> int:                                                                                                                        
     return event.a + event.b
 
 event_bus.on(DoSomeMathEvent, do_some_math)
@@ -467,6 +427,87 @@ event_bus.on(FetchInboxEvent, fetch_from_gmail)
 
 # Return values are automatically validated as list[EmailMessage]
 email_list = await event_bus.dispatch(FetchInboxEvent(account_id='124', ...)).event_result()
+```
+
+<br/>
+
+### 🧹 Memory Management
+
+EventBus includes automatic memory management to prevent unbounded growth in long-running applications:
+
+```python
+# Create a bus with memory limits (default: 50 events)
+bus = EventBus(max_history_size=100)  # Keep max 100 events in history
+
+# Or disable memory limits for unlimited history
+bus = EventBus(max_history_size=None)
+```
+
+**Automatic Cleanup:**
+- When `max_history_size` is set, EventBus automatically removes old events when the limit is exceeded
+- Completed events are removed first (oldest first), then started events, then pending events
+- This ensures active events are preserved while cleaning up old completed events
+
+**Manual Memory Management:**
+```python
+# For request-scoped buses (e.g. web servers), clear all memory after each request
+try:
+    event_service = EventService()  # Creates internal EventBus
+    await event_service.process_request()
+finally:
+    # Clear all event history and remove from global tracking
+    await event_service.eventbus.stop(clear=True)
+```
+
+**Memory Monitoring:**
+- EventBus automatically monitors total memory usage across all instances
+- Warnings are logged when total memory exceeds 50MB
+- Use `bus.stop(clear=True)` to completely free memory for unused buses
+- To avoid memory leaks from big events, the default limits are intentionally kept low. events are normally processed as they come in, and there is rarely a need to keep every event in memory longer after its complete. long-term storage should be accomplished using other mechanisms, like the WAL
+
+<br/>
+
+### ⛓️ Parallel Handler Execution
+
+> [!CAUTION]
+> **Not Recommended.** Only for advanced users willing to implement their own concurrency control.
+
+Enable parallel processing of handlers for better performance.  
+The harsh tradeoff is less deterministic ordering as handler execution order will not be guaranteed when run in parallel. 
+(It's very hard to write non-flaky/reliable applications when handler execution order is not guaranteed.)
+
+```python
+# Create bus with parallel handler execution
+bus = EventBus(parallel_handlers=True)
+
+# Multiple handlers run concurrently for each event
+bus.on('DataEvent', slow_handler_1)  # Takes 1 second
+bus.on('DataEvent', slow_handler_2)  # Takes 1 second
+
+start = time.time()
+await bus.dispatch(DataEvent())
+# Total time: ~1 second (not 2)
+```
+
+<br/>
+
+### 📝 Write-Ahead Logging
+
+Persist events automatically to a `jsonl` file for future replay and debugging:
+
+```python
+# Enable WAL event log persistence (optional)
+bus = EventBus(name='MyBus', wal_path='./events.jsonl')
+
+# All completed events are automatically appended as JSON lines to the end
+bus.dispatch(SecondEventAbc(some_key="banana"))
+```
+
+`./events.jsonl`:
+```json
+{"event_type": "FirstEventXyz", "event_created_at": "2025-07-10T20:39:56.462000+00:00", "some_key": "some_val", ...}
+{"event_type": "SecondEventAbc", ..., "some_key": "banana"}
+...
 ```
 
 <br/>
@@ -958,6 +999,14 @@ uv run pytest tests/test_eventbus.py
 - https://github.com/nicolaszein/py-async-bus
 - https://github.com/AngusWG/simple-event-bus
 - https://www.joeltok.com/posts/2021-03-building-an-event-bus-in-python/
+
+---
+
+
+> [🧠 DeepWiki Docs](https://deepwiki.com/browser-use/bubus)  
+> <img width="400" alt="image" src="https://github.com/user-attachments/assets/cedb5a2e-0643-4240-9a3d-5f27cb8b5741" /><img width="400" alt="image" src="https://github.com/user-attachments/assets/3ee0ee8c-8322-449f-979b-5c99ba6bd960" />
+
+
 
 ## 🏛️ License
 

@@ -279,8 +279,15 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
         while not sucesso:
             desktop = Desktop(backend="uia")
             try:
-                # Tenta localizar a janela com o título que contém "Aguarde"
+                #Tenta localizar janela de erro, se localizar retorna erro para o rpa
+                try:
+                    window_erro = desktop.window(title_re="Erro")
+                    if window_erro.exists():
+                        break
+                except:
+                    console.print("Sem janela de Erro encontrada")
                 window = desktop.window(title_re="Aguarde...")
+                # Tenta localizar a janela com o título que contém "Aguarde"
                 # Se a janela existe, continua monitorando
                 if window.exists():
                     console.print(f"Janela 'Aguarde...' ainda aberta", style="bold yellow")
@@ -288,6 +295,9 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
                     await worker_sleep(30)
                     continue
                 else:
+                    window_erro = desktop.window(title_re="Erro")
+                    if window_erro.exists():
+                        break
                     try:
                         desktop_second = Desktop(backend="uia")
                         window_aguarde = desktop_second.window(title_re="Aguarde...")
@@ -311,6 +321,7 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
             await capture_and_send_screenshot(task.historico_id, "PortalB2B_Exportacao_Documentos")
             return RpaRetornoProcessoDTO(sucesso=True, retorno="Processo de exportação dos documentos do portal B2B finalizado", status=RpaHistoricoStatusEnum.Sucesso)
         else:
+            await capture_and_send_screenshot(task.historico_id, "PortalB2B_Exportacao_Documentos_erro")
             return RpaRetornoProcessoDTO(sucesso=False, retorno="Ocorreu um erro ao finalizar o processo de exportação dos documentos do portal B2B", status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)])
     except Exception as ex:
         log_msg = f"Erro Processo Exportacao Docs Portal B2B: {str(ex)}"

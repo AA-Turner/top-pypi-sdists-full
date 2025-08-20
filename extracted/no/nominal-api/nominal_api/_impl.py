@@ -28277,6 +28277,53 @@ scout_chartdefinition_api_FrequencyPlot.__qualname__ = "FrequencyPlot"
 scout_chartdefinition_api_FrequencyPlot.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_Geo3dCustomModel(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'attachment_rid': ConjureFieldDefinition('attachmentRid', api_rids_AttachmentRid),
+            'file_extension': ConjureFieldDefinition('fileExtension', str)
+        }
+
+    __slots__: List[str] = ['_attachment_rid', '_file_extension']
+
+    def __init__(self, attachment_rid: str, file_extension: str) -> None:
+        self._attachment_rid = attachment_rid
+        self._file_extension = file_extension
+
+    @builtins.property
+    def attachment_rid(self) -> str:
+        return self._attachment_rid
+
+    @builtins.property
+    def file_extension(self) -> str:
+        return self._file_extension
+
+
+scout_chartdefinition_api_Geo3dCustomModel.__name__ = "Geo3dCustomModel"
+scout_chartdefinition_api_Geo3dCustomModel.__qualname__ = "Geo3dCustomModel"
+scout_chartdefinition_api_Geo3dCustomModel.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dDefaultModel(ConjureEnumType):
+
+    QUADCOPTER = 'QUADCOPTER'
+    '''QUADCOPTER'''
+    FIXEDWING = 'FIXEDWING'
+    '''FIXEDWING'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_chartdefinition_api_Geo3dDefaultModel.__name__ = "Geo3dDefaultModel"
+scout_chartdefinition_api_Geo3dDefaultModel.__qualname__ = "Geo3dDefaultModel"
+scout_chartdefinition_api_Geo3dDefaultModel.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_Geo3dDefinition(ConjureUnionType):
     _v1: Optional["scout_chartdefinition_api_Geo3dDefinitionV1"] = None
 
@@ -28360,6 +28407,83 @@ class scout_chartdefinition_api_Geo3dDefinitionV1(ConjureBeanType):
 scout_chartdefinition_api_Geo3dDefinitionV1.__name__ = "Geo3dDefinitionV1"
 scout_chartdefinition_api_Geo3dDefinitionV1.__qualname__ = "Geo3dDefinitionV1"
 scout_chartdefinition_api_Geo3dDefinitionV1.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dModel(ConjureUnionType):
+    _default: Optional["scout_chartdefinition_api_Geo3dDefaultModel"] = None
+    _custom: Optional["scout_chartdefinition_api_Geo3dCustomModel"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'default': ConjureFieldDefinition('default', scout_chartdefinition_api_Geo3dDefaultModel),
+            'custom': ConjureFieldDefinition('custom', scout_chartdefinition_api_Geo3dCustomModel)
+        }
+
+    def __init__(
+            self,
+            default: Optional["scout_chartdefinition_api_Geo3dDefaultModel"] = None,
+            custom: Optional["scout_chartdefinition_api_Geo3dCustomModel"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (default is not None) + (custom is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if default is not None:
+                self._default = default
+                self._type = 'default'
+            if custom is not None:
+                self._custom = custom
+                self._type = 'custom'
+
+        elif type_of_union == 'default':
+            if default is None:
+                raise ValueError('a union value must not be None')
+            self._default = default
+            self._type = 'default'
+        elif type_of_union == 'custom':
+            if custom is None:
+                raise ValueError('a union value must not be None')
+            self._custom = custom
+            self._type = 'custom'
+
+    @builtins.property
+    def default(self) -> Optional["scout_chartdefinition_api_Geo3dDefaultModel"]:
+        return self._default
+
+    @builtins.property
+    def custom(self) -> Optional["scout_chartdefinition_api_Geo3dCustomModel"]:
+        return self._custom
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_Geo3dModelVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_Geo3dModelVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'default' and self.default is not None:
+            return visitor._default(self.default)
+        if self._type == 'custom' and self.custom is not None:
+            return visitor._custom(self.custom)
+
+
+scout_chartdefinition_api_Geo3dModel.__name__ = "Geo3dModel"
+scout_chartdefinition_api_Geo3dModel.__qualname__ = "Geo3dModel"
+scout_chartdefinition_api_Geo3dModel.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dModelVisitor:
+
+    @abstractmethod
+    def _default(self, default: "scout_chartdefinition_api_Geo3dDefaultModel") -> Any:
+        pass
+
+    @abstractmethod
+    def _custom(self, custom: "scout_chartdefinition_api_Geo3dCustomModel") -> Any:
+        pass
+
+
+scout_chartdefinition_api_Geo3dModelVisitor.__name__ = "Geo3dModelVisitor"
+scout_chartdefinition_api_Geo3dModelVisitor.__qualname__ = "Geo3dModelVisitor"
+scout_chartdefinition_api_Geo3dModelVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_Geo3dOrientation(ConjureUnionType):
@@ -28778,14 +28902,16 @@ class scout_chartdefinition_api_GeoPlot3dVisualizationOptions(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'color': ConjureFieldDefinition('color', scout_api_HexColor),
-            'line_style': ConjureFieldDefinition('lineStyle', scout_chartdefinition_api_GeoLine3dStyle)
+            'line_style': ConjureFieldDefinition('lineStyle', scout_chartdefinition_api_GeoLine3dStyle),
+            'model': ConjureFieldDefinition('model', OptionalTypeWrapper[scout_chartdefinition_api_Geo3dModel])
         }
 
-    __slots__: List[str] = ['_color', '_line_style']
+    __slots__: List[str] = ['_color', '_line_style', '_model']
 
-    def __init__(self, color: str, line_style: "scout_chartdefinition_api_GeoLine3dStyle") -> None:
+    def __init__(self, color: str, line_style: "scout_chartdefinition_api_GeoLine3dStyle", model: Optional["scout_chartdefinition_api_Geo3dModel"] = None) -> None:
         self._color = color
         self._line_style = line_style
+        self._model = model
 
     @builtins.property
     def color(self) -> str:
@@ -28794,6 +28920,10 @@ class scout_chartdefinition_api_GeoPlot3dVisualizationOptions(ConjureBeanType):
     @builtins.property
     def line_style(self) -> "scout_chartdefinition_api_GeoLine3dStyle":
         return self._line_style
+
+    @builtins.property
+    def model(self) -> Optional["scout_chartdefinition_api_Geo3dModel"]:
+        return self._model
 
 
 scout_chartdefinition_api_GeoPlot3dVisualizationOptions.__name__ = "GeoPlot3dVisualizationOptions"
@@ -88525,14 +88655,15 @@ class themes_api_ChartThemeContentV1(ConjureBeanType):
             'legend_position': ConjureFieldDefinition('legendPosition', themes_api_LegendPosition),
             'legend_font_size': ConjureFieldDefinition('legendFontSize', int),
             'legend_font_color': ConjureFieldDefinition('legendFontColor', themes_api_HexColor),
+            'legend_placement': ConjureFieldDefinition('legendPlacement', themes_api_LegendPlacement),
             'aspect_ratio_width': ConjureFieldDefinition('aspectRatioWidth', int),
             'aspect_ratio_height': ConjureFieldDefinition('aspectRatioHeight', int),
             'chart_type_themes': ConjureFieldDefinition('chartTypeThemes', themes_api_ChartTypeThemes)
         }
 
-    __slots__: List[str] = ['_title_enabled', '_title_alignment', '_title_font_size', '_title_font_color', '_caption_enabled', '_caption_alignment', '_caption_font_size', '_caption_font_color', '_background_enabled', '_legend_enabled', '_legend_position', '_legend_font_size', '_legend_font_color', '_aspect_ratio_width', '_aspect_ratio_height', '_chart_type_themes']
+    __slots__: List[str] = ['_title_enabled', '_title_alignment', '_title_font_size', '_title_font_color', '_caption_enabled', '_caption_alignment', '_caption_font_size', '_caption_font_color', '_background_enabled', '_legend_enabled', '_legend_position', '_legend_font_size', '_legend_font_color', '_legend_placement', '_aspect_ratio_width', '_aspect_ratio_height', '_chart_type_themes']
 
-    def __init__(self, aspect_ratio_height: int, aspect_ratio_width: int, background_enabled: bool, caption_alignment: "themes_api_TextAlignment", caption_enabled: bool, caption_font_color: str, caption_font_size: int, chart_type_themes: "themes_api_ChartTypeThemes", legend_enabled: bool, legend_font_color: str, legend_font_size: int, legend_position: "themes_api_LegendPosition", title_alignment: "themes_api_TextAlignment", title_enabled: bool, title_font_color: str, title_font_size: int) -> None:
+    def __init__(self, aspect_ratio_height: int, aspect_ratio_width: int, background_enabled: bool, caption_alignment: "themes_api_TextAlignment", caption_enabled: bool, caption_font_color: str, caption_font_size: int, chart_type_themes: "themes_api_ChartTypeThemes", legend_enabled: bool, legend_font_color: str, legend_font_size: int, legend_placement: "themes_api_LegendPlacement", legend_position: "themes_api_LegendPosition", title_alignment: "themes_api_TextAlignment", title_enabled: bool, title_font_color: str, title_font_size: int) -> None:
         self._title_enabled = title_enabled
         self._title_alignment = title_alignment
         self._title_font_size = title_font_size
@@ -88546,6 +88677,7 @@ class themes_api_ChartThemeContentV1(ConjureBeanType):
         self._legend_position = legend_position
         self._legend_font_size = legend_font_size
         self._legend_font_color = legend_font_color
+        self._legend_placement = legend_placement
         self._aspect_ratio_width = aspect_ratio_width
         self._aspect_ratio_height = aspect_ratio_height
         self._chart_type_themes = chart_type_themes
@@ -88628,6 +88760,12 @@ class themes_api_ChartThemeContentV1(ConjureBeanType):
         """Font color of the legend.
         """
         return self._legend_font_color
+
+    @builtins.property
+    def legend_placement(self) -> "themes_api_LegendPlacement":
+        """Where on the chart the legend should be placed.
+        """
+        return self._legend_placement
 
     @builtins.property
     def aspect_ratio_width(self) -> int:
@@ -88720,6 +88858,24 @@ the user's organization, if the default workspace for the organization is config
 themes_api_CreateChartThemeRequest.__name__ = "CreateChartThemeRequest"
 themes_api_CreateChartThemeRequest.__qualname__ = "CreateChartThemeRequest"
 themes_api_CreateChartThemeRequest.__module__ = "nominal_api.themes_api"
+
+
+class themes_api_LegendPlacement(ConjureEnumType):
+
+    OUTSIDE = 'OUTSIDE'
+    '''OUTSIDE'''
+    INSIDE = 'INSIDE'
+    '''INSIDE'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+themes_api_LegendPlacement.__name__ = "LegendPlacement"
+themes_api_LegendPlacement.__qualname__ = "LegendPlacement"
+themes_api_LegendPlacement.__module__ = "nominal_api.themes_api"
 
 
 class themes_api_LegendPosition(ConjureEnumType):

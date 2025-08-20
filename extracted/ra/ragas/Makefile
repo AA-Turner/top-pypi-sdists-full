@@ -15,10 +15,8 @@ help: ## Show all Makefile targets
 
 format: ## Format and lint ragas code
 	@echo "Formatting and linting ragas code..."
-	@echo "(black) Formatting ragas..."
-	$(Q)uv run black --config pyproject.toml $(RAGAS_PATHS)
-	@echo "(black) Formatting stubs..."
-	$(Q)find src -name "*.pyi" ! -name "*_pb2*" -exec uv run black --pyi --config pyproject.toml {} \;
+	@echo "(ruff format) Formatting ragas..."
+	$(Q)uv run ruff format $(RAGAS_PATHS)
 	@echo "(ruff) Auto-fixing ragas (includes import sorting and unused imports)..."
 	$(Q)uv run ruff check $(RAGAS_PATHS) --fix-only
 	@echo "(ruff) Final linting check for ragas..."
@@ -32,17 +30,21 @@ type: ## Type check ragas code
 check: format type ## Quick health check (format + type, no tests)
 	@echo "Ragas code quality check complete!"
 
-test: ## Run ragas unit tests
+test: ## Run ragas unit tests (including experimental)
+	@echo "Running ragas unit tests (including experimental)..."
+	$(Q)uv run pytest tests/unit tests/experimental $(shell if [ -n "$(k)" ]; then echo "-k $(k)"; fi)
+
+test-all: ## Run ragas unit tests with notebook
 	@echo "Running ragas unit tests..."
-	$(Q)uv run pytest --nbmake tests/unit $(shell if [ -n "$(k)" ]; then echo "-k $(k)"; fi)
+	$(Q)uv run pytest --nbmake tests/unit tests/experimental $(shell if [ -n "$(k)" ]; then echo "-k $(k)"; fi)
 
 run-ci: ## Run complete CI pipeline for ragas
 	@echo "Running ragas CI pipeline..."
 	@echo "Format check..."
-	$(Q)uv run black --check --config pyproject.toml $(RAGAS_PATHS)
+	$(Q)uv run ruff format --check $(RAGAS_PATHS)
 	$(Q)uv run ruff check $(RAGAS_PATHS)
 	@echo "Type check..."
 	$(Q)$(MAKE) type
 	@echo "Unit tests..."
-	$(Q)__RAGAS_DEBUG_TRACKING=true RAGAS_DO_NOT_TRACK=true pytest --nbmake tests/unit --dist loadfile -n auto
+	$(Q)__RAGAS_DEBUG_TRACKING=true RAGAS_DO_NOT_TRACK=true pytest --nbmake tests/unit tests/experimental --dist loadfile -n auto
 	@echo "Ragas CI pipeline complete!"

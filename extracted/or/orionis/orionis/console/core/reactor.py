@@ -1,25 +1,27 @@
 import argparse
 import os
 import re
-import time
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 from orionis.app import Orionis
 from orionis.console.args.argument import CLIArgument
 from orionis.console.base.command import BaseCommand
 from orionis.console.base.contracts.command import IBaseCommand
 from orionis.console.contracts.reactor import IReactor
+from orionis.console.enums.command import Command
+from orionis.console.exceptions import CLIOrionisValueError
 from orionis.console.output.contracts.console import IConsole
 from orionis.console.output.contracts.executor import IExecutor
 from orionis.foundation.contracts.application import IApplication
 from orionis.services.introspection.modules.reflection import ReflectionModule
 from orionis.services.log.contracts.log_service import ILogger
+from orionis.support.performance.contracts.counter import IPerformanceCounter
 
 class Reactor(IReactor):
 
     def __init__(
         self,
-        app: Optional[IApplication] = None
+        app: IApplication
     ):
         """
         Initializes a new Reactor instance for command discovery and management.
@@ -54,13 +56,13 @@ class Reactor(IReactor):
         """
 
         # Initialize the application instance, using provided app or creating new Orionis instance
-        self.__app = app or Orionis()
+        self.__app = app
 
         # Set the project root directory to current working directory for module path resolution
         self.__root: str = str(Path.cwd())
 
         # Initialize the internal command registry as an empty dictionary
-        self.__commands: dict = {}
+        self.__commands: dict[str, Command] = {}
 
         # Automatically discover and load command classes from the console commands directory
         self.__loadCommands(str(self.__app.path('console_commands')), self.__root)
@@ -76,6 +78,9 @@ class Reactor(IReactor):
 
         # Initialize the logger service for logging command execution details
         self.__logger: ILogger = self.__app.make('x-orionis.services.log.log_service')
+
+        # Initialize the performance counter for measuring command execution time
+        self.__performance_counter: IPerformanceCounter = self.__app.make('x-orionis.support.performance.counter')
 
     def __loadCoreCommands(self) -> None:
         """
@@ -106,6 +111,8 @@ class Reactor(IReactor):
         from orionis.console.commands.publisher import PublisherCommand
         from orionis.console.commands.workflow import WorkFlowGithubCommand
         from orionis.console.commands.cache import CacheClearCommand
+        from orionis.console.commands.scheduler_work import ScheduleWorkCommand
+        from orionis.console.commands.scheduler_list import ScheduleListCommand
 
         # List of core command classes to load (extend this list as more core commands are added)
         core_commands = [
@@ -114,7 +121,9 @@ class Reactor(IReactor):
             TestCommand,
             PublisherCommand,
             WorkFlowGithubCommand,
-            CacheClearCommand
+            CacheClearCommand,
+            ScheduleWorkCommand,
+            ScheduleListCommand
         ]
 
         # Iterate through the core command classes and register them
@@ -127,13 +136,13 @@ class Reactor(IReactor):
             args = self.__ensureArguments(obj)
 
             # Register the command in the internal registry with all its metadata
-            self.__commands[signature] = {
-                "class": obj,
-                "timestamps": timestamp,
-                "signature": signature,
-                "description": description,
-                "args": args
-            }
+            self.__commands[signature] = Command(
+                obj=obj,
+                timestamps=timestamp,
+                signature=signature,
+                description=description,
+                args=args
+            )
 
     def __loadCommands(self, commands_path: str, root_path: str) -> None:
         """
@@ -208,13 +217,13 @@ class Reactor(IReactor):
                             args = self.__ensureArguments(obj)
 
                             # Add the command to the internal registry
-                            self.__commands[signature] = {
-                                "class": obj,
-                                "timestamps": timestamp,
-                                "signature": signature,
-                                "description": description,
-                                "args": args
-                            }
+                            self.__commands[signature] = Command(
+                                obj=obj,
+                                timestamps=timestamp,
+                                signature=signature,
+                                description=description,
+                                args=args
+                            )
 
     def __ensureTimestamps(self, obj: IBaseCommand) -> bool:
         """
@@ -403,6 +412,61 @@ class Reactor(IReactor):
         # Return the configured ArgumentParser
         return arg_parser
 
+    def __parseArgs(
+        self,
+        command: Command,
+        args: Optional[List[str]] = None
+    ) -> dict:
+        """
+        Parses command-line arguments for a given command using its internal ArgumentParser.
+
+        This method takes a command object and an optional list of command-line arguments,
+        and parses them into a dictionary of argument names and values. If the command
+        defines an ArgumentParser (i.e., expects arguments), the arguments are parsed
+        accordingly. If no arguments are expected or provided, an empty dictionary is returned.
+
+        Parameters
+        ----------
+        command : Command
+            The command object containing the argument parser and metadata.
+        args : Optional[List[str]], default None
+            A list of command-line arguments to parse. If None, an empty list is used.
+
+        Returns
+        -------
+        dict
+            A dictionary containing the parsed argument names and their corresponding values.
+            Returns an empty dictionary if no arguments are expected or provided.
+
+        Raises
+        ------
+        SystemExit
+            Raised by argparse if argument parsing fails or if help is requested.
+        """
+
+        # Initialize parsed_args to None
+        parsed_args = None
+
+        # If the command expects arguments, parse them using its ArgumentParser
+        if command.args is not None and isinstance(command.args, argparse.ArgumentParser):
+            if args is None:
+                args = []
+            try:
+                # Parse the provided arguments using the command's ArgumentParser
+                parsed_args = command.args.parse_args(args)
+            except SystemExit:
+                # Allow argparse to handle help/error messages and exit
+                raise
+
+        # Convert the parsed arguments to a dictionary and return
+        if isinstance(parsed_args, argparse.Namespace):
+            return vars(parsed_args)
+        elif isinstance(parsed_args, dict):
+            return parsed_args
+        else:
+            # Return an empty dictionary if no arguments were parsed
+            return {}
+
     def info(self) -> List[dict]:
         """
         Retrieves a list of all registered commands with their metadata.
@@ -426,8 +490,8 @@ class Reactor(IReactor):
         for command in self.__commands.values():
 
             # Extract command metadata
-            signature:str = command.get("signature")
-            description:str = command.get("description", "")
+            signature:str = command.signature
+            description:str = command.description
 
             # Skip internal commands (those with double underscores)
             if signature.startswith('__') and signature.endswith('__'):
@@ -446,103 +510,179 @@ class Reactor(IReactor):
         self,
         signature: str,
         args: Optional[List[str]] = None
-    ):
+    ) -> Optional[Any]:
         """
-        Executes a command by its signature with optional command-line arguments.
+        Executes a registered command synchronously by its signature, optionally passing command-line arguments.
 
-        This method retrieves a registered command by its signature, validates any provided
-        arguments against the command's argument parser, and executes the command's handle
-        method with the parsed arguments and application context.
+        This method retrieves a command from the internal registry using its unique signature,
+        validates and parses any provided arguments using the command's argument parser,
+        and then executes the command's `handle` method synchronously. It manages execution timing,
+        logging, and error handling, and returns any output produced by the command.
 
         Parameters
         ----------
         signature : str
             The unique signature identifier of the command to execute.
         args : Optional[List[str]], default None
-            Command-line arguments to pass to the command. If None, no arguments are provided.
+            List of command-line arguments to pass to the command. If None, no arguments are provided.
 
         Returns
         -------
-        None
-            This method does not return any value. The command's handle method is called
-            directly for execution.
+        Optional[Any]
+            The output produced by the command's `handle` method if execution is successful.
+            Returns None if the command does not produce a result or if an error occurs.
 
         Raises
         ------
-        ValueError
+        CLIOrionisValueError
             If the command with the specified signature is not found in the registry.
         SystemExit
-            If argument parsing fails due to invalid arguments provided.
+            If argument parsing fails due to invalid arguments provided (raised by argparse).
+        Exception
+            Propagates any exception raised during command execution after logging and error output.
+
+        Notes
+        -----
+        - Logs execution start, completion, and errors with timestamps if enabled.
+        - Handles argument parsing and injects parsed arguments into the command instance.
+        - All exceptions are logged and displayed in the console.
         """
 
-        # Retrieve the command from the registry
-        command: dict = self.__commands.get(signature)
+        # Retrieve the command from the registry by its signature
+        command: Command = self.__commands.get(signature)
         if command is None:
-            raise ValueError(f"Command '{signature}' not found.")
+            raise CLIOrionisValueError(f"Command '{signature}' not found.")
 
-        # Start execution timer
-        start_time = time.perf_counter()
+        # Start execution timer for performance measurement
+        self.__performance_counter.start()
 
-        # Get command details
-        command_class = command.get("class")
-        arg_parser: Optional[argparse.ArgumentParser] = command.get("args")
-        timestamps: bool = command.get("timestamps")
-
-        # Initialize parsed arguments
-        parsed_args = None
-
-        # If the command has arguments and args were provided, validate them
-        if arg_parser is not None and isinstance(arg_parser, argparse.ArgumentParser):
-            if args is None:
-                args = []
-            try:
-                # Parse the provided arguments using the command's ArgumentParser
-                parsed_args = arg_parser.parse_args(args)
-            except SystemExit:
-                # Re-raise SystemExit to allow argparse to handle help/error messages
-                raise
-
-        # Log the command execution start with RUNNING state
-        if timestamps:
+        # Log the command execution start with RUNNING state if timestamps are enabled
+        if command.timestamps:
             self.__executer.running(program=signature)
 
         try:
+            # Instantiate the command class using the application container
+            command_instance: IBaseCommand = self.__app.make(command.obj)
 
-            # Create an instance of the command class and execute it
-            command_instance: IBaseCommand = self.__app.make(command_class)
+            # Inject parsed arguments into the command instance
+            command_instance._args = self.__parseArgs(command, args)
 
-            # If arguments were parsed, set them on the command instance
-            if isinstance(parsed_args, argparse.Namespace):
-                command_instance._args = vars(parsed_args)
-            elif isinstance(parsed_args, dict):
-                command_instance._args = parsed_args
-            else:
-                command_instance._args = {}
-
-            # Call the handle method of the command instance
+            # Execute the command's handle method and capture its output
             output = self.__app.call(command_instance, 'handle')
 
-            # Log the command execution completion with DONE state
-            elapsed_time = round(time.perf_counter() - start_time, 2)
-            if timestamps:
+            # Calculate elapsed time and log completion with DONE state if command.timestamps are enabled
+            elapsed_time = round(self.__performance_counter.stop(), 2)
+            if command.timestamps:
                 self.__executer.done(program=signature, time=f"{elapsed_time}s")
 
-            # Log the command execution success
+            # Log successful execution in the logger service
             self.__logger.info(f"Command '{signature}' executed successfully in ({elapsed_time}) seconds.")
 
-            # If the command has a return value or output, return it
-            if output is not None:
-                return output
+            # Return the output produced by the command, if any
+            return output
 
         except Exception as e:
-
-            # Display the error message in the console
+            # Display the error message in the console (without timestamp)
             self.__console.error(f"An error occurred while executing command '{signature}': {e}", timestamp=False)
 
             # Log the error in the logger service
             self.__logger.error(f"Command '{signature}' execution failed: {e}")
 
-            # Log the command execution failure with ERROR state
-            elapsed_time = round(time.perf_counter() - start_time, 2)
-            if timestamps:
+            # Calculate elapsed time and log failure with ERROR state if command.timestamps are enabled
+            elapsed_time = round(self.__performance_counter.stop(), 2)
+            if command.timestamps:
                 self.__executer.fail(program=signature, time=f"{elapsed_time}s")
+
+            # Propagate the exception after logging
+            raise
+
+    async def callAsync(
+        self,
+        signature: str,
+        args: Optional[List[str]] = None
+    ) -> Optional[Any]:
+        """
+        Executes a registered command asynchronously by its signature, optionally passing command-line arguments.
+
+        This method locates a command in the internal registry using its unique signature,
+        validates and parses any provided arguments using the command's argument parser,
+        and then executes the command's `handle` method asynchronously. It manages execution timing,
+        logging, and error handling, and returns any output produced by the command.
+
+        Parameters
+        ----------
+        signature : str
+            The unique signature identifier of the command to execute.
+        args : Optional[List[str]], default None
+            List of command-line arguments to pass to the command. If None, no arguments are provided.
+
+        Returns
+        -------
+        Optional[Any]
+            The output produced by the command's `handle` method if execution is successful.
+            Returns None if the command does not produce a result or if an error occurs.
+
+        Raises
+        ------
+        CLIOrionisValueError
+            If the command with the specified signature is not found in the registry.
+        SystemExit
+            If argument parsing fails due to invalid arguments provided (raised by argparse).
+        Exception
+            Propagates any exception raised during command execution after logging and error output.
+
+        Notes
+        -----
+        - Logs execution start, completion, and errors with timestamps if enabled.
+        - Handles argument parsing and injects parsed arguments into the command instance.
+        - All exceptions are logged and displayed in the console.
+        """
+
+        # Retrieve the command from the registry by its signature
+        command: Command = self.__commands.get(signature)
+        if command is None:
+            raise CLIOrionisValueError(f"Command '{signature}' not found.")
+
+        # Start execution timer for performance measurement
+        self.__performance_counter.start()
+
+        # Log the command execution start with RUNNING state if timestamps are enabled
+        if command.timestamps:
+            self.__executer.running(program=signature)
+
+        try:
+            # Instantiate the command class using the application container
+            command_instance: IBaseCommand = self.__app.make(command.obj)
+
+            # Inject parsed arguments into the command instance
+            command_instance._args = self.__parseArgs(command, args)
+
+            # Execute the command's handle method asynchronously and capture its output
+            output = await self.__app.callAsync(command_instance, 'handle')
+
+            # Calculate elapsed time and log completion with DONE state if command.timestamps are enabled
+            elapsed_time = round(self.__performance_counter.stop(), 2)
+            if command.timestamps:
+                self.__executer.done(program=signature, time=f"{elapsed_time}s")
+
+            # Log successful execution in the logger service
+            self.__logger.info(f"Command '{signature}' executed successfully in ({elapsed_time}) seconds.")
+
+            # Return the output produced by the command, if any
+            return output
+
+        except Exception as e:
+
+            # Display the error message in the console (without timestamp)
+            self.__console.error(f"An error occurred while executing command '{signature}': {e}", timestamp=False)
+
+            # Log the error in the logger service
+            self.__logger.error(f"Command '{signature}' execution failed: {e}")
+
+            # Calculate elapsed time and log failure with ERROR state if command.timestamps are enabled
+            elapsed_time = round(self.__performance_counter.stop(), 2)
+            if command.timestamps:
+                self.__executer.fail(program=signature, time=f"{elapsed_time}s")
+
+            # Propagate the exception after logging
+            raise

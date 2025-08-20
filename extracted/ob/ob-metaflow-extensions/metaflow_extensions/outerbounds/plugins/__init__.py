@@ -361,4 +361,4 @@ SECRETS_PROVIDERS_DESC = [
     ("outerbounds", ".secrets.secrets.OuterboundsSecretsProvider"),
 ]
 # Adding an override here so the library can be imported at the metaflow.plugins level
-__mf_promote_submodules__ = ["snowflake", "ollama", "torchtune"]
+__mf_promote_submodules__ = ["snowflake", "ollama", "torchtune", "optuna"]

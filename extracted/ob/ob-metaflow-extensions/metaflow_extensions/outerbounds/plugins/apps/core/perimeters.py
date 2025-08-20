@@ -40,7 +40,7 @@ class PerimeterExtractor:
         return perimeter, api_server  # type: ignore
 
     @classmethod
-    def during_metaflow_execution(cls) -> str:
+    def during_metaflow_execution(cls) -> Union[Tuple[str, str], Tuple[None, None]]:
         from metaflow.metaflow_config_funcs import init_config
 
         clean_url = (

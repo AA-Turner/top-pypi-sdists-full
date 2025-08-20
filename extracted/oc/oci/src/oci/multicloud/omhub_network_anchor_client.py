@@ -161,14 +161,14 @@ class OmhubNetworkAnchorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/multicloud/get_network_anchor.py.html>`__ to see an example of how to use get_network_anchor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/multicloud/get_network_anchor.py.html>`__ to see an example of how to use get_network_anchor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkAnchorId', 'subscriptionServiceName', 'subscriptionId']
         resource_path = "/networkAnchors/{networkAnchorId}"
         method = "GET"
         operation_name = "get_network_anchor"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/multicloud-omhub-cp/20180828/NetworkAnchor/GetNetworkAnchor"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -338,14 +338,14 @@ class OmhubNetworkAnchorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/multicloud/list_network_anchors.py.html>`__ to see an example of how to use list_network_anchors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/multicloud/list_network_anchors.py.html>`__ to see an example of how to use list_network_anchors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId', 'subscriptionServiceName', 'externalLocation']
         resource_path = "/networkAnchors"
         method = "GET"
         operation_name = "list_network_anchors"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/multicloud-omhub-cp/20180828/NetworkAnchorCollection/ListNetworkAnchors"
 
         # Don't accept unknown kwargs
         expected_kwargs = [

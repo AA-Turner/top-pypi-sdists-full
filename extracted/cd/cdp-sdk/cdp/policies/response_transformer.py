@@ -13,9 +13,11 @@ from cdp.policies.types import (
     EvmTypedStringCondition as EvmTypedStringConditionModel,
     MintAddressCriterion as MintAddressCriterionModel,
     NetUSDChangeCriterion as NetUSDChangeCriterionModel,
+    PrepareUserOperationRule as PrepareUserOperationRuleModel,
     Rule as RuleType,
     SendEvmTransactionRule as SendEvmTransactionRuleModel,
     SendSolanaTransactionRule as SendSolanaTransactionRuleModel,
+    SendUserOperationRule as SendUserOperationRuleModel,
     SignEvmHashRule as SignEvmHashRuleModel,
     SignEvmMessageRule as SignEvmMessageRuleModel,
     SignEvmTransactionRule as SignEvmTransactionRuleModel,
@@ -25,6 +27,10 @@ from cdp.policies.types import (
     SignEvmTypedDataVerifyingContractCriterion as SignEvmTypedDataVerifyingContractCriterionModel,
     SignSolanaTransactionRule as SignSolanaTransactionRuleModel,
     SolAddressCriterion as SolAddressCriterionModel,
+    SolDataCondition as SolDataConditionModel,
+    SolDataCriterion as SolDataCriterionModel,
+    SolDataParameterCondition as SolDataParameterConditionModel,
+    SolDataParameterConditionList as SolDataParameterConditionListModel,
     SolValueCriterion as SolValueCriterionModel,
     SplAddressCriterion as SplAddressCriterionModel,
     SplValueCriterion as SplValueCriterionModel,
@@ -161,6 +167,37 @@ response_criterion_mapping = {
         "mintAddress": lambda c: MintAddressCriterionModel(
             addresses=c.addresses, operator=c.operator
         ),
+        "solData": lambda c: SolDataCriterionModel(
+            idls=[
+                idl.actual_instance if hasattr(idl, "actual_instance") else idl for idl in c.idls
+            ],
+            conditions=[
+                SolDataConditionModel(
+                    instruction=cond.instruction,
+                    params=(
+                        [
+                            (
+                                SolDataParameterConditionListModel(
+                                    name=param.actual_instance.name,
+                                    operator=param.actual_instance.operator,
+                                    values=param.actual_instance.values,
+                                )
+                                if hasattr(param.actual_instance, "values")
+                                else SolDataParameterConditionModel(
+                                    name=param.actual_instance.name,
+                                    operator=param.actual_instance.operator,
+                                    value=param.actual_instance.value,
+                                )
+                            )
+                            for param in cond.params
+                        ]
+                        if cond.params
+                        else None
+                    ),
+                )
+                for cond in c.conditions
+            ],
+        ),
     },
     "sendSolTransaction": {
         "solAddress": lambda c: SolAddressCriterionModel(
@@ -174,6 +211,108 @@ response_criterion_mapping = {
         "mintAddress": lambda c: MintAddressCriterionModel(
             addresses=c.addresses, operator=c.operator
         ),
+        "solData": lambda c: SolDataCriterionModel(
+            idls=[
+                idl.actual_instance if hasattr(idl, "actual_instance") else idl for idl in c.idls
+            ],
+            conditions=[
+                SolDataConditionModel(
+                    instruction=cond.instruction,
+                    params=(
+                        [
+                            (
+                                SolDataParameterConditionListModel(
+                                    name=param.actual_instance.name,
+                                    operator=param.actual_instance.operator,
+                                    values=param.actual_instance.values,
+                                )
+                                if hasattr(param.actual_instance, "values")
+                                else SolDataParameterConditionModel(
+                                    name=param.actual_instance.name,
+                                    operator=param.actual_instance.operator,
+                                    value=param.actual_instance.value,
+                                )
+                            )
+                            for param in cond.params
+                        ]
+                        if cond.params
+                        else None
+                    ),
+                )
+                for cond in c.conditions
+            ],
+        ),
+    },
+    "prepareUserOperation": {
+        "ethValue": lambda c: EthValueCriterionModel(ethValue=c.eth_value, operator=c.operator),
+        "evmAddress": lambda c: EvmAddressCriterionModel(
+            addresses=c.addresses, operator=c.operator
+        ),
+        "evmNetwork": lambda c: EvmNetworkCriterionModel(networks=c.networks, operator=c.operator),
+        "evmData": lambda c: EvmDataCriterionModel(
+            abi=c.abi.actual_instance,
+            conditions=[
+                EvmDataConditionModel(
+                    function=cond.function,
+                    params=(
+                        [
+                            (
+                                EvmDataParameterConditionListModel(
+                                    name=param.actual_instance.name,
+                                    operator=param.actual_instance.operator,
+                                    values=param.actual_instance.values,
+                                )
+                                if hasattr(param.actual_instance, "values")
+                                else EvmDataParameterConditionModel(
+                                    name=param.actual_instance.name,
+                                    operator=param.actual_instance.operator,
+                                    value=param.actual_instance.value,
+                                )
+                            )
+                            for param in cond.params
+                        ]
+                        if cond.params
+                        else None
+                    ),
+                )
+                for cond in c.conditions
+            ],
+        ),
+    },
+    "sendUserOperation": {
+        "ethValue": lambda c: EthValueCriterionModel(ethValue=c.eth_value, operator=c.operator),
+        "evmAddress": lambda c: EvmAddressCriterionModel(
+            addresses=c.addresses, operator=c.operator
+        ),
+        "evmData": lambda c: EvmDataCriterionModel(
+            abi=c.abi.actual_instance,
+            conditions=[
+                EvmDataConditionModel(
+                    function=cond.function,
+                    params=(
+                        [
+                            (
+                                EvmDataParameterConditionListModel(
+                                    name=param.actual_instance.name,
+                                    operator=param.actual_instance.operator,
+                                    values=param.actual_instance.values,
+                                )
+                                if hasattr(param.actual_instance, "values")
+                                else EvmDataParameterConditionModel(
+                                    name=param.actual_instance.name,
+                                    operator=param.actual_instance.operator,
+                                    value=param.actual_instance.value,
+                                )
+                            )
+                            for param in cond.params
+                        ]
+                        if cond.params
+                        else None
+                    ),
+                )
+                for cond in c.conditions
+            ],
+        ),
     },
 }
 
@@ -186,6 +325,8 @@ response_rule_mapping = {
     "signEvmTypedData": SignEvmTypedDataRuleModel,
     "signSolTransaction": SignSolanaTransactionRuleModel,
     "sendSolTransaction": SendSolanaTransactionRuleModel,
+    "prepareUserOperation": PrepareUserOperationRuleModel,
+    "sendUserOperation": SendUserOperationRuleModel,
 }
 
 

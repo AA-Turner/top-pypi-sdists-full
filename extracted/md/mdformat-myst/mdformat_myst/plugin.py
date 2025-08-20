@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import textwrap
 
 from markdown_it import MarkdownIt
 import mdformat.plugins
@@ -78,11 +79,34 @@ def _math_inline_renderer(node: RenderTreeNode, context: RenderContext) -> str:
 
 
 def _math_block_renderer(node: RenderTreeNode, context: RenderContext) -> str:
+    indent_width = context.env.get("indent_width", 0)
+    if indent_width > 0:
+        return f"$${textwrap.dedent(node.content)}$$"
     return f"$${node.content}$$"
 
 
 def _math_block_label_renderer(node: RenderTreeNode, context: RenderContext) -> str:
-    return f"$${node.content}$$ ({node.info})"
+    return f"{_math_block_renderer(node, context)} ({node.info})"
+
+
+def _math_block_safe_blockquote_renderer(
+    node: RenderTreeNode, context: RenderContext
+) -> str:
+    marker = "> "
+    with context.indented(len(marker)):
+        lines = []
+        for i, child in enumerate(node.children):
+            if child.type in ("math_block", "math_block_label"):
+                lines.append(child.render(context))
+            else:
+                lines.extend(child.render(context).splitlines())
+            if i < (len(node.children) - 1):
+                lines.append("")
+        if not lines:
+            return ">"
+        quoted_lines = (f"{marker}{line}" if line else ">" for line in lines)
+        quoted_str = "\n".join(quoted_lines)
+        return quoted_str
 
 
 def _render_children(node: RenderTreeNode, context: RenderContext) -> str:
@@ -121,6 +145,7 @@ def _escape_text(text: str, node: RenderTreeNode, context: RenderContext) -> str
 
 
 RENDERERS = {
+    "blockquote": _math_block_safe_blockquote_renderer,
     "myst_role": _role_renderer,
     "myst_line_comment": _comment_renderer,
     "myst_block_break": _blockbreak_renderer,

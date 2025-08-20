@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smolagents
-Version: 1.21.1
+Version: 1.21.2
 Summary: 🤗 smolagents: a barebones library for agents. Agents write python code to call tools or orchestrate other agents.
 Author-email: Aymeric Roucher <aymeric@hf.co>
 Requires-Python: >=3.10
@@ -42,7 +42,7 @@ Provides-Extra: telemetry
 Requires-Dist: arize-phoenix; extra == "telemetry"
 Requires-Dist: opentelemetry-sdk; extra == "telemetry"
 Requires-Dist: opentelemetry-exporter-otlp; extra == "telemetry"
-Requires-Dist: openinference-instrumentation-smolagents>=0.1.4; extra == "telemetry"
+Requires-Dist: openinference-instrumentation-smolagents>=0.1.15; extra == "telemetry"
 Provides-Extra: toolkit
 Requires-Dist: ddgs>=9.0.0; extra == "toolkit"
 Requires-Dist: markdownify>=0.14.1; extra == "toolkit"

@@ -31,7 +31,7 @@ from .lazy_loader import LazyLoader
 contrib = LazyLoader('contrib', globals(), 'torch_geometric.contrib')
 graphgym = LazyLoader('graphgym', globals(), 'torch_geometric.graphgym')
 
-__version__ = '2.7.0.dev20250818'
+__version__ = '2.7.0.dev20250819'
 
 __all__ = [
     'Index',

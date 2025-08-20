@@ -1,7 +1,7 @@
 r'''
 # `data_google_container_cluster`
 
-Refer to the Terraform Registry for docs: [`data_google_container_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster).
+Refer to the Terraform Registry for docs: [`data_google_container_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleContainerCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster google_container_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster google_container_cluster}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleContainerCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster google_container_cluster} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster google_container_cluster} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the cluster, unique within the project and location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster#name DataGoogleContainerCluster#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster#id DataGoogleContainerCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location (region or zone) in which the cluster master will be created, as well as the default node location. If you specify a zone (such as us-central1-a), the cluster will be a zonal cluster with a single cluster master. If you specify a region (such as us-west1), the cluster will be a regional cluster with multiple masters spread across zones in the region, and with default node locations in those zones as well. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster#location DataGoogleContainerCluster#location}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster#project DataGoogleContainerCluster#project}
+        :param name: The name of the cluster, unique within the project and location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster#name DataGoogleContainerCluster#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster#id DataGoogleContainerCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location (region or zone) in which the cluster master will be created, as well as the default node location. If you specify a zone (such as us-central1-a), the cluster will be a zonal cluster with a single cluster master. If you specify a region (such as us-west1), the cluster will be a regional cluster with multiple masters spread across zones in the region, and with default node locations in those zones as well. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster#location DataGoogleContainerCluster#location}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster#project DataGoogleContainerCluster#project}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleContainerCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleContainerCluster to import.
-        :param import_from_id: The id of the existing DataGoogleContainerCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleContainerCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleContainerCluster to import is found.
         '''
         if __debug__:
@@ -5349,10 +5349,10 @@ class DataGoogleContainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the cluster, unique within the project and location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster#name DataGoogleContainerCluster#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster#id DataGoogleContainerCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param location: The location (region or zone) in which the cluster master will be created, as well as the default node location. If you specify a zone (such as us-central1-a), the cluster will be a zonal cluster with a single cluster master. If you specify a region (such as us-west1), the cluster will be a regional cluster with multiple masters spread across zones in the region, and with default node locations in those zones as well. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster#location DataGoogleContainerCluster#location}
-        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster#project DataGoogleContainerCluster#project}
+        :param name: The name of the cluster, unique within the project and location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster#name DataGoogleContainerCluster#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster#id DataGoogleContainerCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param location: The location (region or zone) in which the cluster master will be created, as well as the default node location. If you specify a zone (such as us-central1-a), the cluster will be a zonal cluster with a single cluster master. If you specify a region (such as us-west1), the cluster will be a regional cluster with multiple masters spread across zones in the region, and with default node locations in those zones as well. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster#location DataGoogleContainerCluster#location}
+        :param project: The ID of the project in which the resource belongs. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster#project DataGoogleContainerCluster#project}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -5461,7 +5461,7 @@ class DataGoogleContainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the cluster, unique within the project and location.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster#name DataGoogleContainerCluster#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster#name DataGoogleContainerCluster#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -5469,7 +5469,7 @@ class DataGoogleContainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster#id DataGoogleContainerCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster#id DataGoogleContainerCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -5483,7 +5483,7 @@ class DataGoogleContainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If you specify a zone (such as us-central1-a), the cluster will be a zonal cluster with a single cluster master. If you specify a region (such as us-west1), the cluster will be a regional cluster with multiple masters spread across zones in the region, and with default node locations in those zones as well.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster#location DataGoogleContainerCluster#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster#location DataGoogleContainerCluster#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5494,7 +5494,7 @@ class DataGoogleContainerClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/data-sources/container_cluster#project DataGoogleContainerCluster#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/container_cluster#project DataGoogleContainerCluster#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -13155,6 +13155,519 @@ class DataGoogleContainerClusterNodeConfigKubeletConfig:
         )
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaim",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaim:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaim(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaimList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaimList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0fed4d52da334833ce771165fed20e10145f859f5d532b7057777a9c509e1b7a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f8e41332c30b78c474dc27df1dbe1197cf03ffe09fc341fa263a60dd831ec2fe)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f29badb918c2a75c4f4be33599114f65f6083ba99bbbf0fb43a3b77cd4082e0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec9683650a87684985c9aae46b3b71d6b5798a9210d4879b1845ba0654c7503f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc258f1e4b50ff2aafae33a6eac35fd44796fb83d728b15b0ff235c3424b623f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65510a3ce5f5b111373a7972137ac806e7d90098039b0701583418066b610d23)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsAvailable")
+    def imagefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsInodesFree"))
+
+    @builtins.property
+    @jsii.member(jsii_name="memoryAvailable")
+    def memory_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "memoryAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsAvailable")
+    def nodefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsInodesFree"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pidAvailable")
+    def pid_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "pidAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaim]:
+        return typing.cast(typing.Optional[DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaim], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaim],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4b7adcf65d9baa0415df6879e639a9ed729b1f5ca44e3a1cf5aad9fd8952685)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoft",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoft:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoft(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriod",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriod:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriod(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriodList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriodList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4187052cae4c656f9a0b2fd1abbc575a107b1971b1b6653381888dfcc56570a0)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb1936d81428b1eddf3452e67dcb8447f8d409c7a4af30c67b976b063bf37a50)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a91b9edce0b00d582bd3fa54a5fd9e6f8a5ec3f18fe2990a3ef2b1b5c45448e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e415c22e483f5ff5681014df49d74dc54ebfbb5016e997d0e5132e91bdfc5687)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__688a1db654ccac0c642c178b492329e43ea824868437d1959acab0b21bbd4c48)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__20037176620bbb51e76a43bbc6ad6001903af580e5bcd47dbf61de7b101c59b4)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsAvailable")
+    def imagefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsInodesFree"))
+
+    @builtins.property
+    @jsii.member(jsii_name="memoryAvailable")
+    def memory_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "memoryAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsAvailable")
+    def nodefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsInodesFree"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pidAvailable")
+    def pid_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "pidAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriod]:
+        return typing.cast(typing.Optional[DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriod], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriod],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9f09dccadcdfb542f2651ef3baf2b45a16309e35629c002caa576c3ca052d5e0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ea3dd4a9c9e12ff1ddac4bdbd847c859e22caaf406bbb28564f06585952d73c)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__53cfeae0c84ba8dfa9d3dc57e348c8dc0d066a02cf083be7feb29d37930ca771)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6939542a501a04d09bc7a4aac1a140c06fe46dc57cf16cb461cd646aa38e55c1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7d64521a0d878c248fb7e931b1c50d4223c0d000b3faaa83eee71d88b2767268)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d74be4c90e79c84348ffff37db6bf845d9190534649275e2d886824502d6cbb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e6a45423c9ba71bde01d4b20e8f412203ae98ec23de01bd92f96400c1044d763)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsAvailable")
+    def imagefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsInodesFree"))
+
+    @builtins.property
+    @jsii.member(jsii_name="memoryAvailable")
+    def memory_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "memoryAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsAvailable")
+    def nodefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsInodesFree"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pidAvailable")
+    def pid_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "pidAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoft]:
+        return typing.cast(typing.Optional[DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoft], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoft],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1599c1a21833e5acf582c2b8f32fb46062d4edaf47d7dd17214bada37a6c19c9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 class DataGoogleContainerClusterNodeConfigKubeletConfigList(
     _cdktf_9a9027ec.ComplexList,
     metaclass=jsii.JSIIMeta,
@@ -13288,6 +13801,32 @@ class DataGoogleContainerClusterNodeConfigKubeletConfigOutputReference(
         return typing.cast(builtins.str, jsii.get(self, "cpuManagerPolicy"))
 
     @builtins.property
+    @jsii.member(jsii_name="evictionMaxPodGracePeriodSeconds")
+    def eviction_max_pod_grace_period_seconds(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "evictionMaxPodGracePeriodSeconds"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evictionMinimumReclaim")
+    def eviction_minimum_reclaim(
+        self,
+    ) -> DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaimList:
+        return typing.cast(DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaimList, jsii.get(self, "evictionMinimumReclaim"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evictionSoft")
+    def eviction_soft(
+        self,
+    ) -> DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftList:
+        return typing.cast(DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftList, jsii.get(self, "evictionSoft"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evictionSoftGracePeriod")
+    def eviction_soft_grace_period(
+        self,
+    ) -> DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriodList:
+        return typing.cast(DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriodList, jsii.get(self, "evictionSoftGracePeriod"))
+
+    @builtins.property
     @jsii.member(jsii_name="imageGcHighThresholdPercent")
     def image_gc_high_threshold_percent(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "imageGcHighThresholdPercent"))
@@ -13311,6 +13850,11 @@ class DataGoogleContainerClusterNodeConfigKubeletConfigOutputReference(
     @jsii.member(jsii_name="insecureKubeletReadonlyPortEnabled")
     def insecure_kubelet_readonly_port_enabled(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "insecureKubeletReadonlyPortEnabled"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxParallelImagePulls")
+    def max_parallel_image_pulls(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "maxParallelImagePulls"))
 
     @builtins.property
     @jsii.member(jsii_name="podPidsLimit")
@@ -13630,6 +14174,16 @@ class DataGoogleContainerClusterNodeConfigLinuxNodeConfigOutputReference(
     @jsii.member(jsii_name="sysctls")
     def sysctls(self) -> _cdktf_9a9027ec.StringMap:
         return typing.cast(_cdktf_9a9027ec.StringMap, jsii.get(self, "sysctls"))
+
+    @builtins.property
+    @jsii.member(jsii_name="transparentHugepageDefrag")
+    def transparent_hugepage_defrag(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "transparentHugepageDefrag"))
+
+    @builtins.property
+    @jsii.member(jsii_name="transparentHugepageEnabled")
+    def transparent_hugepage_enabled(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "transparentHugepageEnabled"))
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
@@ -14899,6 +15453,11 @@ class DataGoogleContainerClusterNodeConfigSoleTenantConfigOutputReference(
             check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
             check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="minNodeCpus")
+    def min_node_cpus(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "minNodeCpus"))
 
     @builtins.property
     @jsii.member(jsii_name="nodeAffinity")
@@ -20712,6 +21271,519 @@ class DataGoogleContainerClusterNodePoolNodeConfigKubeletConfig:
         )
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4439a26a1f76aa97c17a4b8c854585d2a754796a4af507f5228e128749d6a253)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d03cdf4549d1c080ccb100a3c6d2a3e4b58e8c6d80c7206b79a223b0e5682f5c)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85bec651a0dd538a2dc30341076b32aa7d5d24259b38f0536ffd77cc7e45c014)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d847d66bdcd7a731c391fba2286a7c86883834f3ceaf281412924723506d8801)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__66afe473785cba05fc7583ee0b4ffe507165c786862f48202e517bc5a9778e8c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8959596ce7840c05648d3d8c193d7212262be1356215903bc9633b8c551a4bc3)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsAvailable")
+    def imagefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsInodesFree"))
+
+    @builtins.property
+    @jsii.member(jsii_name="memoryAvailable")
+    def memory_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "memoryAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsAvailable")
+    def nodefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsInodesFree"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pidAvailable")
+    def pid_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "pidAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim]:
+        return typing.cast(typing.Optional[DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__09bc301154f1d6b62f13521d6eeb6e7ed37a88d717489f8a36b8c56c28b4e541)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoft",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoft:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoft(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e5c7d3a60d21c6b076f19af73c4d954bc5bec2717d1c7ad62b2e10f031ba76b)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6eb8733f50188924732bc722b2a1352b8d435e73d83817aa7d709f91b187b7d1)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c68a5972c795f869f3b925185ff07ca82adff64a4561d9707304d967c0ae17b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8abc72f8cd7e77a41732bea19003a65236866b5e04f2ea092d44f66280afdab5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b85eb2ea3198edb8a24967adacc5c17543dd88d52c78ba50d2eb5e2deafd9959)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f754f1483d2a4fabe06cb87f3517f2d1f417196304b8968134cafdaa05167ade)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsAvailable")
+    def imagefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsInodesFree"))
+
+    @builtins.property
+    @jsii.member(jsii_name="memoryAvailable")
+    def memory_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "memoryAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsAvailable")
+    def nodefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsInodesFree"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pidAvailable")
+    def pid_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "pidAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod]:
+        return typing.cast(typing.Optional[DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4332197a4c2650c2d1a0d1b763863a0a7339b71790c83239d4624db0244df01c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__62333b15ccdd4d2c5e33f564423b577ba16907cdbe6056a50f55186a6937bca0)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5533255e9e68b0dc71b52fc01144ae6cfcf2fdb471c9ee153b75cfa87698cd87)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__51fbdac740c81abeb63baed2e19e81fb61ea064f798c3a8595a81e076ccb9e71)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__800638d3129040cee1d5c9ebdb2f5969f3413d9bbb729823ddbd34027f0cec8e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e232f383b9059161a16e0af00210cfae7bc4eb527fd5b6a470778f1fdaa9fdd5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleContainerCluster.DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7d9c0a825b94d4c45835f1d0dd140efb98765aa497a4fb640d5117d7d2e130e)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsAvailable")
+    def imagefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="imagefsInodesFree")
+    def imagefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "imagefsInodesFree"))
+
+    @builtins.property
+    @jsii.member(jsii_name="memoryAvailable")
+    def memory_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "memoryAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsAvailable")
+    def nodefs_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodefsInodesFree")
+    def nodefs_inodes_free(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodefsInodesFree"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pidAvailable")
+    def pid_available(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "pidAvailable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoft]:
+        return typing.cast(typing.Optional[DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoft], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoft],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a646ea637e52c9bdfbe31ff8f13b79c3dae0d19aab82343b5d008371f13d9709)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 class DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigList(
     _cdktf_9a9027ec.ComplexList,
     metaclass=jsii.JSIIMeta,
@@ -20845,6 +21917,32 @@ class DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigOutputReference(
         return typing.cast(builtins.str, jsii.get(self, "cpuManagerPolicy"))
 
     @builtins.property
+    @jsii.member(jsii_name="evictionMaxPodGracePeriodSeconds")
+    def eviction_max_pod_grace_period_seconds(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "evictionMaxPodGracePeriodSeconds"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evictionMinimumReclaim")
+    def eviction_minimum_reclaim(
+        self,
+    ) -> DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimList:
+        return typing.cast(DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimList, jsii.get(self, "evictionMinimumReclaim"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evictionSoft")
+    def eviction_soft(
+        self,
+    ) -> DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftList:
+        return typing.cast(DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftList, jsii.get(self, "evictionSoft"))
+
+    @builtins.property
+    @jsii.member(jsii_name="evictionSoftGracePeriod")
+    def eviction_soft_grace_period(
+        self,
+    ) -> DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodList:
+        return typing.cast(DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodList, jsii.get(self, "evictionSoftGracePeriod"))
+
+    @builtins.property
     @jsii.member(jsii_name="imageGcHighThresholdPercent")
     def image_gc_high_threshold_percent(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "imageGcHighThresholdPercent"))
@@ -20868,6 +21966,11 @@ class DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigOutputReference(
     @jsii.member(jsii_name="insecureKubeletReadonlyPortEnabled")
     def insecure_kubelet_readonly_port_enabled(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "insecureKubeletReadonlyPortEnabled"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxParallelImagePulls")
+    def max_parallel_image_pulls(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "maxParallelImagePulls"))
 
     @builtins.property
     @jsii.member(jsii_name="podPidsLimit")
@@ -21187,6 +22290,16 @@ class DataGoogleContainerClusterNodePoolNodeConfigLinuxNodeConfigOutputReference
     @jsii.member(jsii_name="sysctls")
     def sysctls(self) -> _cdktf_9a9027ec.StringMap:
         return typing.cast(_cdktf_9a9027ec.StringMap, jsii.get(self, "sysctls"))
+
+    @builtins.property
+    @jsii.member(jsii_name="transparentHugepageDefrag")
+    def transparent_hugepage_defrag(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "transparentHugepageDefrag"))
+
+    @builtins.property
+    @jsii.member(jsii_name="transparentHugepageEnabled")
+    def transparent_hugepage_enabled(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "transparentHugepageEnabled"))
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
@@ -22460,6 +23573,11 @@ class DataGoogleContainerClusterNodePoolNodeConfigSoleTenantConfigOutputReferenc
             check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
             check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="minNodeCpus")
+    def min_node_cpus(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "minNodeCpus"))
 
     @builtins.property
     @jsii.member(jsii_name="nodeAffinity")
@@ -26525,6 +27643,15 @@ __all__ = [
     "DataGoogleContainerClusterNodeConfigHostMaintenancePolicyList",
     "DataGoogleContainerClusterNodeConfigHostMaintenancePolicyOutputReference",
     "DataGoogleContainerClusterNodeConfigKubeletConfig",
+    "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaim",
+    "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaimList",
+    "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference",
+    "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoft",
+    "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriod",
+    "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriodList",
+    "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference",
+    "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftList",
+    "DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftOutputReference",
     "DataGoogleContainerClusterNodeConfigKubeletConfigList",
     "DataGoogleContainerClusterNodeConfigKubeletConfigOutputReference",
     "DataGoogleContainerClusterNodeConfigLinuxNodeConfig",
@@ -26668,6 +27795,15 @@ __all__ = [
     "DataGoogleContainerClusterNodePoolNodeConfigHostMaintenancePolicyList",
     "DataGoogleContainerClusterNodePoolNodeConfigHostMaintenancePolicyOutputReference",
     "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfig",
+    "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim",
+    "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimList",
+    "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaimOutputReference",
+    "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoft",
+    "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod",
+    "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodList",
+    "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriodOutputReference",
+    "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftList",
+    "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftOutputReference",
     "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigList",
     "DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigOutputReference",
     "DataGoogleContainerClusterNodePoolNodeConfigLinuxNodeConfig",
@@ -30602,6 +31738,147 @@ def _typecheckingstub__139743683445500cfd8eb5b214188eebc4fb77c0ba737116e2966c19e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0fed4d52da334833ce771165fed20e10145f859f5d532b7057777a9c509e1b7a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8e41332c30b78c474dc27df1dbe1197cf03ffe09fc341fa263a60dd831ec2fe(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f29badb918c2a75c4f4be33599114f65f6083ba99bbbf0fb43a3b77cd4082e0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec9683650a87684985c9aae46b3b71d6b5798a9210d4879b1845ba0654c7503f(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc258f1e4b50ff2aafae33a6eac35fd44796fb83d728b15b0ff235c3424b623f(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65510a3ce5f5b111373a7972137ac806e7d90098039b0701583418066b610d23(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4b7adcf65d9baa0415df6879e639a9ed729b1f5ca44e3a1cf5aad9fd8952685(
+    value: typing.Optional[DataGoogleContainerClusterNodeConfigKubeletConfigEvictionMinimumReclaim],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4187052cae4c656f9a0b2fd1abbc575a107b1971b1b6653381888dfcc56570a0(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb1936d81428b1eddf3452e67dcb8447f8d409c7a4af30c67b976b063bf37a50(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a91b9edce0b00d582bd3fa54a5fd9e6f8a5ec3f18fe2990a3ef2b1b5c45448e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e415c22e483f5ff5681014df49d74dc54ebfbb5016e997d0e5132e91bdfc5687(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__688a1db654ccac0c642c178b492329e43ea824868437d1959acab0b21bbd4c48(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20037176620bbb51e76a43bbc6ad6001903af580e5bcd47dbf61de7b101c59b4(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f09dccadcdfb542f2651ef3baf2b45a16309e35629c002caa576c3ca052d5e0(
+    value: typing.Optional[DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoftGracePeriod],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ea3dd4a9c9e12ff1ddac4bdbd847c859e22caaf406bbb28564f06585952d73c(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__53cfeae0c84ba8dfa9d3dc57e348c8dc0d066a02cf083be7feb29d37930ca771(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6939542a501a04d09bc7a4aac1a140c06fe46dc57cf16cb461cd646aa38e55c1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d64521a0d878c248fb7e931b1c50d4223c0d000b3faaa83eee71d88b2767268(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d74be4c90e79c84348ffff37db6bf845d9190534649275e2d886824502d6cbb(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6a45423c9ba71bde01d4b20e8f412203ae98ec23de01bd92f96400c1044d763(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1599c1a21833e5acf582c2b8f32fb46062d4edaf47d7dd17214bada37a6c19c9(
+    value: typing.Optional[DataGoogleContainerClusterNodeConfigKubeletConfigEvictionSoft],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cd778a8346ef9a4222f728dc5e3ad90136c4137f8ddcf3ecd719ecd264e54681(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
@@ -32839,6 +34116,147 @@ def _typecheckingstub__a04bad4c6757df13ca8764766f2cc8b2c0b3658a2eb5c8654eacfb1c0
 
 def _typecheckingstub__e5327cf01e65f876de08defb303e0953f7283ea00034293601d192f8967d6ace(
     value: typing.Optional[DataGoogleContainerClusterNodePoolNodeConfigHostMaintenancePolicy],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4439a26a1f76aa97c17a4b8c854585d2a754796a4af507f5228e128749d6a253(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d03cdf4549d1c080ccb100a3c6d2a3e4b58e8c6d80c7206b79a223b0e5682f5c(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85bec651a0dd538a2dc30341076b32aa7d5d24259b38f0536ffd77cc7e45c014(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d847d66bdcd7a731c391fba2286a7c86883834f3ceaf281412924723506d8801(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66afe473785cba05fc7583ee0b4ffe507165c786862f48202e517bc5a9778e8c(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8959596ce7840c05648d3d8c193d7212262be1356215903bc9633b8c551a4bc3(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09bc301154f1d6b62f13521d6eeb6e7ed37a88d717489f8a36b8c56c28b4e541(
+    value: typing.Optional[DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionMinimumReclaim],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e5c7d3a60d21c6b076f19af73c4d954bc5bec2717d1c7ad62b2e10f031ba76b(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6eb8733f50188924732bc722b2a1352b8d435e73d83817aa7d709f91b187b7d1(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c68a5972c795f869f3b925185ff07ca82adff64a4561d9707304d967c0ae17b8(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8abc72f8cd7e77a41732bea19003a65236866b5e04f2ea092d44f66280afdab5(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b85eb2ea3198edb8a24967adacc5c17543dd88d52c78ba50d2eb5e2deafd9959(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f754f1483d2a4fabe06cb87f3517f2d1f417196304b8968134cafdaa05167ade(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4332197a4c2650c2d1a0d1b763863a0a7339b71790c83239d4624db0244df01c(
+    value: typing.Optional[DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoftGracePeriod],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62333b15ccdd4d2c5e33f564423b577ba16907cdbe6056a50f55186a6937bca0(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5533255e9e68b0dc71b52fc01144ae6cfcf2fdb471c9ee153b75cfa87698cd87(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51fbdac740c81abeb63baed2e19e81fb61ea064f798c3a8595a81e076ccb9e71(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__800638d3129040cee1d5c9ebdb2f5969f3413d9bbb729823ddbd34027f0cec8e(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e232f383b9059161a16e0af00210cfae7bc4eb527fd5b6a470778f1fdaa9fdd5(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7d9c0a825b94d4c45835f1d0dd140efb98765aa497a4fb640d5117d7d2e130e(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a646ea637e52c9bdfbe31ff8f13b79c3dae0d19aab82343b5d008371f13d9709(
+    value: typing.Optional[DataGoogleContainerClusterNodePoolNodeConfigKubeletConfigEvictionSoft],
 ) -> None:
     """Type checking stubs"""
     pass

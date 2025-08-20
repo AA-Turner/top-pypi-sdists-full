@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlglot
-Version: 27.7.0
+Version: 27.8.0
 Summary: An easily customizable SQL parser and transpiler
 Author-email: Toby Mao <toby.mao@gmail.com>
 Project-URL: Homepage, https://sqlglot.com/
@@ -256,7 +256,7 @@ sqlglot.errors.ParseError: Expecting ). Line 1, Col: 34.
 Structured syntax errors are accessible for programmatic use:
 
 ```python
-import sqlglot
+import sqlglot.errors
 try:
     sqlglot.transpile("SELECT foo FROM (SELECT baz FROM t")
 except sqlglot.errors.ParseError as e:

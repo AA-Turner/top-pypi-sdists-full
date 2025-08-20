@@ -254,7 +254,6 @@ class Paths(BaseEntity):
         }
     )
 
-
     def __post_init__(self) -> None:
         super().__post_init__()
         """

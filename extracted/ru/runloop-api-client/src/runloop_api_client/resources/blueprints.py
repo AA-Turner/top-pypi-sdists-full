@@ -6,7 +6,12 @@ from typing import Dict, List, Iterable, Optional, TypedDict
 
 import httpx
 
-from ..types import blueprint_list_params, blueprint_create_params, blueprint_preview_params
+from ..types import (
+    blueprint_list_params,
+    blueprint_create_params,
+    blueprint_preview_params,
+    blueprint_list_public_params,
+)
 from .._types import NOT_GIVEN, Body, Query, Headers, NotGiven
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
@@ -72,6 +77,7 @@ class BlueprintsResource(SyncAPIResource):
         dockerfile: Optional[str] | NotGiven = NOT_GIVEN,
         file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
         launch_parameters: Optional[LaunchParameters] | NotGiven = NOT_GIVEN,
+        services: Optional[Iterable[blueprint_create_params.Service]] | NotGiven = NOT_GIVEN,
         system_setup_commands: Optional[List[str]] | NotGiven = NOT_GIVEN,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -102,6 +108,10 @@ class BlueprintsResource(SyncAPIResource):
 
           launch_parameters: Parameters to configure your Devbox at launch time.
 
+          services: (Optional) List of containerized services to include in the Blueprint. These
+              services will be pre-pulled during the build phase for optimized startup
+              performance.
+
           system_setup_commands: A list of commands to run to set up your system.
 
           extra_headers: Send extra headers
@@ -124,6 +134,7 @@ class BlueprintsResource(SyncAPIResource):
                     "dockerfile": dockerfile,
                     "file_mounts": file_mounts,
                     "launch_parameters": launch_parameters,
+                    "services": services,
                     "system_setup_commands": system_setup_commands,
                 },
                 blueprint_create_params.BlueprintCreateParams,
@@ -219,16 +230,30 @@ class BlueprintsResource(SyncAPIResource):
     def create_and_await_build_complete(
         self,
         *,
-        create_args: blueprint_create_params.BlueprintCreateParams,
-        request_args: BlueprintRequestArgs | None = None,
+        name: str,
+        base_blueprint_id: Optional[str] | NotGiven = NOT_GIVEN,
+        code_mounts: Optional[Iterable[CodeMountParameters]] | NotGiven = NOT_GIVEN,
+        dockerfile: Optional[str] | NotGiven = NOT_GIVEN,
+        file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
+        launch_parameters: Optional[LaunchParameters] | NotGiven = NOT_GIVEN,
+        polling_config: PollingConfig | None = None,
+        services: Optional[Iterable[blueprint_create_params.Service]] | NotGiven = NOT_GIVEN,
+        system_setup_commands: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        idempotency_key: str | None = None,
     ) -> BlueprintView:
         """Create a new Blueprint and wait for it to finish building.
 
         This is a wrapper around the `create` method that waits for the blueprint to finish building.
 
         Args:
-            create_args: Arguments to pass to the `create` method. See the `create` method for detailed documentation.
-            request_args: Optional request arguments including polling configuration and additional request options
+            See the `create` method for detailed documentation.
+            polling_config: Optional polling configuration
 
         Returns:
             The built blueprint
@@ -238,18 +263,29 @@ class BlueprintsResource(SyncAPIResource):
             RunloopError: If blueprint enters a non-built terminal state
         """
         # Pass all create_args to the underlying create method
-        blueprint = self.create(**create_args)
-
-        if request_args is None:
-            request_args = {}
+        blueprint = self.create(
+            name=name,
+            base_blueprint_id=base_blueprint_id,
+            code_mounts=code_mounts,
+            dockerfile=dockerfile,
+            file_mounts=file_mounts,
+            launch_parameters=launch_parameters,
+            services=services,
+            system_setup_commands=system_setup_commands,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+            idempotency_key=idempotency_key,
+        )
 
         return self.await_build_complete(
             blueprint.id,
-            polling_config=request_args.get("polling_config", None),
-            extra_headers=request_args.get("extra_headers", None),
-            extra_query=request_args.get("extra_query", None),
-            extra_body=request_args.get("extra_body", None),
-            timeout=request_args.get("timeout", None),
+            polling_config=polling_config,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
 
     def list(
@@ -343,6 +379,57 @@ class BlueprintsResource(SyncAPIResource):
             cast_to=object,
         )
 
+    def list_public(
+        self,
+        *,
+        limit: int | NotGiven = NOT_GIVEN,
+        name: str | NotGiven = NOT_GIVEN,
+        starting_after: str | NotGiven = NOT_GIVEN,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+    ) -> SyncBlueprintsCursorIDPage[BlueprintView]:
+        """
+        List all public Blueprints that are available to all users.
+
+        Args:
+          limit: The limit of items to return. Default is 20.
+
+          name: Filter by name
+
+          starting_after: Load the next page of data starting after the item with the given ID.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/v1/blueprints/list_public",
+            page=SyncBlueprintsCursorIDPage[BlueprintView],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "limit": limit,
+                        "name": name,
+                        "starting_after": starting_after,
+                    },
+                    blueprint_list_public_params.BlueprintListPublicParams,
+                ),
+            ),
+            model=BlueprintView,
+        )
+
     def logs(
         self,
         id: str,
@@ -385,6 +472,7 @@ class BlueprintsResource(SyncAPIResource):
         dockerfile: Optional[str] | NotGiven = NOT_GIVEN,
         file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
         launch_parameters: Optional[LaunchParameters] | NotGiven = NOT_GIVEN,
+        services: Optional[Iterable[blueprint_preview_params.Service]] | NotGiven = NOT_GIVEN,
         system_setup_commands: Optional[List[str]] | NotGiven = NOT_GIVEN,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -413,6 +501,10 @@ class BlueprintsResource(SyncAPIResource):
 
           launch_parameters: Parameters to configure your Devbox at launch time.
 
+          services: (Optional) List of containerized services to include in the Blueprint. These
+              services will be pre-pulled during the build phase for optimized startup
+              performance.
+
           system_setup_commands: A list of commands to run to set up your system.
 
           extra_headers: Send extra headers
@@ -435,6 +527,7 @@ class BlueprintsResource(SyncAPIResource):
                     "dockerfile": dockerfile,
                     "file_mounts": file_mounts,
                     "launch_parameters": launch_parameters,
+                    "services": services,
                     "system_setup_commands": system_setup_commands,
                 },
                 blueprint_preview_params.BlueprintPreviewParams,
@@ -479,6 +572,7 @@ class AsyncBlueprintsResource(AsyncAPIResource):
         dockerfile: Optional[str] | NotGiven = NOT_GIVEN,
         file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
         launch_parameters: Optional[LaunchParameters] | NotGiven = NOT_GIVEN,
+        services: Optional[Iterable[blueprint_create_params.Service]] | NotGiven = NOT_GIVEN,
         system_setup_commands: Optional[List[str]] | NotGiven = NOT_GIVEN,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -509,6 +603,10 @@ class AsyncBlueprintsResource(AsyncAPIResource):
 
           launch_parameters: Parameters to configure your Devbox at launch time.
 
+          services: (Optional) List of containerized services to include in the Blueprint. These
+              services will be pre-pulled during the build phase for optimized startup
+              performance.
+
           system_setup_commands: A list of commands to run to set up your system.
 
           extra_headers: Send extra headers
@@ -531,6 +629,7 @@ class AsyncBlueprintsResource(AsyncAPIResource):
                     "dockerfile": dockerfile,
                     "file_mounts": file_mounts,
                     "launch_parameters": launch_parameters,
+                    "services": services,
                     "system_setup_commands": system_setup_commands,
                 },
                 blueprint_create_params.BlueprintCreateParams,
@@ -626,16 +725,30 @@ class AsyncBlueprintsResource(AsyncAPIResource):
     async def create_and_await_build_complete(
         self,
         *,
-        create_args: blueprint_create_params.BlueprintCreateParams,
-        request_args: BlueprintRequestArgs | None = None,
+        name: str,
+        base_blueprint_id: Optional[str] | NotGiven = NOT_GIVEN,
+        code_mounts: Optional[Iterable[CodeMountParameters]] | NotGiven = NOT_GIVEN,
+        dockerfile: Optional[str] | NotGiven = NOT_GIVEN,
+        file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
+        launch_parameters: Optional[LaunchParameters] | NotGiven = NOT_GIVEN,
+        polling_config: PollingConfig | None = None,
+        services: Optional[Iterable[blueprint_create_params.Service]] | NotGiven = NOT_GIVEN,
+        system_setup_commands: Optional[List[str]] | NotGiven = NOT_GIVEN,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        idempotency_key: str | None = None,
     ) -> BlueprintView:
         """Create a new Blueprint and wait for it to finish building.
 
         This is a wrapper around the `create` method that waits for the blueprint to finish building.
 
         Args:
-            create_args: Arguments to pass to the `create` method. See the `create` method for detailed documentation.
-            request_args: Optional request arguments including polling configuration and additional request options
+            See the `create` method for detailed documentation.
+            polling_config: Optional polling configuration
 
         Returns:
             The built blueprint
@@ -645,19 +758,29 @@ class AsyncBlueprintsResource(AsyncAPIResource):
             RunloopError: If blueprint enters a non-built terminal state
         """
         # Pass all create_args to the underlying create method
-        blueprint = await self.create(**create_args)
-
-        # Extract polling config and other request args
-        if request_args is None:
-            request_args = {}
+        blueprint = await self.create(
+            name=name,
+            base_blueprint_id=base_blueprint_id,
+            code_mounts=code_mounts,
+            dockerfile=dockerfile,
+            file_mounts=file_mounts,
+            launch_parameters=launch_parameters,
+            services=services,
+            system_setup_commands=system_setup_commands,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+            idempotency_key=idempotency_key,
+        )
 
         return await self.await_build_complete(
             blueprint.id,
-            polling_config=request_args.get("polling_config", None),
-            extra_headers=request_args.get("extra_headers", None),
-            extra_query=request_args.get("extra_query", None),
-            extra_body=request_args.get("extra_body", None),
-            timeout=request_args.get("timeout", None),
+            polling_config=polling_config,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
         )
 
     def list(
@@ -751,6 +874,57 @@ class AsyncBlueprintsResource(AsyncAPIResource):
             cast_to=object,
         )
 
+    def list_public(
+        self,
+        *,
+        limit: int | NotGiven = NOT_GIVEN,
+        name: str | NotGiven = NOT_GIVEN,
+        starting_after: str | NotGiven = NOT_GIVEN,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+    ) -> AsyncPaginator[BlueprintView, AsyncBlueprintsCursorIDPage[BlueprintView]]:
+        """
+        List all public Blueprints that are available to all users.
+
+        Args:
+          limit: The limit of items to return. Default is 20.
+
+          name: Filter by name
+
+          starting_after: Load the next page of data starting after the item with the given ID.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/v1/blueprints/list_public",
+            page=AsyncBlueprintsCursorIDPage[BlueprintView],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "limit": limit,
+                        "name": name,
+                        "starting_after": starting_after,
+                    },
+                    blueprint_list_public_params.BlueprintListPublicParams,
+                ),
+            ),
+            model=BlueprintView,
+        )
+
     async def logs(
         self,
         id: str,
@@ -793,6 +967,7 @@ class AsyncBlueprintsResource(AsyncAPIResource):
         dockerfile: Optional[str] | NotGiven = NOT_GIVEN,
         file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
         launch_parameters: Optional[LaunchParameters] | NotGiven = NOT_GIVEN,
+        services: Optional[Iterable[blueprint_preview_params.Service]] | NotGiven = NOT_GIVEN,
         system_setup_commands: Optional[List[str]] | NotGiven = NOT_GIVEN,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -821,6 +996,10 @@ class AsyncBlueprintsResource(AsyncAPIResource):
 
           launch_parameters: Parameters to configure your Devbox at launch time.
 
+          services: (Optional) List of containerized services to include in the Blueprint. These
+              services will be pre-pulled during the build phase for optimized startup
+              performance.
+
           system_setup_commands: A list of commands to run to set up your system.
 
           extra_headers: Send extra headers
@@ -843,6 +1022,7 @@ class AsyncBlueprintsResource(AsyncAPIResource):
                     "dockerfile": dockerfile,
                     "file_mounts": file_mounts,
                     "launch_parameters": launch_parameters,
+                    "services": services,
                     "system_setup_commands": system_setup_commands,
                 },
                 blueprint_preview_params.BlueprintPreviewParams,
@@ -874,6 +1054,9 @@ class BlueprintsResourceWithRawResponse:
         self.delete = to_raw_response_wrapper(
             blueprints.delete,
         )
+        self.list_public = to_raw_response_wrapper(
+            blueprints.list_public,
+        )
         self.logs = to_raw_response_wrapper(
             blueprints.logs,
         )
@@ -897,6 +1080,9 @@ class AsyncBlueprintsResourceWithRawResponse:
         )
         self.delete = async_to_raw_response_wrapper(
             blueprints.delete,
+        )
+        self.list_public = async_to_raw_response_wrapper(
+            blueprints.list_public,
         )
         self.logs = async_to_raw_response_wrapper(
             blueprints.logs,
@@ -922,6 +1108,9 @@ class BlueprintsResourceWithStreamingResponse:
         self.delete = to_streamed_response_wrapper(
             blueprints.delete,
         )
+        self.list_public = to_streamed_response_wrapper(
+            blueprints.list_public,
+        )
         self.logs = to_streamed_response_wrapper(
             blueprints.logs,
         )
@@ -945,6 +1134,9 @@ class AsyncBlueprintsResourceWithStreamingResponse:
         )
         self.delete = async_to_streamed_response_wrapper(
             blueprints.delete,
+        )
+        self.list_public = async_to_streamed_response_wrapper(
+            blueprints.list_public,
         )
         self.logs = async_to_streamed_response_wrapper(
             blueprints.logs,

@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import MagicMock
+from orionis.app import Orionis
 from orionis.foundation.config.testing.enums.drivers import PersistentDrivers
 from orionis.foundation.config.testing.enums.mode import ExecutionMode
 from orionis.test.cases.asynchronous import AsyncTestCase
@@ -15,7 +16,7 @@ class TestTestingUnit(AsyncTestCase):
         -------
         None
         """
-        unit_test = UnitTest()
+        unit_test = UnitTest(Orionis())
         # Assert that the loader is correctly initialized as a TestLoader
         self.assertIsInstance(unit_test._UnitTest__loader, unittest.TestLoader)
         # Assert that the suite is correctly initialized as a TestSuite
@@ -29,7 +30,7 @@ class TestTestingUnit(AsyncTestCase):
         -------
         None
         """
-        unit_test = UnitTest()
+        unit_test = UnitTest(Orionis())
         # Configure the UnitTest instance with custom parameters
         configured = unit_test.configure(
             verbosity=1,
@@ -62,7 +63,7 @@ class TestTestingUnit(AsyncTestCase):
         -------
         None
         """
-        unit_test = UnitTest()
+        unit_test = UnitTest(Orionis())
         # Create mock test cases
         test_case1 = MagicMock()
         test_case2 = MagicMock()
@@ -88,7 +89,7 @@ class TestTestingUnit(AsyncTestCase):
         -------
         None
         """
-        unit_test = UnitTest()
+        unit_test = UnitTest(Orionis())
         # Create a combined TestResult to aggregate results into
         combined = unittest.TestResult()
         # Create an individual TestResult with sample data
@@ -114,7 +115,7 @@ class TestTestingUnit(AsyncTestCase):
         -------
         None
         """
-        unit_test = UnitTest()
+        unit_test = UnitTest(Orionis())
         # Add a mock test case to the suite
         mock_test = MagicMock()
         unit_test._UnitTest__suite.addTest(mock_test)
@@ -131,7 +132,7 @@ class TestTestingUnit(AsyncTestCase):
         -------
         None
         """
-        unit_test = UnitTest()
+        unit_test = UnitTest(Orionis())
         # Create a mock test case and set its id() method to return a specific identifier
         mock_test = MagicMock()
         mock_test.id.return_value = 'test_id'
@@ -150,7 +151,7 @@ class TestTestingUnit(AsyncTestCase):
         -------
         None
         """
-        unit_test = UnitTest()
+        unit_test = UnitTest(Orionis())
         # Create two mock test cases
         mock_test1 = MagicMock()
         mock_test2 = MagicMock()

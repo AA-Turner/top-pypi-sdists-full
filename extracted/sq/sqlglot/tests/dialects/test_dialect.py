@@ -2527,6 +2527,23 @@ class TestDialect(Validator):
             },
         )
 
+        self.validate_all(
+            "SELECT * FROM (SELECT 1 AS col) AS apply",
+            read={
+                "": "SELECT * FROM (SELECT 1 AS col) apply",
+                "hive": "SELECT * FROM (SELECT 1 AS col) apply",
+                "postgres": "SELECT * FROM (SELECT 1 AS col) apply",
+                "duckdb": "SELECT * FROM (SELECT 1 AS col) apply",
+                "presto": "SELECT * FROM (SELECT 1 AS col) apply",
+                "spark": "SELECT * FROM (SELECT 1 AS col) apply",
+                "spark2": "SELECT * FROM (SELECT 1 AS col) apply",
+                "trino": "SELECT * FROM (SELECT 1 AS col) apply",
+                "snowflake": "SELECT * FROM (SELECT 1 AS col) apply",
+                "bigquery": "SELECT * FROM (SELECT 1 AS col) apply",
+                "athena": "SELECT * FROM (SELECT 1 AS col) apply",
+            },
+        )
+
     def test_nullsafe_eq(self):
         self.validate_all(
             "SELECT a IS NOT DISTINCT FROM b",
@@ -3891,5 +3908,132 @@ FROM subquery2""",
                 "trino": "REVERSE(x)",
                 "clickhouse": "REVERSE(x)",
                 "redshift": "REVERSE(x)",
+            },
+        )
+
+    def test_translate(self):
+        self.validate_all(
+            "TRANSLATE(x, y, z)",
+            read={
+                "": "TRANSLATE(x, y, z)",
+                "bigquery": "TRANSLATE(x, y, z)",
+                "hive": "TRANSLATE(x, y, z)",
+                "spark2": "TRANSLATE(x, y, z)",
+                "spark": "TRANSLATE(x, y, z)",
+                "databricks": "TRANSLATE(x, y, z)",
+                "postgres": "TRANSLATE(x, y, z)",
+                "tsql": "TRANSLATE(x, y, z)",
+                "snowflake": "TRANSLATE(x, y, z)",
+                "doris": "TRANSLATE(x, y, z)",
+                "trino": "TRANSLATE(x, y, z)",
+                "clickhouse": "TRANSLATE(x, y, z)",
+                "redshift": "TRANSLATE(x, y, z)",
+                "oracle": "TRANSLATE(x, y, z)",
+            },
+            write={
+                "": "TRANSLATE(x, y, z)",
+                "bigquery": "TRANSLATE(x, y, z)",
+                "hive": "TRANSLATE(x, y, z)",
+                "spark2": "TRANSLATE(x, y, z)",
+                "spark": "TRANSLATE(x, y, z)",
+                "databricks": "TRANSLATE(x, y, z)",
+                "postgres": "TRANSLATE(x, y, z)",
+                "tsql": "TRANSLATE(x, y, z)",
+                "snowflake": "TRANSLATE(x, y, z)",
+                "doris": "TRANSLATE(x, y, z)",
+                "trino": "TRANSLATE(x, y, z)",
+                "clickhouse": "TRANSLATE(x, y, z)",
+                "redshift": "TRANSLATE(x, y, z)",
+                "oracle": "TRANSLATE(x, y, z)",
+            },
+        )
+
+    def test_soundex(self):
+        self.validate_all(
+            "SOUNDEX(x)",
+            read={
+                "": "SOUNDEX(x)",
+                "bigquery": "SOUNDEX(x)",
+                "hive": "SOUNDEX(x)",
+                "spark2": "SOUNDEX(x)",
+                "spark": "SOUNDEX(x)",
+                "databricks": "SOUNDEX(x)",
+                "mysql": "SOUNDEX(x)",
+                "postgres": "SOUNDEX(x)",
+                "tsql": "SOUNDEX(x)",
+                "snowflake": "SOUNDEX(x)",
+                "dremio": "SOUNDEX(x)",
+                "trino": "SOUNDEX(x)",
+                "clickhouse": "SOUNDEX(x)",
+                "redshift": "SOUNDEX(x)",
+                "oracle": "SOUNDEX(x)",
+            },
+            write={
+                "bigquery": "SOUNDEX(x)",
+                "hive": "SOUNDEX(x)",
+                "spark2": "SOUNDEX(x)",
+                "spark": "SOUNDEX(x)",
+                "databricks": "SOUNDEX(x)",
+                "mysql": "SOUNDEX(x)",
+                "postgres": "SOUNDEX(x)",
+                "tsql": "SOUNDEX(x)",
+                "snowflake": "SOUNDEX(x)",
+                "dremio": "SOUNDEX(x)",
+                "trino": "SOUNDEX(x)",
+                "clickhouse": "SOUNDEX(x)",
+                "redshift": "SOUNDEX(x)",
+                "oracle": "SOUNDEX(x)",
+            },
+        )
+
+    def test_grouping(self):
+        self.validate_all(
+            "GROUPING(x)",
+            read={
+                "": "GROUPING(x)",
+                "bigquery": "GROUPING(x)",
+                "hive": "GROUPING(x)",
+                "spark2": "GROUPING(x)",
+                "spark": "GROUPING(x)",
+                "databricks": "GROUPING(x)",
+                "mysql": "GROUPING(x)",
+                "postgres": "GROUPING(x)",
+                "tsql": "GROUPING(x)",
+                "snowflake": "GROUPING(x)",
+                "clickhouse": "GROUPING(x)",
+                "redshift": "GROUPING(x)",
+                "oracle": "GROUPING(x)",
+            },
+            write={
+                "bigquery": "GROUPING(x)",
+                "hive": "GROUPING(x)",
+                "spark2": "GROUPING(x)",
+                "spark": "GROUPING(x)",
+                "databricks": "GROUPING(x)",
+                "mysql": "GROUPING(x)",
+                "postgres": "GROUPING(x)",
+                "tsql": "GROUPING(x)",
+                "snowflake": "GROUPING(x)",
+                "clickhouse": "GROUPING(x)",
+                "redshift": "GROUPING(x)",
+                "oracle": "GROUPING(x)",
+            },
+        )
+        self.validate_all(
+            "GROUPING(col1, col2, col3)",
+            read={
+                "": "GROUPING(col1, col2, col3)",
+                "snowflake": "GROUPING(col1, col2, col3)",
+                "mysql": "GROUPING(col1, col2, col3)",
+                "postgres": "GROUPING(col1, col2, col3)",
+                "clickhouse": "GROUPING(col1, col2, col3)",
+                "redshift": "GROUPING(col1, col2, col3)",
+            },
+            write={
+                "snowflake": "GROUPING(col1, col2, col3)",
+                "mysql": "GROUPING(col1, col2, col3)",
+                "postgres": "GROUPING(col1, col2, col3)",
+                "clickhouse": "GROUPING(col1, col2, col3)",
+                "redshift": "GROUPING(col1, col2, col3)",
             },
         )

@@ -59,7 +59,7 @@ class CountOp(CheckOp):
 @dataclass(frozen=True, slots=True)
 class UOp:
     """
-    micro-ops, thse make up the filecheck matching logic
+    micro-ops, these make up the filecheck matching logic
     """
 
     pass
@@ -133,3 +133,18 @@ class NumSubst(UOp):
 
     variable: str
     expr: str
+
+
+@dataclass(frozen=True, slots=True)
+class PseudoVar(UOp):
+    """
+    Pseudo Numeric Variables (substitute @line with actual line number).
+
+    Stuff like this:
+    ```
+    ; CHECK: [[# @line]]: error: ...
+    ; CHECK: [[# @line + 1]]: warning: ...
+    ```
+    """
+
+    offset: int

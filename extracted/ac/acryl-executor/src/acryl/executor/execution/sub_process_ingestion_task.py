@@ -17,13 +17,11 @@ import asyncio.exceptions
 import logging
 import os
 import signal
-import sys
 import tarfile
 from asyncio import tasks
-from collections import deque
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import IO, Any, Optional
 
@@ -33,6 +31,13 @@ from acryl.executor.cloud_utils.s3_cloud_copier import S3CloudCopier
 from acryl.executor.common.config import ConfigModel
 from acryl.executor.context.execution_context import ExecutionContext
 from acryl.executor.context.executor_context import ExecutorContext
+from acryl.executor.execution.runner import (
+    LogHolder,
+    SubprocessRunner,
+    VenvConfig,
+    VenvReference,
+    setup_venv,
+)
 from acryl.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
     SubProcessTaskUtil,
@@ -198,6 +203,62 @@ class SubProcessIngestionTask(Task):
         subprocess_env.setdefault("TMPDIR", exec_out_dir)
         return subprocess_env
 
+    async def _setup_venv(
+        self,
+        validated_args: SubProcessIngestionTaskArgs,
+        plugin: str,
+        exec_out_dir: str,
+        shared_logs: LogHolder,
+    ) -> VenvReference:
+        """Set up the virtual environment using Python utilities with shared logging."""
+        # Create venv configuration from subprocess args
+        venv_config = VenvConfig(
+            version=validated_args.version,
+            main_plugin=plugin,
+            extra_pip_requirements=validated_args.extra_pip_requirements,
+            extra_pip_plugins=validated_args.extra_pip_plugins,
+            extra_env_vars=validated_args.extra_env_vars,
+        )
+
+        # Use shared LogHolder for venv setup - logs will appear in subprocess output
+        venv_runner = SubprocessRunner(logs=shared_logs)
+
+        logger.info(
+            f"Setting up venv for plugin '{plugin}' with version '{validated_args.version}'"
+        )
+
+        # Add venv setup status to shared logs so it appears in subprocess output
+        shared_logs.append(
+            f"Setting up venv for plugin '{plugin}' with version '{validated_args.version}'\n"
+        )
+
+        if validated_args.should_use_bundled_venv():
+            logger.info("Using Bundled startup (pre-built) venv")
+            shared_logs.append("Using Bundled startup (pre-built) venv\n")
+        else:
+            logger.info("Creating dynamic venv - this may take a few minutes...")
+            shared_logs.append(
+                "Creating dynamic venv - this may take a few minutes...\n"
+            )
+
+        try:
+            # Set up the venv using our Python utilities
+            venv_ref = await setup_venv(
+                venv_config=venv_config,
+                runner=venv_runner,
+                tmp_dir=Path(exec_out_dir),
+            )
+
+            logger.info(f"Venv ready at: {venv_ref.venv_loc}")
+            shared_logs.append(f"✅ Venv ready at: {venv_ref.venv_loc}\n")
+
+            return venv_ref
+
+        except Exception as e:
+            logger.error(f"Venv setup failed: {e}")
+            shared_logs.append(f"❌ Venv setup failed: {e}\n")
+            raise TaskError(f"Failed to set up virtual environment: {e}") from e
+
     async def _create_subprocess(
         self,
         validated_args: SubProcessIngestionTaskArgs,
@@ -205,23 +266,44 @@ class SubProcessIngestionTask(Task):
         recipe_file_path: str,
         report_out_file: str,
         subprocess_env: dict,
+        exec_out_dir: str,
+        shared_logs: LogHolder,
     ) -> asyncio.subprocess.Process:
         """Create and return the ingestion subprocess."""
+        # First, set up the venv using Python utilities with shared logging
+        venv_ref = await self._setup_venv(
+            validated_args, plugin, exec_out_dir, shared_logs
+        )
+
+        # Now create subprocess with simplified shell script (no log file needed!)
         command_script = "run_ingest.sh"
         debug_mode = validated_args.debug_mode
+
+        # Log the execution mode
+        if validated_args.should_use_bundled_venv():
+            logger.info(
+                f"Running ingestion with Bundled startup venv: {venv_ref.venv_loc}"
+            )
+        else:
+            logger.info(f"Running ingestion with dynamic venv: {venv_ref.venv_loc}")
+
+        # Prepare environment with venv information (no log file needed)
+        venv_env = {
+            **subprocess_env,
+            **venv_ref.extra_envs(),
+            "VENV_PATH": str(venv_ref.venv_loc),
+        }
 
         return await asyncio.create_subprocess_exec(
             *[
                 command_script,
-                validated_args.get_venv_name(plugin=plugin),
-                validated_args.version,
-                plugin,
-                self.tmp_dir,
+                str(venv_ref.venv_loc),  # Pass venv path directly
                 recipe_file_path,
                 report_out_file,
                 debug_mode,
+                # No log file argument needed anymore!
             ],
-            env=subprocess_env,
+            env=venv_env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             limit=SubProcessTaskUtil.SUBPROCESS_BUFFER_SIZE,
@@ -276,19 +358,29 @@ class SubProcessIngestionTask(Task):
         logger.debug(f"Cloud log bucket: {self.config.cloud_log_bucket}")
         logger.debug(f"Cloud log path: {self.config.cloud_log_path}")
 
-        stdout_lines: deque[str] = deque(maxlen=self.config.max_log_lines)
+        # Create shared LogHolder for both venv setup and subprocess monitoring
+        shared_logs = LogHolder(
+            max_log_lines=self.config.max_log_lines,
+            echo_to_stdout_prefix=f"[{exec_id} logs] ",
+        )
         full_log_file = open(
             f"{artifact_output_dir}/executor-logs/ingestion-logs.log", "w"
         )
 
         logger.info(f"Starting ingestion subprocess for exec_id={exec_id} ({plugin})")
         ingest_process = await self._create_subprocess(
-            validated_args, plugin, recipe_file_path, report_out_file, subprocess_env
+            validated_args,
+            plugin,
+            recipe_file_path,
+            report_out_file,
+            subprocess_env,
+            exec_out_dir,
+            shared_logs,
         )
 
         try:
             await self._monitor_subprocess(
-                ingest_process, exec_id, ctx, stdout_lines, full_log_file
+                ingest_process, exec_id, ctx, shared_logs, full_log_file
             )
         finally:
             self._handle_subprocess_completion(
@@ -298,7 +390,7 @@ class SubProcessIngestionTask(Task):
                 artifact_output_dir,
                 recipe,
                 exec_out_dir,
-                stdout_lines,
+                shared_logs,
             )
 
     async def _monitor_subprocess(
@@ -306,7 +398,7 @@ class SubProcessIngestionTask(Task):
         ingest_process: asyncio.subprocess.Process,
         exec_id: str,
         ctx: ExecutionContext,
-        stdout_lines: deque[str],
+        shared_logs: LogHolder,
         full_log_file: IO[str],
     ) -> None:
         """Monitor subprocess execution with async tasks for output reading and progress reporting."""
@@ -314,7 +406,6 @@ class SubProcessIngestionTask(Task):
 
         async def _read_output_lines() -> None:
             nonlocal most_recent_log_ts
-            create_new_line = True
             while True:
                 assert ingest_process.stdout
 
@@ -348,31 +439,12 @@ class SubProcessIngestionTask(Task):
                     break
                 line = line_bytes.decode("utf-8")
 
-                most_recent_log_ts = datetime.now()
+                most_recent_log_ts = datetime.now(tz=timezone.utc)
 
                 full_log_file.write(line)
 
-                if create_new_line:
-                    stdout_lines.append("")
-                    sys.stdout.write(f"[{exec_id} logs] ")
-                create_new_line = line.endswith("\n")
-
-                current_line_length = len(stdout_lines[-1])
-                if current_line_length < SubProcessTaskUtil.MAX_BYTES_PER_LINE:
-                    allowed_length = (
-                        SubProcessTaskUtil.MAX_BYTES_PER_LINE - current_line_length
-                    )
-                    if len(line) > allowed_length:
-                        trunc_line = f"{line[:allowed_length]} [...truncated]\n"
-                    else:
-                        trunc_line = line
-
-                    stdout_lines[-1] += trunc_line
-                    sys.stdout.write(trunc_line)
-                    sys.stdout.flush()
-                else:
-                    # If we've already reached the max line length, then we simply ignore the rest of the line.
-                    pass
+                # Use LogHolder's built-in functionality - it handles all the line management
+                shared_logs.append(line)
 
                 await asyncio.sleep(0)
 
@@ -392,8 +464,10 @@ class SubProcessIngestionTask(Task):
                     if most_recent_log_ts is None:
                         report = "No logs yet"
                     else:
-                        report = SubProcessTaskUtil._format_log_lines(stdout_lines)
-                        current_time = datetime.now()
+                        report = SubProcessTaskUtil._format_log_lines(
+                            shared_logs.get_lines()
+                        )
+                        current_time = datetime.now(tz=timezone.utc)
                         if most_recent_log_ts < current_time - timedelta(minutes=2):
                             message = (
                                 f"WARNING: These logs appear to be stale. No new logs have been received since {most_recent_log_ts} ({(current_time - most_recent_log_ts).seconds} seconds ago). "
@@ -477,7 +551,7 @@ class SubProcessIngestionTask(Task):
         artifact_output_dir: str,
         recipe: dict,
         exec_out_dir: str,
-        stdout_lines: deque[str],
+        shared_logs: LogHolder,
     ) -> None:
         """Handle subprocess completion, including report processing and cleanup."""
         # Get executor credentials if available
@@ -529,7 +603,9 @@ class SubProcessIngestionTask(Task):
         else:
             logger.debug("No S3 bucket configured, skipping log upload")
 
-        ctx.get_report().set_logs(SubProcessTaskUtil._format_log_lines(stdout_lines))
+        ctx.get_report().set_logs(
+            SubProcessTaskUtil._format_log_lines(shared_logs.get_lines())
+        )
 
         # Cleanup by removing the recipe file
         SubProcessTaskUtil._remove_directory(exec_out_dir)

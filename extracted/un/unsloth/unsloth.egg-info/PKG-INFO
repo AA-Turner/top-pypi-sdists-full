@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth
-Version: 2025.8.7
+Version: 2025.8.8
 Summary: 2-5X faster LLM finetuning
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python
 Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: unsloth_zoo>=2025.8.6
+Requires-Dist: unsloth_zoo>=2025.8.7
 Requires-Dist: torch>=2.4.0
 Requires-Dist: xformers>=0.0.27.post2
 Requires-Dist: bitsandbytes
@@ -22,7 +22,7 @@ Requires-Dist: triton>=3.0.0; platform_system == "Linux"
 Requires-Dist: triton-windows; platform_system == "Windows"
 Requires-Dist: packaging
 Requires-Dist: tyro
-Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,>=4.51.3
+Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,>=4.51.3
 Requires-Dist: datasets<4.0.0,>=3.4.1
 Requires-Dist: sentencepiece>=0.2.0
 Requires-Dist: tqdm
@@ -38,10 +38,10 @@ Requires-Dist: hf_transfer
 Requires-Dist: diffusers
 Requires-Dist: torchvision
 Provides-Extra: huggingface
-Requires-Dist: unsloth_zoo>=2025.8.6; extra == "huggingface"
+Requires-Dist: unsloth_zoo>=2025.8.7; extra == "huggingface"
 Requires-Dist: packaging; extra == "huggingface"
 Requires-Dist: tyro; extra == "huggingface"
-Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,>=4.51.3; extra == "huggingface"
+Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,>=4.51.3; extra == "huggingface"
 Requires-Dist: datasets<4.0.0,>=3.4.1; extra == "huggingface"
 Requires-Dist: sentencepiece>=0.2.0; extra == "huggingface"
 Requires-Dist: tqdm; extra == "huggingface"
@@ -100,10 +100,24 @@ Provides-Extra: cu124onlytorch260
 Requires-Dist: xformers==0.0.29.post3; extra == "cu124onlytorch260"
 Provides-Extra: cu126onlytorch260
 Requires-Dist: xformers==0.0.29.post3; extra == "cu126onlytorch260"
+Provides-Extra: cu118onlytorch270
+Requires-Dist: xformers==0.0.30; extra == "cu118onlytorch270"
 Provides-Extra: cu126onlytorch270
 Requires-Dist: xformers==0.0.30; extra == "cu126onlytorch270"
 Provides-Extra: cu128onlytorch270
 Requires-Dist: xformers==0.0.30; extra == "cu128onlytorch270"
+Provides-Extra: cu118onlytorch271
+Requires-Dist: xformers==0.0.31.post1; extra == "cu118onlytorch271"
+Provides-Extra: cu126onlytorch271
+Requires-Dist: xformers==0.0.31.post1; extra == "cu126onlytorch271"
+Provides-Extra: cu128onlytorch271
+Requires-Dist: xformers==0.0.31.post1; extra == "cu128onlytorch271"
+Provides-Extra: cu118onlytorch280
+Requires-Dist: xformers==0.0.32.post2; extra == "cu118onlytorch280"
+Provides-Extra: cu126onlytorch280
+Requires-Dist: xformers==0.0.32.post2; extra == "cu126onlytorch280"
+Provides-Extra: cu128onlytorch280
+Requires-Dist: xformers==0.0.32.post2; extra == "cu128onlytorch280"
 Provides-Extra: cu118
 Requires-Dist: unsloth[huggingface]; extra == "cu118"
 Requires-Dist: bitsandbytes>=0.43.3; extra == "cu118"
@@ -192,6 +206,10 @@ Provides-Extra: cu126-torch260
 Requires-Dist: unsloth[huggingface]; extra == "cu126-torch260"
 Requires-Dist: bitsandbytes>=0.45.1; extra == "cu126-torch260"
 Requires-Dist: unsloth[cu126onlytorch260]; extra == "cu126-torch260"
+Provides-Extra: cu118-torch270
+Requires-Dist: unsloth[huggingface]; extra == "cu118-torch270"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu118-torch270"
+Requires-Dist: unsloth[cu118onlytorch270]; extra == "cu118-torch270"
 Provides-Extra: cu126-torch270
 Requires-Dist: unsloth[huggingface]; extra == "cu126-torch270"
 Requires-Dist: bitsandbytes>=0.45.5; extra == "cu126-torch270"
@@ -200,6 +218,30 @@ Provides-Extra: cu128-torch270
 Requires-Dist: unsloth[huggingface]; extra == "cu128-torch270"
 Requires-Dist: bitsandbytes>=0.45.5; extra == "cu128-torch270"
 Requires-Dist: unsloth[cu128onlytorch270]; extra == "cu128-torch270"
+Provides-Extra: cu118-torch271
+Requires-Dist: unsloth[huggingface]; extra == "cu118-torch271"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu118-torch271"
+Requires-Dist: unsloth[cu118onlytorch271]; extra == "cu118-torch271"
+Provides-Extra: cu126-torch271
+Requires-Dist: unsloth[huggingface]; extra == "cu126-torch271"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu126-torch271"
+Requires-Dist: unsloth[cu126onlytorch271]; extra == "cu126-torch271"
+Provides-Extra: cu128-torch271
+Requires-Dist: unsloth[huggingface]; extra == "cu128-torch271"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu128-torch271"
+Requires-Dist: unsloth[cu128onlytorch271]; extra == "cu128-torch271"
+Provides-Extra: cu118-torch280
+Requires-Dist: unsloth[huggingface]; extra == "cu118-torch280"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu118-torch280"
+Requires-Dist: unsloth[cu118onlytorch280]; extra == "cu118-torch280"
+Provides-Extra: cu126-torch280
+Requires-Dist: unsloth[huggingface]; extra == "cu126-torch280"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu126-torch280"
+Requires-Dist: unsloth[cu126onlytorch280]; extra == "cu126-torch280"
+Provides-Extra: cu128-torch280
+Requires-Dist: unsloth[huggingface]; extra == "cu128-torch280"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu128-torch280"
+Requires-Dist: unsloth[cu128onlytorch280]; extra == "cu128-torch280"
 Provides-Extra: kaggle
 Requires-Dist: unsloth[huggingface]; extra == "kaggle"
 Provides-Extra: kaggle-new
@@ -230,10 +272,10 @@ Requires-Dist: bitsandbytes>=0.43.3; extra == "colab-ampere-torch220"
 Requires-Dist: unsloth[cu121onlytorch220]; extra == "colab-ampere-torch220"
 Requires-Dist: unsloth[flashattention]; extra == "colab-ampere-torch220"
 Provides-Extra: colab-new
-Requires-Dist: unsloth_zoo>=2025.8.6; extra == "colab-new"
+Requires-Dist: unsloth_zoo>=2025.8.7; extra == "colab-new"
 Requires-Dist: packaging; extra == "colab-new"
 Requires-Dist: tyro; extra == "colab-new"
-Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,>=4.51.3; extra == "colab-new"
+Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,!=4.54.0,!=4.55.0,!=4.55.1,>=4.51.3; extra == "colab-new"
 Requires-Dist: datasets<4.0.0,>=3.4.1; extra == "colab-new"
 Requires-Dist: sentencepiece>=0.2.0; extra == "colab-new"
 Requires-Dist: tqdm; extra == "colab-new"
@@ -357,6 +399,11 @@ Requires-Dist: unsloth[huggingface]; extra == "cu126-ampere-torch260"
 Requires-Dist: bitsandbytes>=0.45.1; extra == "cu126-ampere-torch260"
 Requires-Dist: unsloth[cu126onlytorch260]; extra == "cu126-ampere-torch260"
 Requires-Dist: unsloth[flashattention]; extra == "cu126-ampere-torch260"
+Provides-Extra: cu118-ampere-torch270
+Requires-Dist: unsloth[huggingface]; extra == "cu118-ampere-torch270"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu118-ampere-torch270"
+Requires-Dist: unsloth[cu118onlytorch270]; extra == "cu118-ampere-torch270"
+Requires-Dist: unsloth[flashattention]; extra == "cu118-ampere-torch270"
 Provides-Extra: cu126-ampere-torch270
 Requires-Dist: unsloth[huggingface]; extra == "cu126-ampere-torch270"
 Requires-Dist: bitsandbytes>=0.45.5; extra == "cu126-ampere-torch270"
@@ -367,6 +414,36 @@ Requires-Dist: unsloth[huggingface]; extra == "cu128-ampere-torch270"
 Requires-Dist: bitsandbytes>=0.45.5; extra == "cu128-ampere-torch270"
 Requires-Dist: unsloth[cu128onlytorch270]; extra == "cu128-ampere-torch270"
 Requires-Dist: unsloth[flashattention]; extra == "cu128-ampere-torch270"
+Provides-Extra: cu118-ampere-torch271
+Requires-Dist: unsloth[huggingface]; extra == "cu118-ampere-torch271"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu118-ampere-torch271"
+Requires-Dist: unsloth[cu118onlytorch271]; extra == "cu118-ampere-torch271"
+Requires-Dist: unsloth[flashattention]; extra == "cu118-ampere-torch271"
+Provides-Extra: cu126-ampere-torch271
+Requires-Dist: unsloth[huggingface]; extra == "cu126-ampere-torch271"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu126-ampere-torch271"
+Requires-Dist: unsloth[cu126onlytorch271]; extra == "cu126-ampere-torch271"
+Requires-Dist: unsloth[flashattention]; extra == "cu126-ampere-torch271"
+Provides-Extra: cu128-ampere-torch271
+Requires-Dist: unsloth[huggingface]; extra == "cu128-ampere-torch271"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu128-ampere-torch271"
+Requires-Dist: unsloth[cu128onlytorch271]; extra == "cu128-ampere-torch271"
+Requires-Dist: unsloth[flashattention]; extra == "cu128-ampere-torch271"
+Provides-Extra: cu118-ampere-torch280
+Requires-Dist: unsloth[huggingface]; extra == "cu118-ampere-torch280"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu118-ampere-torch280"
+Requires-Dist: unsloth[cu118onlytorch280]; extra == "cu118-ampere-torch280"
+Requires-Dist: unsloth[flashattention]; extra == "cu118-ampere-torch280"
+Provides-Extra: cu126-ampere-torch280
+Requires-Dist: unsloth[huggingface]; extra == "cu126-ampere-torch280"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu126-ampere-torch280"
+Requires-Dist: unsloth[cu126onlytorch280]; extra == "cu126-ampere-torch280"
+Requires-Dist: unsloth[flashattention]; extra == "cu126-ampere-torch280"
+Provides-Extra: cu128-ampere-torch280
+Requires-Dist: unsloth[huggingface]; extra == "cu128-ampere-torch280"
+Requires-Dist: bitsandbytes>=0.45.5; extra == "cu128-ampere-torch280"
+Requires-Dist: unsloth[cu128onlytorch280]; extra == "cu128-ampere-torch280"
+Requires-Dist: unsloth[flashattention]; extra == "cu128-ampere-torch280"
 Dynamic: license-file
 
 <div align="center">

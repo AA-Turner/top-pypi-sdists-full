@@ -201,6 +201,7 @@ __all__ = (
     "DifferentialPrivacyTemplateParametersOutputTypeDef",
     "DifferentialPrivacyTemplateUpdateParametersTypeDef",
     "DirectAnalysisConfigurationDetailsTypeDef",
+    "ErrorMessageConfigurationTypeDef",
     "GetAnalysisTemplateInputTypeDef",
     "GetAnalysisTemplateOutputTypeDef",
     "GetCollaborationAnalysisTemplateInputTypeDef",
@@ -508,6 +509,12 @@ AnalysisTemplateSummaryTypeDef = TypedDict(
         "collaborationArn": str,
         "collaborationId": str,
         "description": NotRequired[str],
+    },
+)
+ErrorMessageConfigurationTypeDef = TypedDict(
+    "ErrorMessageConfigurationTypeDef",
+    {
+        "type": Literal["DETAILED"],
     },
 )
 
@@ -2309,6 +2316,7 @@ AnalysisTemplateTypeDef = TypedDict(
         "sourceMetadata": NotRequired[AnalysisSourceMetadataTypeDef],
         "analysisParameters": NotRequired[List[AnalysisParameterTypeDef]],
         "validations": NotRequired[List[AnalysisTemplateValidationStatusDetailTypeDef]],
+        "errorMessageConfiguration": NotRequired[ErrorMessageConfigurationTypeDef],
     },
 )
 CollaborationAnalysisTemplateTypeDef = TypedDict(
@@ -2329,6 +2337,7 @@ CollaborationAnalysisTemplateTypeDef = TypedDict(
         "sourceMetadata": NotRequired[AnalysisSourceMetadataTypeDef],
         "analysisParameters": NotRequired[List[AnalysisParameterTypeDef]],
         "validations": NotRequired[List[AnalysisTemplateValidationStatusDetailTypeDef]],
+        "errorMessageConfiguration": NotRequired[ErrorMessageConfigurationTypeDef],
     },
 )
 AnalysisSourceUnionTypeDef = Union[AnalysisSourceTypeDef, AnalysisSourceOutputTypeDef]
@@ -2502,6 +2511,7 @@ CreateAnalysisTemplateInputTypeDef = TypedDict(
         "tags": NotRequired[Mapping[str, str]],
         "analysisParameters": NotRequired[Sequence[AnalysisParameterTypeDef]],
         "schema": NotRequired[AnalysisSchemaUnionTypeDef],
+        "errorMessageConfiguration": NotRequired[ErrorMessageConfigurationTypeDef],
     },
 )
 ConfiguredTableAnalysisRuleTypeDef = TypedDict(

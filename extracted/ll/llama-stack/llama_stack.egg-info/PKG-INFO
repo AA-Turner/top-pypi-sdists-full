@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama_stack
-Version: 0.2.17
+Version: 0.2.18
 Summary: Llama Stack
 Author-email: Meta Llama <llama-oss@meta.com>
 License: MIT
@@ -23,9 +23,9 @@ Requires-Dist: httpx
 Requires-Dist: huggingface-hub<1.0,>=0.34.0
 Requires-Dist: jinja2>=3.1.6
 Requires-Dist: jsonschema
-Requires-Dist: llama-stack-client>=0.2.17
+Requires-Dist: llama-stack-client>=0.2.18
 Requires-Dist: llama-api-client>=0.1.2
-Requires-Dist: openai>=1.66
+Requires-Dist: openai<1.100.0,>=1.99.6
 Requires-Dist: prompt-toolkit
 Requires-Dist: python-dotenv
 Requires-Dist: python-jose[cryptography]
@@ -45,7 +45,7 @@ Requires-Dist: asyncpg
 Provides-Extra: ui
 Requires-Dist: streamlit; extra == "ui"
 Requires-Dist: pandas; extra == "ui"
-Requires-Dist: llama-stack-client>=0.2.17; extra == "ui"
+Requires-Dist: llama-stack-client>=0.2.18; extra == "ui"
 Requires-Dist: streamlit-option-menu; extra == "ui"
 Dynamic: license-file
 
@@ -59,6 +59,7 @@ Dynamic: license-file
 [![Integration Tests](https://github.com/meta-llama/llama-stack/actions/workflows/integration-tests.yml/badge.svg?branch=main)](https://github.com/meta-llama/llama-stack/actions/workflows/integration-tests.yml?query=branch%3Amain)
 
 [**Quick Start**](https://llama-stack.readthedocs.io/en/latest/getting_started/index.html) | [**Documentation**](https://llama-stack.readthedocs.io/en/latest/index.html) | [**Colab Notebook**](./docs/getting_started.ipynb) | [**Discord**](https://discord.gg/llama-stack)
+
 
 ### ✨🎉 Llama 4 Support  🎉✨
 We released [Version 0.2.0](https://github.com/meta-llama/llama-stack/releases/tag/v0.2.0) with support for the Llama 4 herd of models released by Meta.
@@ -230,3 +231,17 @@ Please checkout our [Documentation](https://llama-stack.readthedocs.io/en/latest
 Check out our client SDKs for connecting to a Llama Stack server in your preferred language, you can choose from [python](https://github.com/meta-llama/llama-stack-client-python), [typescript](https://github.com/meta-llama/llama-stack-client-typescript), [swift](https://github.com/meta-llama/llama-stack-client-swift), and [kotlin](https://github.com/meta-llama/llama-stack-client-kotlin) programming languages to quickly build your applications.
 
 You can find more example scripts with client SDKs to talk with the Llama Stack server in our [llama-stack-apps](https://github.com/meta-llama/llama-stack-apps/tree/main/examples) repo.
+
+
+## 🌟 GitHub Star History
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=meta-llama/llama-stack&type=Date)](https://www.star-history.com/#meta-llama/llama-stack&Date)
+
+## ✨ Contributors
+
+Thanks to all of our amazing contributors!
+
+<a href="https://github.com/meta-llama/llama-stack/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=meta-llama/llama-stack" />
+</a>

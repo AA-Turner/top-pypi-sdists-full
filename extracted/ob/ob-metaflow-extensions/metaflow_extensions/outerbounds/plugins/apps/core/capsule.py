@@ -446,6 +446,34 @@ class CapsuleApi:
                 message="Capsule JSON decode failed",
             )
 
+    def get_by_name(self, name: str, most_recent_only: bool = True):
+        _url = os.path.join(self._base_url, f"?displayName={name}")
+        response = self._wrapped_api_caller(
+            requests.get,
+            _url,
+            retryable_status_codes=[409],  # todo : verify me
+            conn_error_retries=3,
+        )
+        try:
+            if most_recent_only:
+                result = response.json()
+                candidates = result["capsules"]
+                if not candidates:
+                    return None
+                return sorted(
+                    candidates, key=lambda x: x["metadata"]["createdAt"], reverse=True
+                )[0]
+            else:
+                return response.json()
+        except json.JSONDecodeError as e:
+            raise CapsuleApiException(
+                _url,
+                "get",
+                response.status_code,
+                response.text,
+                message="Capsule JSON decode failed",
+            )
+
     def list(self):
         response = self._wrapped_api_caller(
             requests.get,
@@ -793,9 +821,11 @@ class CapsuleDeployer:
                     "💊 %s deployment status: %s "
                     % (
                         self.capsule_type.title(),
-                        "in progress"
-                        if state_machine.update_in_progress
-                        else "completed",
+                        (
+                            "in progress"
+                            if state_machine.update_in_progress
+                            else "completed"
+                        ),
                     )
                 )
                 _further_readiness_check_failed = False

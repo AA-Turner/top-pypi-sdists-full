@@ -705,7 +705,7 @@ class IApplication(IContainer):
         pass
 
     @abstractmethod
-    def path(self, key: str = None, default: Any = None) -> Any:
+    def path(self, key: str = None, default: Any = None) -> str:
         """
         Retrieve path configuration values using dot notation access.
 
@@ -723,7 +723,7 @@ class IApplication(IContainer):
 
         Returns
         -------
-        Any
+        str
             The path value associated with the key, the entire paths configuration
             object if no key is provided, or the default value if the key is not found.
         """

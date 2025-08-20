@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
+# coding:utf-8
 # Copyright (C) 2020-2025 All rights reserved.
 # FILENAME:    ~~/src/fastapi_csrf_protect/exceptions.py
-# VERSION:     1.0.3
+# VERSION:     1.0.5
 # CREATED:     2020-11-25 14:35
 # AUTHOR:      Sitt Guruvanich <aekazitt+github@gmail.com>
 # DESCRIPTION:
 #
 # HISTORY:
 # *************************************************************
-
-### Standard packages ###
-from typing import Tuple
 
 
 class CsrfProtectError(Exception):
@@ -34,7 +32,7 @@ class TokenValidationError(CsrfProtectError):
     super().__init__(401, message)
 
 
-__all__: Tuple[str, ...] = (
+__all__: tuple[str, ...] = (
   "CsrfProtectError",
   "InvalidHeaderError",
   "MissingTokenError",

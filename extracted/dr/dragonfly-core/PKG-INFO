@@ -1,21 +1,35 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dragonfly-core
-Version: 1.67.10
+Version: 1.67.12
 Summary: :dragon: dragonfly core library
 Home-page: https://github.com/ladybug-tools/dragonfly-core
 Author: Ladybug Tools
 Author-email: info@ladybug.tools
 License: AGPL-3.0
 Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: License :: OSI Approved :: GNU Affero General Public License v3
+Classifier: Programming Language :: Python :: Implementation :: IronPython
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: honeybee-core==1.61.34
 Requires-Dist: dragonfly-schema==1.15.1; python_version >= "3.7"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 [![Build Status](https://travis-ci.com/ladybug-tools/dragonfly-core.svg?branch=master)](https://travis-ci.com/ladybug-tools/dragonfly-core)
 [![Coverage Status](https://coveralls.io/repos/github/ladybug-tools/dragonfly-core/badge.svg?branch=master)](https://coveralls.io/github/ladybug-tools/dragonfly-core)

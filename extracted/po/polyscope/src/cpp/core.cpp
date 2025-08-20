@@ -39,6 +39,7 @@ void bind_floating_quantities(py::module& m);
 void bind_implicit_helpers(py::module& m);
 void bind_managed_buffer(py::module& m);
 void bind_imgui(py::module& m);
+void bind_implot(py::module& m);
 
 // Signal handler (makes ctrl-c work, etc)
 void checkSignals() {
@@ -100,12 +101,17 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   m.def("remove_all_structures", &ps::removeAllStructures, "Remove all structures from polyscope");
   
   // === Screenshots
-  m.def("screenshot", overload_cast_<bool>()(&ps::screenshot), "Take a screenshot");
-  m.def("screenshot_to_buffer", [](bool transparent_bg) { 
-      std::vector<unsigned char> buff = ps::screenshotToBuffer(transparent_bg);
+  py::class_<ps::ScreenshotOptions>(m, "ScreenshotOptions")
+   .def(py::init<>())
+   .def_readwrite("include_UI", &ps::ScreenshotOptions::includeUI)
+   .def_readwrite("transparent_background", &ps::ScreenshotOptions::transparentBackground)
+  ;
+  m.def("screenshot", overload_cast_<const ps::ScreenshotOptions&>()(&ps::screenshot), "Take a screenshot");
+  m.def("screenshot_to_buffer", [](const ps::ScreenshotOptions& opts) { 
+      std::vector<unsigned char> buff = ps::screenshotToBuffer(opts);
       return py::array(buff.size(), buff.data());
     }, "Take a screenshot to buffer");
-  m.def("named_screenshot", overload_cast_<std::string, bool>()(&ps::screenshot), "Take a screenshot");
+  m.def("named_screenshot", overload_cast_<std::string, const ps::ScreenshotOptions&>()(&ps::screenshot), "Take a screenshot");
   m.def("set_screenshot_extension", [](std::string x) { ps::options::screenshotExtension = x; });
 
   // === Small options
@@ -120,10 +126,13 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   m.def("request_redraw", []() { ps::requestRedraw(); });
   m.def("get_redraw_requested", []() { return ps::redrawRequested(); });
   m.def("set_always_redraw", [](bool x) { ps::options::alwaysRedraw = x; });
+  m.def("set_frame_tick_limit_fps_mode", [](ps::LimitFPSMode x) { ps::options::frameTickLimitFPSMode = x; });
   m.def("set_enable_render_error_checks", [](bool x) { ps::options::enableRenderErrorChecks = x; });
   m.def("set_egl_device_index", [](int x) { ps::options::eglDeviceIndex = x; });
   m.def("set_autocenter_structures", [](bool x) { ps::options::autocenterStructures = x; });
   m.def("set_autoscale_structures", [](bool x) { ps::options::autoscaleStructures = x; });
+  m.def("set_ui_scale", [](float x) { ps::options::uiScale = x; });
+  m.def("get_ui_scale", []() { return ps::options::uiScale; });
   m.def("set_build_gui", [](bool x) { ps::options::buildGui = x; });
   m.def("set_user_gui_is_on_right_side", [](bool x) { ps::options::userGuiIsOnRightSide = x; });
   m.def("set_build_default_gui_panels", [](bool x) { ps::options::buildDefaultGuiPanels = x; });
@@ -150,7 +159,9 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   m.def("get_up_dir", ps::view::getUpDir);
   m.def("set_front_dir", [](ps::FrontDir x) { ps::view::setFrontDir(x); });
   m.def("get_front_dir", ps::view::getFrontDir);
-
+  m.def("set_vertical_fov_degrees", ps::view::setVerticalFieldOfViewDegrees);
+  m.def("get_vertical_fov_degrees", ps::view::getVerticalFieldOfViewDegrees);
+  m.def("get_aspect_ratio_width_over_height", ps::view::getAspectRatioWidthOverHeight);
   m.def("reset_camera_to_home_view", ps::view::resetCameraToHomeView);
   m.def("look_at", [](glm::vec3 location, glm::vec3 target, bool flyTo) { 
       ps::view::lookAt(location, target, flyTo); 
@@ -163,6 +174,8 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   m.def("set_view_camera_parameters", &ps::view::setViewToCamera);
   m.def("set_camera_view_matrix", [](Eigen::Matrix4f mat) { ps::view::setCameraViewMatrix(eigen2glm(mat)); });
   m.def("get_camera_view_matrix", []() { return glm2eigen(ps::view::getCameraViewMatrix()); });
+  m.def("set_view_center", [](glm::vec3 pos, bool flyTo) { ps::view::setViewCenter(pos, flyTo); });
+  m.def("get_view_center", &ps::view::getViewCenter);
   m.def("set_window_size", &ps::view::setWindowSize);
   m.def("get_window_size", &ps::view::getWindowSize);
   m.def("get_buffer_size", &ps::view::getBufferSize);
@@ -214,6 +227,7 @@ PYBIND11_MODULE(polyscope_bindings, m) {
    .def_readonly("structure_handle", &ps::PickResult::structureHandle)
    .def_readonly("structure_type", &ps::PickResult::structureType)
    .def_readonly("structure_name", &ps::PickResult::structureName)
+   .def_readonly("quantity_name", &ps::PickResult::quantityName)
    .def_readonly("screen_coords", &ps::PickResult::screenCoords)
    .def_readonly("buffer_inds", &ps::PickResult::bufferInds)
    .def_readonly("position", &ps::PickResult::position)
@@ -276,6 +290,24 @@ PYBIND11_MODULE(polyscope_bindings, m) {
    .def("set_enabled", &ps::Group::setEnabled, py::return_value_policy::reference)
    .def("set_show_child_details", &ps::Group::setShowChildDetails)
    .def("set_hide_descendants_from_structure_lists", &ps::Group::setHideDescendantsFromStructureLists)
+   .def("get_child_structure_names", [](ps::Group& g) { 
+        std::vector<std::string> names;
+        for(ps::WeakHandle<ps::Structure>& wh : g.childrenStructures) {
+            if(wh.isValid()) {
+              names.push_back(wh.get().getName());
+            }
+        }
+        return names;
+    })
+   .def("get_child_group_names", [](ps::Group& g) { 
+        std::vector<std::string> names;
+        for(ps::WeakHandle<ps::Group>& wh : g.childrenGroups) {
+            if(wh.isValid()) {
+              names.push_back(wh.get().name);
+            }
+        }
+        return names;
+    })
   ;
 
   // create/get/delete
@@ -431,6 +463,12 @@ PYBIND11_MODULE(polyscope_bindings, m) {
     .value("cull", ps::BackFacePolicy::Cull)
     ; 
   
+  py::enum_<ps::LimitFPSMode>(m, "LimitFPSMode")
+    .value("ignore_limits", ps::LimitFPSMode::IgnoreLimits)
+    .value("block_to_hit_target", ps::LimitFPSMode::BlockToHitTarget)
+    .value("skip_frames_to_hit_target", ps::LimitFPSMode::SkipFramesToHitTarget)
+    ; 
+  
   py::enum_<ps::GroundPlaneMode>(m, "GroundPlaneMode")
     .value("none", ps::GroundPlaneMode::None)
     .value("tile", ps::GroundPlaneMode::Tile)
@@ -582,6 +620,7 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   bind_camera_view(m);
   bind_managed_buffer(m);
   bind_imgui(m);
+  bind_implot(m);
 
 }
 

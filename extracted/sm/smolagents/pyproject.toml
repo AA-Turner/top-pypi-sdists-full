@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "smolagents"
-version = "1.21.1"
+version = "1.21.2"
 description = "🤗 smolagents: a barebones library for agents. Agents write python code to call tools or orchestrate other agents."
 authors = [
   { name="Aymeric Roucher", email="aymeric@hf.co" },
@@ -61,7 +61,7 @@ telemetry = [
   "arize-phoenix",
   "opentelemetry-sdk", 
   "opentelemetry-exporter-otlp",
-  "openinference-instrumentation-smolagents>=0.1.4"
+  "openinference-instrumentation-smolagents>=0.1.15"  # Use new TokenUsage structure
 ]
 toolkit = [
   "ddgs>=9.0.0",  # DuckDuckGoSearchTool

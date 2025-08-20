@@ -25,5 +25,8 @@ class PrefixedSizeRotatingFileHandler(RotatingFileHandler):
         The timestamp prefix helps in identifying the creation time of each rotated log file.
         """
 
+        # Import Application to access configuration settings
+        from orionis.support.facades.application import Application
+
         # Generate the new filename using FileNameLogger, which adds a timestamp prefix.
-        return FileNameLogger(default_name).generate()
+        return FileNameLogger(default_name).generate('chunked', Application.config('logging.channels.chunked.mb_size', 5))

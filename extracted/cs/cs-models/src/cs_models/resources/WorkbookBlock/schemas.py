@@ -49,6 +49,7 @@ class WorkbookBlockResourceSchema(Schema):
 
     id = fields.Integer(dump_only=True)
     workbook_id = fields.Integer(required=True)
+    block_uid = fields.String(required=True)
     sequence_number = fields.Integer(required=True)
     type = fields.String(required=True)
     data = WorkbookBlockDataField(required=True, allow_none=True)

@@ -47,8 +47,8 @@ picker_keys = {
     "search_input":                     [ord('/')],
     "settings_input":                   [ord('`')],
     "settings_options":                 [ord('~')],
-    "continue_search_forward":          [ord('n'), ord('i')],
-    "continue_search_backward":         [ord('N'), ord('I')],
+    "continue_search_forward":          [ord('n')],
+    "continue_search_backward":         [ord('N')],
     "cancel":                           [27], # Escape key
     "opts_input":                       [ord(':')],
     "opts_select":                      [ord('o')],
@@ -80,6 +80,7 @@ picker_keys = {
     "add_column_after":                       [ord('+')],
     # "add_row_before":                          [ord('=')],
     "add_row_after":                          [ord('=')],
+    "info":                             [ord('i')], 
 }
 
 
@@ -106,8 +107,8 @@ help_keys = {
     "search_input":                     [ord('/')],
     "settings_input":                   [ord('`')],
     "settings_options":                 [ord('~')],
-    "continue_search_forward":          [ord('n'), ord('i')],
-    "continue_search_backward":         [ord('N'), ord('I')],
+    "continue_search_forward":          [ord('n')],
+    "continue_search_backward":         [ord('N')],
     "cancel":                           [27], # Escape key
     "col_select":                       [ord('0'), ord('1'), ord('2'), ord('3'), ord('4'), ord('5'), ord('6'), ord('7'), ord('8'), ord('9')],
     "col_select_next":                             [ord('>')], 

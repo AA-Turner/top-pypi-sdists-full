@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import hashlib
 import json
 import logging
 import os
@@ -27,6 +26,7 @@ import yaml
 from acryl.executor.common.config import PermissiveConfigModel
 from acryl.executor.context.execution_context import ExecutionContext
 from acryl.executor.context.executor_context import ExecutorContext
+from acryl.executor.execution import venv_utils
 from acryl.executor.execution.task import TaskError
 
 logger = logging.getLogger(__name__)
@@ -189,14 +189,17 @@ class SubProcessRecipeTaskArgs(PermissiveConfigModel):
     _json_extra_env_vars = pydantic_parse_json("extra_env_vars", {})
 
     def get_venv_name(self, plugin: str) -> str:
-        # Generate a stable name for the venv.
-        # env vars are not included in the hash.
-        suffix = hashlib.sha256()
-        suffix.update(self.version.encode("utf-8"))
-        suffix.update(str(self.extra_pip_requirements).encode("utf-8"))
-        suffix.update(str(self.extra_pip_plugins).encode("utf-8"))
+        """Generate venv name using venv utilities."""
+        return venv_utils.get_venv_name(
+            plugin=plugin,
+            version=self.version,
+            extra_pip_requirements=self.extra_pip_requirements,
+            extra_pip_plugins=self.extra_pip_plugins,
+        )
 
-        return f"{plugin}-{suffix.digest().hex()[:16]}"
+    def should_use_bundled_venv(self) -> bool:
+        """Check if this configuration should use a Bundled (pre-packaged) venv."""
+        return venv_utils.should_use_bundled_venv(self.version)
 
     def get_combined_env_vars(self) -> dict:
         # Combines os.environ, custom PIP_ env vars, and user-provided custom env vars.

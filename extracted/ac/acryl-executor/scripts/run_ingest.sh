@@ -1,42 +1,52 @@
 #!/bin/bash
-# usage: ./run_ingest.sh <venv-name> <datahub-version> <plugins-required> <tmp-dir> <recipe_file> <report_file>
-
 set -euo pipefail
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-cd "$DIR" || exit
 
-source ingestion_common.sh
+# Simplified ingestion runner that just handles memory limits and executes datahub
+# All venv setup is handled in Python before calling this script
 
-venv_name="$1"
-datahub_version="$2"
-plugins="$3"
-tmp_dir="$4"
-recipe_file="$5"
-report_file="$6"
-debug_mode="$7"
+# Script arguments
+venv_path="$1"
+recipe_file="$2"
+report_out_file="$3"
+debug_mode="${4:-false}"
 
-create_venv "$venv_name" "$datahub_version" "$plugins" "$tmp_dir"
-
-if (datahub ingest run --help | grep -q report-to); then
-  echo "This version of datahub supports report-to functionality"
-  rm -f "$report_file"
-  report_option="--report-to ${report_file}"
-else
-  report_option=""
+# Validate that the venv exists and has required components
+if [ ! -f "$venv_path/bin/python" ]; then
+    echo "ERROR: Python binary not found in venv: $venv_path/bin/python" >&2
+    exit 1
 fi
 
-if [ "$debug_mode" == "true" ]; then 
-  debug_option="--debug"
-else
-  debug_option=""
-fi;
+if [ ! -f "$venv_path/bin/datahub" ]; then
+    echo "ERROR: DataHub CLI not found in venv: $venv_path/bin/datahub" >&2
+    exit 1
+fi
 
-# If EXECUTOR_TASK_MEMORY_LIMIT variable is set, apply memory limit on the child process
+# Activate the venv
+export VIRTUAL_ENV="$venv_path"
+export PATH="$venv_path/bin:$PATH"
+
+# Apply memory limit if set (this is what shell excels at!)
 if [ -n "${EXECUTOR_TASK_MEMORY_LIMIT-}" ]; then
   echo "Setting memory limit to ${EXECUTOR_TASK_MEMORY_LIMIT}"
   ulimit -v "${EXECUTOR_TASK_MEMORY_LIMIT}"
 fi
 
-# Execute DataHub recipe, based on the recipe id.
+# Check for report-to support
+if (datahub ingest run --help | grep -q report-to); then
+  echo "This version of datahub supports report-to functionality"
+  rm -f "$report_out_file"
+  report_option="--report-to ${report_out_file}"
+else
+  report_option=""
+fi
+
+# Set debug option if enabled
+if [ "$debug_mode" == "true" ]; then 
+  debug_option="--debug"
+else
+  debug_option=""
+fi
+
+# Execute DataHub recipe (show command with set -x like original)
 set -x
-exec datahub ${debug_option} ingest run -c "${recipe_file}" ${report_option}
+exec datahub ${debug_option} ingest run -c "${recipe_file}" ${report_option} 

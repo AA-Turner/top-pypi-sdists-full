@@ -46,6 +46,56 @@ const KNOWN_BROWSER_PROCESS_NAMES: &[&str] = &[
     "arc", "explorer",
 ];
 
+/// Determines if we should use shallow search for application-level containers
+/// Returns true when searching for named Panes/Windows from desktop root
+fn should_use_shallow_search(role: &str, name: &Option<String>, root: Option<&UIElement>) -> bool {
+    // Only optimize when searching from desktop (no root specified)
+    if root.is_some() {
+        return false;
+    }
+
+    // Check if we're searching for a container type (Pane/Window/Application)
+    let is_container = matches!(
+        role.to_lowercase().as_str(),
+        "pane" | "window" | "application"
+    );
+
+    // Must have a name filter - unnamed containers search would return too many results
+    let has_name = name.is_some();
+
+    // Use shallow search for named containers at desktop level
+    // These are typically application windows or browser tabs that are near the root
+    is_container && has_name
+}
+
+/// Calculate appropriate search depth based on selector type and context
+fn calculate_search_depth(
+    role: &str,
+    name: &Option<String>,
+    root: Option<&UIElement>,
+    default_depth: Option<usize>,
+) -> u32 {
+    let should_optimize = should_use_shallow_search(role, name, root);
+    let final_depth = if should_optimize {
+        info!(
+            "🚀 OPTIMIZED: Using shallow search (depth=5) for container: role={}, name={:?}, root_provided={}", 
+            role, name, root.is_some()
+        );
+        5 // Most application containers are within 5 levels of desktop
+    } else {
+        let depth = default_depth.unwrap_or(50) as u32;
+        debug!(
+            "Standard search (depth={}) for: role={}, name={:?}, root_provided={}",
+            depth,
+            role,
+            name,
+            root.is_some()
+        );
+        depth
+    };
+    final_depth
+}
+
 // Helper function to get process name by PID using native Windows API
 pub fn get_process_name_by_pid(pid: i32) -> Result<String, AutomationError> {
     unsafe {
@@ -447,17 +497,19 @@ impl AccessibilityEngine for WindowsEngine {
         match selector {
             Selector::Role { role, name } => {
                 let win_control_type = map_generic_role_to_win_roles(role);
+                // Use optimized depth for containers when appropriate
+                let actual_depth = calculate_search_depth(role, name, root, depth);
+
                 debug!(
-                    "searching elements by role: {:?} (from: {}), name_filter: {:?}, depth: {:?}, timeout: {}ms, within: {:?}",
+                    "searching elements by role: {:?} (from: {}), name_filter: {:?}, depth: {:?} (actual: {}), timeout: {}ms, within: {:?}",
                     win_control_type,
                     role,
                     name,
                     depth,
+                    actual_depth,
                     timeout_ms,
                     root_ele.get_name().unwrap_or_default()
                 );
-
-                let actual_depth = depth.unwrap_or(50) as u32;
 
                 let mut matcher_builder = self
                     .automation
@@ -1032,11 +1084,15 @@ impl AccessibilityEngine for WindowsEngine {
         match selector {
             Selector::Role { role, name } => {
                 let win_control_type = map_generic_role_to_win_roles(role);
+                // Use optimized depth for containers when appropriate
+                let actual_depth = calculate_search_depth(role, name, root, None);
+
                 debug!(
-                    "searching element by role: {:?} (from: {}), name_filter: {:?}, timeout: {}ms, within: {:?}",
+                    "searching element by role: {:?} (from: {}), name_filter: {:?}, depth: {}, timeout: {}ms, within: {:?}",
                     win_control_type,
                     role,
                     name,
+                    actual_depth,
                     timeout_ms,
                     root_ele.get_name().unwrap_or_default()
                 );
@@ -1047,7 +1103,7 @@ impl AccessibilityEngine for WindowsEngine {
                     .create_matcher()
                     .from_ref(root_ele)
                     .control_type(win_control_type)
-                    .depth(50) // Default depth for find_element
+                    .depth(actual_depth)
                     .timeout(timeout_ms as u64);
 
                 if let Some(name) = name {
@@ -1328,78 +1384,55 @@ impl AccessibilityEngine for WindowsEngine {
                     ));
                 }
 
-                // Start with all elements matching the first selector in the chain.
-                let mut current_results = self.find_elements(&selectors[0], root, timeout, None)?;
+                // For find_element with chain, we want to find FIRST element at each step
+                // This is much faster than finding ALL elements and then picking first
+                debug!(
+                    "Processing chain selector in find_element mode (optimized single-element search)"
+                );
 
-                // Sequentially apply the rest of the selectors.
+                // Find the FIRST element matching the first selector (not ALL)
+                let mut current_element = self.find_element(&selectors[0], root, timeout)?;
+
+                // Sequentially apply the rest of the selectors, finding FIRST match each time
                 for (i, selector) in selectors.iter().skip(1).enumerate() {
-                    if current_results.is_empty() {
-                        // If at any point we have no results, the chain is broken.
-                        return Err(AutomationError::ElementNotFound(format!(
-                            "Selector chain broke at step {}: '{:?}' found no elements from the previous step's results.",
-                            i + 1,
-                            selector
-                        )));
-                    }
+                    debug!(
+                        "Chain step {}: searching for {:?} within element",
+                        i + 1,
+                        selector
+                    );
 
-                    if let Selector::Nth(index) = selector {
-                        let mut i = *index;
-                        let len = current_results.len();
-
-                        if i < 0 {
-                            // Handle negative index
-                            i += len as i32;
-                        }
-
-                        if i >= 0 && (i as usize) < len {
-                            // Filter down to the single element at the specified index.
-                            let selected = current_results.remove(i as usize);
-                            current_results = vec![selected];
-                        } else {
-                            // Index out of bounds, no elements match.
-                            current_results.clear();
-                        }
+                    // Special handling for Nth selector
+                    if let Selector::Nth(_index) = selector {
+                        // Nth selector in a chain doesn't make sense for find_element
+                        // since we're already working with a single element at each step.
+                        // This would be like saying "find the first matching Pane, then get the Nth child"
+                        // which is ambiguous. The user should use find_elements if they want Nth behavior.
+                        return Err(AutomationError::InvalidArgument(
+                            "Nth selector in chain is not supported for find_element. Use find_elements for indexed access.".to_string()
+                        ));
                     } else {
-                        // For other selectors, find all children that match from the current set of results.
-                        let mut next_results = Vec::new();
-                        for element_root in &current_results {
-                            // Use a shorter timeout for sub-queries to avoid long delays on non-existent elements mid-chain.
-                            let sub_timeout = Some(Duration::from_millis(1000));
-                            match self.find_elements(
-                                selector,
-                                Some(element_root),
-                                sub_timeout,
-                                None, // Default depth for sub-queries
-                            ) {
-                                Ok(elements) => next_results.extend(elements),
-                                Err(AutomationError::ElementNotFound(_)) => {
-                                    // It's okay if one branch of the search finds nothing, continue with others.
-                                }
-                                Err(e) => return Err(e), // Propagate other critical errors.
+                        // For other selectors, find the FIRST child that matches
+                        // Use a shorter timeout for sub-queries to avoid long delays
+                        let sub_timeout = Some(Duration::from_millis(1000));
+
+                        match self.find_element(selector, Some(&current_element), sub_timeout) {
+                            Ok(element) => {
+                                current_element = element;
+                            }
+                            Err(e) => {
+                                return Err(AutomationError::ElementNotFound(format!(
+                                    "Selector chain broke at step {}: '{:?}' found no element within the previous result. Error: {}",
+                                    i + 1,
+                                    selector,
+                                    e
+                                )));
                             }
                         }
-                        current_results = next_results;
                     }
                 }
 
-                // After the chain, we expect exactly one element for find_element.
-                // If multiple elements are found, take the first one (useful for click actions)
-                if current_results.len() == 1 {
-                    Ok(current_results.remove(0))
-                } else if current_results.len() > 1 {
-                    debug!(
-                        "Selector chain `{:?}` resolved to {} elements, using the first one.",
-                        selectors,
-                        current_results.len()
-                    );
-                    Ok(current_results.remove(0)) // Take the first element
-                } else {
-                    Err(AutomationError::ElementNotFound(format!(
-                        "Selector chain `{:?}` resolved to {} elements, but expected at least 1.",
-                        selectors,
-                        current_results.len(),
-                    )))
-                }
+                // Return the final element in the chain
+                Ok(current_element)
             }
             Selector::ClassName(classname) => {
                 debug!("searching element by class name: {}", classname);

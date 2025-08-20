@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: listpick
-Version: 0.1.13.62
+Version: 0.1.14.1
 Summary: Listpick is a powerful TUI data tool for creating TUI apps or viewing/comparing tabulated data.
 Home-page: https://github.com/grimandgreedy/listpick
 Author: Grim
@@ -26,6 +26,7 @@ Requires-Dist: pandas; extra == "full"
 Requires-Dist: pyperclip; extra == "full"
 Requires-Dist: toml; extra == "full"
 Requires-Dist: traitlets; extra == "full"
+Requires-Dist: odfpy; extra == "full"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

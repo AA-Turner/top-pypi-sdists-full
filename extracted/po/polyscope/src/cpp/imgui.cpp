@@ -1,37 +1,35 @@
 #include "imgui.h"
+#include "implot.h"
 
 #include <pybind11/functional.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-namespace py = pybind11;
+#include "Eigen/Dense"
 
-// Type translations between Python and ImGui.  Prefer native Python types (tuples, arrays), translating into ImGui
-// equivalents.
-using Vec2T = std::tuple<float, float>;
-using Vec4T = std::tuple<float, float, float, float>;
+#include "utils.h"
+#include "imgui_utils.h"
 
-ImVec2 to_vec2(const Vec2T& v) { return ImVec2(std::get<0>(v), std::get<1>(v)); }
-ImVec4 to_vec4(const Vec4T& v) { return ImVec4(std::get<0>(v), std::get<1>(v), std::get<2>(v), std::get<3>(v)); }
 
-Vec2T from_vec2(const ImVec2& v) { return std::make_tuple(v.x, v.y); }
-Vec4T from_vec4(const ImVec4& v) { return std::make_tuple(v.x, v.y, v.z, v.w); }
+void bind_imgui_structs(py::module& m);
+void bind_imgui_methods(py::module& m);
+void bind_imgui_enums(py::module& m);
+
+void bind_imgui(py::module& m) {
+  auto imgui_module = m.def_submodule("imgui", "ImGui bindings");
+  bind_imgui_structs(imgui_module);
+  bind_imgui_methods(imgui_module);
+  bind_imgui_enums(imgui_module);
+}
+
+// clang-format off
 
 struct InputTextCallback_UserData {
   std::string* str;
   ImGuiInputTextCallback chain_callback;
   void* chain_callback_user_data;
 };
-
-std::vector<const char*> convert_string_items(const std::vector<std::string>& items) {
-  auto _items = std::vector<const char*>();
-  _items.reserve(items.size());
-  for (const auto& item : items) {
-    _items.push_back(item.data());
-  }
-  return _items;
-}
 
 static int input_text_callback(ImGuiInputTextCallbackData* data) {
   auto* user_data = reinterpret_cast<InputTextCallback_UserData*>(data->UserData);
@@ -52,20 +50,6 @@ static int input_text_callback(ImGuiInputTextCallbackData* data) {
 }
 
 
-void bind_imgui_structs(py::module& m);
-void bind_imgui_methods(py::module& m);
-void bind_imgui_enums(py::module& m);
-
-void bind_imgui(py::module& m) {
-  auto imgui_module = m.def_submodule("imgui", "ImGui bindings");
-  bind_imgui_structs(imgui_module);
-  bind_imgui_methods(imgui_module);
-  bind_imgui_enums(imgui_module);
-}
-
-// clang-format off
-
-
 // clang-format off
 void bind_imgui_structs(py::module& m) {
 
@@ -78,7 +62,6 @@ void bind_imgui_structs(py::module& m) {
     .def_readwrite("MouseDoubleClickTime"                       ,&ImGuiIO::MouseDoubleClickTime                               )            
     .def_readwrite("MouseDoubleClickMaxDist"                    ,&ImGuiIO::MouseDoubleClickMaxDist                            )               
     .def_readwrite("MouseDragThreshold"                         ,&ImGuiIO::MouseDragThreshold                                 )          
-    .def_property_readonly("KeyMap"                             , [](py::object& ob) { ImGuiIO& o = ob.cast<ImGuiIO&>(); return py::array{ImGuiKey_COUNT, o.KeyMap, ob};})
     .def_readwrite("KeyRepeatDelay"                             ,&ImGuiIO::KeyRepeatDelay                                     )      
     .def_readwrite("KeyRepeatRate"                              ,&ImGuiIO::KeyRepeatRate                                      )     
     .def_readwrite("Fonts"                                      ,&ImGuiIO::Fonts                                              )
@@ -101,8 +84,6 @@ void bind_imgui_structs(py::module& m) {
     .def_readwrite("KeyShift"                                   ,&ImGuiIO::KeyShift                                           ) 
     .def_readwrite("KeyAlt"                                     ,&ImGuiIO::KeyAlt                                             )
     .def_readwrite("KeySuper"                                   ,&ImGuiIO::KeySuper                                           )
-    .def_property_readonly("KeysDown"                           , [](py::object& ob) { ImGuiIO& o = ob.cast<ImGuiIO&>(); return py::array{512, o.KeysDown , ob};})
-    .def_property_readonly("NavInputs"                          , [](py::object& ob) { ImGuiIO& o = ob.cast<ImGuiIO&>(); return py::array{ImGuiNavInput_COUNT, o.NavInputs , ob};})
     .def_readwrite("WantCaptureMouse"                           ,&ImGuiIO::WantCaptureMouse                                   )        
     .def_readwrite("WantCaptureKeyboard"                        ,&ImGuiIO::WantCaptureKeyboard                                )           
     .def_readwrite("WantTextInput"                              ,&ImGuiIO::WantTextInput                                      )     
@@ -205,6 +186,7 @@ void bind_imgui_methods(py::module& m) {
         "IsWindowHovered",
         [](ImGuiFocusedFlags flags) { return ImGui::IsWindowHovered(flags); },
         py::arg("flags") = 0);
+    m.def("GetWindowDrawList", []() { return ImGui::GetWindowDrawList(); }, py::return_value_policy::reference);
     m.def("GetWindowPos", []() { return from_vec2(ImGui::GetWindowPos()); });
     m.def("GetWindowSize", []() { return from_vec2(ImGui::GetWindowSize()); });
     m.def("GetWindowWidth", []() { return ImGui::GetWindowWidth(); });
@@ -1552,6 +1534,10 @@ void bind_imgui_methods(py::module& m) {
     m.def("GetItemRectSize", []() { return from_vec2(ImGui::GetItemRectSize()); });
     m.def("SetItemAllowOverlap", []() { ImGui::SetItemAllowOverlap(); });
 
+    // Background/Foreground Draw Lists
+    m.def("GetBackgroundDrawList", &ImGui::GetBackgroundDrawList, py::return_value_policy::reference);
+    m.def("GetForegroundDrawList", &ImGui::GetForegroundDrawList, py::return_value_policy::reference);
+
     // Miscellaneous Utilities
     m.def(
         "IsRectVisible",
@@ -1625,10 +1611,9 @@ void bind_imgui_methods(py::module& m) {
     m.def("ResetMouseDragDelta", [](ImGuiMouseButton button) { ImGui::ResetMouseDragDelta(button); }, py::arg("button"));
     m.def("GetMouseCursor", []() { return ImGui::GetMouseCursor(); });
     m.def("SetMouseCursor", [](ImGuiMouseCursor cursor_type) { ImGui::SetMouseCursor(cursor_type); }, py::arg("cursor_type"));
-    m.def("CaptureMouseFromApp", [](bool want_capture_mouse_value) { ImGui::CaptureMouseFromApp(want_capture_mouse_value); }, py::arg("want_capture_mouse_value"));
+    m.def("SetNextFrameWantCaptureMouse", [](bool want_capture_mouse) { ImGui::SetNextFrameWantCaptureMouse(want_capture_mouse); }, py::arg("want_capture_mouse"));
 
     // Inputs Utilities: Keyboard
-    m.def("GetKeyIndex", [](ImGuiKey imgui_key) { return ImGui::GetKeyIndex(imgui_key); }, py::arg("imgui_key"));
     m.def("IsKeyDown", [](ImGuiKey user_key_index) { return ImGui::IsKeyDown(user_key_index); }, py::arg("user_key_index"));
     m.def("IsKeyPressed", [](ImGuiKey user_key_index, bool repeat) { return ImGui::IsKeyPressed(user_key_index, repeat); }, py::arg("user_key_index"), py::arg("repeat")=true);
     m.def("IsKeyReleased", [](ImGuiKey user_key_index) { return ImGui::IsKeyReleased(user_key_index); }, py::arg("user_key_index"));
@@ -1642,11 +1627,11 @@ void bind_imgui_methods(py::module& m) {
         py::arg("rate")
     );
     m.def(
-        "CaptureKeyboardFromApp",
-        [](bool want_capture_keyboard_value) {
-            ImGui::CaptureKeyboardFromApp(want_capture_keyboard_value);
+        "SetNextFrameWantCaptureKeyboard",
+        [](bool want_capture_keyboard) {
+            ImGui::SetNextFrameWantCaptureKeyboard(want_capture_keyboard);
         },
-        py::arg("want_capture_keyboard_value") = true
+        py::arg("want_capture_keyboard") = true
     );
 
     // Clipboard Utilities
@@ -1660,215 +1645,284 @@ void bind_imgui_methods(py::module& m) {
     m.def("SaveIniSettingsToMemory", []() { return ImGui::SaveIniSettingsToMemory(); });
 
     // Draw Commands 
-    m.def(
-        "AddLine", 
-        [](const Vec2T& p1, const Vec2T& p2, ImU32 col, float thickness) {
-            ImGui::GetWindowDrawList()->AddLine(to_vec2(p1), to_vec2(p2), col, thickness);
-        },
-        py::arg("p_min"),
-        py::arg("p_max"),
-        py::arg("col"),
-        py::arg("thickness") = 1.0f
-    );
-    m.def(
-        "AddRect", 
-        [](const Vec2T& p_min, const Vec2T& p_max, ImU32 col, float rounding, ImDrawFlags flags, float thickness) {
-            ImGui::GetWindowDrawList()->AddRect(to_vec2(p_min), to_vec2(p_max), col, rounding, flags, thickness);
-        },
-        py::arg("p_min"),
-        py::arg("p_max"),
-        py::arg("col"),
-        py::arg("rounding") = 0.0f,
-        py::arg("flags") = 0,
-        py::arg("thickness") = 1.0f
-    );
-    m.def(
-        "AddRectFilled", 
-        [](const Vec2T& p_min, const Vec2T& p_max, ImU32 col, float rounding, ImDrawFlags flags) {
-            ImGui::GetWindowDrawList()->AddRectFilled(to_vec2(p_min), to_vec2(p_max), col, rounding, flags);
-        },
-        py::arg("p_min"),
-        py::arg("p_max"),
-        py::arg("col"),
-        py::arg("rounding") = 0.0f,
-        py::arg("flags") = 0
-    );
-    m.def(
-        "AddRectFilledMultiColor", 
-        [](const Vec2T& p_min, const Vec2T& p_max, ImU32 col_upr_left, ImU32 col_upr_right, ImU32 col_bot_right, ImU32 col_bot_left) {
-            ImGui::GetWindowDrawList()->AddRectFilledMultiColor(to_vec2(p_min), to_vec2(p_max), col_upr_left, col_upr_right, col_bot_right, col_bot_left);
-        },
-        py::arg("p_min"),
-        py::arg("p_max"),
-        py::arg("col_upr_left"),
-        py::arg("col_upr_right"),
-        py::arg("col_bot_right"),
-        py::arg("col_bot_left")
-    );
-    m.def(
-        "AddQuad", 
-        [](const Vec2T& p1, const Vec2T& p2, const Vec2T& p3, const Vec2T& p4, ImU32 col, float thickness) {
-            ImGui::GetWindowDrawList()->AddQuad(to_vec2(p1), to_vec2(p2), to_vec2(p3), to_vec2(p4), col, thickness);
-        },
-        py::arg("p1"),
-        py::arg("p2"),
-        py::arg("p3"),
-        py::arg("p4"),
-        py::arg("col"),
-        py::arg("thickness") = 1.0f
-    );
-    m.def(
-        "AddQuadFilled", 
-        [](const Vec2T& p1, const Vec2T& p2, const Vec2T& p3, const Vec2T& p4, ImU32 col) {
-            ImGui::GetWindowDrawList()->AddQuadFilled(to_vec2(p1), to_vec2(p2), to_vec2(p3), to_vec2(p4), col);
-        },
-        py::arg("p1"),
-        py::arg("p2"),
-        py::arg("p3"),
-        py::arg("p4"),
-        py::arg("col")
-    );
-    m.def(
-        "AddTriangle", 
-        [](const Vec2T& p1, const Vec2T& p2, const Vec2T& p3, ImU32 col, float thickness) {
-            ImGui::GetWindowDrawList()->AddTriangle(to_vec2(p1), to_vec2(p2), to_vec2(p3), col, thickness);
-        },
-        py::arg("p1"),
-        py::arg("p2"),
-        py::arg("p3"),
-        py::arg("col"),
-        py::arg("thickness") = 1.0f
-    );
-    m.def(
-        "AddTriangleFilled", 
-        [](const Vec2T& p1, const Vec2T& p2, const Vec2T& p3, ImU32 col) {
-            ImGui::GetWindowDrawList()->AddTriangleFilled(to_vec2(p1), to_vec2(p2), to_vec2(p3), col);
-        },
-        py::arg("p1"),
-        py::arg("p2"),
-        py::arg("p3"),
-        py::arg("col")
-    );
-    m.def(
-        "AddCircle", 
-        [](const Vec2T& center, const float radius, ImU32 col, int num_segments, float thickness) {
-            ImGui::GetWindowDrawList()->AddCircle(to_vec2(center), radius, col, num_segments, thickness);
-        },
-        py::arg("center"),
-        py::arg("radius"),
-        py::arg("col"),
-        py::arg("num_segments") = 0,
-        py::arg("thickness") = 1.0f
-    );
-    m.def(
-        "AddCircleFilled", 
-        [](const Vec2T& center, const float radius, ImU32 col, int num_segments) {
-            ImGui::GetWindowDrawList()->AddCircleFilled(to_vec2(center), radius, col, num_segments);
-        },
-        py::arg("center"),
-        py::arg("radius"),
-        py::arg("col"),
-        py::arg("num_segments") = 0
-    );
-    m.def(
-        "AddNgon", 
-        [](const Vec2T& center, const float radius, ImU32 col, int num_segments, float thickness) {
-            ImGui::GetWindowDrawList()->AddNgon(to_vec2(center), radius, col, num_segments, thickness);
-        },
-        py::arg("center"),
-        py::arg("radius"),
-        py::arg("col"),
-        py::arg("num_segments") = 0,
-        py::arg("thickness") = 1.0f
-    );
-    m.def(
-        "AddNgonFilled", 
-        [](const Vec2T& center, const float radius, ImU32 col, int num_segments) {
-            ImGui::GetWindowDrawList()->AddNgonFilled(to_vec2(center), radius, col, num_segments);
-        },
-        py::arg("center"),
-        py::arg("radius"),
-        py::arg("col"),
-        py::arg("num_segments") = 0
-    );
-    m.def(
-        "AddText", 
-        [](const Vec2T& pos, ImU32 col, const char* text_begin, const char* text_end) {
-            ImGui::GetWindowDrawList()->AddText(to_vec2(pos), col, text_begin, text_end);
-        },
-        py::arg("pos"),
-        py::arg("col"),
-        py::arg("text_begin"),
-        py::arg("text_end") = nullptr
-    );
-    m.def(
-        "AddText", 
-        [](const ImFont* font, float font_size, const Vec2T& pos, ImU32 col, const char* text_begin, const char* text_end, float wrap_width) {
-            ImGui::GetWindowDrawList()->AddText(font, font_size, to_vec2(pos), col, text_begin, text_end, wrap_width);
-        },
-        py::arg("font"),
-        py::arg("font_size"),
-        py::arg("pos"),
-        py::arg("col"),
-        py::arg("text_begin"),
-        py::arg("text_end") = nullptr,
-        py::arg("wrap_width") = 0.0f
-    );
-    m.def(
-        "AddPolyline", 
-        [](const std::vector<Vec2T>& points, int num_points, ImU32 col, ImDrawFlags flags, float thickness) {
-            std::vector<ImVec2> points_vec2(points.size());
-            for (int i = 0; i < points.size(); i++) {
-                points_vec2[i] = to_vec2(points[i]);
-            } 
-            ImGui::GetWindowDrawList()->AddPolyline(points_vec2.data(), num_points, col, flags, thickness);
-        },
-        py::arg("points"),
-        py::arg("num_points"),
-        py::arg("col"),
-        py::arg("flags"),
-        py::arg("thickness")
-    );
-    m.def(
-        "AddConvexPolyFilled", 
-        [](const std::vector<Vec2T>& points, int num_points, ImU32 col) {
-            std::vector<ImVec2> points_vec2(points.size());
-            for (int i = 0; i < points.size(); i++) {
-                points_vec2[i] = to_vec2(points[i]);
-            } 
-            ImGui::GetWindowDrawList()->AddConvexPolyFilled(points_vec2.data(), num_points, col);
-        },
-        py::arg("points"),
-        py::arg("num_points"),
-        py::arg("col")
-    );
-    m.def(
-        "AddBezierCubic", 
-        [](const Vec2T& p1, const Vec2T& p2, const Vec2T& p3, const Vec2T& p4, ImU32 col, float thickness, int num_segments = 0) {
-            ImGui::GetWindowDrawList()->AddBezierCubic(to_vec2(p1), to_vec2(p2), to_vec2(p3), to_vec2(p4), col, thickness, num_segments);
-        },
-        py::arg("p1"),
-        py::arg("p2"),
-        py::arg("p3"),
-        py::arg("p4"),
-        py::arg("col"),
-        py::arg("thickness"),
-        py::arg("num_segments") = 0
-    );
-    m.def(
-        "AddBezierQuadratic", 
-        [](const Vec2T& p1, const Vec2T& p2, const Vec2T& p3, ImU32 col, float thickness, int num_segments = 0) {
-            ImGui::GetWindowDrawList()->AddBezierQuadratic(to_vec2(p1), to_vec2(p2), to_vec2(p3), col, thickness, num_segments);
-        },
-        py::arg("p1"),
-        py::arg("p2"),
-        py::arg("p3"),
-        py::arg("col"),
-        py::arg("thickness"),
-        py::arg("num_segments") = 0
-    );
+    py::class_<ImDrawList>(m, "ImDrawList")
 
+        // Clip Rect
 
+        .def(
+            "PushClipRect",
+            [](ImDrawList& self, const Vec2T& clip_rect_min, const Vec2T& clip_rect_max, bool intersect_with_current_clip_rect) {
+                self.PushClipRect(to_vec2(clip_rect_min), to_vec2(clip_rect_max), intersect_with_current_clip_rect);
+            },
+            py::arg("clip_rect_min"),
+            py::arg("clip_rect_max"),
+            py::arg("intersect_with_current_clip_rect") = false
+        )
+        .def("PushClipRectFullScreen", &ImDrawList::PushClipRectFullScreen)
+        .def("PopClipRect", &ImDrawList::PopClipRect)
+        .def("GetClipRectMin", [](ImDrawList& self) { return from_vec2(self.GetClipRectMin()); })
+        .def("GetClipRectMax", [](ImDrawList& self) { return from_vec2(self.GetClipRectMax()); })
+
+        // Primitives
+
+        .def(
+            "AddLine", 
+            [](py::object& draw_list_obj, const Vec2T& p1, const Vec2T& p2, ImU32 col, float thickness) {
+                ImDrawList& draw_list = draw_list_obj.cast<ImDrawList&>();
+                draw_list.AddLine(to_vec2(p1), to_vec2(p2), col, thickness);
+            },
+            py::arg("p1"),
+            py::arg("p2"),
+            py::arg("col"),
+            py::arg("thickness") = 1.0f
+        )
+        .def(
+            "AddRect", 
+            [](ImDrawList& self, const Vec2T& p_min, const Vec2T& p_max, ImU32 col, float rounding, ImDrawFlags flags, float thickness) {
+                self.AddRect(to_vec2(p_min), to_vec2(p_max), col, rounding, flags, thickness);
+            },
+            py::arg("p_min"),
+            py::arg("p_max"),
+            py::arg("col"),
+            py::arg("rounding") = 0.0f,
+            py::arg("flags") = 0,
+            py::arg("thickness") = 1.0f
+        )
+        .def(
+            "AddRectFilled", 
+            [](ImDrawList& self, const Vec2T& p_min, const Vec2T& p_max, ImU32 col, float rounding, ImDrawFlags flags) {
+                self.AddRectFilled(to_vec2(p_min), to_vec2(p_max), col, rounding, flags);
+            },
+            py::arg("p_min"),
+            py::arg("p_max"),
+            py::arg("col"),
+            py::arg("rounding") = 0.0f,
+            py::arg("flags") = 0
+        )
+        .def(
+            "AddRectFilledMultiColor", 
+            [](ImDrawList& self, const Vec2T& p_min, const Vec2T& p_max, ImU32 col_upr_left, ImU32 col_upr_right, ImU32 col_bot_right, ImU32 col_bot_left) {
+                self.AddRectFilledMultiColor(to_vec2(p_min), to_vec2(p_max), col_upr_left, col_upr_right, col_bot_right, col_bot_left);
+            },
+            py::arg("p_min"),
+            py::arg("p_max"),
+            py::arg("col_upr_left"),
+            py::arg("col_upr_right"),
+            py::arg("col_bot_right"),
+            py::arg("col_bot_left")
+        )
+        .def(
+            "AddQuad", 
+            [](ImDrawList& self, const Vec2T& p1, const Vec2T& p2, const Vec2T& p3, const Vec2T& p4, ImU32 col, float thickness) {
+                self.AddQuad(to_vec2(p1), to_vec2(p2), to_vec2(p3), to_vec2(p4), col, thickness);
+            },
+            py::arg("p1"),
+            py::arg("p2"),
+            py::arg("p3"),
+            py::arg("p4"),
+            py::arg("col"),
+            py::arg("thickness") = 1.0f
+        )
+        .def(
+            "AddQuadFilled", 
+            [](ImDrawList& self, const Vec2T& p1, const Vec2T& p2, const Vec2T& p3, const Vec2T& p4, ImU32 col) {
+                self.AddQuadFilled(to_vec2(p1), to_vec2(p2), to_vec2(p3), to_vec2(p4), col);
+            },
+            py::arg("p1"),
+            py::arg("p2"),
+            py::arg("p3"),
+            py::arg("p4"),
+            py::arg("col")
+        )
+        .def(
+            "AddTriangle", 
+            [](ImDrawList& self, const Vec2T& p1, const Vec2T& p2, const Vec2T& p3, ImU32 col, float thickness) {
+                self.AddTriangle(to_vec2(p1), to_vec2(p2), to_vec2(p3), col, thickness);
+            },
+            py::arg("p1"),
+            py::arg("p2"),
+            py::arg("p3"),
+            py::arg("col"),
+            py::arg("thickness") = 1.0f
+        )
+        .def(
+            "AddTriangleFilled", 
+            [](ImDrawList& self, const Vec2T& p1, const Vec2T& p2, const Vec2T& p3, ImU32 col) {
+                self.AddTriangleFilled(to_vec2(p1), to_vec2(p2), to_vec2(p3), col);
+            },
+            py::arg("p1"),
+            py::arg("p2"),
+            py::arg("p3"),
+            py::arg("col")
+        )
+        .def(
+            "AddCircle", 
+            [](ImDrawList& self, const Vec2T& center, const float radius, ImU32 col, int num_segments, float thickness) {
+                self.AddCircle(to_vec2(center), radius, col, num_segments, thickness);
+            },
+            py::arg("center"),
+            py::arg("radius"),
+            py::arg("col"),
+            py::arg("num_segments") = 0,
+            py::arg("thickness") = 1.0f
+        )
+        .def(
+            "AddCircleFilled", 
+            [](ImDrawList& self, const Vec2T& center, const float radius, ImU32 col, int num_segments) {
+                self.AddCircleFilled(to_vec2(center), radius, col, num_segments);
+            },
+            py::arg("center"),
+            py::arg("radius"),
+            py::arg("col"),
+            py::arg("num_segments") = 0
+        )
+        .def(
+            "AddNgon", 
+            [](ImDrawList& self, const Vec2T& center, const float radius, ImU32 col, int num_segments, float thickness) {
+                self.AddNgon(to_vec2(center), radius, col, num_segments, thickness);
+            },
+            py::arg("center"),
+            py::arg("radius"),
+            py::arg("col"),
+            py::arg("num_segments") = 0,
+            py::arg("thickness") = 1.0f
+        )
+        .def(
+            "AddNgonFilled", 
+            [](ImDrawList& self, const Vec2T& center, const float radius, ImU32 col, int num_segments) {
+                self.AddNgonFilled(to_vec2(center), radius, col, num_segments);
+            },
+            py::arg("center"),
+            py::arg("radius"),
+            py::arg("col"),
+            py::arg("num_segments") = 0
+        )
+        .def(
+            "AddText", 
+            [](ImDrawList& self, const Vec2T& pos, ImU32 col, const char* text_begin, const char* text_end) {
+                self.AddText(to_vec2(pos), col, text_begin, text_end);
+            },
+            py::arg("pos"),
+            py::arg("col"),
+            py::arg("text_begin"),
+            py::arg("text_end") = nullptr
+        )
+        .def(
+            "AddText", 
+            [](ImDrawList& self, ImFont* font, float font_size, const Vec2T& pos, ImU32 col, const char* text_begin, const char* text_end, float wrap_width) {
+                self.AddText(font, font_size, to_vec2(pos), col, text_begin, text_end, wrap_width);
+            },
+            py::arg("font"),
+            py::arg("font_size"),
+            py::arg("pos"),
+            py::arg("col"),
+            py::arg("text_begin"),
+            py::arg("text_end") = nullptr,
+            py::arg("wrap_width") = 0.0f
+        )
+        .def(
+            "AddPolyline", 
+            [](ImDrawList& self, const std::vector<Vec2T>& points, int num_points, ImU32 col, ImDrawFlags flags, float thickness) {
+                std::vector<ImVec2> points_vec2(points.size());
+                for (int i = 0; i < points.size(); i++) {
+                    points_vec2[i] = to_vec2(points[i]);
+                } 
+                self.AddPolyline(points_vec2.data(), num_points, col, flags, thickness);
+            },
+            py::arg("points"),
+            py::arg("num_points"),
+            py::arg("col"),
+            py::arg("flags"),
+            py::arg("thickness")
+        )
+        .def(
+            "AddConvexPolyFilled", 
+            [](ImDrawList& self, const std::vector<Vec2T>& points, int num_points, ImU32 col) {
+                std::vector<ImVec2> points_vec2(points.size());
+                for (int i = 0; i < points.size(); i++) {
+                    points_vec2[i] = to_vec2(points[i]);
+                } 
+                self.AddConvexPolyFilled(points_vec2.data(), num_points, col);
+            },
+            py::arg("points"),
+            py::arg("num_points"),
+            py::arg("col")
+        )
+        .def(
+            "AddBezierCubic", 
+            [](ImDrawList& self, const Vec2T& p1, const Vec2T& p2, const Vec2T& p3, const Vec2T& p4, ImU32 col, float thickness, int num_segments = 0) {
+                self.AddBezierCubic(to_vec2(p1), to_vec2(p2), to_vec2(p3), to_vec2(p4), col, thickness, num_segments);
+            },
+            py::arg("p1"),
+            py::arg("p2"),
+            py::arg("p3"),
+            py::arg("p4"),
+            py::arg("col"),
+            py::arg("thickness"),
+            py::arg("num_segments") = 0
+        )
+        .def(
+            "AddBezierQuadratic", 
+            [](ImDrawList& self, const Vec2T& p1, const Vec2T& p2, const Vec2T& p3, ImU32 col, float thickness, int num_segments = 0) {
+                self.AddBezierQuadratic(to_vec2(p1), to_vec2(p2), to_vec2(p3), col, thickness, num_segments);
+            },
+            py::arg("p1"),
+            py::arg("p2"),
+            py::arg("p3"),
+            py::arg("col"),
+            py::arg("thickness"),
+            py::arg("num_segments") = 0
+        )
+
+        // General Polygon
+
+        .def(
+            "AddPolyline", 
+            [](ImDrawList& self, const std::vector<Vec2T>& points, int num_points, ImU32 col, ImDrawFlags flags, float thickness) {
+                std::vector<ImVec2> points_vec2(points.size());
+                for (int i = 0; i < points.size(); i++) {
+                    points_vec2[i] = to_vec2(points[i]);
+                } 
+                self.AddPolyline(points_vec2.data(), num_points, col, flags, thickness);
+            },
+            py::arg("points"),
+            py::arg("num_points"),
+            py::arg("col"),
+            py::arg("flags"),
+            py::arg("thickness")
+        )
+        .def(
+            "AddConvexPolyFilled", 
+            [](ImDrawList& self, const std::vector<Vec2T>& points, int num_points, ImU32 col) {
+                std::vector<ImVec2> points_vec2(points.size());
+                for (int i = 0; i < points.size(); i++) {
+                    points_vec2[i] = to_vec2(points[i]);
+                } 
+                self.AddConvexPolyFilled(points_vec2.data(), num_points, col);
+            },
+            py::arg("points"),
+            py::arg("num_points"),
+            py::arg("col")
+        )
+        .def(
+            "AddConcavePolyFilled", 
+            [](ImDrawList& self, const std::vector<Vec2T>& points, int num_points, ImU32 col) {
+                std::vector<ImVec2> points_vec2(points.size());
+                for (int i = 0; i < points.size(); i++) {
+                    points_vec2[i] = to_vec2(points[i]);
+                } 
+                self.AddConcavePolyFilled(points_vec2.data(), num_points, col);
+            },
+            py::arg("points"),
+            py::arg("num_points"),
+            py::arg("col")
+        )
+        
+    ;
+        
+
+    // Macros etc
+    m.def("IM_COL32", [](uint8_t R, uint8_t G, uint8_t B, uint8_t A) { return IM_COL32(R,G,B,A); });
 }
 // clang-format on
 
@@ -2131,7 +2185,7 @@ void bind_imgui_enums(py::module& m) {
   m.attr("ImGuiKey_CapsLock") = static_cast<ImGuiKey>(ImGuiKey_CapsLock);
   m.attr("ImGuiKey_ScrollLock") = static_cast<ImGuiKey>(ImGuiKey_ScrollLock);
   m.attr("ImGuiKey_NumLock") = static_cast<ImGuiKey>(ImGuiKey_NumLock);
-  m.attr("ImGuiKey_PrImGuiKeyScreen") = static_cast<int>(ImGuiKey_PrintScreen);
+  m.attr("ImGuiKey_PrintScreen") = static_cast<ImGuiKey>(ImGuiKey_PrintScreen);
   m.attr("ImGuiKey_Pause") = static_cast<ImGuiKey>(ImGuiKey_Pause);
   m.attr("ImGuiKey_Keypad0") = static_cast<ImGuiKey>(ImGuiKey_Keypad0);
   m.attr("ImGuiKey_Keypad1") = static_cast<ImGuiKey>(ImGuiKey_Keypad1);
@@ -2181,28 +2235,12 @@ void bind_imgui_enums(py::module& m) {
   m.attr("ImGuiKey_ModAlt") = static_cast<ImGuiKey>(ImGuiKey_ModAlt);
   m.attr("ImGuiKey_ModSuper") = static_cast<ImGuiKey>(ImGuiKey_ModSuper);
 
-  m.attr("ImGuiModFlags_None") = static_cast<int>(ImGuiModFlags_None);
-  m.attr("ImGuiModFlags_Ctrl") = static_cast<int>(ImGuiModFlags_Ctrl);
-  m.attr("ImGuiModFlags_Shift") = static_cast<int>(ImGuiModFlags_Shift);
-  m.attr("ImGuiModFlags_Alt") = static_cast<int>(ImGuiModFlags_Alt);
-  m.attr("ImGuiModFlags_Super") = static_cast<int>(ImGuiModFlags_Super);
-
-  m.attr("ImGuiNavInput_Activate") = static_cast<int>(ImGuiNavInput_Activate);
-  m.attr("ImGuiNavInput_Cancel") = static_cast<int>(ImGuiNavInput_Cancel);
-  m.attr("ImGuiNavInput_Input") = static_cast<int>(ImGuiNavInput_Input);
-  m.attr("ImGuiNavInput_Menu") = static_cast<int>(ImGuiNavInput_Menu);
-  m.attr("ImGuiNavInput_DpadLeft") = static_cast<int>(ImGuiNavInput_DpadLeft);
-  m.attr("ImGuiNavInput_DpadRight") = static_cast<int>(ImGuiNavInput_DpadRight);
-  m.attr("ImGuiNavInput_DpadUp") = static_cast<int>(ImGuiNavInput_DpadUp);
-  m.attr("ImGuiNavInput_DpadDown") = static_cast<int>(ImGuiNavInput_DpadDown);
-  m.attr("ImGuiNavInput_LStickLeft") = static_cast<int>(ImGuiNavInput_LStickLeft);
-  m.attr("ImGuiNavInput_LStickRight") = static_cast<int>(ImGuiNavInput_LStickRight);
-  m.attr("ImGuiNavInput_LStickUp") = static_cast<int>(ImGuiNavInput_LStickUp);
-  m.attr("ImGuiNavInput_LStickDown") = static_cast<int>(ImGuiNavInput_LStickDown);
-  m.attr("ImGuiNavInput_FocusPrev") = static_cast<int>(ImGuiNavInput_FocusPrev);
-  m.attr("ImGuiNavInput_FocusNext") = static_cast<int>(ImGuiNavInput_FocusNext);
-  m.attr("ImGuiNavInput_TweakSlow") = static_cast<int>(ImGuiNavInput_TweakSlow);
-  m.attr("ImGuiNavInput_TweakFast") = static_cast<int>(ImGuiNavInput_TweakFast);
+  m.attr("ImGuiMod_None") = static_cast<int>(ImGuiMod_None);
+  m.attr("ImGuiMod_Ctrl") = static_cast<int>(ImGuiMod_Ctrl);
+  m.attr("ImGuiMod_Shift") = static_cast<int>(ImGuiMod_Shift);
+  m.attr("ImGuiMod_Alt") = static_cast<int>(ImGuiMod_Alt);
+  m.attr("ImGuiMod_Super") = static_cast<int>(ImGuiMod_Super);
+  m.attr("ImGuiMod_Mask_") = static_cast<int>(ImGuiMod_Mask_);
 
   m.attr("ImGuiConfigFlags_None") = static_cast<int>(ImGuiConfigFlags_None);
   m.attr("ImGuiConfigFlags_NavEnableKeyboard") = static_cast<int>(ImGuiConfigFlags_NavEnableKeyboard);
@@ -2341,4 +2379,20 @@ void bind_imgui_enums(py::module& m) {
   m.attr("ImGuiCond_Once") = static_cast<int>(ImGuiCond_Once);
   m.attr("ImGuiCond_FirstUseEver") = static_cast<int>(ImGuiCond_FirstUseEver);
   m.attr("ImGuiCond_Appearing") = static_cast<int>(ImGuiCond_Appearing);
+
+  // ImDrawFlags
+  m.attr("ImDrawFlags_None") = static_cast<int>(ImDrawFlags_None);
+  m.attr("ImDrawFlags_Closed") = static_cast<int>(ImDrawFlags_Closed);
+  m.attr("ImDrawFlags_RoundCornersTopLeft") = static_cast<int>(ImDrawFlags_RoundCornersTopLeft);
+  m.attr("ImDrawFlags_RoundCornersTopRight") = static_cast<int>(ImDrawFlags_RoundCornersTopRight);
+  m.attr("ImDrawFlags_RoundCornersBottomLeft") = static_cast<int>(ImDrawFlags_RoundCornersBottomLeft);
+  m.attr("ImDrawFlags_RoundCornersBottomRight") = static_cast<int>(ImDrawFlags_RoundCornersBottomRight);
+  m.attr("ImDrawFlags_RoundCornersNone") = static_cast<int>(ImDrawFlags_RoundCornersNone);
+  m.attr("ImDrawFlags_RoundCornersTop") = static_cast<int>(ImDrawFlags_RoundCornersTop);
+  m.attr("ImDrawFlags_RoundCornersBottom") = static_cast<int>(ImDrawFlags_RoundCornersBottom);
+  m.attr("ImDrawFlags_RoundCornersLeft") = static_cast<int>(ImDrawFlags_RoundCornersLeft);
+  m.attr("ImDrawFlags_RoundCornersRight") = static_cast<int>(ImDrawFlags_RoundCornersRight);
+  m.attr("ImDrawFlags_RoundCornersAll") = static_cast<int>(ImDrawFlags_RoundCornersAll);
+
 }
+

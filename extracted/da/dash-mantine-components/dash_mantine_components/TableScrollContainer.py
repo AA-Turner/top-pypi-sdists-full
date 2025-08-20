@@ -408,16 +408,22 @@ Keyword arguments:
     - flex (string | number; optional)
 
     - classNames (dict; optional):
-        Adds class names to Mantine components.
+        Adds custom CSS class names to inner elements of a component.
+        See Styles API docs.
 
     - styles (boolean | number | string | dict | list; optional):
-        Mantine styles API.
+        Adds inline styles directly to inner elements of a component.
+        See Styles API docs.
 
     - unstyled (boolean; optional):
         Remove all Mantine styling from the component.
 
     - variant (string; optional):
         variant.
+
+    - attributes (boolean | number | string | dict | list; optional):
+        Passes attributes to inner elements of a component.  See
+        Styles API docs.
 
 - ta (optional):
     TextAlign.
@@ -517,7 +523,8 @@ Keyword arguments:
             "classNames": NotRequired[dict],
             "styles": NotRequired[typing.Any],
             "unstyled": NotRequired[bool],
-            "variant": NotRequired[str]
+            "variant": NotRequired[str],
+            "attributes": NotRequired[typing.Any]
         }
     )
 

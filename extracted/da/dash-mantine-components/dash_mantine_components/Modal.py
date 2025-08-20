@@ -67,7 +67,8 @@ Keyword arguments:
     Class added to the root element, if applicable.
 
 - classNames (dict; optional):
-    Adds class names to Mantine components.
+    Adds custom CSS class names to inner elements of a component.  See
+    Styles API docs.
 
 - closeButtonProps (dict; optional):
     Props passed down to the close button.
@@ -605,6 +606,10 @@ Keyword arguments:
     - zIndex (string | number; optional):
         Overlay z-index, `200` by default.
 
+    - attributes (boolean | number | string | dict | list; optional):
+        Passes attributes to inner elements of a component.  See
+        Styles API docs.
+
     - unstyled (boolean; optional):
         Remove all Mantine styling from the component.
 
@@ -689,7 +694,8 @@ Keyword arguments:
     Controls width of the content area, `'md'` by default.
 
 - styles (boolean | number | string | dict | list; optional):
-    Mantine styles API.
+    Adds inline styles directly to inner elements of a component.  See
+    Styles API docs.
 
 - ta (optional):
     TextAlign.
@@ -851,6 +857,7 @@ Keyword arguments:
             "flex": NotRequired[typing.Union[str, NumberType]],
             "radius": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "zIndex": NotRequired[typing.Union[str, NumberType]],
+            "attributes": NotRequired[typing.Any],
             "unstyled": NotRequired[bool],
             "center": NotRequired[bool],
             "fixed": NotRequired[bool],

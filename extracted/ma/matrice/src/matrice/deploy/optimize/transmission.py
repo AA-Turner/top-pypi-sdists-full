@@ -7,7 +7,7 @@ side (cache reuse, difference reconstruction, similarity checks).
 import base64
 import hashlib
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -64,24 +64,24 @@ class ClientTransmissionHandler:
                 return "full", {"reason": "first_frame", "similarity_score": 0.0}
 
             ref = self.frame_cache[stream_key]
-            is_similar, score = self.ssim_comparator.compare(ref, frame, stream_key)
+            # is_similar, score = self.ssim_comparator.compare(ref, frame, stream_key)
 
-            if score >= self.threshold_a:
-                return "skip", {"similarity_score": float(score), "reason": "high_similarity"}
-            elif score >= self.threshold_b:
-                diff_data, diff_meta = self.difference_processor.calculate_frame_difference(ref, frame)
-                if diff_meta.get("has_changes", False):
-                    return "difference", {
-                        "similarity_score": float(score),
-                        "difference_data": diff_data,
-                        "difference_metadata": diff_meta,
-                        "reason": "medium_similarity",
-                    }
-                return "skip", {"similarity_score": float(score), "reason": "no_changes"}
-            else:
-                # Low similarity, update cache immediately
-                self.frame_cache[stream_key] = frame.copy()
-                return "full", {"similarity_score": float(score), "reason": "low_similarity"}
+            # if score >= self.threshold_a:
+            #     return "skip", {"similarity_score": float(score), "reason": "high_similarity"}
+            # elif score >= self.threshold_b:
+            #     diff_data, diff_meta = self.difference_processor.calculate_frame_difference(ref, frame)
+            #     if diff_meta.get("has_changes", False):
+            #         return "difference", {
+            #             "similarity_score": float(score),
+            #             "difference_data": diff_data,
+            #             "difference_metadata": diff_meta,
+            #             "reason": "medium_similarity",
+            #         }
+            #     return "skip", {"similarity_score": float(score), "reason": "no_changes"}
+            # else:
+            #     # Low similarity, update cache immediately
+            self.frame_cache[stream_key] = frame.copy()
+            return "full", {"similarity_score": 0, "reason": "low_similarity"}
         except Exception as exc:
             logger.warning("Transmission decision error: %s", str(exc))
             # Fallback to full frame to keep pipeline robust
@@ -116,7 +116,7 @@ class ClientTransmissionHandler:
     # -----------------------------
     def _build_stream_metadata(
         self,
-        input_source: str | int,
+        input_source: Union[str, int],
         stream_key: Optional[str],
         video_props: Dict[str, Any],
         fps: int,
@@ -132,7 +132,7 @@ class ClientTransmissionHandler:
         original_fps = video_props.get("original_fps", 0)
         frame_sample_rate = original_fps / fps if (original_fps and fps) else 1.0
 
-        def _get_video_format(inp: str | int) -> str:
+        def _get_video_format(inp: Union[str, int]) -> str:
             if isinstance(inp, str) and "." in inp:
                 return "." + inp.split("?")[0].split(".")[-1].lower()
             return ".mp4"
@@ -174,7 +174,7 @@ class ClientTransmissionHandler:
         frame: np.ndarray,
         *,
         stream_key: str,
-        input_source: str | int,
+        input_source: Union[str, int],
         video_props: Dict[str, Any],
         fps: int,
         quality: int,
@@ -440,7 +440,6 @@ class ServerTransmissionHandler:
                 "stream_unit": input_stream.get("stream_unit"),
                 "input_order": input_stream.get("input_order"),
                 "original_fps": input_stream.get("original_fps"),
-                "stream_time": input_stream.get("stream_info", {}).get("stream_time",""),
             },
             "transmission_strategy": transmission_strategy,
             "similarity_score": similarity_score,

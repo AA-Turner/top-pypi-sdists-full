@@ -89,7 +89,7 @@ LanguageCodeType = Literal[
 ]
 ListLexiconsPaginatorName = Literal["list_lexicons"]
 ListSpeechSynthesisTasksPaginatorName = Literal["list_speech_synthesis_tasks"]
-OutputFormatType = Literal["json", "mp3", "ogg_vorbis", "pcm"]
+OutputFormatType = Literal["json", "mp3", "ogg_opus", "ogg_vorbis", "pcm"]
 SpeechMarkTypeType = Literal["sentence", "ssml", "viseme", "word"]
 TaskStatusType = Literal["completed", "failed", "inProgress", "scheduled"]
 TextTypeType = Literal["ssml", "text"]

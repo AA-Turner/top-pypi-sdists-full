@@ -91,9 +91,13 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         self._seen_plate_texts = set()
         # CHANGE: Added _tracked_plate_texts to store the longest plate_text per track_id
         self._tracked_plate_texts: Dict[Any, str] = {}
+        self._unique_plate_texts: Dict[str, str] = {}
         self.image_preprocessor = ImagePreprocessor()
         self.ocr_extractor = None  # Initialized in process
         self.text_postprocessor = TextPostprocessor()
+
+        self.start_timer = None
+        #self.reset_timer = "2025-08-19-04:22:47.187574 UTC"
 
     def reset_tracker(self) -> None:
         """Reset the advanced tracker instance."""
@@ -109,6 +113,22 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         self._total_frame_counter = 0
         self._global_frame_offset = 0
         self.logger.info("Plate tracking state reset")
+
+    # def _normalize_plate_text(self, text: str) -> str:
+    #     """Normalize plate text for comparison (e.g., remove spaces, convert to uppercase)."""
+    #     if not text or not text.strip():
+    #         return ""
+    #     text = text.replace(" ", "").upper()
+    #     # Map Arabic numerals to Latin to handle cases like ٠٠٤٦١٠
+    #     arabic_to_latin = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
+    #     text = text.translate(arabic_to_latin)
+    #     # Optional: Add OCR error corrections (e.g., 'O' to '0', 'I' to '1')
+    #     ocr_corrections = str.maketrans({'O': '0', 'I': '1', 'S': '5'})
+    #     text = text.translate(ocr_corrections)
+    #     # Validate: Ensure text is alphanumeric and at least 3 characters
+    #     if len(text) < 3 or not text.isalnum():
+    #         return ""
+    #     return text
 
     def reset_all_tracking(self) -> None:
         """Reset both advanced tracker and plate tracking state."""
@@ -469,19 +489,37 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
     def _count_categories(self, detections: List[Dict], config: LicensePlateMonitorConfig) -> Dict[str, Any]:
         """Count detections per category and include plate texts."""
-        counts = {}
+        counts: Dict[str, int] = {}
+        unique_keys_per_cat: Dict[str, set] = {}
         valid_detections = []
+
         for det in detections:
             if not all(k in det for k in ['category', 'confidence', 'bounding_box']):
                 self.logger.warning(f"Skipping invalid detection: {det}")
                 continue
+
             cat = det.get('category', 'License_Plate')
-            counts[cat] = counts.get(cat, 0) + 1
+            track_id = det.get('track_id')
+            # Fallback to bbox tuple when track_id is missing
+            bbox_key = tuple(sorted(det.get('bounding_box', {}).items())) if track_id is None else None
+            unique_key = track_id if track_id is not None else bbox_key
+
+            if unique_key is None:
+                continue  # Cannot determine uniqueness
+
+            # Initialise storage for this category
+            unique_keys_per_cat.setdefault(cat, set())
+
+            # Only count once per unique key within the current frame
+            if unique_key not in unique_keys_per_cat[cat]:
+                unique_keys_per_cat[cat].add(unique_key)
+                counts[cat] = counts.get(cat, 0) + 1
+
             valid_detections.append({
                 "bounding_box": det.get("bounding_box"),
                 "category": cat,
                 "confidence": det.get("confidence"),
-                "track_id": det.get("track_id"),
+                "track_id": track_id,
                 "frame_id": det.get("frame_id"),
                 "masks": det.get("masks", []),
                 "plate_text": det.get("plate_text")
@@ -499,7 +537,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         tracking_stats = []
         total_detections = counting_summary.get("total_count", 0)
         total_counts = counting_summary.get("total_counts", {})
-        cumulative_total = sum(total_counts.values()) if total_counts else 0
+        cumulative_total = sum(set(total_counts.values())) if total_counts else 0
         per_category_count = counting_summary.get("per_category_count", {})
         track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
         current_timestamp = self._get_current_timestamp_str(stream_info, precision=False)
@@ -514,7 +552,14 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             category_counts = [f"{count} {cat}" for cat, count in per_category_count.items()]
             detection_text = category_counts[0] + " detected" if len(category_counts) == 1 else f"{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
             human_text_lines.append(f"\t- {detection_text}")
-            plate_texts = [det.get("plate_text") for det in counting_summary.get("detections", []) if det.get("plate_text")]
+            # Deduplicate plate texts for the current frame while preserving order
+            seen_plate_texts = set()
+            plate_texts = []
+            for det in counting_summary.get("detections", []):
+                text = det.get("plate_text")
+                if text and text not in seen_plate_texts:
+                    seen_plate_texts.add(text)
+                    plate_texts.append(text)
             if plate_texts:
                 human_text_lines.append(f"\t- License Plates: {', '.join(plate_texts)}")
         else:
@@ -523,17 +568,13 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         human_text_lines.append("")
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
         human_text_lines.append(f"\t- Total Detected: {cumulative_total}")
-        # if total_counts:
-        #     for cat, count in total_counts.items():
-        #         if count > 0:
-        #             human_text_lines.append(f"\t- {cat}: {count}")
-        # CHANGE: Use _tracked_plate_texts instead of _seen_plate_texts for TOTAL SINCE
-        
+
         if self._tracked_plate_texts:
             human_text_lines.append("\t- Unique License Plates:")
-            for text in sorted(self._tracked_plate_texts.values()):
+            # Deduplicate license plate texts across different track IDs
+            for text in sorted(set(self._tracked_plate_texts.values())):
                 human_text_lines.append(f"\t\t- {text}")
-        
+
         current_counts = [{"category": cat, "count": count} for cat, count in per_category_count.items() if count > 0 or total_detections > 0]
         total_counts_list = [{"category": cat, "count": count} for cat, count in total_counts.items() if count > 0 or cumulative_total > 0]
         
@@ -559,7 +600,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             })
         
         if alerts:
-            human_text_lines.append(f"Alerts: {alerts[0].get('settings', {})} sent @ {current_timestamp}")
+            human_text_lines.append(f"Alerts: {alerts[0].get('settings', {})}")
         else:
             human_text_lines.append("Alerts: None")
         
@@ -716,19 +757,23 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
     def _generate_summary(self, summary: Dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List) -> List[Dict]:
         """Generate a human-readable summary."""
-        lines = {
-            "Application Name": self.CASE_TYPE,
-            "Application Version": self.CASE_VERSION
-        }
-        if incidents:
-            lines["Incidents"] = f"\n\t{incidents[0].get('human_text', 'No incidents detected')}\n"
-        if tracking_stats:
-            lines["Tracking Statistics"] = f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}\n"
-        if business_analytics:
-            lines["Business Analytics"] = f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}\n"
-        if not incidents and not tracking_stats and not business_analytics:
-            lines["Summary"] = "No Summary Data"
-        return [lines]
+        """
+        Generate a human_text string for the tracking_stat, incident, business analytics and alerts.
+        """
+        lines = []
+        lines.append("Application Name: "+self.CASE_TYPE)
+        lines.append("Application Version: "+self.CASE_VERSION)
+        if len(incidents) > 0:
+            lines.append("Incidents: "+f"\n\t{incidents[0].get('human_text', 'No incidents detected')}")
+        if len(tracking_stats) > 0:
+            lines.append("Tracking Statistics: "+f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}")
+        if len(business_analytics) > 0:
+            lines.append("Business Analytics: "+f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}")
+
+        if len(incidents) == 0 and len(tracking_stats) == 0 and len(business_analytics) == 0:
+            lines.append("Summary: "+"No Summary Data")
+
+        return ["\n".join(lines)]
 
     def _update_tracking_state(self, detections: List[Dict]):
         """Track unique track_ids per category."""
@@ -753,7 +798,12 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             text = det.get('plate_text')
             track_id = det.get('track_id')
             if text and track_id is not None:
-                # CHANGE: Update _tracked_plate_texts with the longest text for this track_id
+                # Skip text containing Unicode escape sequences (e.g., \u0664)
+                if r'\u' in str(text):
+                    self.logger.debug(f"Skipping plate_text={text} for track_id={track_id} due to Unicode escape sequence")
+                    continue
+                # Update _tracked_plate_texts with the longest text for this track_id
+                print(f"Detected license plate text: {text} (track_id={track_id})")
                 current_text = self._tracked_plate_texts.get(track_id, '')
                 if len(text) > len(current_text):
                     self._tracked_plate_texts[track_id] = text
@@ -763,9 +813,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 self.logger.debug(f"Added plate_text={text} for track_id={track_id} to seen texts")
 
     def get_total_counts(self):
-        """Return total unique track_id count for each category."""
-        # CHANGE: Count unique track_ids in _tracked_plate_texts instead of _seen_plate_texts
-        return {'License_Plate': len(self._tracked_plate_texts)}
+        """Return total unique license plate texts encountered so far."""
+        # Count unique plate texts across *all* track_ids
+        return {'License_Plate': len(set(self._tracked_plate_texts.values()))}
 
     def _get_track_ids_info(self, detections: List[Dict]) -> Dict[str, Any]:
         """Get detailed information about track IDs."""
@@ -852,10 +902,52 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         }
         return canonical_id
 
-    def _format_timestamp(self, timestamp: float) -> str:
-        """Format a timestamp for human-readable output."""
-        return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
-    
+    def _format_timestamp(self, timestamp: Any) -> str:
+        """Format a timestamp so that exactly two digits follow the decimal point (milliseconds).
+
+        The input can be either:
+        1. A numeric Unix timestamp (``float`` / ``int``) – it will first be converted to a
+           string in the format ``YYYY-MM-DD-HH:MM:SS.ffffff UTC``.
+        2. A string already following the same layout.
+
+        The returned value preserves the overall format of the input but truncates or pads
+        the fractional seconds portion to **exactly two digits**.
+
+        Example
+        -------
+        >>> self._format_timestamp("2025-08-19-04:22:47.187574 UTC")
+        '2025-08-19-04:22:47.18 UTC'
+        """
+
+        # Convert numeric timestamps to the expected string representation first
+        if isinstance(timestamp, (int, float)):
+            timestamp = datetime.fromtimestamp(timestamp, timezone.utc).strftime(
+                '%Y-%m-%d-%H:%M:%S.%f UTC'
+            )
+
+        # Ensure we are working with a string from here on
+        if not isinstance(timestamp, str):
+            return str(timestamp)
+
+        # If there is no fractional component, simply return the original string
+        if '.' not in timestamp:
+            return timestamp
+
+        # Split out the main portion (up to the decimal point)
+        main_part, fractional_and_suffix = timestamp.split('.', 1)
+
+        # Separate fractional digits from the suffix (typically ' UTC')
+        if ' ' in fractional_and_suffix:
+            fractional_part, suffix = fractional_and_suffix.split(' ', 1)
+            suffix = ' ' + suffix  # Re-attach the space removed by split
+        else:
+            fractional_part, suffix = fractional_and_suffix, ''
+
+        # Guarantee exactly two digits for the fractional part
+        fractional_part = (fractional_part + '00')[:2]
+
+        return f"{main_part}.{fractional_part}{suffix}"
+
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
         """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
@@ -870,8 +962,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
     def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
         """Get formatted current timestamp based on stream type."""
-        print('STREAM INFO-------------------------------')
-        print(stream_info)
+        
         if not stream_info:
             return "00:00:00.00"
         if precision:
@@ -881,9 +972,8 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 else:
                     start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
                 stream_time_str = self._format_timestamp_for_video(start_time)
-                print('CURRENTTTT TIME-------------------------------',stream_info.get("input_settings", {}).get("stream_time", "NA"))
-
-                return stream_info.get("input_settings", {}).get("stream_time", "NA")
+                
+                return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
@@ -894,9 +984,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
 
             stream_time_str = self._format_timestamp_for_video(start_time)
-            print('CURRENTTTT TIME-------------------------------',stream_info.get("input_settings", {}).get("stream_time", "NA"))
+           
 
-            return stream_info.get("input_settings", {}).get("stream_time", "NA")
+            return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
         else:
             stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
             if stream_time_str:
@@ -914,15 +1004,28 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
+        
         if precision:
-            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-                return "00:00:00"
+            if self.start_timer is None:
+                self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+                return self._format_timestamp(self.start_timer)
+            elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
+                self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+                return self._format_timestamp(self.start_timer)
             else:
-                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                return self._format_timestamp(self.start_timer)
 
-        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
-            return "00:00:00"
+        if self.start_timer is None:
+            self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+            return self._format_timestamp(self.start_timer)
+        elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
+            self.start_timer = stream_info.get("input_settings", {}).get("stream_time", "NA")
+            return self._format_timestamp(self.start_timer)
+        
         else:
+            if self.start_timer is not None:
+                return self._format_timestamp(self.start_timer)
+
             if self._tracking_start_time is None:
                 stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
                 if stream_time_str:

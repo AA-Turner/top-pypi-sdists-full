@@ -12,6 +12,7 @@ from loguru import logger
 from gable.api.client import GableAPIClient
 from gable.cli.helpers.npm import get_installed_package_dir
 from gable.cli.helpers.repo_interactions import get_git_repo_info, get_pr_link
+from gable.common_types import LineageDataFile
 from gable.openapi import (
     Action1,
     ErrorResponse,
@@ -179,7 +180,9 @@ def poll_sca_job_status(
 
 
 def upload_sca_results(
-    run_id: str, presigned_url: S3PresignedUrl, results_dir: str
+    run_id: str,
+    presigned_url: S3PresignedUrl,
+    lineage_data_file: LineageDataFile,
 ) -> None:
     """Upload SCA results to S3 using the presigned URL.
 
@@ -187,23 +190,17 @@ def upload_sca_results(
         presigned_url: The S3 presigned URL to upload to
         results_dir: The directory containing the SCA results file
     """
+
+    upload_request = StaticAnalysisPathsUploadRequest(
+        run_id=run_id,
+        paths=lineage_data_file.paths,
+    )
     try:
-        logger.debug(
-            f'Uploading results from {os.path.join(results_dir, "results.json")}'
-        )
-        # Read the SCA results file - hardcoded to results.json right now
-        with open(os.path.join(results_dir, "results.json"), "rb") as f:
-            file_content = f.read()
-
-        results_json = json.loads(file_content)
-        results_json["run_id"] = run_id
-        results = StaticAnalysisPathsUploadRequest.parse_obj(results_json)
-
         # Create form data
         files = {
             "file": (
                 "results.json",
-                results.json(by_alias=True, exclude_none=True).encode("utf-8"),
+                upload_request.json(by_alias=True, exclude_none=True).encode("utf-8"),
                 "application/octet-stream",
             )
         }

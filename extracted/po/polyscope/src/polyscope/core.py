@@ -66,19 +66,28 @@ def remove_all_structures():
 
 
 ### Screenshots
-def screenshot(filename=None, transparent_bg=True):
+def screenshot(filename=None, transparent_bg=True, include_UI=False):
+
+    opts = psb.ScreenshotOptions()
+    opts.include_UI = include_UI
+    opts.transparent_background = transparent_bg
 
     if filename is None:
-        psb.screenshot(transparent_bg)
+        psb.screenshot(opts)
     else:
-        psb.named_screenshot(filename, transparent_bg)
+        psb.named_screenshot(filename, opts)
 
 def set_screenshot_extension(ext):
     psb.set_screenshot_extension(ext)
 
 
-def screenshot_to_buffer(transparent_bg=True, vertical_flip=True):
-    buff = psb.screenshot_to_buffer(transparent_bg)
+def screenshot_to_buffer(transparent_bg=True, vertical_flip=True, include_UI=False):
+
+    opts = psb.ScreenshotOptions()
+    opts.include_UI = include_UI
+    opts.transparent_background = transparent_bg
+
+    buff = psb.screenshot_to_buffer(opts)
     w, h = get_buffer_size()
     buff = buff.reshape(h, w, 4)
     if(vertical_flip):
@@ -120,6 +129,9 @@ def get_redraw_requested():
 def set_always_redraw(v):
     psb.set_always_redraw(v)
 
+def set_frame_tick_limit_fps_mode(v):
+    psb.set_frame_tick_limit_fps_mode(str_to_enum(v, psb.LimitFPSMode))
+
 def set_enable_render_error_checks(b):
     psb.set_enable_render_error_checks(b)
 
@@ -131,6 +143,12 @@ def set_autocenter_structures(b):
 
 def set_autoscale_structures(b):
     psb.set_autoscale_structures(b)
+
+def set_ui_scale(s):
+    psb.set_ui_scale(s)
+
+def get_ui_scale():
+    return psb.get_ui_scale()
 
 def set_build_gui(b):
     psb.set_build_gui(b)
@@ -176,6 +194,14 @@ def set_front_dir(d):
     psb.set_front_dir(str_to_frontdir(d))
 def get_front_dir():
     return frontdir_to_str(psb.get_front_dir())
+
+def set_vertical_fov_degrees(f):
+    psb.set_vertical_fov_degrees(f)
+def get_vertical_fov_degrees():
+    return psb.get_vertical_fov_degrees()
+
+def get_aspect_ratio_width_over_height():
+    return psb.get_aspect_ratio_width_over_height()
 
 ### Scene extents
 
@@ -265,6 +291,13 @@ def set_camera_view_matrix(mat):
 def get_camera_view_matrix():
     return psb.get_camera_view_matrix()
 
+def set_view_center(pos, fly_to=False):
+    pos = glm3(pos)
+    psb.set_view_center(pos, fly_to)
+
+def get_view_center():
+    return np.array(psb.get_view_center().as_tuple())
+
 ### "Advanced" UI management
 
 def build_polyscope_gui():
@@ -336,6 +369,7 @@ class PickResult:
         self.is_hit = bound_pick_result.is_hit
         self.structure_type_name = bound_pick_result.structure_type
         self.structure_name = bound_pick_result.structure_name
+        self.quantity_name = bound_pick_result.quantity_name
         self.screen_coords = bound_pick_result.screen_coords.as_tuple()
         self.buffer_inds = bound_pick_result.buffer_inds.as_tuple()
         self.position = np.array(bound_pick_result.position.as_tuple())
@@ -372,6 +406,7 @@ PickResult(
     is_hit={self.is_hit},
     structure_type_name={self.structure_type_name},
     structure_name={self.structure_name},
+    quantity_name={self.quantity_name},
     screen_coords={self.screen_coords},
     buffer_inds={self.buffer_inds},
     position={self.position},
@@ -452,6 +487,14 @@ class Group:
     
     def set_hide_descendants_from_structure_lists(self, new_val):
         self.bound_group.set_hide_descendants_from_structure_lists(new_val)
+    
+    def get_child_structure_names(self):
+        # Only returns first-level children, does not recurse
+        return self.bound_group.get_child_structure_names()
+    
+    def get_child_group_names(self):
+        # Only returns first-level children, does not recurse
+        return self.bound_group.get_child_group_names()
 
 def create_group(name):
     return Group(psb.create_group(name))

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: collate-sqllineage
-Version: 1.6.19
+Version: 1.6.20
 Summary: Collate SQL Lineage for Analysis Tool powered by Python and sqlfluff based on sqllineage.
 Author: Collate Committers
 Classifier: Development Status :: 5 - Production/Stable

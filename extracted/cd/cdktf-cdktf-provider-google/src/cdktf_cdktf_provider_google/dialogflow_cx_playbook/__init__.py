@@ -1,7 +1,7 @@
 r'''
 # `google_dialogflow_cx_playbook`
 
-Refer to the Terraform Registry for docs: [`google_dialogflow_cx_playbook`](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook).
+Refer to the Terraform Registry for docs: [`google_dialogflow_cx_playbook`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DialogflowCxPlaybook(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dialogflowCxPlaybook.DialogflowCxPlaybook",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook google_dialogflow_cx_playbook}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook google_dialogflow_cx_playbook}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class DialogflowCxPlaybook(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook google_dialogflow_cx_playbook} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook google_dialogflow_cx_playbook} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The human-readable name of the playbook, unique within an agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#display_name DialogflowCxPlaybook#display_name}
-        :param goal: High level description of the goal the playbook intend to accomplish. A goal should be concise since it's visible to other playbooks that may reference this playbook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#goal DialogflowCxPlaybook#goal}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#id DialogflowCxPlaybook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instruction: instruction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#instruction DialogflowCxPlaybook#instruction}
-        :param llm_model_settings: llm_model_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#llm_model_settings DialogflowCxPlaybook#llm_model_settings}
-        :param parent: The agent to create a Playbook for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#parent DialogflowCxPlaybook#parent}
-        :param playbook_type: Type of the playbook. Possible values: ["PLAYBOOK_TYPE_UNSPECIFIED", "TASK", "ROUTINE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#playbook_type DialogflowCxPlaybook#playbook_type}
-        :param referenced_tools: The resource name of tools referenced by the current playbook in the instructions. If not provided explicitly, they are will be implied using the tool being referenced in goal and steps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#referenced_tools DialogflowCxPlaybook#referenced_tools}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#timeouts DialogflowCxPlaybook#timeouts}
+        :param display_name: The human-readable name of the playbook, unique within an agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#display_name DialogflowCxPlaybook#display_name}
+        :param goal: High level description of the goal the playbook intend to accomplish. A goal should be concise since it's visible to other playbooks that may reference this playbook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#goal DialogflowCxPlaybook#goal}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#id DialogflowCxPlaybook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instruction: instruction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#instruction DialogflowCxPlaybook#instruction}
+        :param llm_model_settings: llm_model_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#llm_model_settings DialogflowCxPlaybook#llm_model_settings}
+        :param parent: The agent to create a Playbook for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#parent DialogflowCxPlaybook#parent}
+        :param playbook_type: Type of the playbook. Possible values: ["PLAYBOOK_TYPE_UNSPECIFIED", "TASK", "ROUTINE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#playbook_type DialogflowCxPlaybook#playbook_type}
+        :param referenced_tools: The resource name of tools referenced by the current playbook in the instructions. If not provided explicitly, they are will be implied using the tool being referenced in goal and steps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#referenced_tools DialogflowCxPlaybook#referenced_tools}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#timeouts DialogflowCxPlaybook#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class DialogflowCxPlaybook(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DialogflowCxPlaybook to import.
-        :param import_from_id: The id of the existing DialogflowCxPlaybook that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DialogflowCxPlaybook that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DialogflowCxPlaybook to import is found.
         '''
         if __debug__:
@@ -146,8 +146,8 @@ class DialogflowCxPlaybook(
         steps: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DialogflowCxPlaybookInstructionSteps", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param guidelines: General guidelines for the playbook. These are unstructured instructions that are not directly part of the goal, e.g. "Always be polite". It's valid for this text to be long and used instead of steps altogether. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#guidelines DialogflowCxPlaybook#guidelines}
-        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#steps DialogflowCxPlaybook#steps}
+        :param guidelines: General guidelines for the playbook. These are unstructured instructions that are not directly part of the goal, e.g. "Always be polite". It's valid for this text to be long and used instead of steps altogether. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#guidelines DialogflowCxPlaybook#guidelines}
+        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#steps DialogflowCxPlaybook#steps}
         '''
         value = DialogflowCxPlaybookInstruction(guidelines=guidelines, steps=steps)
 
@@ -161,8 +161,8 @@ class DialogflowCxPlaybook(
         prompt_text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param model: The selected LLM model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#model DialogflowCxPlaybook#model}
-        :param prompt_text: The custom prompt to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#prompt_text DialogflowCxPlaybook#prompt_text}
+        :param model: The selected LLM model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#model DialogflowCxPlaybook#model}
+        :param prompt_text: The custom prompt to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#prompt_text DialogflowCxPlaybook#prompt_text}
         '''
         value = DialogflowCxPlaybookLlmModelSettings(
             model=model, prompt_text=prompt_text
@@ -179,9 +179,9 @@ class DialogflowCxPlaybook(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#create DialogflowCxPlaybook#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#delete DialogflowCxPlaybook#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#update DialogflowCxPlaybook#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#create DialogflowCxPlaybook#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#delete DialogflowCxPlaybook#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#update DialogflowCxPlaybook#update}.
         '''
         value = DialogflowCxPlaybookTimeouts(
             create=create, delete=delete, update=update
@@ -450,15 +450,15 @@ class DialogflowCxPlaybookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The human-readable name of the playbook, unique within an agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#display_name DialogflowCxPlaybook#display_name}
-        :param goal: High level description of the goal the playbook intend to accomplish. A goal should be concise since it's visible to other playbooks that may reference this playbook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#goal DialogflowCxPlaybook#goal}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#id DialogflowCxPlaybook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instruction: instruction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#instruction DialogflowCxPlaybook#instruction}
-        :param llm_model_settings: llm_model_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#llm_model_settings DialogflowCxPlaybook#llm_model_settings}
-        :param parent: The agent to create a Playbook for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#parent DialogflowCxPlaybook#parent}
-        :param playbook_type: Type of the playbook. Possible values: ["PLAYBOOK_TYPE_UNSPECIFIED", "TASK", "ROUTINE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#playbook_type DialogflowCxPlaybook#playbook_type}
-        :param referenced_tools: The resource name of tools referenced by the current playbook in the instructions. If not provided explicitly, they are will be implied using the tool being referenced in goal and steps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#referenced_tools DialogflowCxPlaybook#referenced_tools}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#timeouts DialogflowCxPlaybook#timeouts}
+        :param display_name: The human-readable name of the playbook, unique within an agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#display_name DialogflowCxPlaybook#display_name}
+        :param goal: High level description of the goal the playbook intend to accomplish. A goal should be concise since it's visible to other playbooks that may reference this playbook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#goal DialogflowCxPlaybook#goal}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#id DialogflowCxPlaybook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instruction: instruction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#instruction DialogflowCxPlaybook#instruction}
+        :param llm_model_settings: llm_model_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#llm_model_settings DialogflowCxPlaybook#llm_model_settings}
+        :param parent: The agent to create a Playbook for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#parent DialogflowCxPlaybook#parent}
+        :param playbook_type: Type of the playbook. Possible values: ["PLAYBOOK_TYPE_UNSPECIFIED", "TASK", "ROUTINE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#playbook_type DialogflowCxPlaybook#playbook_type}
+        :param referenced_tools: The resource name of tools referenced by the current playbook in the instructions. If not provided explicitly, they are will be implied using the tool being referenced in goal and steps. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#referenced_tools DialogflowCxPlaybook#referenced_tools}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#timeouts DialogflowCxPlaybook#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -587,7 +587,7 @@ class DialogflowCxPlaybookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The human-readable name of the playbook, unique within an agent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#display_name DialogflowCxPlaybook#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#display_name DialogflowCxPlaybook#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -599,7 +599,7 @@ class DialogflowCxPlaybookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         A goal should be concise since it's visible to other playbooks that may reference this playbook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#goal DialogflowCxPlaybook#goal}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#goal DialogflowCxPlaybook#goal}
         '''
         result = self._values.get("goal")
         assert result is not None, "Required property 'goal' is missing"
@@ -607,7 +607,7 @@ class DialogflowCxPlaybookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#id DialogflowCxPlaybook#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#id DialogflowCxPlaybook#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -619,7 +619,7 @@ class DialogflowCxPlaybookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instruction(self) -> typing.Optional["DialogflowCxPlaybookInstruction"]:
         '''instruction block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#instruction DialogflowCxPlaybook#instruction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#instruction DialogflowCxPlaybook#instruction}
         '''
         result = self._values.get("instruction")
         return typing.cast(typing.Optional["DialogflowCxPlaybookInstruction"], result)
@@ -630,7 +630,7 @@ class DialogflowCxPlaybookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DialogflowCxPlaybookLlmModelSettings"]:
         '''llm_model_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#llm_model_settings DialogflowCxPlaybook#llm_model_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#llm_model_settings DialogflowCxPlaybook#llm_model_settings}
         '''
         result = self._values.get("llm_model_settings")
         return typing.cast(typing.Optional["DialogflowCxPlaybookLlmModelSettings"], result)
@@ -639,7 +639,7 @@ class DialogflowCxPlaybookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> typing.Optional[builtins.str]:
         '''The agent to create a Playbook for. Format: projects//locations//agents/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#parent DialogflowCxPlaybook#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#parent DialogflowCxPlaybook#parent}
         '''
         result = self._values.get("parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -648,7 +648,7 @@ class DialogflowCxPlaybookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def playbook_type(self) -> typing.Optional[builtins.str]:
         '''Type of the playbook. Possible values: ["PLAYBOOK_TYPE_UNSPECIFIED", "TASK", "ROUTINE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#playbook_type DialogflowCxPlaybook#playbook_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#playbook_type DialogflowCxPlaybook#playbook_type}
         '''
         result = self._values.get("playbook_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -659,7 +659,7 @@ class DialogflowCxPlaybookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If not provided explicitly, they are will be implied using the tool being referenced in goal and steps.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#referenced_tools DialogflowCxPlaybook#referenced_tools}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#referenced_tools DialogflowCxPlaybook#referenced_tools}
         '''
         result = self._values.get("referenced_tools")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -668,7 +668,7 @@ class DialogflowCxPlaybookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DialogflowCxPlaybookTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#timeouts DialogflowCxPlaybook#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#timeouts DialogflowCxPlaybook#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DialogflowCxPlaybookTimeouts"], result)
@@ -698,8 +698,8 @@ class DialogflowCxPlaybookInstruction:
         steps: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DialogflowCxPlaybookInstructionSteps", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param guidelines: General guidelines for the playbook. These are unstructured instructions that are not directly part of the goal, e.g. "Always be polite". It's valid for this text to be long and used instead of steps altogether. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#guidelines DialogflowCxPlaybook#guidelines}
-        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#steps DialogflowCxPlaybook#steps}
+        :param guidelines: General guidelines for the playbook. These are unstructured instructions that are not directly part of the goal, e.g. "Always be polite". It's valid for this text to be long and used instead of steps altogether. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#guidelines DialogflowCxPlaybook#guidelines}
+        :param steps: steps block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#steps DialogflowCxPlaybook#steps}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e98b771c1415ae63da9186faf2d044d8b6e9825e25449bd8d312ffeddb4cf2b4)
@@ -717,7 +717,7 @@ class DialogflowCxPlaybookInstruction:
 
         These are unstructured instructions that are not directly part of the goal, e.g. "Always be polite". It's valid for this text to be long and used instead of steps altogether.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#guidelines DialogflowCxPlaybook#guidelines}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#guidelines DialogflowCxPlaybook#guidelines}
         '''
         result = self._values.get("guidelines")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -728,7 +728,7 @@ class DialogflowCxPlaybookInstruction:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxPlaybookInstructionSteps"]]]:
         '''steps block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#steps DialogflowCxPlaybook#steps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#steps DialogflowCxPlaybook#steps}
         '''
         result = self._values.get("steps")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxPlaybookInstructionSteps"]]], result)
@@ -844,8 +844,8 @@ class DialogflowCxPlaybookInstructionSteps:
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param steps: Sub-processing needed to execute the current step. This field uses JSON data as a string. The value provided must be a valid JSON representation documented in `Step <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.playbooks#step>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#steps DialogflowCxPlaybook#steps}
-        :param text: Step instruction in text format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#text DialogflowCxPlaybook#text}
+        :param steps: Sub-processing needed to execute the current step. This field uses JSON data as a string. The value provided must be a valid JSON representation documented in `Step <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.playbooks#step>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#steps DialogflowCxPlaybook#steps}
+        :param text: Step instruction in text format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#text DialogflowCxPlaybook#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc638a79086a1d66f4530ac01ff531d0ba0decdc9f740d79d1364028e6f99294)
@@ -863,7 +863,7 @@ class DialogflowCxPlaybookInstructionSteps:
 
         This field uses JSON data as a string. The value provided must be a valid JSON representation documented in `Step <https://cloud.google.com/dialogflow/cx/docs/reference/rest/v3/projects.locations.agents.playbooks#step>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#steps DialogflowCxPlaybook#steps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#steps DialogflowCxPlaybook#steps}
         '''
         result = self._values.get("steps")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -872,7 +872,7 @@ class DialogflowCxPlaybookInstructionSteps:
     def text(self) -> typing.Optional[builtins.str]:
         '''Step instruction in text format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#text DialogflowCxPlaybook#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#text DialogflowCxPlaybook#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1081,8 +1081,8 @@ class DialogflowCxPlaybookLlmModelSettings:
         prompt_text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param model: The selected LLM model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#model DialogflowCxPlaybook#model}
-        :param prompt_text: The custom prompt to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#prompt_text DialogflowCxPlaybook#prompt_text}
+        :param model: The selected LLM model. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#model DialogflowCxPlaybook#model}
+        :param prompt_text: The custom prompt to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#prompt_text DialogflowCxPlaybook#prompt_text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9cb0b3adb0278d31c45d7e881a8ab364001917b713d4cbb90ef24cbc558c7fe2)
@@ -1098,7 +1098,7 @@ class DialogflowCxPlaybookLlmModelSettings:
     def model(self) -> typing.Optional[builtins.str]:
         '''The selected LLM model.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#model DialogflowCxPlaybook#model}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#model DialogflowCxPlaybook#model}
         '''
         result = self._values.get("model")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1107,7 +1107,7 @@ class DialogflowCxPlaybookLlmModelSettings:
     def prompt_text(self) -> typing.Optional[builtins.str]:
         '''The custom prompt to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#prompt_text DialogflowCxPlaybook#prompt_text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#prompt_text DialogflowCxPlaybook#prompt_text}
         '''
         result = self._values.get("prompt_text")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1216,9 +1216,9 @@ class DialogflowCxPlaybookTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#create DialogflowCxPlaybook#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#delete DialogflowCxPlaybook#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#update DialogflowCxPlaybook#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#create DialogflowCxPlaybook#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#delete DialogflowCxPlaybook#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#update DialogflowCxPlaybook#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a022727ac64e80952ab5efc0f8d3dd69a1a23975a5c054cc19605842c3146133)
@@ -1235,19 +1235,19 @@ class DialogflowCxPlaybookTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#create DialogflowCxPlaybook#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#create DialogflowCxPlaybook#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#delete DialogflowCxPlaybook#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#delete DialogflowCxPlaybook#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/dialogflow_cx_playbook#update DialogflowCxPlaybook#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_cx_playbook#update DialogflowCxPlaybook#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

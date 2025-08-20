@@ -243,6 +243,17 @@ class travel:
     ) -> None:
         self.stop()
 
+    async def __aenter__(self) -> Coordinates:
+        return self.start()
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self.stop()
+
     @overload
     def __call__(self, wrapped: TestCaseType) -> TestCaseType:  # pragma: no cover
         ...
@@ -379,6 +390,22 @@ def time_ns() -> int:
 
 if HAVE_PYTEST:  # pragma: no branch
 
+    def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+        """
+        Add the fixture to any tests with the marker.
+        """
+        for item in items:
+            if item.get_closest_marker("time_machine"):
+                item.fixturenames.insert(0, "time_machine")  # type: ignore[attr-defined]
+
+    def pytest_configure(config: pytest.Config) -> None:
+        """
+        Register the marker.
+        """
+        config.addinivalue_line(
+            "markers", "time_machine(...): set the time with time-machine"
+        )
+
     class TimeMachineFixture:
         traveller: travel | None
         coordinates: Coordinates | None
@@ -414,8 +441,14 @@ if HAVE_PYTEST:  # pragma: no branch
                 self.traveller.stop()
 
     @pytest.fixture(name="time_machine")
-    def time_machine_fixture() -> TypingGenerator[TimeMachineFixture, None, None]:
+    def time_machine_fixture(
+        request: pytest.FixtureRequest,
+    ) -> TypingGenerator[TimeMachineFixture, None, None]:
         fixture = TimeMachineFixture()
+        marker = request.node.get_closest_marker("time_machine")
+        if marker:
+            fixture.move_to(*marker.args, **marker.kwargs)
+
         yield fixture
         fixture.stop()
 

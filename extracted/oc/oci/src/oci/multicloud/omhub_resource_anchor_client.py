@@ -158,14 +158,14 @@ class OmhubResourceAnchorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/multicloud/get_resource_anchor.py.html>`__ to see an example of how to use get_resource_anchor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/multicloud/get_resource_anchor.py.html>`__ to see an example of how to use get_resource_anchor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['resourceAnchorId', 'subscriptionServiceName', 'subscriptionId']
         resource_path = "/resourceAnchors/{resourceAnchorId}"
         method = "GET"
         operation_name = "get_resource_anchor"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/multicloud-omhub-cp/20180828/ResourceAnchor/GetResourceAnchor"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -332,14 +332,14 @@ class OmhubResourceAnchorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/multicloud/list_resource_anchors.py.html>`__ to see an example of how to use list_resource_anchors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.2/multicloud/list_resource_anchors.py.html>`__ to see an example of how to use list_resource_anchors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionServiceName', 'subscriptionId']
         resource_path = "/resourceAnchors"
         method = "GET"
         operation_name = "list_resource_anchors"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/multicloud-omhub-cp/20180828/ResourceAnchorCollection/ListResourceAnchors"
 
         # Don't accept unknown kwargs
         expected_kwargs = [

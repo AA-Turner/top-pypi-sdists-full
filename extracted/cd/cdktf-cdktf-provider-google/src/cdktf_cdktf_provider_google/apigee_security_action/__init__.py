@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_security_action`
 
-Refer to the Terraform Registry for docs: [`google_apigee_security_action`](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action).
+Refer to the Terraform Registry for docs: [`google_apigee_security_action`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApigeeSecurityAction(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.apigeeSecurityAction.ApigeeSecurityAction",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action google_apigee_security_action}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action google_apigee_security_action}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class ApigeeSecurityAction(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action google_apigee_security_action} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action google_apigee_security_action} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param condition_config: condition_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#condition_config ApigeeSecurityAction#condition_config}
-        :param env_id: The Apigee environment that this security action applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#env_id ApigeeSecurityAction#env_id}
-        :param org_id: The organization that this security action applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#org_id ApigeeSecurityAction#org_id}
-        :param security_action_id: The ID to use for the SecurityAction, which will become the final component of the action's resource name. This value should be 0-61 characters, and valid format is (^a-z?$). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#security_action_id ApigeeSecurityAction#security_action_id}
-        :param state: Only an ENABLED SecurityAction is enforced. An ENABLED SecurityAction past its expiration time will not be enforced. Possible values: ["ENABLED", "DISABLED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#state ApigeeSecurityAction#state}
-        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#allow ApigeeSecurityAction#allow}
-        :param api_proxies: If unset, this would apply to all proxies in the environment. If set, this action is enforced only if at least one proxy in the repeated list is deployed at the time of enforcement. If set, several restrictions are enforced on SecurityActions. There can be at most 100 enabled actions with proxies set in an env. Several other restrictions apply on conditions and are detailed later. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#api_proxies ApigeeSecurityAction#api_proxies}
-        :param deny: deny block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#deny ApigeeSecurityAction#deny}
-        :param description: An optional user provided description of the SecurityAction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#description ApigeeSecurityAction#description}
-        :param expire_time: The expiration for this SecurityAction. Uses RFC 3339, where generated output will always be Z-normalized and uses 0, 3, 6 or 9 fractional digits. Offsets other than "Z" are also accepted. Examples: "2014-10-02T15:01:23Z", "2014-10-02T15:01:23.045123456Z" or "2014-10-02T15:01:23+05:30". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#expire_time ApigeeSecurityAction#expire_time}
-        :param flag: flag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#flag ApigeeSecurityAction#flag}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#id ApigeeSecurityAction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#timeouts ApigeeSecurityAction#timeouts}
-        :param ttl: The TTL for this SecurityAction. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#ttl ApigeeSecurityAction#ttl}
+        :param condition_config: condition_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#condition_config ApigeeSecurityAction#condition_config}
+        :param env_id: The Apigee environment that this security action applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#env_id ApigeeSecurityAction#env_id}
+        :param org_id: The organization that this security action applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#org_id ApigeeSecurityAction#org_id}
+        :param security_action_id: The ID to use for the SecurityAction, which will become the final component of the action's resource name. This value should be 0-61 characters, and valid format is (^a-z?$). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#security_action_id ApigeeSecurityAction#security_action_id}
+        :param state: Only an ENABLED SecurityAction is enforced. An ENABLED SecurityAction past its expiration time will not be enforced. Possible values: ["ENABLED", "DISABLED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#state ApigeeSecurityAction#state}
+        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#allow ApigeeSecurityAction#allow}
+        :param api_proxies: If unset, this would apply to all proxies in the environment. If set, this action is enforced only if at least one proxy in the repeated list is deployed at the time of enforcement. If set, several restrictions are enforced on SecurityActions. There can be at most 100 enabled actions with proxies set in an env. Several other restrictions apply on conditions and are detailed later. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#api_proxies ApigeeSecurityAction#api_proxies}
+        :param deny: deny block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#deny ApigeeSecurityAction#deny}
+        :param description: An optional user provided description of the SecurityAction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#description ApigeeSecurityAction#description}
+        :param expire_time: The expiration for this SecurityAction. Uses RFC 3339, where generated output will always be Z-normalized and uses 0, 3, 6 or 9 fractional digits. Offsets other than "Z" are also accepted. Examples: "2014-10-02T15:01:23Z", "2014-10-02T15:01:23.045123456Z" or "2014-10-02T15:01:23+05:30". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#expire_time ApigeeSecurityAction#expire_time}
+        :param flag: flag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#flag ApigeeSecurityAction#flag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#id ApigeeSecurityAction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#timeouts ApigeeSecurityAction#timeouts}
+        :param ttl: The TTL for this SecurityAction. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#ttl ApigeeSecurityAction#ttl}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class ApigeeSecurityAction(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApigeeSecurityAction to import.
-        :param import_from_id: The id of the existing ApigeeSecurityAction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApigeeSecurityAction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApigeeSecurityAction to import is found.
         '''
         if __debug__:
@@ -176,17 +176,17 @@ class ApigeeSecurityAction(
         user_agents: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param access_tokens: A list of accessTokens. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#access_tokens ApigeeSecurityAction#access_tokens}
-        :param api_keys: A list of API keys. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#api_keys ApigeeSecurityAction#api_keys}
-        :param api_products: A list of API Products. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#api_products ApigeeSecurityAction#api_products}
-        :param asns: A list of ASN numbers to act on, e.g. 23. https://en.wikipedia.org/wiki/Autonomous_system_(Internet) This uses int64 instead of uint32 because of https://linter.aip.dev/141/forbidden-types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#asns ApigeeSecurityAction#asns}
-        :param bot_reasons: A list of Bot Reasons. Current options: Flooder, Brute Guessor, Static Content Scraper, OAuth Abuser, Robot Abuser, TorListRule, Advanced Anomaly Detection, Advanced API Scraper, Search Engine Crawlers, Public Clouds, Public Cloud AWS, Public Cloud Azure, and Public Cloud Google. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#bot_reasons ApigeeSecurityAction#bot_reasons}
-        :param developer_apps: A list of developer apps. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#developer_apps ApigeeSecurityAction#developer_apps}
-        :param developers: A list of developers. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#developers ApigeeSecurityAction#developers}
-        :param http_methods: Act only on particular HTTP methods. E.g. A read-only API can block POST/PUT/DELETE methods. Accepted values are: GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS, TRACE and PATCH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#http_methods ApigeeSecurityAction#http_methods}
-        :param ip_address_ranges: A list of IP addresses. This could be either IPv4 or IPv6. Limited to 100 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#ip_address_ranges ApigeeSecurityAction#ip_address_ranges}
-        :param region_codes: A list of countries/region codes to act on, e.g. US. This follows https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#region_codes ApigeeSecurityAction#region_codes}
-        :param user_agents: A list of user agents to deny. We look for exact matches. Limit 50 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#user_agents ApigeeSecurityAction#user_agents}
+        :param access_tokens: A list of accessTokens. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#access_tokens ApigeeSecurityAction#access_tokens}
+        :param api_keys: A list of API keys. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#api_keys ApigeeSecurityAction#api_keys}
+        :param api_products: A list of API Products. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#api_products ApigeeSecurityAction#api_products}
+        :param asns: A list of ASN numbers to act on, e.g. 23. https://en.wikipedia.org/wiki/Autonomous_system_(Internet) This uses int64 instead of uint32 because of https://linter.aip.dev/141/forbidden-types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#asns ApigeeSecurityAction#asns}
+        :param bot_reasons: A list of Bot Reasons. Current options: Flooder, Brute Guessor, Static Content Scraper, OAuth Abuser, Robot Abuser, TorListRule, Advanced Anomaly Detection, Advanced API Scraper, Search Engine Crawlers, Public Clouds, Public Cloud AWS, Public Cloud Azure, and Public Cloud Google. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#bot_reasons ApigeeSecurityAction#bot_reasons}
+        :param developer_apps: A list of developer apps. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#developer_apps ApigeeSecurityAction#developer_apps}
+        :param developers: A list of developers. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#developers ApigeeSecurityAction#developers}
+        :param http_methods: Act only on particular HTTP methods. E.g. A read-only API can block POST/PUT/DELETE methods. Accepted values are: GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS, TRACE and PATCH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#http_methods ApigeeSecurityAction#http_methods}
+        :param ip_address_ranges: A list of IP addresses. This could be either IPv4 or IPv6. Limited to 100 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#ip_address_ranges ApigeeSecurityAction#ip_address_ranges}
+        :param region_codes: A list of countries/region codes to act on, e.g. US. This follows https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#region_codes ApigeeSecurityAction#region_codes}
+        :param user_agents: A list of user agents to deny. We look for exact matches. Limit 50 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#user_agents ApigeeSecurityAction#user_agents}
         '''
         value = ApigeeSecurityActionConditionConfig(
             access_tokens=access_tokens,
@@ -207,7 +207,7 @@ class ApigeeSecurityAction(
     @jsii.member(jsii_name="putDeny")
     def put_deny(self, *, response_code: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param response_code: The HTTP response code if the Action = DENY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#response_code ApigeeSecurityAction#response_code}
+        :param response_code: The HTTP response code if the Action = DENY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#response_code ApigeeSecurityAction#response_code}
         '''
         value = ApigeeSecurityActionDeny(response_code=response_code)
 
@@ -220,7 +220,7 @@ class ApigeeSecurityAction(
         headers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApigeeSecurityActionFlagHeaders", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#headers ApigeeSecurityAction#headers}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#headers ApigeeSecurityAction#headers}
         '''
         value = ApigeeSecurityActionFlag(headers=headers)
 
@@ -234,8 +234,8 @@ class ApigeeSecurityAction(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#create ApigeeSecurityAction#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#delete ApigeeSecurityAction#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#create ApigeeSecurityAction#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#delete ApigeeSecurityAction#delete}.
         '''
         value = ApigeeSecurityActionTimeouts(create=create, delete=delete)
 
@@ -596,17 +596,17 @@ class ApigeeSecurityActionConditionConfig:
         user_agents: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param access_tokens: A list of accessTokens. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#access_tokens ApigeeSecurityAction#access_tokens}
-        :param api_keys: A list of API keys. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#api_keys ApigeeSecurityAction#api_keys}
-        :param api_products: A list of API Products. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#api_products ApigeeSecurityAction#api_products}
-        :param asns: A list of ASN numbers to act on, e.g. 23. https://en.wikipedia.org/wiki/Autonomous_system_(Internet) This uses int64 instead of uint32 because of https://linter.aip.dev/141/forbidden-types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#asns ApigeeSecurityAction#asns}
-        :param bot_reasons: A list of Bot Reasons. Current options: Flooder, Brute Guessor, Static Content Scraper, OAuth Abuser, Robot Abuser, TorListRule, Advanced Anomaly Detection, Advanced API Scraper, Search Engine Crawlers, Public Clouds, Public Cloud AWS, Public Cloud Azure, and Public Cloud Google. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#bot_reasons ApigeeSecurityAction#bot_reasons}
-        :param developer_apps: A list of developer apps. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#developer_apps ApigeeSecurityAction#developer_apps}
-        :param developers: A list of developers. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#developers ApigeeSecurityAction#developers}
-        :param http_methods: Act only on particular HTTP methods. E.g. A read-only API can block POST/PUT/DELETE methods. Accepted values are: GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS, TRACE and PATCH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#http_methods ApigeeSecurityAction#http_methods}
-        :param ip_address_ranges: A list of IP addresses. This could be either IPv4 or IPv6. Limited to 100 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#ip_address_ranges ApigeeSecurityAction#ip_address_ranges}
-        :param region_codes: A list of countries/region codes to act on, e.g. US. This follows https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#region_codes ApigeeSecurityAction#region_codes}
-        :param user_agents: A list of user agents to deny. We look for exact matches. Limit 50 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#user_agents ApigeeSecurityAction#user_agents}
+        :param access_tokens: A list of accessTokens. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#access_tokens ApigeeSecurityAction#access_tokens}
+        :param api_keys: A list of API keys. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#api_keys ApigeeSecurityAction#api_keys}
+        :param api_products: A list of API Products. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#api_products ApigeeSecurityAction#api_products}
+        :param asns: A list of ASN numbers to act on, e.g. 23. https://en.wikipedia.org/wiki/Autonomous_system_(Internet) This uses int64 instead of uint32 because of https://linter.aip.dev/141/forbidden-types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#asns ApigeeSecurityAction#asns}
+        :param bot_reasons: A list of Bot Reasons. Current options: Flooder, Brute Guessor, Static Content Scraper, OAuth Abuser, Robot Abuser, TorListRule, Advanced Anomaly Detection, Advanced API Scraper, Search Engine Crawlers, Public Clouds, Public Cloud AWS, Public Cloud Azure, and Public Cloud Google. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#bot_reasons ApigeeSecurityAction#bot_reasons}
+        :param developer_apps: A list of developer apps. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#developer_apps ApigeeSecurityAction#developer_apps}
+        :param developers: A list of developers. Limit 1000 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#developers ApigeeSecurityAction#developers}
+        :param http_methods: Act only on particular HTTP methods. E.g. A read-only API can block POST/PUT/DELETE methods. Accepted values are: GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS, TRACE and PATCH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#http_methods ApigeeSecurityAction#http_methods}
+        :param ip_address_ranges: A list of IP addresses. This could be either IPv4 or IPv6. Limited to 100 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#ip_address_ranges ApigeeSecurityAction#ip_address_ranges}
+        :param region_codes: A list of countries/region codes to act on, e.g. US. This follows https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#region_codes ApigeeSecurityAction#region_codes}
+        :param user_agents: A list of user agents to deny. We look for exact matches. Limit 50 per action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#user_agents ApigeeSecurityAction#user_agents}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5585f29ff88d80bfd681eb63541a70f18c203cb27724d5624949ba293ec2e3d0)
@@ -649,7 +649,7 @@ class ApigeeSecurityActionConditionConfig:
     def access_tokens(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of accessTokens. Limit 1000 per action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#access_tokens ApigeeSecurityAction#access_tokens}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#access_tokens ApigeeSecurityAction#access_tokens}
         '''
         result = self._values.get("access_tokens")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -658,7 +658,7 @@ class ApigeeSecurityActionConditionConfig:
     def api_keys(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of API keys. Limit 1000 per action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#api_keys ApigeeSecurityAction#api_keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#api_keys ApigeeSecurityAction#api_keys}
         '''
         result = self._values.get("api_keys")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -667,7 +667,7 @@ class ApigeeSecurityActionConditionConfig:
     def api_products(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of API Products. Limit 1000 per action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#api_products ApigeeSecurityAction#api_products}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#api_products ApigeeSecurityAction#api_products}
         '''
         result = self._values.get("api_products")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -676,7 +676,7 @@ class ApigeeSecurityActionConditionConfig:
     def asns(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of ASN numbers to act on, e.g. 23. https://en.wikipedia.org/wiki/Autonomous_system_(Internet) This uses int64 instead of uint32 because of https://linter.aip.dev/141/forbidden-types.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#asns ApigeeSecurityAction#asns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#asns ApigeeSecurityAction#asns}
         '''
         result = self._values.get("asns")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -689,7 +689,7 @@ class ApigeeSecurityActionConditionConfig:
         OAuth Abuser, Robot Abuser, TorListRule, Advanced Anomaly Detection, Advanced API Scraper,
         Search Engine Crawlers, Public Clouds, Public Cloud AWS, Public Cloud Azure, and Public Cloud Google.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#bot_reasons ApigeeSecurityAction#bot_reasons}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#bot_reasons ApigeeSecurityAction#bot_reasons}
         '''
         result = self._values.get("bot_reasons")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -698,7 +698,7 @@ class ApigeeSecurityActionConditionConfig:
     def developer_apps(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of developer apps. Limit 1000 per action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#developer_apps ApigeeSecurityAction#developer_apps}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#developer_apps ApigeeSecurityAction#developer_apps}
         '''
         result = self._values.get("developer_apps")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -707,7 +707,7 @@ class ApigeeSecurityActionConditionConfig:
     def developers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of developers. Limit 1000 per action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#developers ApigeeSecurityAction#developers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#developers ApigeeSecurityAction#developers}
         '''
         result = self._values.get("developers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -719,7 +719,7 @@ class ApigeeSecurityActionConditionConfig:
         E.g. A read-only API can block POST/PUT/DELETE methods.
         Accepted values are: GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS, TRACE and PATCH.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#http_methods ApigeeSecurityAction#http_methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#http_methods ApigeeSecurityAction#http_methods}
         '''
         result = self._values.get("http_methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -728,7 +728,7 @@ class ApigeeSecurityActionConditionConfig:
     def ip_address_ranges(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of IP addresses. This could be either IPv4 or IPv6. Limited to 100 per action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#ip_address_ranges ApigeeSecurityAction#ip_address_ranges}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#ip_address_ranges ApigeeSecurityAction#ip_address_ranges}
         '''
         result = self._values.get("ip_address_ranges")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -737,7 +737,7 @@ class ApigeeSecurityActionConditionConfig:
     def region_codes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of countries/region codes to act on, e.g. US. This follows https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#region_codes ApigeeSecurityAction#region_codes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#region_codes ApigeeSecurityAction#region_codes}
         '''
         result = self._values.get("region_codes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -746,7 +746,7 @@ class ApigeeSecurityActionConditionConfig:
     def user_agents(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of user agents to deny. We look for exact matches. Limit 50 per action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#user_agents ApigeeSecurityAction#user_agents}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#user_agents ApigeeSecurityAction#user_agents}
         '''
         result = self._values.get("user_agents")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1091,20 +1091,20 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param condition_config: condition_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#condition_config ApigeeSecurityAction#condition_config}
-        :param env_id: The Apigee environment that this security action applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#env_id ApigeeSecurityAction#env_id}
-        :param org_id: The organization that this security action applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#org_id ApigeeSecurityAction#org_id}
-        :param security_action_id: The ID to use for the SecurityAction, which will become the final component of the action's resource name. This value should be 0-61 characters, and valid format is (^a-z?$). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#security_action_id ApigeeSecurityAction#security_action_id}
-        :param state: Only an ENABLED SecurityAction is enforced. An ENABLED SecurityAction past its expiration time will not be enforced. Possible values: ["ENABLED", "DISABLED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#state ApigeeSecurityAction#state}
-        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#allow ApigeeSecurityAction#allow}
-        :param api_proxies: If unset, this would apply to all proxies in the environment. If set, this action is enforced only if at least one proxy in the repeated list is deployed at the time of enforcement. If set, several restrictions are enforced on SecurityActions. There can be at most 100 enabled actions with proxies set in an env. Several other restrictions apply on conditions and are detailed later. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#api_proxies ApigeeSecurityAction#api_proxies}
-        :param deny: deny block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#deny ApigeeSecurityAction#deny}
-        :param description: An optional user provided description of the SecurityAction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#description ApigeeSecurityAction#description}
-        :param expire_time: The expiration for this SecurityAction. Uses RFC 3339, where generated output will always be Z-normalized and uses 0, 3, 6 or 9 fractional digits. Offsets other than "Z" are also accepted. Examples: "2014-10-02T15:01:23Z", "2014-10-02T15:01:23.045123456Z" or "2014-10-02T15:01:23+05:30". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#expire_time ApigeeSecurityAction#expire_time}
-        :param flag: flag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#flag ApigeeSecurityAction#flag}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#id ApigeeSecurityAction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#timeouts ApigeeSecurityAction#timeouts}
-        :param ttl: The TTL for this SecurityAction. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#ttl ApigeeSecurityAction#ttl}
+        :param condition_config: condition_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#condition_config ApigeeSecurityAction#condition_config}
+        :param env_id: The Apigee environment that this security action applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#env_id ApigeeSecurityAction#env_id}
+        :param org_id: The organization that this security action applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#org_id ApigeeSecurityAction#org_id}
+        :param security_action_id: The ID to use for the SecurityAction, which will become the final component of the action's resource name. This value should be 0-61 characters, and valid format is (^a-z?$). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#security_action_id ApigeeSecurityAction#security_action_id}
+        :param state: Only an ENABLED SecurityAction is enforced. An ENABLED SecurityAction past its expiration time will not be enforced. Possible values: ["ENABLED", "DISABLED"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#state ApigeeSecurityAction#state}
+        :param allow: allow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#allow ApigeeSecurityAction#allow}
+        :param api_proxies: If unset, this would apply to all proxies in the environment. If set, this action is enforced only if at least one proxy in the repeated list is deployed at the time of enforcement. If set, several restrictions are enforced on SecurityActions. There can be at most 100 enabled actions with proxies set in an env. Several other restrictions apply on conditions and are detailed later. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#api_proxies ApigeeSecurityAction#api_proxies}
+        :param deny: deny block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#deny ApigeeSecurityAction#deny}
+        :param description: An optional user provided description of the SecurityAction. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#description ApigeeSecurityAction#description}
+        :param expire_time: The expiration for this SecurityAction. Uses RFC 3339, where generated output will always be Z-normalized and uses 0, 3, 6 or 9 fractional digits. Offsets other than "Z" are also accepted. Examples: "2014-10-02T15:01:23Z", "2014-10-02T15:01:23.045123456Z" or "2014-10-02T15:01:23+05:30". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#expire_time ApigeeSecurityAction#expire_time}
+        :param flag: flag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#flag ApigeeSecurityAction#flag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#id ApigeeSecurityAction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#timeouts ApigeeSecurityAction#timeouts}
+        :param ttl: The TTL for this SecurityAction. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#ttl ApigeeSecurityAction#ttl}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1249,7 +1249,7 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def condition_config(self) -> ApigeeSecurityActionConditionConfig:
         '''condition_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#condition_config ApigeeSecurityAction#condition_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#condition_config ApigeeSecurityAction#condition_config}
         '''
         result = self._values.get("condition_config")
         assert result is not None, "Required property 'condition_config' is missing"
@@ -1259,7 +1259,7 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def env_id(self) -> builtins.str:
         '''The Apigee environment that this security action applies to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#env_id ApigeeSecurityAction#env_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#env_id ApigeeSecurityAction#env_id}
         '''
         result = self._values.get("env_id")
         assert result is not None, "Required property 'env_id' is missing"
@@ -1269,7 +1269,7 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def org_id(self) -> builtins.str:
         '''The organization that this security action applies to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#org_id ApigeeSecurityAction#org_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#org_id ApigeeSecurityAction#org_id}
         '''
         result = self._values.get("org_id")
         assert result is not None, "Required property 'org_id' is missing"
@@ -1281,7 +1281,7 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This value should be 0-61 characters, and valid format is (^a-z?$).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#security_action_id ApigeeSecurityAction#security_action_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#security_action_id ApigeeSecurityAction#security_action_id}
         '''
         result = self._values.get("security_action_id")
         assert result is not None, "Required property 'security_action_id' is missing"
@@ -1293,7 +1293,7 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         An ENABLED SecurityAction past its expiration time will not be enforced. Possible values: ["ENABLED", "DISABLED"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#state ApigeeSecurityAction#state}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#state ApigeeSecurityAction#state}
         '''
         result = self._values.get("state")
         assert result is not None, "Required property 'state' is missing"
@@ -1303,7 +1303,7 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allow(self) -> typing.Optional[ApigeeSecurityActionAllow]:
         '''allow block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#allow ApigeeSecurityAction#allow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#allow ApigeeSecurityAction#allow}
         '''
         result = self._values.get("allow")
         return typing.cast(typing.Optional[ApigeeSecurityActionAllow], result)
@@ -1317,7 +1317,7 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         There can be at most 100 enabled actions with proxies set in an env.
         Several other restrictions apply on conditions and are detailed later.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#api_proxies ApigeeSecurityAction#api_proxies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#api_proxies ApigeeSecurityAction#api_proxies}
         '''
         result = self._values.get("api_proxies")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1326,7 +1326,7 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def deny(self) -> typing.Optional["ApigeeSecurityActionDeny"]:
         '''deny block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#deny ApigeeSecurityAction#deny}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#deny ApigeeSecurityAction#deny}
         '''
         result = self._values.get("deny")
         return typing.cast(typing.Optional["ApigeeSecurityActionDeny"], result)
@@ -1335,7 +1335,7 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional user provided description of the SecurityAction.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#description ApigeeSecurityAction#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#description ApigeeSecurityAction#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1348,7 +1348,7 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         fractional digits. Offsets other than "Z" are also accepted.
         Examples: "2014-10-02T15:01:23Z", "2014-10-02T15:01:23.045123456Z" or "2014-10-02T15:01:23+05:30".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#expire_time ApigeeSecurityAction#expire_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#expire_time ApigeeSecurityAction#expire_time}
         '''
         result = self._values.get("expire_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1357,14 +1357,14 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def flag(self) -> typing.Optional["ApigeeSecurityActionFlag"]:
         '''flag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#flag ApigeeSecurityAction#flag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#flag ApigeeSecurityAction#flag}
         '''
         result = self._values.get("flag")
         return typing.cast(typing.Optional["ApigeeSecurityActionFlag"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#id ApigeeSecurityAction#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#id ApigeeSecurityAction#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1376,7 +1376,7 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApigeeSecurityActionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#timeouts ApigeeSecurityAction#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#timeouts ApigeeSecurityAction#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApigeeSecurityActionTimeouts"], result)
@@ -1385,7 +1385,7 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ttl(self) -> typing.Optional[builtins.str]:
         '''The TTL for this SecurityAction. A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#ttl ApigeeSecurityAction#ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#ttl ApigeeSecurityAction#ttl}
         '''
         result = self._values.get("ttl")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1410,7 +1410,7 @@ class ApigeeSecurityActionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class ApigeeSecurityActionDeny:
     def __init__(self, *, response_code: typing.Optional[jsii.Number] = None) -> None:
         '''
-        :param response_code: The HTTP response code if the Action = DENY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#response_code ApigeeSecurityAction#response_code}
+        :param response_code: The HTTP response code if the Action = DENY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#response_code ApigeeSecurityAction#response_code}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__003c458d89b692d1fabf84a5f871e4a20f70db6d24262841b2d244039bb3faed)
@@ -1423,7 +1423,7 @@ class ApigeeSecurityActionDeny:
     def response_code(self) -> typing.Optional[jsii.Number]:
         '''The HTTP response code if the Action = DENY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#response_code ApigeeSecurityAction#response_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#response_code ApigeeSecurityAction#response_code}
         '''
         result = self._values.get("response_code")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1506,7 +1506,7 @@ class ApigeeSecurityActionFlag:
         headers: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApigeeSecurityActionFlagHeaders", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#headers ApigeeSecurityAction#headers}
+        :param headers: headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#headers ApigeeSecurityAction#headers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e5de675f48ffb97d9cd251efe19f8f8a6efc2c4f94ef34b3c41560324035842)
@@ -1521,7 +1521,7 @@ class ApigeeSecurityActionFlag:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeSecurityActionFlagHeaders"]]]:
         '''headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#headers ApigeeSecurityAction#headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#headers ApigeeSecurityAction#headers}
         '''
         result = self._values.get("headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApigeeSecurityActionFlagHeaders"]]], result)
@@ -1551,8 +1551,8 @@ class ApigeeSecurityActionFlagHeaders:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The header name to be sent to the target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#name ApigeeSecurityAction#name}
-        :param value: The header value to be sent to the target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#value ApigeeSecurityAction#value}
+        :param name: The header name to be sent to the target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#name ApigeeSecurityAction#name}
+        :param value: The header value to be sent to the target. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#value ApigeeSecurityAction#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__07ddb2d8efae2fd8026e9f3815ff7c53fafb151d7c8cd5c39eb0bf7fb6b3619a)
@@ -1568,7 +1568,7 @@ class ApigeeSecurityActionFlagHeaders:
     def name(self) -> typing.Optional[builtins.str]:
         '''The header name to be sent to the target.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#name ApigeeSecurityAction#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#name ApigeeSecurityAction#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1577,7 +1577,7 @@ class ApigeeSecurityActionFlagHeaders:
     def value(self) -> typing.Optional[builtins.str]:
         '''The header value to be sent to the target.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#value ApigeeSecurityAction#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#value ApigeeSecurityAction#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1848,8 +1848,8 @@ class ApigeeSecurityActionTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#create ApigeeSecurityAction#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#delete ApigeeSecurityAction#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#create ApigeeSecurityAction#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#delete ApigeeSecurityAction#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bedb62276b266027de3b4f1d9b56766c54724d7708570f30b1ef31e5db01851e)
@@ -1863,13 +1863,13 @@ class ApigeeSecurityActionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#create ApigeeSecurityAction#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#create ApigeeSecurityAction#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/apigee_security_action#delete ApigeeSecurityAction#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apigee_security_action#delete ApigeeSecurityAction#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xprof
-Version: 2.20.5
+Version: 2.20.6
 Summary: XProf Profiler Plugin
 Home-page: https://github.com/openxla/xprof
 Author: Google Inc.
@@ -27,7 +27,6 @@ Requires-Dist: etils[epath]>=1.0.0
 Requires-Dist: cheroot>=10.0.1
 Requires-Dist: fsspec>=2024.3.1
 Requires-Dist: gcsfs>=2024.3.1
-Requires-Dist: packaging>=25.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

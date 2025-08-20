@@ -72,7 +72,7 @@ Keyword arguments:
 - deduplicateCssVariables (boolean; optional):
     Determines whether CSS variables should be deduplicated: if CSS
     variable has the same value as in default theme, it is not added
-    in the runtime. `True` by default.
+    in the runtime. @,default,`True`.
 
 - defaultColorScheme (a value equal to: 'auto', 'dark', 'light'; optional):
     Default color scheme value used when `colorSchemeManager` cannot
@@ -201,8 +201,8 @@ Keyword arguments:
         components, system fonts by default.
 
     - headings (dict; optional):
-        Controls various styles of h1-h6 elements, used in
-        TypographyStylesProvider and Title components.
+        Controls various styles of h1-h6 elements, used in Typography
+        and Title components.
 
         `headings` is a dict with keys:
 
@@ -424,16 +424,16 @@ Keyword arguments:
 
 - withCssVariables (boolean; optional):
     Determines whether theme CSS variables should be added to given
-    `cssVariablesSelector`, `True` by default.
+    `cssVariablesSelector` @,default,`True`.
 
 - withGlobalClasses (boolean; optional):
     Determines whether global classes should be added with `<style />`
     tag. Global classes are required for `hiddenFrom`/`visibleFrom`
-    and `lightHidden`/`darkHidden` props to work. `True` by default.
+    and `lightHidden`/`darkHidden` props to work. @,default,`True`.
 
 - withStaticClasses (boolean; optional):
     Determines whether components should have static classes, for
-    example, `mantine-Button-root`. `True` by default."""
+    example, `mantine-Button-root`. @,default,`True`."""
     _children_props = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'

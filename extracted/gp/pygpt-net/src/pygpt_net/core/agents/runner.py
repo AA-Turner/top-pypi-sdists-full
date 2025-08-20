@@ -237,6 +237,7 @@ class Runner:
             model = context.model
             vector_store_idx = extra.get("agent_idx", None)
             system_prompt = context.system_prompt
+            is_expert_call = context.is_expert_call
             max_steps = self.window.core.config.get("agent.llama.steps", 10)
             is_cmd = self.window.core.command.is_cmd(inline=False)
             llm = self.window.core.idx.llm.get(model, stream=False)
@@ -250,15 +251,13 @@ class Runner:
                 tools = extra["agent_tools"]  # use tools from extra if provided
             else:
                 tools = self.window.core.agents.tools.prepare(context, extra, force=True)
+                if not is_cmd:
+                    tools = []  # disable tools if cmd is not enabled, force agent tools
 
             if "agent_history" in extra:
                 history = extra["agent_history"]
             else:
                 history = self.window.core.agents.memory.prepare(context)
-
-            # disable tools if cmd is not enabled
-            if not is_cmd:
-                tools = []
 
             # append system prompt
             if agent_id in self.APPEND_SYSTEM_PROMPT_TO_MSG:
@@ -301,6 +300,7 @@ class Runner:
                 "verbose": verbose,
                 "history": history,
                 "llm": llm,
+                "is_expert_call": is_expert_call,
             }
             # TODO: add support for other modes
             if mode == AGENT_MODE_WORKFLOW:

@@ -1,21 +1,35 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dragonfly-radiance
-Version: 0.4.55
+Version: 0.4.57
 Summary: Dragonfly extension for radiance simulation.
 Home-page: https://github.com/ladybug-tools/dragonfly-radiance
 Author: Ladybug Tools
 Author-email: info@ladybug.tools
 License: AGPL-3.0
 Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: License :: OSI Approved :: GNU Affero General Public License v3
+Classifier: Programming Language :: Python :: Implementation :: IronPython
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: dragonfly-core==1.67.10
+Requires-Dist: dragonfly-core==1.67.12
 Requires-Dist: honeybee-radiance==1.66.188
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 ![Dragonfly](https://www.ladybug.tools/assets/img/dragonfly.png)
 

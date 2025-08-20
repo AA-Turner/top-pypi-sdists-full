@@ -24,7 +24,7 @@ INSTALL_REQUIRES = [
 if __name__ == "__main__":
     setuptools.setup(
         name="cs-models",
-        version="0.0.799",
+        version="0.0.803",
         author="Shrey Verma",
         author_email="sverma@mindgram.ai",
         description="MySQL db models",

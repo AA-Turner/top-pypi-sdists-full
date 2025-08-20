@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: actipy
-Version: 3.6.1
+Version: 3.7.0
 Summary: Python package to process wearable accelerometer data
 Home-page: https://github.com/OxWearables/actipy
 Download-URL: https://github.com/OxWearables/actipy

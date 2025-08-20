@@ -2935,6 +2935,9 @@ class Ingress1(BaseModel):
         ...,
         description="The unique identifier of the code anchor node where the path starts.",
     )
+    description: Optional[str] = Field(
+        default=None, description="An AI-generated summary of the ingress point."
+    )
 
 
 class Egress1(BaseModel):
@@ -2944,6 +2947,9 @@ class Egress1(BaseModel):
     codeAnchorId: UUID = Field(
         ...,
         description="The unique identifier of the code anchor node where the path starts.",
+    )
+    description: Optional[str] = Field(
+        default=None, description="An AI-generated summary of the egress point."
     )
 
 
@@ -2968,6 +2974,10 @@ class Path(BaseModel):
     fieldMappings: List[FieldMapping] = Field(
         ...,
         description="A list of field mappings that describe how fields are mapped along the path.",
+    )
+    transformation_summary: Optional[str] = Field(
+        default=None,
+        description="An AI-generated summary of the data transformation that occurs along this path.",
     )
 
 
@@ -3003,6 +3013,7 @@ class StaticAnalysisToolMetadata(BaseModel):
 class Action1(str, Enum):
     register = "register"
     check = "check"
+    upload = "upload"
 
 
 class OutputFormat(str, Enum):
@@ -3015,7 +3026,8 @@ class PostScaStartRunRequest(BaseModel):
     code_info: StaticAnalysisCodeMetadata
     sca_info: StaticAnalysisToolMetadata
     action: Action1 = Field(
-        ..., description="Action to perform, either 'register' or 'check'"
+        ...,
+        description="Action to perform upon receiving the results. Register should be used when the results are active (like on a 'main' branch or production system), as assets will be registered from the lineage data. Check should be used when the results are from a proposed change (like a pull request) and resultant assets will be checked against any contracts. Upload is the same as register except that no assets will be registered, only the lineage data will be uploaded.",
     )
     pr_link: Optional[str] = Field(
         default=None,
@@ -3057,24 +3069,6 @@ class GetScaRunStatusResponse(BaseModel):
         default=None, description="message associated with the status, if any"
     )
     asset_registration_outcomes: Optional[List[AssetRegistrationOutcome]] = None
-
-
-class StaticAnalysisMachineMetadata(BaseModel):
-    cpu_cores: int = Field(..., description="Number of CPU cores available")
-    ram_gb: float = Field(..., description="Total RAM in gigabytes")
-
-
-class StaticAnalysisStartRunRequest(BaseModel):
-    code_info: StaticAnalysisCodeMetadata
-    sca_tool: StaticAnalysisToolMetadata
-    machine_info: StaticAnalysisMachineMetadata
-
-
-class StaticAnalysisStartRunResponse(BaseModel):
-    run_id: UUID = Field(..., description="Unique identifier assigned to the run")
-    created_at: datetime_aliased = Field(
-        ..., description="Timestamp indicating when the run was created"
-    )
 
 
 class StaticAnalysisCodeURI(BaseModel):
@@ -4157,6 +4151,10 @@ class CreateDataAssetProfileResponse(BaseModel):
 class DataFlowBoundary(BaseModel):
     id: UUID = Field(..., description="The unique identifier for the ingress/egress.")
     kind: str = Field(..., description="The kind of the ingress/egress.")
+    signatureName: Optional[str] = Field(
+        default=None,
+        description="The name of the package, class, or method that the ingress/egress point is associated with.",
+    )
     schema_: GableSchemaStruct = Field(
         ..., alias="schema", description="The schema of the ingress/egress."
     )
@@ -4222,8 +4220,6 @@ class StaticAnalysisPathsUploadRequest(BaseModel):
 
 
 class FakeResponseForTypeGeneration(BaseModel):
-    fakeProperty1: Optional[StaticAnalysisStartRunRequest] = None
-    fakeProperty2: Optional[StaticAnalysisStartRunResponse] = None
     fakeProperty3: Optional[StaticAnalysisPathsUploadRequest] = None
 
 
@@ -4256,4 +4252,4 @@ DataAssetFieldProfile.model_rebuild()
 FullComponent.model_rebuild()
 
 # OpenAPI schema version used to generate this file
-OPENAPI_SCHEMA_VERSION = "0.2.9"
+OPENAPI_SCHEMA_VERSION = "0.2.11"

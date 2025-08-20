@@ -5,7 +5,7 @@ APP_NAME_TO_USECASE = {
     "mask_detection": "mask_detection",
     "pipeline_detection": "pipeline_detection",
     "vehicle_monitoring": "vehicle_monitoring",
-    "vehicle_type_monitoring": "vehicle_monitoring",
+    "Vehicle Type Monitoring": "vehicle_monitoring",
     "weapon_detection": "weapon_detection",
     "traffic_sign_monitoring": "traffic_sign_monitoring",
     "flare_analysis": "flare_analysis",
@@ -52,7 +52,7 @@ APP_NAME_TO_USECASE = {
     "abandoned_object_detection" : "abandoned_object_detection",
     "gas_leak_detection": "gas_leak_detection",
     "color_detection": "color_detection",
-    "license_plate_monitor" : "license_plate_monitor",
+    "License Plate Recognition" : "license_plate_monitor",
     
 }
 
@@ -63,7 +63,7 @@ APP_NAME_TO_CATEGORY = {
     "mask_detection": "mask_detection",
     "pipeline_detection": "pipeline_detection",
     "vehicle_monitoring": "traffic",
-    "vehicle_type_monitoring": "traffic",
+    "Vehicle Type Monitoring": "traffic",
     "weapon_detection": "security",
     "traffic_sign_monitoring": "traffic",
     "flare_analysis": "flare_detection",
@@ -110,7 +110,7 @@ APP_NAME_TO_CATEGORY = {
     "abandoned_object_detection" : "security",
     "gas_leak_detection": "oil_gas",
     "color_detection": "visual_appearance",
-    "license_plate_monitor" : "license_plate_monitor"
+    "License Plate Recognition" : "license_plate_monitor"
 }
 
 def get_usecase_from_app_name(app_name: str) -> str:

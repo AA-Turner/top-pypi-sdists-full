@@ -6,6 +6,7 @@ from typing import Any, Literal
 from web3 import Web3
 
 from cdp.actions.evm.swap import AccountSwapOptions
+from cdp.base_node_rpc_url import get_base_node_rpc_url
 from cdp.evm_server_account import EvmServerAccount
 from cdp.network_capabilities import is_method_supported_on_network
 
@@ -192,43 +193,41 @@ class NetworkScopedEvmServerAccount:
         interval_seconds: float = 0.2,
         rpc_url: str | None = None,
     ) -> dict:
-        """Wait for transaction receipt using web3.py if custom RPC is set, otherwise use the API."""
+        """Wait for transaction receipt using web3.py's built-in wait_for_transaction_receipt method."""
         # If we have a custom RPC URL, use web3.py
         if self._rpc_url:
             if not self._web3:
                 # Initialize web3 if not already done
                 self._web3 = Web3(Web3.HTTPProvider(self._rpc_url))
 
-            import asyncio
-            from time import time
-
-            from web3.exceptions import TransactionNotFound
-
-            start = time()
-            while True:
-                try:
-                    receipt = self._web3.eth.get_transaction_receipt(transaction_hash)
-                    if receipt:
-                        return dict(receipt)
-                except TransactionNotFound:
-                    # Transaction not found yet, continue waiting
-                    pass
-
-                if time() - start > timeout_seconds:
-                    raise TimeoutError("Timeout waiting for transaction receipt via custom RPC.")
-                await asyncio.sleep(interval_seconds)
+            receipt = self._web3.eth.wait_for_transaction_receipt(
+                transaction_hash, timeout=timeout_seconds, poll_latency=interval_seconds
+            )
+            return dict(receipt)
         else:
-            # For managed networks, use default RPC URLs
-            # Since EvmServerAccount doesn't have a wait_for_transaction_receipt method
-            # We'll use web3.py directly with the network's default RPC
-            default_rpc_urls = {
-                "base": "https://mainnet.base.org",
-                "base-sepolia": "https://sepolia.base.org",
-                "ethereum": "https://eth.llamarpc.com",
-                "ethereum-sepolia": "https://rpc.sepolia.org",
-            }
+            # For managed networks, try to use Base Node RPC URL for base/base-sepolia
+            network_rpc_url = None
 
-            network_rpc_url = default_rpc_urls.get(self._network)
+            # Try to get Base Node RPC URL for base networks
+            if self._network in ["base", "base-sepolia"]:
+                try:
+                    network_rpc_url = await get_base_node_rpc_url(
+                        self._evm_server_account._EvmServerAccount__api_clients, self._network
+                    )
+                except Exception:
+                    # If Base Node RPC URL fails, fall back to default
+                    network_rpc_url = None
+
+            # Fall back to default RPC URLs if Base Node URL is not available
+            if not network_rpc_url:
+                default_rpc_urls = {
+                    "base": "https://mainnet.base.org",
+                    "base-sepolia": "https://sepolia.base.org",
+                    "ethereum": "https://eth.llamarpc.com",
+                    "ethereum-sepolia": "https://rpc.sepolia.org",
+                }
+                network_rpc_url = default_rpc_urls.get(self._network)
+
             if not network_rpc_url:
                 raise NotImplementedError(
                     f"wait_for_transaction_receipt is not supported for network '{self._network}'. "
@@ -236,25 +235,10 @@ class NetworkScopedEvmServerAccount:
                 )
 
             web3 = Web3(Web3.HTTPProvider(network_rpc_url))
-
-            import asyncio
-            from time import time
-
-            from web3.exceptions import TransactionNotFound
-
-            start = time()
-            while True:
-                try:
-                    receipt = web3.eth.get_transaction_receipt(transaction_hash)
-                    if receipt:
-                        return dict(receipt)
-                except TransactionNotFound:
-                    # Transaction not found yet, continue waiting
-                    pass
-
-                if time() - start > timeout_seconds:
-                    raise TimeoutError("Timeout waiting for transaction receipt.")
-                await asyncio.sleep(interval_seconds)
+            receipt = web3.eth.wait_for_transaction_receipt(
+                transaction_hash, timeout=timeout_seconds, poll_latency=interval_seconds
+            )
+            return dict(receipt)
 
     async def _network_scoped_list_token_balances(
         self,

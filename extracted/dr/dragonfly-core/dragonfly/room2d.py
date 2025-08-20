@@ -5448,7 +5448,7 @@ class Room2D(_BaseGeometry):
         room_poly_area = all_room_poly[0].area - sum(h.area for h in all_room_poly[1:])
 
         # find the boolean intersection with each roof polygon and project the result
-        int_tol = tolerance / 1000  # intersection tolerance must be finer
+        int_tol = tolerance / 100  # intersection tolerance must be finer
         roof_poly_area = 0
         for rf_poly, rf_plane in zip(rel_rf_polys, rel_rf_planes):
             # snap the polygons to one another to avoid tolerance issues
@@ -5463,7 +5463,12 @@ class Room2D(_BaseGeometry):
             try:
                 int_result = pb.intersect(b_room_poly, b_rf_poly, int_tol)
             except Exception:  # intersection failed for some reason
-                return None
+                # tiny edge caused a failure; try one more time with small tol
+                int_tol = int_tol / 100
+                try:
+                    int_result = pb.intersect(b_room_poly, b_rf_poly, int_tol)
+                except Exception:
+                    return None   # the edge is just too tiny
             polys = Polygon2D._from_bool_poly(int_result, tolerance)
             if self.floor_geometry.has_holes and len(polys) > 1:
                 # sort the polygons by area and check if any are inside the others
@@ -5580,7 +5585,7 @@ class Room2D(_BaseGeometry):
             rot_poly = rm_poly.vertices[1:] + (pt1,)
 
             # loop through segments and make a wall face for each one
-            for pt2, seg in zip(rot_poly, rm_segs):
+            for c, (pt2, seg) in enumerate(zip(rot_poly, rm_segs)):
                 # find the polygon that the first segment vertex is located in
                 current_poly, current_plane = None, None
                 other_poly, other_planes = rel_rf_polys[:], rel_rf_planes[:]  # copy lists
@@ -5659,13 +5664,17 @@ class Room2D(_BaseGeometry):
                         i_pl,
                         i_pl.project_point(Point3D.from_point2d(i_pt[0]), proj_dir)
                     )
-                    for i_pt, i_pl in zip(int_pts, int_pls)]
+                    for i_pt, i_pl in zip(int_pts, int_pls)
+                ]
                 sort_obj = sorted(zip(pt_dists, pts_pls), key=lambda pair: pair[0])
                 # remove any point/plane combinations that are duplicates
                 i_to_remove = []
                 for i, (dist_tup, (pt, pln, pt3)) in enumerate(sort_obj[1:]):
-                    if pt3.distance_to_point(sort_obj[i][1][2]) < tolerance:
-                        i_to_remove.append(i)
+                    if dist_tup[0] < tolerance:
+                        i_to_remove.append(i + 1)
+                    elif pt3.distance_to_point(sort_obj[i][1][2]) < tolerance:
+                        if len(i_to_remove) == 0 or i_to_remove[-1] != i:
+                            i_to_remove.append(i)
                 for del_i in reversed(i_to_remove):
                     sort_obj.pop(del_i)
                 # if there are any jumps back in the segment, correct them

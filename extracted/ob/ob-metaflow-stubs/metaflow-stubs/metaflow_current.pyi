@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-18T05:26:58.141782                                                            #
+# Generated on 2025-08-19T23:54:56.176461                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,13 +10,13 @@ import typing
 if typing.TYPE_CHECKING:
     import metaflow.metaflow_current
     import metaflow.plugins.cards.component_serializer
-    import metaflow
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core
-    import metaflow.events
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
-    import typing
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
+    import typing
+    import metaflow
+    import metaflow.events
 
 
 TYPE_CHECKING: bool
@@ -229,6 +229,24 @@ class Current(object, metaclass=type):
     def graph(self):
         ...
     @property
+    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
+        """
+        (only in the presence of the @checkpoint decorator)
+        
+        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
+        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
+        
+        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
+        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
+        where the checkpoint maybe loaded or saved.
+        
+        Returns
+        ----------
+        CurrentCheckpointer
+            The object for handling checkpointing within a step.
+        """
+        ...
+    @property
     def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
         """
         (only in the presence of the @model decorator)
@@ -245,32 +263,12 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def parallel(self) -> "metaflow.metaflow_current.Parallel":
+    def huggingface_hub(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry":
         """
-        (only in the presence of the @parallel decorator)
+        (only in the presence of the @huggingface_hub decorator)
         
-        Returns a namedtuple with relevant information about the parallel task.
         
-        Returns
-        -------
-        Parallel
-            `namedtuple` with the following fields:
-                - main_ip (`str`)
-                    The IP address of the control task.
-                - num_nodes (`int`)
-                    The total number of tasks created by @parallel
-                - node_index (`int`)
-                    The index of the current task in all the @parallel tasks.
-                - control_task_id (`Optional[str]`)
-                    The task ID of the control task. Available to all tasks.
-        """
-        ...
-    @property
-    def is_parallel(self) -> bool:
-        """
-        (only in the presence of the @parallel decorator)
-        
-        True if the current step is a @parallel step.
+        The `@huggingface_hub` injects a `huggingface_hub` object into the `current` object. This object provides syntactic sugar over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function. The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
         """
         ...
     @property
@@ -304,36 +302,38 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def huggingface_hub(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator.HuggingfaceRegistry":
+    def parallel(self) -> "metaflow.metaflow_current.Parallel":
         """
-        (only in the presence of the @huggingface_hub decorator)
+        (only in the presence of the @parallel decorator)
         
+        Returns a namedtuple with relevant information about the parallel task.
         
-        The `@huggingface_hub` injects a `huggingface_hub` object into the `current` object. This object provides syntactic sugar over [huggingface_hub](https://github.com/huggingface/huggingface_hub)'s [snapshot_download](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/file_download#huggingface_hub.snapshot_download) function. The `current.huggingface_hub.snapshot_download` function downloads objects from huggingface hub and saves them to the Metaflow's datastore under the `<repo_type>/<repo_id>` name. The `repo_type` is by default `model` and can be overriden by passing the `repo_type` parameter to the `snapshot_download` function.
+        Returns
+        -------
+        Parallel
+            `namedtuple` with the following fields:
+                - main_ip (`str`)
+                    The IP address of the control task.
+                - num_nodes (`int`)
+                    The total number of tasks created by @parallel
+                - node_index (`int`)
+                    The index of the current task in all the @parallel tasks.
+                - control_task_id (`Optional[str]`)
+                    The task ID of the control task. Available to all tasks.
         """
         ...
     @property
-    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
+    def is_parallel(self) -> bool:
         """
-        (only in the presence of the @checkpoint decorator)
+        (only in the presence of the @parallel decorator)
         
-        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
-        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
-        
-        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
-        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
-        where the checkpoint maybe loaded or saved.
-        
-        Returns
-        ----------
-        CurrentCheckpointer
-            The object for handling checkpointing within a step.
+        True if the current step is a @parallel step.
         """
         ...
     @property
     def trigger(self) -> "metaflow.events.Trigger":
         """
-        (only in the presence of the @trigger, or @trigger_on_finish decorators)
+        (only in the presence of the @trigger_on_finish, or @trigger decorators)
         
         Returns `Trigger` if the current run is triggered by an event
         

@@ -4,11 +4,10 @@ import os
 from typing import Generator
 
 import pytest
-from flaky import flaky  # type:ignore[import-untyped]
 from langchain_core.documents import Document
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage
-from langchain_openai import ChatOpenAI
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from pymongo.results import BulkWriteResult
@@ -41,7 +40,11 @@ if "OPENAI_API_KEY" not in os.environ:
 def entity_extraction_model() -> BaseChatModel | None:
     """LLM for converting documents into Graph of Entities and Relationships"""
     try:
-        return ChatOpenAI(model="gpt-4o", temperature=0.0, cache=False)
+        if "AZURE_OPENAI_ENDPOINT" in os.environ:
+            return AzureChatOpenAI(
+                model="gpt-4o", temperature=0.0, cache=False, seed=12345
+            )
+        return ChatOpenAI(model="gpt-4o", temperature=0.0, cache=False, seed=12345)
     except Exception:
         pass
     return None
@@ -69,7 +72,7 @@ adding that the initiative builds on the companies’ successful partnership, wh
 GreenTech Ltd. Leads SolarGrid Initiative
 
 San Francisco, CA — GreenTech Ltd. has emerged as a leader in renewable energy projects with the SolarGrid Initiative,
-a collaboration with ACME Corporation. Jane Smith, the project’s Lead Manager, highlighted its ambitious goal:
+a collaboration with ACME Corporation. GreenTech's Jane Smith, the SolarGrid project’s Lead Manager, highlighted its ambitious goal:
 providing affordable solar energy to underserved communities.
 
 GreenTech, headquartered in San Francisco, has worked closely with ACME since their partnership began in May 2021.
@@ -125,8 +128,6 @@ def graph_store(collection, entity_extraction_model, documents) -> MongoDBGraphS
     store = MongoDBGraphStore(
         collection=collection,
         entity_extraction_model=entity_extraction_model,
-        entity_prompt=entity_prompt,
-        query_prompt=query_prompt,
     )
     bulkwrite_results = store.add_documents(documents)
     assert len(bulkwrite_results) == len(documents)
@@ -136,7 +137,7 @@ def graph_store(collection, entity_extraction_model, documents) -> MongoDBGraphS
 
 @pytest.fixture
 def query_connection():
-    return "How are Jane Smith and John Doe related?"
+    return "How are the project manager Jane Smith and the Chief Technology Officer John Doe related?"
 
 
 def test_add_docs_store(graph_store):
@@ -145,17 +146,17 @@ def test_add_docs_store(graph_store):
     assert 4 <= len(extracted_entities) < 8
 
 
-@flaky
 def test_extract_entity_names(graph_store, query_connection):
     query_entity_names = graph_store.extract_entity_names(query_connection)
     assert set(query_entity_names) == {"John Doe", "Jane Smith"}
 
+
+def test_extract_entities_from_empty_string_names(graph_store):
     no_names = graph_store.extract_entity_names("")
     assert isinstance(no_names, list)
     assert len(no_names) == 0
 
 
-@flaky
 def test_related_entities(graph_store):
     entity_names = ["John Doe", "Jane Smith"]
     related_entities = graph_store.related_entities(entity_names)
@@ -166,7 +167,6 @@ def test_related_entities(graph_store):
     assert len(no_entities) == 0
 
 
-@flaky
 def test_additional_entity_examples(entity_extraction_model, entity_example, documents):
     # First, create one client just to drop any existing collections
     client = MongoClient(CONNECTION_STRING)
@@ -190,7 +190,6 @@ def test_additional_entity_examples(entity_extraction_model, entity_example, doc
     assert len(new_entities) >= 2
 
 
-@flaky
 def test_chat_response(graph_store, query_connection):
     """Displays querying an existing Knowledge Graph Database"""
     answer = graph_store.chat_response(query_connection)
@@ -198,7 +197,6 @@ def test_chat_response(graph_store, query_connection):
     assert "acme corporation" in answer.content.lower()
 
 
-@flaky
 def test_similarity_search(graph_store, query_connection):
     docs = graph_store.similarity_search(query_connection)
     assert len(docs) >= 4
@@ -207,7 +205,6 @@ def test_similarity_search(graph_store, query_connection):
     assert any("attributes" in d.keys() for d in docs)
 
 
-@flaky
 def test_validator(documents, entity_extraction_model):
     # Case 1. No existing collection.
     client = MongoClient(CONNECTION_STRING)
@@ -261,7 +258,6 @@ def test_validator(documents, entity_extraction_model):
     client.close()
 
 
-@flaky
 def test_allowed_entity_types(documents, entity_extraction_model):
     """Add allowed_entity_types. Use the validator to confirm behaviour."""
     allowed_entity_types = ["Person"]
@@ -289,7 +285,6 @@ def test_allowed_entity_types(documents, entity_extraction_model):
     all([len(e["relationships"].get("attributes", [])) == 0 for e in entities])
 
 
-@flaky
 def test_allowed_relationship_types(documents, entity_extraction_model):
     # drop collection
     client = MongoClient(CONNECTION_STRING)

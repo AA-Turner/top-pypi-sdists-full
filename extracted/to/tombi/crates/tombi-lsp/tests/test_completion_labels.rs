@@ -164,6 +164,38 @@ mod completion_labels {
 
         test_completion_labels! {
             #[tokio::test]
+            async fn tombi_used_toml_version_and_space(
+                r#"
+                toml-version = "v1.0.0" █
+                "#,
+                Schema(tombi_schema_path()),
+            ) -> Ok([]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_lsp_completion_enabled_true_and_space(
+                r#"
+                [lsp]
+                completion.enabled = true █
+                "#,
+                Schema(tombi_schema_path()),
+            ) -> Ok([]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn tombi_lint_rules_key_empty_equal_warn_and_space(
+                r#"
+                [lint.rules]
+                key-empty = "warn" █
+                "#,
+                Schema(tombi_schema_path()),
+            ) -> Ok([]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
             async fn tombi_empty_bracket(
                 "[█]",
                 Schema(tombi_schema_path()),
@@ -905,6 +937,30 @@ mod completion_labels {
                 "\"serde\"",
                 "\"\"",
                 "''",
+            ]);
+        }
+
+        test_completion_labels! {
+         #[tokio::test]
+            async fn cargo_dependencies_tombi_date_time_features_with_workspace_eq_true_comma(
+                r#"
+                [dependencies]
+                tombi-date-time = { workspace = true, █ }
+                "#,
+                Source(project_root_path().join("crates/subcrate/Cargo.toml")),
+                Schema(cargo_schema_path()),
+            ) -> Ok([
+                "branch",
+                "default-features",
+                "features",
+                "git",
+                "optional",
+                "package",
+                "path",
+                "registry",
+                "rev",
+                "tag",
+                "version",
             ]);
         }
 

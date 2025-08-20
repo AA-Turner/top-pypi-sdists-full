@@ -7089,6 +7089,14 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def add_rotate_complex(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], rotation: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svcadd[_u8](svuint8_t op1, svuint8_t op2, uint64_t imm_rotation)
+          CADD Ztied1.B, Ztied1.B, Zop2.B, #imm_rotation
+        """
+        ...
+
+    @staticmethod
     def add_rounded_high_narrowing_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svuint8_t svraddhnb[_u16](svuint16_t op1, svuint16_t op2)
@@ -7113,6 +7121,14 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
           UQADD Ztied1.B, Pg/M, Ztied1.B, Zop2.B
           UQADD Ztied2.B, Pg/M, Ztied2.B, Zop1.B
           UQADD Zresult.B, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def add_saturate_rotate_complex(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], rotation: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqcadd[_s16](svint16_t op_1, svint16_t op_2, uint64_t imm_rotation)
+          SQCADD Ztied1.H, Ztied1.H, Zop_2.H, #imm_rotation
         """
         ...
 
@@ -7195,6 +7211,27 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def convert_to_double_odd(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        """
+        svfloat64_t svcvtlt_f64[_f32]_m(svfloat64_t inactive, svbool_t pg, svfloat32_t op)
+        svfloat64_t svcvtlt_f64[_f32]_x(svbool_t pg, svfloat32_t op)
+          FCVTLT Ztied.D, Pg/M, Zop.S
+          FCVTLT Ztied.D, Pg/M, Ztied.S
+        """
+        ...
+
+    @staticmethod
+    def convert_to_single_even_round_to_odd(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        """
+        svfloat32_t svcvtx_f32[_f64]_m(svfloat32_t inactive, svbool_t pg, svfloat64_t op)
+        svfloat32_t svcvtx_f32[_f64]_x(svbool_t pg, svfloat64_t op)
+        svfloat32_t svcvtx_f32[_f64]_z(svbool_t pg, svfloat64_t op)
+          FCVTX Ztied.S, Pg/M, Zop.D
+          FCVTX Ztied.S, Pg/M, Ztied.D
+        """
+        ...
+
+    @staticmethod
     def dot_product_rotate_complex(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int], rotation: int) -> System.Numerics.Vector[int]:
         """
         svint32_t svcdot[_s32](svint32_t op_1, svint8_t op_2, svint8_t op_3, uint64_t imm_rotation)
@@ -7255,6 +7292,17 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         """
         svint8_t sveortb[_s8](svint8_t even, svint8_t op1, svint8_t op2)
           EORTB Zd.B, Zn.B, Zm.B
+        """
+        ...
+
+    @staticmethod
+    def log_2(value: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svlogb[_f32]_m(svint32_t inactive, svbool_t pg, svfloat32_t op)
+        svint32_t svlogb[_f32]_x(svbool_t pg, svfloat32_t op)
+        svint32_t svlogb[_f32]_z(svbool_t pg, svfloat32_t op)
+          FLOGB Ztied.S, Pg/M, Zop.S
+          FLOGB Ztied.S, Pg/M, Ztied.S
         """
         ...
 
@@ -7321,6 +7369,38 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         """
         svint16_t svmla_lane[_s16](svint16_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
           MLA Ztied1.H, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_add_rotate_complex(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], rotation: int) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svcmla[_u8](svuint8_t op1, svuint8_t op2, svuint8_t op3, uint64_t imm_rotation)
+          CMLA Ztied1.B, Zop2.B, Zop3.B, #imm_rotation
+        """
+        ...
+
+    @staticmethod
+    def multiply_add_rotate_complex_by_selected_scalar(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int, rotation: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svcmla_lane[_s16](svint16_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index, uint64_t imm_rotation)
+          CMLA Ztied1.H, Zop2.H, Zop3.H[imm_index], #imm_rotation
+        """
+        ...
+
+    @staticmethod
+    def multiply_add_rounded_doubling_saturate_high_rotate_complex(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int], rotation: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqrdcmlah[_s16](svint16_t op_1, svint16_t op_2, svint16_t op_3, uint64_t imm_rotation)
+          SQRDCMLAH Ztied1.H, Zop_2.H, Zop_3.H, #imm_rotation
+        """
+        ...
+
+    @staticmethod
+    def multiply_add_rounded_doubling_saturate_high_rotate_complex_by_selected_scalar(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int], imm_index: int, rotation: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqrdcmlah_lane[_s16](svint16_t op_1, svint16_t op_2, svint16_t op_3, uint64_t imm_index, uint64_t imm_rotation)
+          SQRDCMLAH Ztied1.H, Zop_2.H, Zop_3.H[imm_index], #imm_rotation
         """
         ...
 
@@ -7644,6 +7724,28 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         """
         svuint16_t svpmullt[_u16](svuint8_t op1, svuint8_t op2)
           PMULLT Zresult.H, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def reciprocal_estimate(value: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint32_t svrecpe[_u32]_m(svuint32_t inactive, svbool_t pg, svuint32_t op)
+        svuint32_t svrecpe[_u32]_x(svbool_t pg, svuint32_t op)
+        svuint32_t svrecpe[_u32]_z(svbool_t pg, svuint32_t op)
+          URECPE Ztied.S, Pg/M, Zop.S
+          URECPE Ztied.S, Pg/M, Ztied.S
+        """
+        ...
+
+    @staticmethod
+    def reciprocal_sqrt_estimate(value: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint32_t svrsqrte[_u32]_m(svuint32_t inactive, svbool_t pg, svuint32_t op)
+        svuint32_t svrsqrte[_u32]_x(svbool_t pg, svuint32_t op)
+        svuint32_t svrsqrte[_u32]_z(svbool_t pg, svuint32_t op)
+          URSQRTE Ztied.S, Pg/M, Zop.S
+          URSQRTE Ztied.S, Pg/M, Ztied.S
         """
         ...
 

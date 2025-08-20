@@ -14,6 +14,7 @@ distribution_spec:
     - provider_type: remote::openai
     - provider_type: remote::anthropic
     - provider_type: remote::gemini
+    - provider_type: remote::vertexai
     - provider_type: remote::groq
     - provider_type: remote::sambanova
     - provider_type: inline::sentence-transformers
@@ -27,6 +28,7 @@ distribution_spec:
     - provider_type: inline::localfs
     safety:
     - provider_type: inline::llama-guard
+    - provider_type: inline::code-scanner
     agents:
     - provider_type: inline::meta-reference
     telemetry:
@@ -47,6 +49,8 @@ distribution_spec:
     - provider_type: remote::tavily-search
     - provider_type: inline::rag-runtime
     - provider_type: remote::model-context-protocol
+    batches:
+    - provider_type: inline::reference
 image_type: venv
 additional_pip_packages:
 - aiosqlite

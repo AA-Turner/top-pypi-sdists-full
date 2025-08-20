@@ -707,7 +707,7 @@ class NameSpacePackager(object):
 
     @property
     def python_requires(self):
-        return self._pkg_data.get('python_requires', f'>={".".join([str(x) for x in self.supported[0]])}')
+        return self._pkg_data.get('python_requires', f'>={".".join([str(x) for x in self.supported[0]])}')  # NOQA
 
     @property
     def ext_modules(self):

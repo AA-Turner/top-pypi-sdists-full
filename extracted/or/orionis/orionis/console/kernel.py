@@ -38,7 +38,7 @@ class KernelCLI(IKernelCLI):
 
         # Retrieve and initialize the reactor instance from the application container.
         # The reactor is responsible for dispatching CLI commands.
-        self.__reactor: IReactor = app.make('x-orionis.console.core.reactor', app)
+        self.__reactor: IReactor = app.make('x-orionis.console.core.reactor')
 
         # Retrieve and initialize the console instance for command output and error handling.
         self.__console: IConsole = app.make('x-orionis.console.output.console')

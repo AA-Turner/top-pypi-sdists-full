@@ -12,7 +12,6 @@ keywords = ["git", "repo", "repository", "artifact", "registry", "developer-tool
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -49,8 +48,8 @@ tests = [
 ]
 dev = [
     "gto[tests]",
-    "mypy==1.13.0",
-    "pylint==3.3.2",
+    "mypy==1.17.1",
+    "pylint==3.3.8",
     "types-PyYAML",
     "types-filelock",
     "types-freezegun",

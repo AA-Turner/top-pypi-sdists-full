@@ -63,7 +63,8 @@ Keyword arguments:
     Class added to the root element, if applicable.
 
 - classNames (dict; optional):
-    Adds class names to Mantine components.
+    Adds custom CSS class names to inner elements of a component.  See
+    Styles API docs.
 
 - closeButtonProps (dict; optional):
     Props passed down to the close button.
@@ -226,6 +227,13 @@ Keyword arguments:
 
         - mounted (boolean; required):
             Determines whether component should be mounted to the DOM.
+
+    - attributes (boolean | number | string | dict | list; optional):
+        Passes attributes to inner elements of a component.  See
+        Styles API docs.
+
+    - unstyled (boolean; optional):
+        Remove all Mantine styling from the component.
 
     - className (string; optional):
         Class added to the root element, if applicable.
@@ -403,9 +411,6 @@ Keyword arguments:
         Key of `theme.radius` or any valid CSS value to set
         border-radius, `0` by default.
 
-    - unstyled (boolean; optional):
-        Remove all Mantine styling from the component.
-
     - zIndex (string | number; optional):
         Overlay z-index, `200` by default.
 
@@ -494,7 +499,8 @@ Keyword arguments:
     Controls width of the content area, `'md'` by default.
 
 - styles (boolean | number | string | dict | list; optional):
-    Mantine styles API.
+    Adds inline styles directly to inner elements of a component.  See
+    Styles API docs.
 
 - ta (optional):
     TextAlign.
@@ -590,6 +596,8 @@ Keyword arguments:
         "OverlayProps",
             {
             "transitionProps": NotRequired["OverlayPropsTransitionProps"],
+            "attributes": NotRequired[typing.Any],
+            "unstyled": NotRequired[bool],
             "className": NotRequired[str],
             "style": NotRequired[typing.Any],
             "hiddenFrom": NotRequired[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
@@ -649,7 +657,6 @@ Keyword arguments:
             "flex": NotRequired[typing.Union[str, NumberType]],
             "children": NotRequired[ComponentType],
             "radius": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "unstyled": NotRequired[bool],
             "zIndex": NotRequired[typing.Union[str, NumberType]],
             "backgroundOpacity": NotRequired[NumberType],
             "color": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["aliceblue"], Literal["antiquewhite"], Literal["aqua"], Literal["aquamarine"], Literal["azure"], Literal["beige"], Literal["bisque"], Literal["black"], Literal["blanchedalmond"], Literal["blue"], Literal["blueviolet"], Literal["brown"], Literal["burlywood"], Literal["cadetblue"], Literal["chartreuse"], Literal["chocolate"], Literal["coral"], Literal["cornflowerblue"], Literal["cornsilk"], Literal["crimson"], Literal["cyan"], Literal["darkblue"], Literal["darkcyan"], Literal["darkgoldenrod"], Literal["darkgray"], Literal["darkgreen"], Literal["darkgrey"], Literal["darkkhaki"], Literal["darkmagenta"], Literal["darkolivegreen"], Literal["darkorange"], Literal["darkorchid"], Literal["darkred"], Literal["darksalmon"], Literal["darkseagreen"], Literal["darkslateblue"], Literal["darkslategray"], Literal["darkslategrey"], Literal["darkturquoise"], Literal["darkviolet"], Literal["deeppink"], Literal["deepskyblue"], Literal["dimgray"], Literal["dimgrey"], Literal["dodgerblue"], Literal["firebrick"], Literal["floralwhite"], Literal["forestgreen"], Literal["fuchsia"], Literal["gainsboro"], Literal["ghostwhite"], Literal["gold"], Literal["goldenrod"], Literal["gray"], Literal["green"], Literal["greenyellow"], Literal["grey"], Literal["honeydew"], Literal["hotpink"], Literal["indianred"], Literal["indigo"], Literal["ivory"], Literal["khaki"], Literal["lavender"], Literal["lavenderblush"], Literal["lawngreen"], Literal["lemonchiffon"], Literal["lightblue"], Literal["lightcoral"], Literal["lightcyan"], Literal["lightgoldenrodyellow"], Literal["lightgray"], Literal["lightgreen"], Literal["lightgrey"], Literal["lightpink"], Literal["lightsalmon"], Literal["lightseagreen"], Literal["lightskyblue"], Literal["lightslategray"], Literal["lightslategrey"], Literal["lightsteelblue"], Literal["lightyellow"], Literal["lime"], Literal["limegreen"], Literal["linen"], Literal["magenta"], Literal["maroon"], Literal["mediumaquamarine"], Literal["mediumblue"], Literal["mediumorchid"], Literal["mediumpurple"], Literal["mediumseagreen"], Literal["mediumslateblue"], Literal["mediumspringgreen"], Literal["mediumturquoise"], Literal["mediumvioletred"], Literal["midnightblue"], Literal["mintcream"], Literal["mistyrose"], Literal["moccasin"], Literal["navajowhite"], Literal["navy"], Literal["oldlace"], Literal["olive"], Literal["olivedrab"], Literal["orange"], Literal["orangered"], Literal["orchid"], Literal["palegoldenrod"], Literal["palegreen"], Literal["paleturquoise"], Literal["palevioletred"], Literal["papayawhip"], Literal["peachpuff"], Literal["peru"], Literal["pink"], Literal["plum"], Literal["powderblue"], Literal["purple"], Literal["rebeccapurple"], Literal["red"], Literal["rosybrown"], Literal["royalblue"], Literal["saddlebrown"], Literal["salmon"], Literal["sandybrown"], Literal["seagreen"], Literal["seashell"], Literal["sienna"], Literal["silver"], Literal["skyblue"], Literal["slateblue"], Literal["slategray"], Literal["slategrey"], Literal["snow"], Literal["springgreen"], Literal["steelblue"], Literal["tan"], Literal["teal"], Literal["thistle"], Literal["tomato"], Literal["transparent"], Literal["turquoise"], Literal["violet"], Literal["wheat"], Literal["white"], Literal["whitesmoke"], Literal["yellow"], Literal["yellowgreen"], Literal["ActiveBorder"], Literal["ActiveCaption"], Literal["AppWorkspace"], Literal["Background"], Literal["ButtonFace"], Literal["ButtonHighlight"], Literal["ButtonShadow"], Literal["ButtonText"], Literal["CaptionText"], Literal["GrayText"], Literal["Highlight"], Literal["HighlightText"], Literal["InactiveBorder"], Literal["InactiveCaption"], Literal["InactiveCaptionText"], Literal["InfoBackground"], Literal["InfoText"], Literal["Menu"], Literal["MenuText"], Literal["Scrollbar"], Literal["ThreeDDarkShadow"], Literal["ThreeDFace"], Literal["ThreeDHighlight"], Literal["ThreeDLightShadow"], Literal["ThreeDShadow"], Literal["Window"], Literal["WindowFrame"], Literal["WindowText"], Literal["currentcolor"]]],

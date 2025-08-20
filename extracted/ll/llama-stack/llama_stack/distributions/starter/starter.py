@@ -15,19 +15,14 @@ from llama_stack.core.datatypes import (
     ToolGroupInput,
 )
 from llama_stack.core.utils.dynamic import instantiate_class_type
-from llama_stack.distributions.template import (
-    DistributionTemplate,
-    RunConfigSettings,
-)
+from llama_stack.distributions.template import DistributionTemplate, RunConfigSettings
 from llama_stack.providers.datatypes import RemoteProviderSpec
 from llama_stack.providers.inline.files.localfs.config import LocalfsFilesImplConfig
 from llama_stack.providers.inline.inference.sentence_transformers import (
     SentenceTransformersInferenceConfig,
 )
 from llama_stack.providers.inline.vector_io.faiss.config import FaissVectorIOConfig
-from llama_stack.providers.inline.vector_io.milvus.config import (
-    MilvusVectorIOConfig,
-)
+from llama_stack.providers.inline.vector_io.milvus.config import MilvusVectorIOConfig
 from llama_stack.providers.inline.vector_io.sqlite_vec.config import (
     SQLiteVectorIOConfig,
 )
@@ -56,6 +51,7 @@ ENABLED_INFERENCE_PROVIDERS = [
     "fireworks",
     "together",
     "gemini",
+    "vertexai",
     "groq",
     "sambanova",
     "anthropic",
@@ -71,6 +67,7 @@ INFERENCE_PROVIDER_IDS = {
     "tgi": "${env.TGI_URL:+tgi}",
     "cerebras": "${env.CEREBRAS_API_KEY:+cerebras}",
     "nvidia": "${env.NVIDIA_API_KEY:+nvidia}",
+    "vertexai": "${env.VERTEX_AI_PROJECT:+vertexai}",
 }
 
 
@@ -117,7 +114,10 @@ def get_distribution_template() -> DistributionTemplate:
             BuildProvider(provider_type="remote::pgvector"),
         ],
         "files": [BuildProvider(provider_type="inline::localfs")],
-        "safety": [BuildProvider(provider_type="inline::llama-guard")],
+        "safety": [
+            BuildProvider(provider_type="inline::llama-guard"),
+            BuildProvider(provider_type="inline::code-scanner"),
+        ],
         "agents": [BuildProvider(provider_type="inline::meta-reference")],
         "telemetry": [BuildProvider(provider_type="inline::meta-reference")],
         "post_training": [BuildProvider(provider_type="inline::huggingface")],
@@ -136,6 +136,9 @@ def get_distribution_template() -> DistributionTemplate:
             BuildProvider(provider_type="remote::tavily-search"),
             BuildProvider(provider_type="inline::rag-runtime"),
             BuildProvider(provider_type="remote::model-context-protocol"),
+        ],
+        "batches": [
+            BuildProvider(provider_type="inline::reference"),
         ],
     }
     files_provider = Provider(
@@ -164,6 +167,11 @@ def get_distribution_template() -> DistributionTemplate:
             shield_id="llama-guard",
             provider_id="${env.SAFETY_MODEL:+llama-guard}",
             provider_shield_id="${env.SAFETY_MODEL:=}",
+        ),
+        ShieldInput(
+            shield_id="code-scanner",
+            provider_id="${env.CODE_SCANNER_MODEL:+code-scanner}",
+            provider_shield_id="${env.CODE_SCANNER_MODEL:=}",
         ),
     ]
 
@@ -245,6 +253,14 @@ def get_distribution_template() -> DistributionTemplate:
             "GEMINI_API_KEY": (
                 "",
                 "Gemini API Key",
+            ),
+            "VERTEX_AI_PROJECT": (
+                "",
+                "Google Cloud Project ID for Vertex AI",
+            ),
+            "VERTEX_AI_LOCATION": (
+                "us-central1",
+                "Google Cloud Location for Vertex AI",
             ),
             "SAMBANOVA_API_KEY": (
                 "",

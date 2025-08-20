@@ -1,7 +1,7 @@
 r'''
 # `google_model_armor_template`
 
-Refer to the Terraform Registry for docs: [`google_model_armor_template`](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template).
+Refer to the Terraform Registry for docs: [`google_model_armor_template`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ModelArmorTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.modelArmorTemplate.ModelArmorTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template google_model_armor_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template google_model_armor_template}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class ModelArmorTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template google_model_armor_template} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template google_model_armor_template} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter_config: filter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_config ModelArmorTemplate#filter_config}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#location ModelArmorTemplate#location}
-        :param template_id: Id of the requesting object If auto-generating Id server-side, remove this field and template_id from the method_signature of Create RPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#template_id ModelArmorTemplate#template_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#id ModelArmorTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#labels ModelArmorTemplate#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#project ModelArmorTemplate#project}.
-        :param template_metadata: template_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#template_metadata ModelArmorTemplate#template_metadata}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#timeouts ModelArmorTemplate#timeouts}
+        :param filter_config: filter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_config ModelArmorTemplate#filter_config}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#location ModelArmorTemplate#location}
+        :param template_id: Id of the requesting object If auto-generating Id server-side, remove this field and template_id from the method_signature of Create RPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#template_id ModelArmorTemplate#template_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#id ModelArmorTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#labels ModelArmorTemplate#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#project ModelArmorTemplate#project}.
+        :param template_metadata: template_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#template_metadata ModelArmorTemplate#template_metadata}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#timeouts ModelArmorTemplate#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class ModelArmorTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ModelArmorTemplate to import.
-        :param import_from_id: The id of the existing ModelArmorTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ModelArmorTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ModelArmorTemplate to import is found.
         '''
         if __debug__:
@@ -145,10 +145,10 @@ class ModelArmorTemplate(
         sdp_settings: typing.Optional[typing.Union["ModelArmorTemplateFilterConfigSdpSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param malicious_uri_filter_settings: malicious_uri_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#malicious_uri_filter_settings ModelArmorTemplate#malicious_uri_filter_settings}
-        :param pi_and_jailbreak_filter_settings: pi_and_jailbreak_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#pi_and_jailbreak_filter_settings ModelArmorTemplate#pi_and_jailbreak_filter_settings}
-        :param rai_settings: rai_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#rai_settings ModelArmorTemplate#rai_settings}
-        :param sdp_settings: sdp_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#sdp_settings ModelArmorTemplate#sdp_settings}
+        :param malicious_uri_filter_settings: malicious_uri_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#malicious_uri_filter_settings ModelArmorTemplate#malicious_uri_filter_settings}
+        :param pi_and_jailbreak_filter_settings: pi_and_jailbreak_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#pi_and_jailbreak_filter_settings ModelArmorTemplate#pi_and_jailbreak_filter_settings}
+        :param rai_settings: rai_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#rai_settings ModelArmorTemplate#rai_settings}
+        :param sdp_settings: sdp_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#sdp_settings ModelArmorTemplate#sdp_settings}
         '''
         value = ModelArmorTemplateFilterConfig(
             malicious_uri_filter_settings=malicious_uri_filter_settings,
@@ -174,15 +174,15 @@ class ModelArmorTemplate(
         multi_language_detection: typing.Optional[typing.Union["ModelArmorTemplateTemplateMetadataMultiLanguageDetection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_llm_response_safety_error_code: Indicates the custom error code set by the user to be returned to the end user if the LLM response trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#custom_llm_response_safety_error_code ModelArmorTemplate#custom_llm_response_safety_error_code}
-        :param custom_llm_response_safety_error_message: Indicates the custom error message set by the user to be returned to the end user if the LLM response trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#custom_llm_response_safety_error_message ModelArmorTemplate#custom_llm_response_safety_error_message}
-        :param custom_prompt_safety_error_code: Indicates the custom error code set by the user to be returned to the end user by the service extension if the prompt trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#custom_prompt_safety_error_code ModelArmorTemplate#custom_prompt_safety_error_code}
-        :param custom_prompt_safety_error_message: Indicates the custom error message set by the user to be returned to the end user if the prompt trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#custom_prompt_safety_error_message ModelArmorTemplate#custom_prompt_safety_error_message}
-        :param enforcement_type: Possible values: INSPECT_ONLY INSPECT_AND_BLOCK. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#enforcement_type ModelArmorTemplate#enforcement_type}
-        :param ignore_partial_invocation_failures: If true, partial detector failures should be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#ignore_partial_invocation_failures ModelArmorTemplate#ignore_partial_invocation_failures}
-        :param log_sanitize_operations: If true, log sanitize operations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#log_sanitize_operations ModelArmorTemplate#log_sanitize_operations}
-        :param log_template_operations: If true, log template crud operations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#log_template_operations ModelArmorTemplate#log_template_operations}
-        :param multi_language_detection: multi_language_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#multi_language_detection ModelArmorTemplate#multi_language_detection}
+        :param custom_llm_response_safety_error_code: Indicates the custom error code set by the user to be returned to the end user if the LLM response trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#custom_llm_response_safety_error_code ModelArmorTemplate#custom_llm_response_safety_error_code}
+        :param custom_llm_response_safety_error_message: Indicates the custom error message set by the user to be returned to the end user if the LLM response trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#custom_llm_response_safety_error_message ModelArmorTemplate#custom_llm_response_safety_error_message}
+        :param custom_prompt_safety_error_code: Indicates the custom error code set by the user to be returned to the end user by the service extension if the prompt trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#custom_prompt_safety_error_code ModelArmorTemplate#custom_prompt_safety_error_code}
+        :param custom_prompt_safety_error_message: Indicates the custom error message set by the user to be returned to the end user if the prompt trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#custom_prompt_safety_error_message ModelArmorTemplate#custom_prompt_safety_error_message}
+        :param enforcement_type: Possible values: INSPECT_ONLY INSPECT_AND_BLOCK. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#enforcement_type ModelArmorTemplate#enforcement_type}
+        :param ignore_partial_invocation_failures: If true, partial detector failures should be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#ignore_partial_invocation_failures ModelArmorTemplate#ignore_partial_invocation_failures}
+        :param log_sanitize_operations: If true, log sanitize operations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#log_sanitize_operations ModelArmorTemplate#log_sanitize_operations}
+        :param log_template_operations: If true, log template crud operations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#log_template_operations ModelArmorTemplate#log_template_operations}
+        :param multi_language_detection: multi_language_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#multi_language_detection ModelArmorTemplate#multi_language_detection}
         '''
         value = ModelArmorTemplateTemplateMetadata(
             custom_llm_response_safety_error_code=custom_llm_response_safety_error_code,
@@ -207,9 +207,9 @@ class ModelArmorTemplate(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#create ModelArmorTemplate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#delete ModelArmorTemplate#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#update ModelArmorTemplate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#create ModelArmorTemplate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#delete ModelArmorTemplate#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#update ModelArmorTemplate#update}.
         '''
         value = ModelArmorTemplateTimeouts(create=create, delete=delete, update=update)
 
@@ -444,14 +444,14 @@ class ModelArmorTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter_config: filter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_config ModelArmorTemplate#filter_config}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#location ModelArmorTemplate#location}
-        :param template_id: Id of the requesting object If auto-generating Id server-side, remove this field and template_id from the method_signature of Create RPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#template_id ModelArmorTemplate#template_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#id ModelArmorTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#labels ModelArmorTemplate#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#project ModelArmorTemplate#project}.
-        :param template_metadata: template_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#template_metadata ModelArmorTemplate#template_metadata}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#timeouts ModelArmorTemplate#timeouts}
+        :param filter_config: filter_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_config ModelArmorTemplate#filter_config}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#location ModelArmorTemplate#location}
+        :param template_id: Id of the requesting object If auto-generating Id server-side, remove this field and template_id from the method_signature of Create RPC. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#template_id ModelArmorTemplate#template_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#id ModelArmorTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels as key value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#labels ModelArmorTemplate#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#project ModelArmorTemplate#project}.
+        :param template_metadata: template_metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#template_metadata ModelArmorTemplate#template_metadata}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#timeouts ModelArmorTemplate#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -576,7 +576,7 @@ class ModelArmorTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter_config(self) -> "ModelArmorTemplateFilterConfig":
         '''filter_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_config ModelArmorTemplate#filter_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_config ModelArmorTemplate#filter_config}
         '''
         result = self._values.get("filter_config")
         assert result is not None, "Required property 'filter_config' is missing"
@@ -586,7 +586,7 @@ class ModelArmorTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#location ModelArmorTemplate#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#location ModelArmorTemplate#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -596,7 +596,7 @@ class ModelArmorTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def template_id(self) -> builtins.str:
         '''Id of the requesting object If auto-generating Id server-side, remove this field and template_id from the method_signature of Create RPC.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#template_id ModelArmorTemplate#template_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#template_id ModelArmorTemplate#template_id}
         '''
         result = self._values.get("template_id")
         assert result is not None, "Required property 'template_id' is missing"
@@ -604,7 +604,7 @@ class ModelArmorTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#id ModelArmorTemplate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#id ModelArmorTemplate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -619,14 +619,14 @@ class ModelArmorTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#labels ModelArmorTemplate#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#labels ModelArmorTemplate#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#project ModelArmorTemplate#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#project ModelArmorTemplate#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -636,7 +636,7 @@ class ModelArmorTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ModelArmorTemplateTemplateMetadata"]:
         '''template_metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#template_metadata ModelArmorTemplate#template_metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#template_metadata ModelArmorTemplate#template_metadata}
         '''
         result = self._values.get("template_metadata")
         return typing.cast(typing.Optional["ModelArmorTemplateTemplateMetadata"], result)
@@ -645,7 +645,7 @@ class ModelArmorTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ModelArmorTemplateTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#timeouts ModelArmorTemplate#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#timeouts ModelArmorTemplate#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ModelArmorTemplateTimeouts"], result)
@@ -682,10 +682,10 @@ class ModelArmorTemplateFilterConfig:
         sdp_settings: typing.Optional[typing.Union["ModelArmorTemplateFilterConfigSdpSettings", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param malicious_uri_filter_settings: malicious_uri_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#malicious_uri_filter_settings ModelArmorTemplate#malicious_uri_filter_settings}
-        :param pi_and_jailbreak_filter_settings: pi_and_jailbreak_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#pi_and_jailbreak_filter_settings ModelArmorTemplate#pi_and_jailbreak_filter_settings}
-        :param rai_settings: rai_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#rai_settings ModelArmorTemplate#rai_settings}
-        :param sdp_settings: sdp_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#sdp_settings ModelArmorTemplate#sdp_settings}
+        :param malicious_uri_filter_settings: malicious_uri_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#malicious_uri_filter_settings ModelArmorTemplate#malicious_uri_filter_settings}
+        :param pi_and_jailbreak_filter_settings: pi_and_jailbreak_filter_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#pi_and_jailbreak_filter_settings ModelArmorTemplate#pi_and_jailbreak_filter_settings}
+        :param rai_settings: rai_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#rai_settings ModelArmorTemplate#rai_settings}
+        :param sdp_settings: sdp_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#sdp_settings ModelArmorTemplate#sdp_settings}
         '''
         if isinstance(malicious_uri_filter_settings, dict):
             malicious_uri_filter_settings = ModelArmorTemplateFilterConfigMaliciousUriFilterSettings(**malicious_uri_filter_settings)
@@ -717,7 +717,7 @@ class ModelArmorTemplateFilterConfig:
     ) -> typing.Optional["ModelArmorTemplateFilterConfigMaliciousUriFilterSettings"]:
         '''malicious_uri_filter_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#malicious_uri_filter_settings ModelArmorTemplate#malicious_uri_filter_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#malicious_uri_filter_settings ModelArmorTemplate#malicious_uri_filter_settings}
         '''
         result = self._values.get("malicious_uri_filter_settings")
         return typing.cast(typing.Optional["ModelArmorTemplateFilterConfigMaliciousUriFilterSettings"], result)
@@ -728,7 +728,7 @@ class ModelArmorTemplateFilterConfig:
     ) -> typing.Optional["ModelArmorTemplateFilterConfigPiAndJailbreakFilterSettings"]:
         '''pi_and_jailbreak_filter_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#pi_and_jailbreak_filter_settings ModelArmorTemplate#pi_and_jailbreak_filter_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#pi_and_jailbreak_filter_settings ModelArmorTemplate#pi_and_jailbreak_filter_settings}
         '''
         result = self._values.get("pi_and_jailbreak_filter_settings")
         return typing.cast(typing.Optional["ModelArmorTemplateFilterConfigPiAndJailbreakFilterSettings"], result)
@@ -739,7 +739,7 @@ class ModelArmorTemplateFilterConfig:
     ) -> typing.Optional["ModelArmorTemplateFilterConfigRaiSettings"]:
         '''rai_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#rai_settings ModelArmorTemplate#rai_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#rai_settings ModelArmorTemplate#rai_settings}
         '''
         result = self._values.get("rai_settings")
         return typing.cast(typing.Optional["ModelArmorTemplateFilterConfigRaiSettings"], result)
@@ -750,7 +750,7 @@ class ModelArmorTemplateFilterConfig:
     ) -> typing.Optional["ModelArmorTemplateFilterConfigSdpSettings"]:
         '''sdp_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#sdp_settings ModelArmorTemplate#sdp_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#sdp_settings ModelArmorTemplate#sdp_settings}
         '''
         result = self._values.get("sdp_settings")
         return typing.cast(typing.Optional["ModelArmorTemplateFilterConfigSdpSettings"], result)
@@ -779,7 +779,7 @@ class ModelArmorTemplateFilterConfigMaliciousUriFilterSettings:
         filter_enforcement: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_enforcement: Tells whether the Malicious URI filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
+        :param filter_enforcement: Tells whether the Malicious URI filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2fe72b77e6f5a1b4908d8492835df79c82651e9a9196a0e94644eb9d428bb6ab)
@@ -792,7 +792,7 @@ class ModelArmorTemplateFilterConfigMaliciousUriFilterSettings:
     def filter_enforcement(self) -> typing.Optional[builtins.str]:
         '''Tells whether the Malicious URI filter is enabled or disabled. Possible values: ENABLED DISABLED.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
         '''
         result = self._values.get("filter_enforcement")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -895,7 +895,7 @@ class ModelArmorTemplateFilterConfigOutputReference(
         filter_enforcement: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_enforcement: Tells whether the Malicious URI filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
+        :param filter_enforcement: Tells whether the Malicious URI filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
         '''
         value = ModelArmorTemplateFilterConfigMaliciousUriFilterSettings(
             filter_enforcement=filter_enforcement
@@ -911,8 +911,8 @@ class ModelArmorTemplateFilterConfigOutputReference(
         filter_enforcement: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param confidence_level: Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#confidence_level ModelArmorTemplate#confidence_level}
-        :param filter_enforcement: Tells whether Prompt injection and Jailbreak filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
+        :param confidence_level: Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#confidence_level ModelArmorTemplate#confidence_level}
+        :param filter_enforcement: Tells whether Prompt injection and Jailbreak filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
         '''
         value = ModelArmorTemplateFilterConfigPiAndJailbreakFilterSettings(
             confidence_level=confidence_level, filter_enforcement=filter_enforcement
@@ -927,7 +927,7 @@ class ModelArmorTemplateFilterConfigOutputReference(
         rai_filters: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ModelArmorTemplateFilterConfigRaiSettingsRaiFilters", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param rai_filters: rai_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#rai_filters ModelArmorTemplate#rai_filters}
+        :param rai_filters: rai_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#rai_filters ModelArmorTemplate#rai_filters}
         '''
         value = ModelArmorTemplateFilterConfigRaiSettings(rai_filters=rai_filters)
 
@@ -941,8 +941,8 @@ class ModelArmorTemplateFilterConfigOutputReference(
         basic_config: typing.Optional[typing.Union["ModelArmorTemplateFilterConfigSdpSettingsBasicConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_config: advanced_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#advanced_config ModelArmorTemplate#advanced_config}
-        :param basic_config: basic_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#basic_config ModelArmorTemplate#basic_config}
+        :param advanced_config: advanced_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#advanced_config ModelArmorTemplate#advanced_config}
+        :param basic_config: basic_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#basic_config ModelArmorTemplate#basic_config}
         '''
         value = ModelArmorTemplateFilterConfigSdpSettings(
             advanced_config=advanced_config, basic_config=basic_config
@@ -1054,8 +1054,8 @@ class ModelArmorTemplateFilterConfigPiAndJailbreakFilterSettings:
         filter_enforcement: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param confidence_level: Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#confidence_level ModelArmorTemplate#confidence_level}
-        :param filter_enforcement: Tells whether Prompt injection and Jailbreak filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
+        :param confidence_level: Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#confidence_level ModelArmorTemplate#confidence_level}
+        :param filter_enforcement: Tells whether Prompt injection and Jailbreak filter is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aaa76c42fcc222b91acb4b003c27d8b2ae8f0ca68c7627b7c289f9448230d172)
@@ -1071,7 +1071,7 @@ class ModelArmorTemplateFilterConfigPiAndJailbreakFilterSettings:
     def confidence_level(self) -> typing.Optional[builtins.str]:
         '''Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#confidence_level ModelArmorTemplate#confidence_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#confidence_level ModelArmorTemplate#confidence_level}
         '''
         result = self._values.get("confidence_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1080,7 +1080,7 @@ class ModelArmorTemplateFilterConfigPiAndJailbreakFilterSettings:
     def filter_enforcement(self) -> typing.Optional[builtins.str]:
         '''Tells whether Prompt injection and Jailbreak filter is enabled or disabled. Possible values: ENABLED DISABLED.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
         '''
         result = self._values.get("filter_enforcement")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1189,7 +1189,7 @@ class ModelArmorTemplateFilterConfigRaiSettings:
         rai_filters: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ModelArmorTemplateFilterConfigRaiSettingsRaiFilters", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param rai_filters: rai_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#rai_filters ModelArmorTemplate#rai_filters}
+        :param rai_filters: rai_filters block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#rai_filters ModelArmorTemplate#rai_filters}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58fe96c73ba2c676e04a138134a0d95446fbd57f8cc3028dd8ed5e77ef99769b)
@@ -1204,7 +1204,7 @@ class ModelArmorTemplateFilterConfigRaiSettings:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ModelArmorTemplateFilterConfigRaiSettingsRaiFilters"]]:
         '''rai_filters block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#rai_filters ModelArmorTemplate#rai_filters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#rai_filters ModelArmorTemplate#rai_filters}
         '''
         result = self._values.get("rai_filters")
         assert result is not None, "Required property 'rai_filters' is missing"
@@ -1298,8 +1298,8 @@ class ModelArmorTemplateFilterConfigRaiSettingsRaiFilters:
         confidence_level: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_type: Possible values: SEXUALLY_EXPLICIT HATE_SPEECH HARASSMENT DANGEROUS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_type ModelArmorTemplate#filter_type}
-        :param confidence_level: Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#confidence_level ModelArmorTemplate#confidence_level}
+        :param filter_type: Possible values: SEXUALLY_EXPLICIT HATE_SPEECH HARASSMENT DANGEROUS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_type ModelArmorTemplate#filter_type}
+        :param confidence_level: Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#confidence_level ModelArmorTemplate#confidence_level}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ed780c5ce181ab240b77f0e7540fbf817762b315735efbf4f5975f35c9d34ae)
@@ -1315,7 +1315,7 @@ class ModelArmorTemplateFilterConfigRaiSettingsRaiFilters:
     def filter_type(self) -> builtins.str:
         '''Possible values: SEXUALLY_EXPLICIT HATE_SPEECH HARASSMENT DANGEROUS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_type ModelArmorTemplate#filter_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_type ModelArmorTemplate#filter_type}
         '''
         result = self._values.get("filter_type")
         assert result is not None, "Required property 'filter_type' is missing"
@@ -1325,7 +1325,7 @@ class ModelArmorTemplateFilterConfigRaiSettingsRaiFilters:
     def confidence_level(self) -> typing.Optional[builtins.str]:
         '''Possible values: LOW_AND_ABOVE MEDIUM_AND_ABOVE HIGH.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#confidence_level ModelArmorTemplate#confidence_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#confidence_level ModelArmorTemplate#confidence_level}
         '''
         result = self._values.get("confidence_level")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1530,8 +1530,8 @@ class ModelArmorTemplateFilterConfigSdpSettings:
         basic_config: typing.Optional[typing.Union["ModelArmorTemplateFilterConfigSdpSettingsBasicConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param advanced_config: advanced_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#advanced_config ModelArmorTemplate#advanced_config}
-        :param basic_config: basic_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#basic_config ModelArmorTemplate#basic_config}
+        :param advanced_config: advanced_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#advanced_config ModelArmorTemplate#advanced_config}
+        :param basic_config: basic_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#basic_config ModelArmorTemplate#basic_config}
         '''
         if isinstance(advanced_config, dict):
             advanced_config = ModelArmorTemplateFilterConfigSdpSettingsAdvancedConfig(**advanced_config)
@@ -1553,7 +1553,7 @@ class ModelArmorTemplateFilterConfigSdpSettings:
     ) -> typing.Optional["ModelArmorTemplateFilterConfigSdpSettingsAdvancedConfig"]:
         '''advanced_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#advanced_config ModelArmorTemplate#advanced_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#advanced_config ModelArmorTemplate#advanced_config}
         '''
         result = self._values.get("advanced_config")
         return typing.cast(typing.Optional["ModelArmorTemplateFilterConfigSdpSettingsAdvancedConfig"], result)
@@ -1564,7 +1564,7 @@ class ModelArmorTemplateFilterConfigSdpSettings:
     ) -> typing.Optional["ModelArmorTemplateFilterConfigSdpSettingsBasicConfig"]:
         '''basic_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#basic_config ModelArmorTemplate#basic_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#basic_config ModelArmorTemplate#basic_config}
         '''
         result = self._values.get("basic_config")
         return typing.cast(typing.Optional["ModelArmorTemplateFilterConfigSdpSettingsBasicConfig"], result)
@@ -1597,8 +1597,8 @@ class ModelArmorTemplateFilterConfigSdpSettingsAdvancedConfig:
         inspect_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param deidentify_template: Optional Sensitive Data Protection Deidentify template resource name. If provided then DeidentifyContent action is performed during Sanitization using this template and inspect template. The De-identified data will be returned in SdpDeidentifyResult. Note that all info-types present in the deidentify template must be present in inspect template. e.g. 'projects/{project}/locations/{location}/deidentifyTemplates/{deidentify_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#deidentify_template ModelArmorTemplate#deidentify_template}
-        :param inspect_template: Sensitive Data Protection inspect template resource name If only inspect template is provided (de-identify template not provided), then Sensitive Data Protection InspectContent action is performed during Sanitization. All Sensitive Data Protection findings identified during inspection will be returned as SdpFinding in SdpInsepctionResult. e.g:- 'projects/{project}/locations/{location}/inspectTemplates/{inspect_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#inspect_template ModelArmorTemplate#inspect_template}
+        :param deidentify_template: Optional Sensitive Data Protection Deidentify template resource name. If provided then DeidentifyContent action is performed during Sanitization using this template and inspect template. The De-identified data will be returned in SdpDeidentifyResult. Note that all info-types present in the deidentify template must be present in inspect template. e.g. 'projects/{project}/locations/{location}/deidentifyTemplates/{deidentify_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#deidentify_template ModelArmorTemplate#deidentify_template}
+        :param inspect_template: Sensitive Data Protection inspect template resource name If only inspect template is provided (de-identify template not provided), then Sensitive Data Protection InspectContent action is performed during Sanitization. All Sensitive Data Protection findings identified during inspection will be returned as SdpFinding in SdpInsepctionResult. e.g:- 'projects/{project}/locations/{location}/inspectTemplates/{inspect_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#inspect_template ModelArmorTemplate#inspect_template}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05f9045fd53549763af5ae2ec3805555b827accf3805c3a69e3f8fe68e3400b9)
@@ -1622,7 +1622,7 @@ class ModelArmorTemplateFilterConfigSdpSettingsAdvancedConfig:
         e.g.
         'projects/{project}/locations/{location}/deidentifyTemplates/{deidentify_template}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#deidentify_template ModelArmorTemplate#deidentify_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#deidentify_template ModelArmorTemplate#deidentify_template}
         '''
         result = self._values.get("deidentify_template")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1636,7 +1636,7 @@ class ModelArmorTemplateFilterConfigSdpSettingsAdvancedConfig:
         e.g:-
         'projects/{project}/locations/{location}/inspectTemplates/{inspect_template}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#inspect_template ModelArmorTemplate#inspect_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#inspect_template ModelArmorTemplate#inspect_template}
         '''
         result = self._values.get("inspect_template")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1745,7 +1745,7 @@ class ModelArmorTemplateFilterConfigSdpSettingsBasicConfig:
         filter_enforcement: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_enforcement: Tells whether the Sensitive Data Protection basic config is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
+        :param filter_enforcement: Tells whether the Sensitive Data Protection basic config is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95283432c4211dfdf8e0b2459a0bafec123dc33d6100964d676e472577886b6c)
@@ -1758,7 +1758,7 @@ class ModelArmorTemplateFilterConfigSdpSettingsBasicConfig:
     def filter_enforcement(self) -> typing.Optional[builtins.str]:
         '''Tells whether the Sensitive Data Protection basic config is enabled or disabled. Possible values: ENABLED DISABLED.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
         '''
         result = self._values.get("filter_enforcement")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1862,8 +1862,8 @@ class ModelArmorTemplateFilterConfigSdpSettingsOutputReference(
         inspect_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param deidentify_template: Optional Sensitive Data Protection Deidentify template resource name. If provided then DeidentifyContent action is performed during Sanitization using this template and inspect template. The De-identified data will be returned in SdpDeidentifyResult. Note that all info-types present in the deidentify template must be present in inspect template. e.g. 'projects/{project}/locations/{location}/deidentifyTemplates/{deidentify_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#deidentify_template ModelArmorTemplate#deidentify_template}
-        :param inspect_template: Sensitive Data Protection inspect template resource name If only inspect template is provided (de-identify template not provided), then Sensitive Data Protection InspectContent action is performed during Sanitization. All Sensitive Data Protection findings identified during inspection will be returned as SdpFinding in SdpInsepctionResult. e.g:- 'projects/{project}/locations/{location}/inspectTemplates/{inspect_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#inspect_template ModelArmorTemplate#inspect_template}
+        :param deidentify_template: Optional Sensitive Data Protection Deidentify template resource name. If provided then DeidentifyContent action is performed during Sanitization using this template and inspect template. The De-identified data will be returned in SdpDeidentifyResult. Note that all info-types present in the deidentify template must be present in inspect template. e.g. 'projects/{project}/locations/{location}/deidentifyTemplates/{deidentify_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#deidentify_template ModelArmorTemplate#deidentify_template}
+        :param inspect_template: Sensitive Data Protection inspect template resource name If only inspect template is provided (de-identify template not provided), then Sensitive Data Protection InspectContent action is performed during Sanitization. All Sensitive Data Protection findings identified during inspection will be returned as SdpFinding in SdpInsepctionResult. e.g:- 'projects/{project}/locations/{location}/inspectTemplates/{inspect_template}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#inspect_template ModelArmorTemplate#inspect_template}
         '''
         value = ModelArmorTemplateFilterConfigSdpSettingsAdvancedConfig(
             deidentify_template=deidentify_template, inspect_template=inspect_template
@@ -1878,7 +1878,7 @@ class ModelArmorTemplateFilterConfigSdpSettingsOutputReference(
         filter_enforcement: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param filter_enforcement: Tells whether the Sensitive Data Protection basic config is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
+        :param filter_enforcement: Tells whether the Sensitive Data Protection basic config is enabled or disabled. Possible values: ENABLED DISABLED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#filter_enforcement ModelArmorTemplate#filter_enforcement}
         '''
         value = ModelArmorTemplateFilterConfigSdpSettingsBasicConfig(
             filter_enforcement=filter_enforcement
@@ -1970,15 +1970,15 @@ class ModelArmorTemplateTemplateMetadata:
         multi_language_detection: typing.Optional[typing.Union["ModelArmorTemplateTemplateMetadataMultiLanguageDetection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param custom_llm_response_safety_error_code: Indicates the custom error code set by the user to be returned to the end user if the LLM response trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#custom_llm_response_safety_error_code ModelArmorTemplate#custom_llm_response_safety_error_code}
-        :param custom_llm_response_safety_error_message: Indicates the custom error message set by the user to be returned to the end user if the LLM response trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#custom_llm_response_safety_error_message ModelArmorTemplate#custom_llm_response_safety_error_message}
-        :param custom_prompt_safety_error_code: Indicates the custom error code set by the user to be returned to the end user by the service extension if the prompt trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#custom_prompt_safety_error_code ModelArmorTemplate#custom_prompt_safety_error_code}
-        :param custom_prompt_safety_error_message: Indicates the custom error message set by the user to be returned to the end user if the prompt trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#custom_prompt_safety_error_message ModelArmorTemplate#custom_prompt_safety_error_message}
-        :param enforcement_type: Possible values: INSPECT_ONLY INSPECT_AND_BLOCK. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#enforcement_type ModelArmorTemplate#enforcement_type}
-        :param ignore_partial_invocation_failures: If true, partial detector failures should be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#ignore_partial_invocation_failures ModelArmorTemplate#ignore_partial_invocation_failures}
-        :param log_sanitize_operations: If true, log sanitize operations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#log_sanitize_operations ModelArmorTemplate#log_sanitize_operations}
-        :param log_template_operations: If true, log template crud operations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#log_template_operations ModelArmorTemplate#log_template_operations}
-        :param multi_language_detection: multi_language_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#multi_language_detection ModelArmorTemplate#multi_language_detection}
+        :param custom_llm_response_safety_error_code: Indicates the custom error code set by the user to be returned to the end user if the LLM response trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#custom_llm_response_safety_error_code ModelArmorTemplate#custom_llm_response_safety_error_code}
+        :param custom_llm_response_safety_error_message: Indicates the custom error message set by the user to be returned to the end user if the LLM response trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#custom_llm_response_safety_error_message ModelArmorTemplate#custom_llm_response_safety_error_message}
+        :param custom_prompt_safety_error_code: Indicates the custom error code set by the user to be returned to the end user by the service extension if the prompt trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#custom_prompt_safety_error_code ModelArmorTemplate#custom_prompt_safety_error_code}
+        :param custom_prompt_safety_error_message: Indicates the custom error message set by the user to be returned to the end user if the prompt trips Model Armor filters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#custom_prompt_safety_error_message ModelArmorTemplate#custom_prompt_safety_error_message}
+        :param enforcement_type: Possible values: INSPECT_ONLY INSPECT_AND_BLOCK. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#enforcement_type ModelArmorTemplate#enforcement_type}
+        :param ignore_partial_invocation_failures: If true, partial detector failures should be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#ignore_partial_invocation_failures ModelArmorTemplate#ignore_partial_invocation_failures}
+        :param log_sanitize_operations: If true, log sanitize operations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#log_sanitize_operations ModelArmorTemplate#log_sanitize_operations}
+        :param log_template_operations: If true, log template crud operations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#log_template_operations ModelArmorTemplate#log_template_operations}
+        :param multi_language_detection: multi_language_detection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#multi_language_detection ModelArmorTemplate#multi_language_detection}
         '''
         if isinstance(multi_language_detection, dict):
             multi_language_detection = ModelArmorTemplateTemplateMetadataMultiLanguageDetection(**multi_language_detection)
@@ -2017,7 +2017,7 @@ class ModelArmorTemplateTemplateMetadata:
     def custom_llm_response_safety_error_code(self) -> typing.Optional[jsii.Number]:
         '''Indicates the custom error code set by the user to be returned to the end user if the LLM response trips Model Armor filters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#custom_llm_response_safety_error_code ModelArmorTemplate#custom_llm_response_safety_error_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#custom_llm_response_safety_error_code ModelArmorTemplate#custom_llm_response_safety_error_code}
         '''
         result = self._values.get("custom_llm_response_safety_error_code")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2026,7 +2026,7 @@ class ModelArmorTemplateTemplateMetadata:
     def custom_llm_response_safety_error_message(self) -> typing.Optional[builtins.str]:
         '''Indicates the custom error message set by the user to be returned to the end user if the LLM response trips Model Armor filters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#custom_llm_response_safety_error_message ModelArmorTemplate#custom_llm_response_safety_error_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#custom_llm_response_safety_error_message ModelArmorTemplate#custom_llm_response_safety_error_message}
         '''
         result = self._values.get("custom_llm_response_safety_error_message")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2035,7 +2035,7 @@ class ModelArmorTemplateTemplateMetadata:
     def custom_prompt_safety_error_code(self) -> typing.Optional[jsii.Number]:
         '''Indicates the custom error code set by the user to be returned to the end user by the service extension if the prompt trips Model Armor filters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#custom_prompt_safety_error_code ModelArmorTemplate#custom_prompt_safety_error_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#custom_prompt_safety_error_code ModelArmorTemplate#custom_prompt_safety_error_code}
         '''
         result = self._values.get("custom_prompt_safety_error_code")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2044,7 +2044,7 @@ class ModelArmorTemplateTemplateMetadata:
     def custom_prompt_safety_error_message(self) -> typing.Optional[builtins.str]:
         '''Indicates the custom error message set by the user to be returned to the end user if the prompt trips Model Armor filters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#custom_prompt_safety_error_message ModelArmorTemplate#custom_prompt_safety_error_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#custom_prompt_safety_error_message ModelArmorTemplate#custom_prompt_safety_error_message}
         '''
         result = self._values.get("custom_prompt_safety_error_message")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2053,7 +2053,7 @@ class ModelArmorTemplateTemplateMetadata:
     def enforcement_type(self) -> typing.Optional[builtins.str]:
         '''Possible values: INSPECT_ONLY INSPECT_AND_BLOCK.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#enforcement_type ModelArmorTemplate#enforcement_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#enforcement_type ModelArmorTemplate#enforcement_type}
         '''
         result = self._values.get("enforcement_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2064,7 +2064,7 @@ class ModelArmorTemplateTemplateMetadata:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, partial detector failures should be ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#ignore_partial_invocation_failures ModelArmorTemplate#ignore_partial_invocation_failures}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#ignore_partial_invocation_failures ModelArmorTemplate#ignore_partial_invocation_failures}
         '''
         result = self._values.get("ignore_partial_invocation_failures")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2075,7 +2075,7 @@ class ModelArmorTemplateTemplateMetadata:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, log sanitize operations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#log_sanitize_operations ModelArmorTemplate#log_sanitize_operations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#log_sanitize_operations ModelArmorTemplate#log_sanitize_operations}
         '''
         result = self._values.get("log_sanitize_operations")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2086,7 +2086,7 @@ class ModelArmorTemplateTemplateMetadata:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, log template crud operations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#log_template_operations ModelArmorTemplate#log_template_operations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#log_template_operations ModelArmorTemplate#log_template_operations}
         '''
         result = self._values.get("log_template_operations")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2097,7 +2097,7 @@ class ModelArmorTemplateTemplateMetadata:
     ) -> typing.Optional["ModelArmorTemplateTemplateMetadataMultiLanguageDetection"]:
         '''multi_language_detection block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#multi_language_detection ModelArmorTemplate#multi_language_detection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#multi_language_detection ModelArmorTemplate#multi_language_detection}
         '''
         result = self._values.get("multi_language_detection")
         return typing.cast(typing.Optional["ModelArmorTemplateTemplateMetadataMultiLanguageDetection"], result)
@@ -2126,7 +2126,7 @@ class ModelArmorTemplateTemplateMetadataMultiLanguageDetection:
         enable_multi_language_detection: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable_multi_language_detection: If true, multi language detection will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#enable_multi_language_detection ModelArmorTemplate#enable_multi_language_detection}
+        :param enable_multi_language_detection: If true, multi language detection will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#enable_multi_language_detection ModelArmorTemplate#enable_multi_language_detection}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a26075dd55aa8767436e7321700ae0f14834c761b5eaa944836666fef584a690)
@@ -2141,7 +2141,7 @@ class ModelArmorTemplateTemplateMetadataMultiLanguageDetection:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''If true, multi language detection will be enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#enable_multi_language_detection ModelArmorTemplate#enable_multi_language_detection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#enable_multi_language_detection ModelArmorTemplate#enable_multi_language_detection}
         '''
         result = self._values.get("enable_multi_language_detection")
         assert result is not None, "Required property 'enable_multi_language_detection' is missing"
@@ -2248,7 +2248,7 @@ class ModelArmorTemplateTemplateMetadataOutputReference(
         enable_multi_language_detection: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable_multi_language_detection: If true, multi language detection will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#enable_multi_language_detection ModelArmorTemplate#enable_multi_language_detection}
+        :param enable_multi_language_detection: If true, multi language detection will be enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#enable_multi_language_detection ModelArmorTemplate#enable_multi_language_detection}
         '''
         value = ModelArmorTemplateTemplateMetadataMultiLanguageDetection(
             enable_multi_language_detection=enable_multi_language_detection
@@ -2497,9 +2497,9 @@ class ModelArmorTemplateTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#create ModelArmorTemplate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#delete ModelArmorTemplate#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#update ModelArmorTemplate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#create ModelArmorTemplate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#delete ModelArmorTemplate#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#update ModelArmorTemplate#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bae19ba67b027a28e9173fb83bfe5dea06a0b5fb22fdc0e5906e738b7bb92b3d)
@@ -2516,19 +2516,19 @@ class ModelArmorTemplateTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#create ModelArmorTemplate#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#create ModelArmorTemplate#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#delete ModelArmorTemplate#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#delete ModelArmorTemplate#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs/resources/model_armor_template#update ModelArmorTemplate#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/model_armor_template#update ModelArmorTemplate#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

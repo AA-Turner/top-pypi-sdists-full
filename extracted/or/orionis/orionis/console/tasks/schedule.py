@@ -1,22 +1,26 @@
 import asyncio
 import logging
-from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 import pytz
+from apscheduler.events import EVENT_JOB_MISSED, EVENT_JOB_ERROR, EVENT_ALL, EVENT_SCHEDULER_STARTED
 from apscheduler.schedulers.asyncio import AsyncIOScheduler as APSAsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.date import DateTrigger
-from apscheduler.triggers.interval import IntervalTrigger
-from orionis.app import Orionis
 from orionis.console.contracts.reactor import IReactor
+from orionis.console.contracts.schedule import ISchedule
 from orionis.console.exceptions import CLIOrionisRuntimeError
+from orionis.console.output.contracts.console import IConsole
+from orionis.console.tasks.event import Event
+from orionis.console.tasks.exception_report import ScheduleErrorReporter
+from orionis.foundation.contracts.application import IApplication
 from orionis.services.log.contracts.log_service import ILogger
 
-class Scheduler():
+class Scheduler(ISchedule):
 
     def __init__(
         self,
-        reactor: IReactor
+        reactor: IReactor,
+        app: IApplication,
+        console: IConsole,
+        error_reporter: ScheduleErrorReporter
     ) -> None:
         """
         Initialize a new instance of the Scheduler class.
@@ -39,7 +43,13 @@ class Scheduler():
         """
 
         # Store the application instance for configuration access.
-        self.__app = Orionis()
+        self.__app = app
+
+        # Store the console instance for output operations.
+        self.__console = console
+
+        # Store the error reporter instance for handling exceptions.
+        self.__error_reporter = error_reporter
 
         # Initialize AsyncIOScheduler instance with timezone configuration.
         self.__scheduler: APSAsyncIOScheduler = APSAsyncIOScheduler(
@@ -48,8 +58,11 @@ class Scheduler():
 
         # Clear the APScheduler logger to prevent conflicts with other loggers.
         # This is necessary to avoid duplicate log messages or conflicts with other logging configurations.
-        logging.getLogger("apscheduler").handlers.clear()
-        logging.getLogger("apscheduler").propagate = False
+        for name in ["apscheduler", "apscheduler.scheduler", "apscheduler.executors.default"]:
+            logger = logging.getLogger(name)
+            logger.handlers.clear()
+            logger.propagate = False
+            logger.disabled = True
 
         # Initialize the logger from the application instance.
         self.__logger: ILogger = self.__app.make('x-orionis.services.log.log_service')
@@ -60,16 +73,57 @@ class Scheduler():
         # Retrieve and store all available commands from the reactor.
         self.__available_commands = self.__getCommands()
 
-        # Dictionary to hold all scheduled jobs and their details.
-        self.__jobs: dict = {}
+        # Initialize the jobs dictionary to keep track of scheduled jobs.
+        self.__events: Dict[str, Event] = {}
 
-        # Properties to track the current scheduling context.
-        self.__command: str = None      # The command signature to be scheduled.
-        self.__args: List[str] = None   # Arguments for the command.
-        self.__purpose: str = None      # Purpose or description of the scheduled job.
+        # Initialize the jobs list to keep track of all scheduled jobs.
+        self.__jobs: List[dict] = []
+
+        # Add a listener to the scheduler to capture job events such as missed jobs or errors.
+        self.__scheduler.add_listener(self.__listener, EVENT_ALL)
 
         # Log the initialization of the Scheduler.
-        self.__logger.info("Scheduler initialized.")
+        self.__logger.info("Orionis scheduler initialized.")
+
+    def __listener(self, event):
+        """
+        Handle job events by logging errors and missed jobs.
+
+        This method acts as a listener for job events emitted by the scheduler. It processes
+        two main types of events: job execution errors and missed job executions. When a job
+        raises an exception during execution, the method logs the error and delegates reporting
+        to the error reporter. If a job is missed (i.e., not executed at its scheduled time),
+        the method logs a warning and notifies the error reporter accordingly.
+
+        Parameters
+        ----------
+        event : apscheduler.events.JobEvent
+            The job event object containing information about the job execution, such as
+            job_id, exception, traceback, code, and scheduled_run_time.
+
+        Returns
+        -------
+        None
+            This method does not return any value. It performs logging and error reporting
+            based on the event type.
+        """
+
+        # If the event contains an exception, log the error and report it
+        if event.exception:
+            self.__logger.error(f"Job {event.job_id} raised an exception: {event.exception}")
+            self.__error_reporter.reportException(
+                job_id=event.job_id,
+                exception=event.exception,
+                traceback=event.traceback
+            )
+
+        # If the event indicates a missed job, log a warning and report it
+        elif event.code == EVENT_JOB_MISSED:
+            self.__logger.warning(f"Job {event.job_id} was missed, scheduled for {event.scheduled_run_time}")
+            self.__error_reporter.reportMissed(
+                job_id=event.job_id,
+                scheduled_time=event.scheduled_run_time
+            )
 
     def __getCommands(
         self
@@ -164,56 +218,77 @@ class Scheduler():
         # Return the description if the command exists, otherwise return None
         return command_entry['description'] if command_entry else None
 
-    def __reset(
+    def __loadEvents(
         self
     ) -> None:
         """
-        Reset the internal state of the Scheduler instance.
+        Load all scheduled events from the AsyncIOScheduler into the internal jobs dictionary.
 
-        This method clears the current command, arguments, and purpose attributes, 
-        effectively resetting the scheduler's configuration to its initial state. 
-        This can be useful for preparing the scheduler for a new command or job 
-        scheduling without retaining any previous settings.
+        This method retrieves all jobs currently managed by the AsyncIOScheduler and populates
+        the internal jobs dictionary with their details, including signature, arguments, purpose,
+        type, trigger, start date, and end date.
 
         Returns
         -------
         None
-            This method does not return any value. It modifies the internal state of the Scheduler.
+            This method does not return any value. It updates the internal jobs dictionary.
         """
 
-        self.__command = None
-        self.__args = None
-        self.__purpose = None
+        # Only load events if the jobs list is empty
+        if not self.__jobs:
+
+            # Iterate through all scheduled jobs in the AsyncIOScheduler
+            for signature, event in self.__events.items():
+
+                # Convert the event to its entity representation
+                entity = event.toEntity()
+
+                # Add the job to the internal jobs list
+                self.__jobs.append(entity.toDict())
+
+                # Create a unique key for the job based on its signature
+                self.__scheduler.add_job(
+                    func= lambda command=signature, args=list(entity.args): self.__reactor.call(
+                        command,
+                        args
+                    ),
+                    trigger=entity.trigger,
+                    id=signature,
+                    name=signature,
+                    replace_existing=True
+                )
 
     def command(
         self,
         signature: str,
         args: Optional[List[str]] = None
-    ) -> 'Scheduler':
+    ) -> 'Event':
         """
-        Register a command to be scheduled with the specified signature and optional arguments.
+        Prepare an Event instance for a given command signature and its arguments.
 
-        This method validates the provided command signature and arguments, checks if the command
-        is available in the list of registered commands, and stores the command details internally
-        for scheduling. The command's description is also retrieved and stored for reference.
+        This method validates the provided command signature and arguments, ensuring
+        that the command exists among the registered commands and that the arguments
+        are in the correct format. If validation passes, it creates and returns an
+        Event object representing the scheduled command, including its signature,
+        arguments, and description.
 
         Parameters
         ----------
         signature : str
             The unique signature identifying the command to be scheduled. Must be a non-empty string.
         args : Optional[List[str]], optional
-            A list of string arguments to be passed to the command. If not provided, an empty list is used.
+            A list of string arguments to be passed to the command. Defaults to None.
 
         Returns
         -------
-        Scheduler
-            Returns the current instance of the Scheduler to allow method chaining.
+        Event
+            An Event instance containing the command signature, arguments, and its description.
 
         Raises
         ------
         ValueError
-            If the signature is not a non-empty string, if the arguments are not a list or None,
-            or if the command signature is not available among registered commands.
+            If the command signature is not a non-empty string, if the arguments are not a list
+            of strings or None, or if the command does not exist among the registered commands.
         """
 
         # Validate that the command signature is a non-empty string
@@ -228,136 +303,35 @@ class Scheduler():
         if not self.__isAvailable(signature):
             raise ValueError(f"The command '{signature}' is not available or does not exist.")
 
-        # Store the command signature
-        self.__command = signature
+        # Store the command and its arguments for scheduling
+        self.__events[signature] = Event(
+            signature=signature,
+            args=args or [],
+            purpose=self.__getDescription(signature)
+        )
 
-        # If purpose is not already set, retrieve and set the command's description
-        if self.__purpose is None:
-            self.__purpose = self.__getDescription(signature)
+        # Return the Event instance for further scheduling configuration
+        return self.__events[signature]
 
-        # Store the provided arguments or default to an empty list
-        self.__args = args if args is not None else []
-
-        # Return self to support method chaining
-        return self
-
-    def purpose(
+    def addListenerOnSchedulerStarted(
         self,
-        purpose: str
-    ) -> 'Scheduler':
+        listener: callable
+    ) -> None:
         """
-        Set the purpose or description for the scheduled command.
+        Add a listener for the scheduler started event.
 
-        This method assigns a human-readable purpose or description to the command
-        that is being scheduled. The purpose must be a non-empty string. This can
-        be useful for documentation, logging, or displaying information about the
-        scheduled job.
+        This method allows you to register a callback function that will be called
+        when the scheduler starts. The callback should accept a single argument, which
+        is the event object containing details about the scheduler start event.
 
         Parameters
         ----------
-        purpose : str
-            The purpose or description to associate with the scheduled command.
-            Must be a non-empty string.
-
-        Returns
-        -------
-        Scheduler
-            Returns the current instance of the Scheduler to allow method chaining.
-
-        Raises
-        ------
-        ValueError
-            If the provided purpose is not a non-empty string.
+        listener : callable
+            A function that will be called when the scheduler starts.
+            It should accept one parameter, which is the event object.
         """
-
-        # Validate that the purpose is a non-empty string
-        if not isinstance(purpose, str) or not purpose.strip():
-            raise ValueError("The purpose must be a non-empty string.")
-
-        # Set the internal purpose attribute
-        self.__purpose = purpose
-
-        # Return self to support method chaining
-        return self
-
-    def onceAt(
-        self,
-        date: datetime
-    ) -> bool:
-        """
-        Schedule a command to run once at a specific date and time.
-
-        This method schedules the currently registered command to execute exactly once at the
-        specified datetime using the AsyncIOScheduler. The job is registered internally and 
-        added to the scheduler instance.
-
-        Parameters
-        ----------
-        date : datetime.datetime
-            The date and time at which the command should be executed. Must be a valid `datetime` instance.
-
-        Returns
-        -------
-        bool
-            Returns True if the job was successfully scheduled.
-
-        Raises
-        ------
-        CLIOrionisRuntimeError
-            If the provided date is not a `datetime` instance or if there is an error while scheduling the job.
-        """
-
-        try:
-
-            # Ensure the provided date is a valid datetime instance.
-            if not isinstance(date, datetime):
-                raise CLIOrionisRuntimeError(
-                    "The date must be an instance of datetime."
-                )
-
-            # Register the job details internally.
-            self.__jobs[self.__command] = {
-                'signature': self.__command,
-                'args': self.__args,
-                'purpose': self.__purpose,
-                'trigger': 'once_at',
-                'start_at': date.strftime('%Y-%m-%d %H:%M:%S'),
-                'end_at': date.strftime('%Y-%m-%d %H:%M:%S')
-            }
-
-            # Add the job to the scheduler.
-            self.__scheduler.add_job(
-                func= lambda command=self.__command, args=list(self.__args): self.__reactor.call(
-                    command,
-                    args
-                ),
-                trigger=DateTrigger(
-                    run_date=date
-                ),
-                id=self.__command,
-                name=self.__command,
-                replace_existing=True
-            )
-
-            # Log the scheduling of the command.
-            self.__logger.info(
-                f"Scheduled command '{self.__command}' to run once at {date.strftime('%Y-%m-%d %H:%M:%S')}"
-            )
-
-            # Reset the internal state for future scheduling.
-            self.__reset()
-
-            # Return True to indicate successful scheduling.
-            return True
-
-        except Exception as e:
-
-            # Reraise known CLIOrionisRuntimeError exceptions.
-            if isinstance(e, CLIOrionisRuntimeError):
-                raise e
-
-            # Wrap and raise any other exceptions as CLIOrionisRuntimeError.
-            raise CLIOrionisRuntimeError(f"Error scheduling the job: {str(e)}")
+        # Register the listener for the scheduler started event
+        self.__scheduler.add_listener(listener, EVENT_SCHEDULER_STARTED)
 
     async def start(self) -> None:
         """
@@ -376,6 +350,9 @@ class Scheduler():
         # Start the AsyncIOScheduler to handle asynchronous jobs.
         try:
 
+            # Load existing events into the scheduler
+            self.events()
+
             # Ensure we're in an asyncio context
             asyncio.get_running_loop()
 
@@ -386,14 +363,10 @@ class Scheduler():
 
             # Keep the event loop alive to process scheduled jobs
             try:
-
-                # Wait for the scheduler to start and keep it running
-                while True:
+                while self.__scheduler.running and self.__scheduler.get_jobs():
                     await asyncio.sleep(1)
-
-            except KeyboardInterrupt:
-
-                # Handle graceful shutdown on keyboard interrupt
+            except (KeyboardInterrupt, asyncio.CancelledError):
+                # Handle graceful shutdown on keyboard interrupt or cancellation
                 await self.shutdown()
 
         except Exception as e:
@@ -496,22 +469,46 @@ class Scheduler():
             # Job not found or other error
             return False
 
-    def jobs(self) -> dict:
+    def events(self) -> list:
         """
         Retrieve all scheduled jobs currently managed by the Scheduler.
 
-        This method returns a dictionary containing information about all jobs that have been
-        registered and scheduled through this Scheduler instance. Each entry in the dictionary
-        represents a scheduled job, where the key is the command signature and the value is a
-        dictionary with details such as the signature, arguments, purpose, type, trigger, start time,
-        and end time.
+        This method loads and returns a list of dictionaries, each representing a scheduled job
+        managed by this Scheduler instance. Each dictionary contains details such as the command
+        signature, arguments, purpose, random delay, start and end dates, and additional job details.
 
         Returns
         -------
-        dict
-            A dictionary mapping command signatures to their corresponding job details. Each value
-            is a dictionary containing information about the scheduled job.
+        list of dict
+            A list where each element is a dictionary containing information about a scheduled job.
+            Each dictionary includes the following keys:
+                - 'signature': str, the command signature.
+                - 'args': list, the arguments passed to the command.
+                - 'purpose': str, the description or purpose of the job.
+                - 'random_delay': any, the random delay associated with the job (if any).
+                - 'start_date': str or None, the formatted start date and time of the job, or None if not set.
+                - 'end_date': str or None, the formatted end date and time of the job, or None if not set.
+                - 'details': any, additional details about the job.
         """
 
-        # Return the internal dictionary holding all scheduled jobs and their details.
-        return self.__jobs
+        # Ensure all events are loaded into the internal jobs list
+        self.__loadEvents()
+
+        # Initialize a list to hold details of each scheduled job
+        events: list = []
+
+        # Iterate over each job in the internal jobs list
+        for job in self.__jobs:
+            # Append a dictionary with relevant job details to the events list
+            events.append({
+                'signature': job['signature'],
+                'args': job['args'],
+                'purpose': job['purpose'],
+                'random_delay': job['random_delay'],
+                'start_date': job['start_date'].strftime('%Y-%m-%d %H:%M:%S') if job['start_date'] else None,
+                'end_date': job['end_date'].strftime('%Y-%m-%d %H:%M:%S') if job['end_date'] else None,
+                'details': job['details']
+            })
+
+        # Return the list of scheduled job details
+        return events

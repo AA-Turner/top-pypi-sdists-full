@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google provider version 6.48.0
+# CDKTF prebuilt bindings for hashicorp/google provider version 6.49.0
 
-This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.48.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google provider version 1:
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.48.0)
+* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.49.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -577,6 +577,8 @@ __all__ = [
     "data_google_artifact_registry_repositories",
     "data_google_artifact_registry_repository",
     "data_google_artifact_registry_repository_iam_policy",
+    "data_google_artifact_registry_tag",
+    "data_google_artifact_registry_tags",
     "data_google_artifact_registry_version",
     "data_google_backup_dr_backup",
     "data_google_backup_dr_backup_plan",
@@ -1016,6 +1018,7 @@ __all__ = [
     "developer_connect_git_repository_link",
     "developer_connect_insights_config",
     "dialogflow_agent",
+    "dialogflow_conversation_profile",
     "dialogflow_cx_agent",
     "dialogflow_cx_entity_type",
     "dialogflow_cx_environment",
@@ -2049,6 +2052,8 @@ from . import data_google_artifact_registry_package
 from . import data_google_artifact_registry_repositories
 from . import data_google_artifact_registry_repository
 from . import data_google_artifact_registry_repository_iam_policy
+from . import data_google_artifact_registry_tag
+from . import data_google_artifact_registry_tags
 from . import data_google_artifact_registry_version
 from . import data_google_backup_dr_backup
 from . import data_google_backup_dr_backup_plan
@@ -2488,6 +2493,7 @@ from . import developer_connect_connection
 from . import developer_connect_git_repository_link
 from . import developer_connect_insights_config
 from . import dialogflow_agent
+from . import dialogflow_conversation_profile
 from . import dialogflow_cx_agent
 from . import dialogflow_cx_entity_type
 from . import dialogflow_cx_environment

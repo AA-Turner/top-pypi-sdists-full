@@ -13,15 +13,25 @@ from cdp.openapi_client.models.evm_network_criterion import EvmNetworkCriterion
 from cdp.openapi_client.models.evm_typed_address_condition import EvmTypedAddressCondition
 from cdp.openapi_client.models.evm_typed_numerical_condition import EvmTypedNumericalCondition
 from cdp.openapi_client.models.evm_typed_string_condition import EvmTypedStringCondition
+from cdp.openapi_client.models.idl import Idl
 from cdp.openapi_client.models.known_abi_type import KnownAbiType
+from cdp.openapi_client.models.known_idl_type import KnownIdlType
 from cdp.openapi_client.models.mint_address_criterion import MintAddressCriterion
 from cdp.openapi_client.models.net_usd_change_criterion import NetUSDChangeCriterion
+from cdp.openapi_client.models.prepare_user_operation_criteria_inner import (
+    PrepareUserOperationCriteriaInner,
+)
+from cdp.openapi_client.models.prepare_user_operation_rule import PrepareUserOperationRule
 from cdp.openapi_client.models.rule import Rule
 from cdp.openapi_client.models.send_evm_transaction_criteria_inner import (
     SendEvmTransactionCriteriaInner,
 )
 from cdp.openapi_client.models.send_evm_transaction_rule import SendEvmTransactionRule
 from cdp.openapi_client.models.send_sol_transaction_rule import SendSolTransactionRule
+from cdp.openapi_client.models.send_user_operation_criteria_inner import (
+    SendUserOperationCriteriaInner,
+)
+from cdp.openapi_client.models.send_user_operation_rule import SendUserOperationRule
 from cdp.openapi_client.models.sign_evm_hash_rule import SignEvmHashRule
 from cdp.openapi_client.models.sign_evm_message_criteria_inner import SignEvmMessageCriteriaInner
 from cdp.openapi_client.models.sign_evm_message_rule import SignEvmMessageRule
@@ -50,6 +60,14 @@ from cdp.openapi_client.models.sign_sol_transaction_criteria_inner import (
 )
 from cdp.openapi_client.models.sign_sol_transaction_rule import SignSolTransactionRule
 from cdp.openapi_client.models.sol_address_criterion import SolAddressCriterion
+from cdp.openapi_client.models.sol_data_condition import SolDataCondition
+from cdp.openapi_client.models.sol_data_condition_params_inner import SolDataConditionParamsInner
+from cdp.openapi_client.models.sol_data_criterion import SolDataCriterion
+from cdp.openapi_client.models.sol_data_criterion_idls_inner import SolDataCriterionIdlsInner
+from cdp.openapi_client.models.sol_data_parameter_condition import SolDataParameterCondition
+from cdp.openapi_client.models.sol_data_parameter_condition_list import (
+    SolDataParameterConditionList,
+)
 from cdp.openapi_client.models.sol_value_criterion import SolValueCriterion
 from cdp.openapi_client.models.spl_address_criterion import SplAddressCriterion
 from cdp.openapi_client.models.spl_value_criterion import SplValueCriterion
@@ -264,6 +282,50 @@ openapi_criterion_mapping = {
                 type="mintAddress",
             )
         ),
+        "solData": lambda c: SignSolTransactionCriteriaInner(
+            actual_instance=SolDataCriterion(
+                type="solData",
+                idls=[
+                    SolDataCriterionIdlsInner(
+                        actual_instance=(
+                            KnownIdlType(idl)
+                            if isinstance(idl, str)
+                            else Idl(
+                                address=idl.address,
+                                instructions=idl.instructions,
+                            )
+                        )
+                    )
+                    for idl in c.idls
+                ],
+                conditions=[
+                    SolDataCondition(
+                        instruction=cond.instruction,
+                        params=[
+                            SolDataConditionParamsInner(
+                                actual_instance=(
+                                    SolDataParameterConditionList(
+                                        name=param.name,
+                                        operator=param.operator,
+                                        values=param.values,
+                                    )
+                                    if hasattr(param, "values")
+                                    else SolDataParameterCondition(
+                                        name=param.name,
+                                        operator=param.operator,
+                                        value=param.value,
+                                    )
+                                )
+                            )
+                            for param in cond.params
+                        ]
+                        if cond.params
+                        else None,
+                    )
+                    for cond in c.conditions
+                ],
+            )
+        ),
     },
     "sendSolTransaction": {
         "solAddress": lambda c: SignSolTransactionCriteriaInner(
@@ -301,6 +363,157 @@ openapi_criterion_mapping = {
                 type="mintAddress",
             )
         ),
+        "solData": lambda c: SignSolTransactionCriteriaInner(
+            actual_instance=SolDataCriterion(
+                type="solData",
+                idls=[
+                    SolDataCriterionIdlsInner(
+                        actual_instance=(
+                            KnownIdlType(idl)
+                            if isinstance(idl, str)
+                            else Idl(
+                                address=idl.address,
+                                instructions=idl.instructions,
+                            )
+                        )
+                    )
+                    for idl in c.idls
+                ],
+                conditions=[
+                    SolDataCondition(
+                        instruction=cond.instruction,
+                        params=[
+                            SolDataConditionParamsInner(
+                                actual_instance=(
+                                    SolDataParameterConditionList(
+                                        name=param.name,
+                                        operator=param.operator,
+                                        values=param.values,
+                                    )
+                                    if hasattr(param, "values")
+                                    else SolDataParameterCondition(
+                                        name=param.name,
+                                        operator=param.operator,
+                                        value=param.value,
+                                    )
+                                )
+                            )
+                            for param in cond.params
+                        ]
+                        if cond.params
+                        else None,
+                    )
+                    for cond in c.conditions
+                ],
+            )
+        ),
+    },
+    "prepareUserOperation": {
+        "ethValue": lambda c: PrepareUserOperationCriteriaInner(
+            actual_instance=EthValueCriterion(
+                eth_value=c.ethValue,
+                operator=c.operator,
+                type="ethValue",
+            )
+        ),
+        "evmAddress": lambda c: PrepareUserOperationCriteriaInner(
+            actual_instance=EvmAddressCriterion(
+                addresses=c.addresses,
+                operator=c.operator,
+                type="evmAddress",
+            )
+        ),
+        "evmNetwork": lambda c: PrepareUserOperationCriteriaInner(
+            actual_instance=EvmNetworkCriterion(
+                networks=c.networks,
+                operator=c.operator,
+                type="evmNetwork",
+            )
+        ),
+        "evmData": lambda c: PrepareUserOperationCriteriaInner(
+            actual_instance=EvmDataCriterion(
+                type="evmData",
+                abi=EvmDataCriterionAbi(
+                    actual_instance=(KnownAbiType(c.abi) if isinstance(c.abi, str) else c.abi)
+                ),
+                conditions=[
+                    OpenAPIEvmDataCondition(
+                        function=cond.function,
+                        params=[
+                            EvmDataConditionParamsInner(
+                                actual_instance=(
+                                    EvmDataParameterConditionList(
+                                        name=param.name,
+                                        operator=param.operator,
+                                        values=param.values,
+                                    )
+                                    if hasattr(param, "values")
+                                    else EvmDataParameterCondition(
+                                        name=param.name,
+                                        operator=param.operator,
+                                        value=param.value,
+                                    )
+                                )
+                            )
+                            for param in cond.params
+                        ]
+                        if cond.params
+                        else None,
+                    )
+                    for cond in c.conditions
+                ],
+            )
+        ),
+    },
+    "sendUserOperation": {
+        "ethValue": lambda c: SendUserOperationCriteriaInner(
+            actual_instance=EthValueCriterion(
+                eth_value=c.ethValue,
+                operator=c.operator,
+                type="ethValue",
+            )
+        ),
+        "evmAddress": lambda c: SendUserOperationCriteriaInner(
+            actual_instance=EvmAddressCriterion(
+                addresses=c.addresses,
+                operator=c.operator,
+                type="evmAddress",
+            )
+        ),
+        "evmData": lambda c: SendUserOperationCriteriaInner(
+            actual_instance=EvmDataCriterion(
+                type="evmData",
+                abi=EvmDataCriterionAbi(
+                    actual_instance=(KnownAbiType(c.abi) if isinstance(c.abi, str) else c.abi)
+                ),
+                conditions=[
+                    OpenAPIEvmDataCondition(
+                        function=cond.function,
+                        params=[
+                            EvmDataConditionParamsInner(
+                                actual_instance=(
+                                    EvmDataParameterConditionList(
+                                        name=param.name,
+                                        operator=param.operator,
+                                        values=param.values,
+                                    )
+                                    if hasattr(param, "values")
+                                    else EvmDataParameterCondition(
+                                        name=param.name,
+                                        operator=param.operator,
+                                        value=param.value,
+                                    )
+                                )
+                            )
+                            for param in cond.params
+                        ]
+                        if cond.params
+                        else None,
+                    )
+                    for cond in c.conditions
+                ],
+            )
+        ),
     },
 }
 
@@ -313,6 +526,8 @@ openapi_rule_mapping = {
     "signEvmTypedData": SignEvmTypedDataRule,
     "signSolTransaction": SignSolTransactionRule,
     "sendSolTransaction": SendSolTransactionRule,
+    "prepareUserOperation": PrepareUserOperationRule,
+    "sendUserOperation": SendUserOperationRule,
 }
 
 
