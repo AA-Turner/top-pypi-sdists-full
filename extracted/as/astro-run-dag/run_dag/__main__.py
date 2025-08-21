@@ -13,6 +13,7 @@ from run_dag.utils.exceptions import ConnectionFailed
 from run_dag.utils.get_dag import get_dag
 from run_dag.utils.parse_settings_file import parse_settings_file
 from run_dag.utils.run_dag import run_dag
+from run_dag.utils.version_compat import AIRFLOW_V_3_0_PLUS
 
 warnings.filterwarnings(action="ignore")
 load_dotenv()
@@ -76,15 +77,22 @@ def run_airflow_dag(
     if settings_file_path:
         connections, variables = parse_settings_file(settings_file_path)
     try:
-        dr = run_dag(
-            dag,
-            execution_date=execution_date,
-            conn_file_path=connections_file_path,
-            variable_file_path=variables_file_path,
-            connections=connections,
-            variables=variables,
-            verbose=verbose,
-        )
+        if AIRFLOW_V_3_0_PLUS:
+            dr = dag.test(
+                logical_date=execution_date,
+                variable_file_path=variables_file_path,
+                conn_file_path=connections_file_path,
+            )
+        else:
+            dr = run_dag(
+                dag,
+                execution_date=execution_date,
+                conn_file_path=connections_file_path,
+                variable_file_path=variables_file_path,
+                connections=connections,
+                variables=variables,
+                verbose=verbose,
+            )
     except ConnectionFailed as connection_failed:
         rprint(
             f"  [bold red]{connection_failed}[/bold red] using connection [bold]{connection_failed.conn_id}[/bold]"

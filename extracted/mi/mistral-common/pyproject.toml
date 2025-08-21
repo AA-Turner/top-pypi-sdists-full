@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mistral_common"
-version = "1.8.3"
+version = "1.8.4"
 description = "Mistral-common is a library of common utilities for Mistral AI."
 authors = [{name = "bam4d", email = "bam4d@mistral.ai"}]
 license = "Apache-2.0"
@@ -15,7 +15,6 @@ requires-python = ">=3.9.0,<3.14"
 dependencies = [
     "pydantic>=2.7,<3.0",
     "jsonschema>=4.21.1",
-    "sentencepiece>=0.2.0",
     "typing-extensions>=4.11.0",
     "tiktoken>=0.7.0",
     "pillow>=10.3.0",
@@ -26,6 +25,7 @@ dependencies = [
 
 [project.optional-dependencies]
 opencv = ["opencv-python-headless>=4.0.0"]
+sentencepiece = ["sentencepiece>=0.2.0"]
 soundfile = ["soundfile>=0.12.1"]
 soxr = ["soxr>=0.5.0"]
 audio = ["mistral_common[soundfile]", "mistral_common[soxr]"]
@@ -50,7 +50,8 @@ dev = [
     "types-Pillow>=10.2.0",
     "types-requests>=2.32",
     "coverage[toml]>=7.4.4",
-    "openai>=1.84.0"
+    "openai>=1.84.0",
+    "pre-commit>=4.0.0",
 ]
 
 docs = [

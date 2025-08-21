@@ -28192,17 +28192,19 @@ class scout_chartdefinition_api_FrequencyChartDefinitionV1(ConjureBeanType):
             'events': ConjureFieldDefinition('events', OptionalTypeWrapper[List[scout_chartdefinition_api_Event]]),
             'comparison_run_groups': ConjureFieldDefinition('comparisonRunGroups', List[scout_comparisonrun_api_ComparisonRunGroup]),
             'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
-            'value_axes': ConjureFieldDefinition('valueAxes', List[scout_chartdefinition_api_ValueAxis])
+            'value_axes': ConjureFieldDefinition('valueAxes', List[scout_chartdefinition_api_ValueAxis]),
+            'plot_type': ConjureFieldDefinition('plotType', OptionalTypeWrapper[scout_chartdefinition_api_FrequencyPlotType])
         }
 
-    __slots__: List[str] = ['_plots', '_events', '_comparison_run_groups', '_title', '_value_axes']
+    __slots__: List[str] = ['_plots', '_events', '_comparison_run_groups', '_title', '_value_axes', '_plot_type']
 
-    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], plots: List["scout_chartdefinition_api_FrequencyPlot"], value_axes: List["scout_chartdefinition_api_ValueAxis"], events: Optional[List["scout_chartdefinition_api_Event"]] = None, title: Optional[str] = None) -> None:
+    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], plots: List["scout_chartdefinition_api_FrequencyPlot"], value_axes: List["scout_chartdefinition_api_ValueAxis"], events: Optional[List["scout_chartdefinition_api_Event"]] = None, plot_type: Optional["scout_chartdefinition_api_FrequencyPlotType"] = None, title: Optional[str] = None) -> None:
         self._plots = plots
         self._events = events
         self._comparison_run_groups = comparison_run_groups
         self._title = title
         self._value_axes = value_axes
+        self._plot_type = plot_type
 
     @builtins.property
     def plots(self) -> List["scout_chartdefinition_api_FrequencyPlot"]:
@@ -28223,6 +28225,12 @@ class scout_chartdefinition_api_FrequencyChartDefinitionV1(ConjureBeanType):
     @builtins.property
     def value_axes(self) -> List["scout_chartdefinition_api_ValueAxis"]:
         return self._value_axes
+
+    @builtins.property
+    def plot_type(self) -> Optional["scout_chartdefinition_api_FrequencyPlotType"]:
+        """The type of plot to display. If not specified, the default is FFT.
+        """
+        return self._plot_type
 
 
 scout_chartdefinition_api_FrequencyChartDefinitionV1.__name__ = "FrequencyChartDefinitionV1"
@@ -28275,6 +28283,122 @@ class scout_chartdefinition_api_FrequencyPlot(ConjureBeanType):
 scout_chartdefinition_api_FrequencyPlot.__name__ = "FrequencyPlot"
 scout_chartdefinition_api_FrequencyPlot.__qualname__ = "FrequencyPlot"
 scout_chartdefinition_api_FrequencyPlot.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_FrequencyPlotType(ConjureUnionType):
+    _fft: Optional["scout_chartdefinition_api_FrequencyPlotTypeFft"] = None
+    _periodogram: Optional["scout_chartdefinition_api_FrequencyPlotTypePeriodogram"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'fft': ConjureFieldDefinition('fft', scout_chartdefinition_api_FrequencyPlotTypeFft),
+            'periodogram': ConjureFieldDefinition('periodogram', scout_chartdefinition_api_FrequencyPlotTypePeriodogram)
+        }
+
+    def __init__(
+            self,
+            fft: Optional["scout_chartdefinition_api_FrequencyPlotTypeFft"] = None,
+            periodogram: Optional["scout_chartdefinition_api_FrequencyPlotTypePeriodogram"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (fft is not None) + (periodogram is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if fft is not None:
+                self._fft = fft
+                self._type = 'fft'
+            if periodogram is not None:
+                self._periodogram = periodogram
+                self._type = 'periodogram'
+
+        elif type_of_union == 'fft':
+            if fft is None:
+                raise ValueError('a union value must not be None')
+            self._fft = fft
+            self._type = 'fft'
+        elif type_of_union == 'periodogram':
+            if periodogram is None:
+                raise ValueError('a union value must not be None')
+            self._periodogram = periodogram
+            self._type = 'periodogram'
+
+    @builtins.property
+    def fft(self) -> Optional["scout_chartdefinition_api_FrequencyPlotTypeFft"]:
+        return self._fft
+
+    @builtins.property
+    def periodogram(self) -> Optional["scout_chartdefinition_api_FrequencyPlotTypePeriodogram"]:
+        return self._periodogram
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_FrequencyPlotTypeVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_FrequencyPlotTypeVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'fft' and self.fft is not None:
+            return visitor._fft(self.fft)
+        if self._type == 'periodogram' and self.periodogram is not None:
+            return visitor._periodogram(self.periodogram)
+
+
+scout_chartdefinition_api_FrequencyPlotType.__name__ = "FrequencyPlotType"
+scout_chartdefinition_api_FrequencyPlotType.__qualname__ = "FrequencyPlotType"
+scout_chartdefinition_api_FrequencyPlotType.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_FrequencyPlotTypeVisitor:
+
+    @abstractmethod
+    def _fft(self, fft: "scout_chartdefinition_api_FrequencyPlotTypeFft") -> Any:
+        pass
+
+    @abstractmethod
+    def _periodogram(self, periodogram: "scout_chartdefinition_api_FrequencyPlotTypePeriodogram") -> Any:
+        pass
+
+
+scout_chartdefinition_api_FrequencyPlotTypeVisitor.__name__ = "FrequencyPlotTypeVisitor"
+scout_chartdefinition_api_FrequencyPlotTypeVisitor.__qualname__ = "FrequencyPlotTypeVisitor"
+scout_chartdefinition_api_FrequencyPlotTypeVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_FrequencyPlotTypeFft(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_chartdefinition_api_FrequencyPlotTypeFft.__name__ = "FrequencyPlotTypeFft"
+scout_chartdefinition_api_FrequencyPlotTypeFft.__qualname__ = "FrequencyPlotTypeFft"
+scout_chartdefinition_api_FrequencyPlotTypeFft.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_FrequencyPlotTypePeriodogram(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'method': ConjureFieldDefinition('method', scout_compute_api_PeriodogramMethod)
+        }
+
+    __slots__: List[str] = ['_method']
+
+    def __init__(self, method: "scout_compute_api_PeriodogramMethod") -> None:
+        self._method = method
+
+    @builtins.property
+    def method(self) -> "scout_compute_api_PeriodogramMethod":
+        return self._method
+
+
+scout_chartdefinition_api_FrequencyPlotTypePeriodogram.__name__ = "FrequencyPlotTypePeriodogram"
+scout_chartdefinition_api_FrequencyPlotTypePeriodogram.__qualname__ = "FrequencyPlotTypePeriodogram"
+scout_chartdefinition_api_FrequencyPlotTypePeriodogram.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_Geo3dCustomModel(ConjureBeanType):
@@ -46299,41 +46423,58 @@ scout_compute_api_ForwardFillResampleInterpolationConfiguration.__module__ = "no
 
 class scout_compute_api_FrequencyDomain(ConjureUnionType):
     _fft: Optional["scout_compute_api_Fft"] = None
+    _periodogram: Optional["scout_compute_api_Periodogram"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'fft': ConjureFieldDefinition('fft', scout_compute_api_Fft)
+            'fft': ConjureFieldDefinition('fft', scout_compute_api_Fft),
+            'periodogram': ConjureFieldDefinition('periodogram', scout_compute_api_Periodogram)
         }
 
     def __init__(
             self,
             fft: Optional["scout_compute_api_Fft"] = None,
+            periodogram: Optional["scout_compute_api_Periodogram"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (fft is not None) != 1:
+            if (fft is not None) + (periodogram is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if fft is not None:
                 self._fft = fft
                 self._type = 'fft'
+            if periodogram is not None:
+                self._periodogram = periodogram
+                self._type = 'periodogram'
 
         elif type_of_union == 'fft':
             if fft is None:
                 raise ValueError('a union value must not be None')
             self._fft = fft
             self._type = 'fft'
+        elif type_of_union == 'periodogram':
+            if periodogram is None:
+                raise ValueError('a union value must not be None')
+            self._periodogram = periodogram
+            self._type = 'periodogram'
 
     @builtins.property
     def fft(self) -> Optional["scout_compute_api_Fft"]:
         return self._fft
+
+    @builtins.property
+    def periodogram(self) -> Optional["scout_compute_api_Periodogram"]:
+        return self._periodogram
 
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_FrequencyDomainVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_FrequencyDomainVisitor'.format(visitor.__class__.__name__))
         if self._type == 'fft' and self.fft is not None:
             return visitor._fft(self.fft)
+        if self._type == 'periodogram' and self.periodogram is not None:
+            return visitor._periodogram(self.periodogram)
 
 
 scout_compute_api_FrequencyDomain.__name__ = "FrequencyDomain"
@@ -46345,6 +46486,10 @@ class scout_compute_api_FrequencyDomainVisitor:
 
     @abstractmethod
     def _fft(self, fft: "scout_compute_api_Fft") -> Any:
+        pass
+
+    @abstractmethod
+    def _periodogram(self, periodogram: "scout_compute_api_Periodogram") -> Any:
         pass
 
 
@@ -50403,6 +50548,59 @@ class scout_compute_api_PercentageThreshold(ConjureBeanType):
 scout_compute_api_PercentageThreshold.__name__ = "PercentageThreshold"
 scout_compute_api_PercentageThreshold.__qualname__ = "PercentageThreshold"
 scout_compute_api_PercentageThreshold.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_Periodogram(ConjureBeanType):
+    """Returns the spectral density estimate (i.e. PSD) of the input series.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
+            'method': ConjureFieldDefinition('method', scout_compute_api_PeriodogramMethod)
+        }
+
+    __slots__: List[str] = ['_input', '_method']
+
+    def __init__(self, input: "scout_compute_api_NumericSeries", method: "scout_compute_api_PeriodogramMethod") -> None:
+        self._input = input
+        self._method = method
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_NumericSeries":
+        return self._input
+
+    @builtins.property
+    def method(self) -> "scout_compute_api_PeriodogramMethod":
+        return self._method
+
+
+scout_compute_api_Periodogram.__name__ = "Periodogram"
+scout_compute_api_Periodogram.__qualname__ = "Periodogram"
+scout_compute_api_Periodogram.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_PeriodogramMethod(ConjureEnumType):
+
+    WELCH_HANN = 'WELCH_HANN'
+    '''WELCH_HANN'''
+    WELCH_HAMMING = 'WELCH_HAMMING'
+    '''WELCH_HAMMING'''
+    WELCH_BLACKMAN = 'WELCH_BLACKMAN'
+    '''WELCH_BLACKMAN'''
+    WELCH_RECT = 'WELCH_RECT'
+    '''WELCH_RECT'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_PeriodogramMethod.__name__ = "PeriodogramMethod"
+scout_compute_api_PeriodogramMethod.__qualname__ = "PeriodogramMethod"
+scout_compute_api_PeriodogramMethod.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_PersistenceWindowConfiguration(ConjureBeanType):
@@ -58594,41 +58792,58 @@ scout_compute_resolved_api_ForwardFillResampleInterpolationConfiguration.__modul
 
 class scout_compute_resolved_api_FrequencyDomainNode(ConjureUnionType):
     _fft: Optional["scout_compute_resolved_api_FftNode"] = None
+    _periodogram: Optional["scout_compute_resolved_api_PeriodogramNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'fft': ConjureFieldDefinition('fft', scout_compute_resolved_api_FftNode)
+            'fft': ConjureFieldDefinition('fft', scout_compute_resolved_api_FftNode),
+            'periodogram': ConjureFieldDefinition('periodogram', scout_compute_resolved_api_PeriodogramNode)
         }
 
     def __init__(
             self,
             fft: Optional["scout_compute_resolved_api_FftNode"] = None,
+            periodogram: Optional["scout_compute_resolved_api_PeriodogramNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (fft is not None) != 1:
+            if (fft is not None) + (periodogram is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if fft is not None:
                 self._fft = fft
                 self._type = 'fft'
+            if periodogram is not None:
+                self._periodogram = periodogram
+                self._type = 'periodogram'
 
         elif type_of_union == 'fft':
             if fft is None:
                 raise ValueError('a union value must not be None')
             self._fft = fft
             self._type = 'fft'
+        elif type_of_union == 'periodogram':
+            if periodogram is None:
+                raise ValueError('a union value must not be None')
+            self._periodogram = periodogram
+            self._type = 'periodogram'
 
     @builtins.property
     def fft(self) -> Optional["scout_compute_resolved_api_FftNode"]:
         return self._fft
+
+    @builtins.property
+    def periodogram(self) -> Optional["scout_compute_resolved_api_PeriodogramNode"]:
+        return self._periodogram
 
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_FrequencyDomainNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_FrequencyDomainNodeVisitor'.format(visitor.__class__.__name__))
         if self._type == 'fft' and self.fft is not None:
             return visitor._fft(self.fft)
+        if self._type == 'periodogram' and self.periodogram is not None:
+            return visitor._periodogram(self.periodogram)
 
 
 scout_compute_resolved_api_FrequencyDomainNode.__name__ = "FrequencyDomainNode"
@@ -58640,6 +58855,10 @@ class scout_compute_resolved_api_FrequencyDomainNodeVisitor:
 
     @abstractmethod
     def _fft(self, fft: "scout_compute_resolved_api_FftNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _periodogram(self, periodogram: "scout_compute_resolved_api_PeriodogramNode") -> Any:
         pass
 
 
@@ -60705,6 +60924,35 @@ class scout_compute_resolved_api_PercentageThreshold(ConjureBeanType):
 scout_compute_resolved_api_PercentageThreshold.__name__ = "PercentageThreshold"
 scout_compute_resolved_api_PercentageThreshold.__qualname__ = "PercentageThreshold"
 scout_compute_resolved_api_PercentageThreshold.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_PeriodogramNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
+            'method': ConjureFieldDefinition('method', scout_compute_api_PeriodogramMethod)
+        }
+
+    __slots__: List[str] = ['_input', '_method']
+
+    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", method: "scout_compute_api_PeriodogramMethod") -> None:
+        self._input = input
+        self._method = method
+
+    @builtins.property
+    def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._input
+
+    @builtins.property
+    def method(self) -> "scout_compute_api_PeriodogramMethod":
+        return self._method
+
+
+scout_compute_resolved_api_PeriodogramNode.__name__ = "PeriodogramNode"
+scout_compute_resolved_api_PeriodogramNode.__qualname__ = "PeriodogramNode"
+scout_compute_resolved_api_PeriodogramNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_PersistenceWindowConfiguration(ConjureBeanType):

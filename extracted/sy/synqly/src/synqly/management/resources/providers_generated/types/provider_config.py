@@ -19,8 +19,10 @@ from .assets_qualys_cloud_mock import AssetsQualysCloudMock
 from .assets_service_now import AssetsServiceNow
 from .assets_service_now_mock import AssetsServiceNowMock
 from .assets_sevco import AssetsSevco
+from .assets_sevco_mock import AssetsSevcoMock
 from .assets_tanium_cloud import AssetsTaniumCloud
 from .assets_tanium_cloud_mock import AssetsTaniumCloudMock
+from .cloud_security_aws import CloudSecurityAws
 from .cloud_security_crowd_strike import CloudSecurityCrowdStrike
 from .cloud_security_defender import CloudSecurityDefender
 from .edr_crowd_strike import EdrCrowdStrike
@@ -221,6 +223,15 @@ class ProviderConfig_AssetsSevco(AssetsSevco):
         allow_population_by_field_name = True
 
 
+class ProviderConfig_AssetsSevcoMock(AssetsSevcoMock):
+    type: typing.Literal["assets_sevco_mock"]
+
+    class Config:
+        frozen = True
+        smart_union = True
+        allow_population_by_field_name = True
+
+
 class ProviderConfig_AssetsTaniumCloud(AssetsTaniumCloud):
     type: typing.Literal["assets_tanium_cloud"]
 
@@ -232,6 +243,15 @@ class ProviderConfig_AssetsTaniumCloud(AssetsTaniumCloud):
 
 class ProviderConfig_AssetsTaniumCloudMock(AssetsTaniumCloudMock):
     type: typing.Literal["assets_tanium_cloud_mock"]
+
+    class Config:
+        frozen = True
+        smart_union = True
+        allow_population_by_field_name = True
+
+
+class ProviderConfig_CloudsecurityAws(CloudSecurityAws):
+    type: typing.Literal["cloudsecurity_aws"]
 
     class Config:
         frozen = True
@@ -822,8 +842,10 @@ ProviderConfig = typing.Union[
     ProviderConfig_AssetsServicenow,
     ProviderConfig_AssetsServicenowMock,
     ProviderConfig_AssetsSevco,
+    ProviderConfig_AssetsSevcoMock,
     ProviderConfig_AssetsTaniumCloud,
     ProviderConfig_AssetsTaniumCloudMock,
+    ProviderConfig_CloudsecurityAws,
     ProviderConfig_CloudsecurityCrowdstrike,
     ProviderConfig_CloudsecurityDefender,
     ProviderConfig_EdrCrowdstrike,

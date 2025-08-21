@@ -1,7 +1,7 @@
 r'''
 # `google_storage_insights_dataset_config`
 
-Refer to the Terraform Registry for docs: [`google_storage_insights_dataset_config`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config).
+Refer to the Terraform Registry for docs: [`google_storage_insights_dataset_config`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class StorageInsightsDatasetConfig(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.storageInsightsDatasetConfig.StorageInsightsDatasetConfig",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config google_storage_insights_dataset_config}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config google_storage_insights_dataset_config}.'''
 
     def __init__(
         self,
@@ -77,28 +77,28 @@ class StorageInsightsDatasetConfig(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config google_storage_insights_dataset_config} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config google_storage_insights_dataset_config} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param dataset_config_id: The user-defined ID of the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#dataset_config_id StorageInsightsDatasetConfig#dataset_config_id}
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#identity StorageInsightsDatasetConfig#identity}
-        :param location: The location of the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#location StorageInsightsDatasetConfig#location}
-        :param retention_period_days: Number of days of history that must be retained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#retention_period_days StorageInsightsDatasetConfig#retention_period_days}
-        :param description: An optional user-provided description for the dataset configuration with a maximum length of 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#description StorageInsightsDatasetConfig#description}
-        :param exclude_cloud_storage_buckets: exclude_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#exclude_cloud_storage_buckets StorageInsightsDatasetConfig#exclude_cloud_storage_buckets}
-        :param exclude_cloud_storage_locations: exclude_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#exclude_cloud_storage_locations StorageInsightsDatasetConfig#exclude_cloud_storage_locations}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#id StorageInsightsDatasetConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include_cloud_storage_buckets: include_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#include_cloud_storage_buckets StorageInsightsDatasetConfig#include_cloud_storage_buckets}
-        :param include_cloud_storage_locations: include_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#include_cloud_storage_locations StorageInsightsDatasetConfig#include_cloud_storage_locations}
-        :param include_newly_created_buckets: If set to true, the request includes all the newly created buckets in the dataset that meet the inclusion and exclusion rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#include_newly_created_buckets StorageInsightsDatasetConfig#include_newly_created_buckets}
-        :param link_dataset: A boolean terraform only flag to link/unlink dataset. Setting this field to true while creation will automatically link the created dataset as an additional functionality. -> **Note** A dataset config resource can only be destroyed once it is unlinked, so users must set this field to false to unlink the dataset and destroy the dataset config resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#link_dataset StorageInsightsDatasetConfig#link_dataset}
-        :param organization_number: Organization resource ID that the source projects should belong to. Projects that do not belong to the provided organization are not considered when creating the dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#organization_number StorageInsightsDatasetConfig#organization_number}
-        :param organization_scope: Defines the options for providing a source organization for the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#organization_scope StorageInsightsDatasetConfig#organization_scope}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#project StorageInsightsDatasetConfig#project}.
-        :param source_folders: source_folders block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#source_folders StorageInsightsDatasetConfig#source_folders}
-        :param source_projects: source_projects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#source_projects StorageInsightsDatasetConfig#source_projects}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#timeouts StorageInsightsDatasetConfig#timeouts}
+        :param dataset_config_id: The user-defined ID of the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#dataset_config_id StorageInsightsDatasetConfig#dataset_config_id}
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#identity StorageInsightsDatasetConfig#identity}
+        :param location: The location of the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#location StorageInsightsDatasetConfig#location}
+        :param retention_period_days: Number of days of history that must be retained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#retention_period_days StorageInsightsDatasetConfig#retention_period_days}
+        :param description: An optional user-provided description for the dataset configuration with a maximum length of 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#description StorageInsightsDatasetConfig#description}
+        :param exclude_cloud_storage_buckets: exclude_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#exclude_cloud_storage_buckets StorageInsightsDatasetConfig#exclude_cloud_storage_buckets}
+        :param exclude_cloud_storage_locations: exclude_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#exclude_cloud_storage_locations StorageInsightsDatasetConfig#exclude_cloud_storage_locations}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#id StorageInsightsDatasetConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include_cloud_storage_buckets: include_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#include_cloud_storage_buckets StorageInsightsDatasetConfig#include_cloud_storage_buckets}
+        :param include_cloud_storage_locations: include_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#include_cloud_storage_locations StorageInsightsDatasetConfig#include_cloud_storage_locations}
+        :param include_newly_created_buckets: If set to true, the request includes all the newly created buckets in the dataset that meet the inclusion and exclusion rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#include_newly_created_buckets StorageInsightsDatasetConfig#include_newly_created_buckets}
+        :param link_dataset: A boolean terraform only flag to link/unlink dataset. Setting this field to true while creation will automatically link the created dataset as an additional functionality. -> **Note** A dataset config resource can only be destroyed once it is unlinked, so users must set this field to false to unlink the dataset and destroy the dataset config resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#link_dataset StorageInsightsDatasetConfig#link_dataset}
+        :param organization_number: Organization resource ID that the source projects should belong to. Projects that do not belong to the provided organization are not considered when creating the dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#organization_number StorageInsightsDatasetConfig#organization_number}
+        :param organization_scope: Defines the options for providing a source organization for the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#organization_scope StorageInsightsDatasetConfig#organization_scope}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#project StorageInsightsDatasetConfig#project}.
+        :param source_folders: source_folders block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#source_folders StorageInsightsDatasetConfig#source_folders}
+        :param source_projects: source_projects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#source_projects StorageInsightsDatasetConfig#source_projects}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#timeouts StorageInsightsDatasetConfig#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -154,7 +154,7 @@ class StorageInsightsDatasetConfig(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the StorageInsightsDatasetConfig to import.
-        :param import_from_id: The id of the existing StorageInsightsDatasetConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing StorageInsightsDatasetConfig that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the StorageInsightsDatasetConfig to import is found.
         '''
         if __debug__:
@@ -172,7 +172,7 @@ class StorageInsightsDatasetConfig(
         cloud_storage_buckets: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["StorageInsightsDatasetConfigExcludeCloudStorageBucketsCloudStorageBuckets", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param cloud_storage_buckets: cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#cloud_storage_buckets StorageInsightsDatasetConfig#cloud_storage_buckets}
+        :param cloud_storage_buckets: cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#cloud_storage_buckets StorageInsightsDatasetConfig#cloud_storage_buckets}
         '''
         value = StorageInsightsDatasetConfigExcludeCloudStorageBuckets(
             cloud_storage_buckets=cloud_storage_buckets
@@ -187,7 +187,7 @@ class StorageInsightsDatasetConfig(
         locations: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param locations: The list of cloud storage locations to exclude in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#locations StorageInsightsDatasetConfig#locations}
+        :param locations: The list of cloud storage locations to exclude in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#locations StorageInsightsDatasetConfig#locations}
         '''
         value = StorageInsightsDatasetConfigExcludeCloudStorageLocations(
             locations=locations
@@ -198,7 +198,7 @@ class StorageInsightsDatasetConfig(
     @jsii.member(jsii_name="putIdentity")
     def put_identity(self, *, type: builtins.str) -> None:
         '''
-        :param type: Type of identity to use for the DatasetConfig. Possible values: ["IDENTITY_TYPE_PER_CONFIG", "IDENTITY_TYPE_PER_PROJECT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#type StorageInsightsDatasetConfig#type}
+        :param type: Type of identity to use for the DatasetConfig. Possible values: ["IDENTITY_TYPE_PER_CONFIG", "IDENTITY_TYPE_PER_PROJECT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#type StorageInsightsDatasetConfig#type}
         '''
         value = StorageInsightsDatasetConfigIdentity(type=type)
 
@@ -211,7 +211,7 @@ class StorageInsightsDatasetConfig(
         cloud_storage_buckets: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["StorageInsightsDatasetConfigIncludeCloudStorageBucketsCloudStorageBuckets", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param cloud_storage_buckets: cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#cloud_storage_buckets StorageInsightsDatasetConfig#cloud_storage_buckets}
+        :param cloud_storage_buckets: cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#cloud_storage_buckets StorageInsightsDatasetConfig#cloud_storage_buckets}
         '''
         value = StorageInsightsDatasetConfigIncludeCloudStorageBuckets(
             cloud_storage_buckets=cloud_storage_buckets
@@ -226,7 +226,7 @@ class StorageInsightsDatasetConfig(
         locations: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param locations: The list of cloud storage locations to include in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#locations StorageInsightsDatasetConfig#locations}
+        :param locations: The list of cloud storage locations to include in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#locations StorageInsightsDatasetConfig#locations}
         '''
         value = StorageInsightsDatasetConfigIncludeCloudStorageLocations(
             locations=locations
@@ -241,7 +241,7 @@ class StorageInsightsDatasetConfig(
         folder_numbers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param folder_numbers: The list of folder numbers to include in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#folder_numbers StorageInsightsDatasetConfig#folder_numbers}
+        :param folder_numbers: The list of folder numbers to include in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#folder_numbers StorageInsightsDatasetConfig#folder_numbers}
         '''
         value = StorageInsightsDatasetConfigSourceFolders(
             folder_numbers=folder_numbers
@@ -256,7 +256,7 @@ class StorageInsightsDatasetConfig(
         project_numbers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param project_numbers: The list of project numbers to include in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#project_numbers StorageInsightsDatasetConfig#project_numbers}
+        :param project_numbers: The list of project numbers to include in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#project_numbers StorageInsightsDatasetConfig#project_numbers}
         '''
         value = StorageInsightsDatasetConfigSourceProjects(
             project_numbers=project_numbers
@@ -273,9 +273,9 @@ class StorageInsightsDatasetConfig(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#create StorageInsightsDatasetConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#delete StorageInsightsDatasetConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#update StorageInsightsDatasetConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#create StorageInsightsDatasetConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#delete StorageInsightsDatasetConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#update StorageInsightsDatasetConfig#update}.
         '''
         value = StorageInsightsDatasetConfigTimeouts(
             create=create, delete=delete, update=update
@@ -747,24 +747,24 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param dataset_config_id: The user-defined ID of the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#dataset_config_id StorageInsightsDatasetConfig#dataset_config_id}
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#identity StorageInsightsDatasetConfig#identity}
-        :param location: The location of the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#location StorageInsightsDatasetConfig#location}
-        :param retention_period_days: Number of days of history that must be retained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#retention_period_days StorageInsightsDatasetConfig#retention_period_days}
-        :param description: An optional user-provided description for the dataset configuration with a maximum length of 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#description StorageInsightsDatasetConfig#description}
-        :param exclude_cloud_storage_buckets: exclude_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#exclude_cloud_storage_buckets StorageInsightsDatasetConfig#exclude_cloud_storage_buckets}
-        :param exclude_cloud_storage_locations: exclude_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#exclude_cloud_storage_locations StorageInsightsDatasetConfig#exclude_cloud_storage_locations}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#id StorageInsightsDatasetConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param include_cloud_storage_buckets: include_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#include_cloud_storage_buckets StorageInsightsDatasetConfig#include_cloud_storage_buckets}
-        :param include_cloud_storage_locations: include_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#include_cloud_storage_locations StorageInsightsDatasetConfig#include_cloud_storage_locations}
-        :param include_newly_created_buckets: If set to true, the request includes all the newly created buckets in the dataset that meet the inclusion and exclusion rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#include_newly_created_buckets StorageInsightsDatasetConfig#include_newly_created_buckets}
-        :param link_dataset: A boolean terraform only flag to link/unlink dataset. Setting this field to true while creation will automatically link the created dataset as an additional functionality. -> **Note** A dataset config resource can only be destroyed once it is unlinked, so users must set this field to false to unlink the dataset and destroy the dataset config resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#link_dataset StorageInsightsDatasetConfig#link_dataset}
-        :param organization_number: Organization resource ID that the source projects should belong to. Projects that do not belong to the provided organization are not considered when creating the dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#organization_number StorageInsightsDatasetConfig#organization_number}
-        :param organization_scope: Defines the options for providing a source organization for the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#organization_scope StorageInsightsDatasetConfig#organization_scope}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#project StorageInsightsDatasetConfig#project}.
-        :param source_folders: source_folders block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#source_folders StorageInsightsDatasetConfig#source_folders}
-        :param source_projects: source_projects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#source_projects StorageInsightsDatasetConfig#source_projects}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#timeouts StorageInsightsDatasetConfig#timeouts}
+        :param dataset_config_id: The user-defined ID of the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#dataset_config_id StorageInsightsDatasetConfig#dataset_config_id}
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#identity StorageInsightsDatasetConfig#identity}
+        :param location: The location of the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#location StorageInsightsDatasetConfig#location}
+        :param retention_period_days: Number of days of history that must be retained. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#retention_period_days StorageInsightsDatasetConfig#retention_period_days}
+        :param description: An optional user-provided description for the dataset configuration with a maximum length of 256 characters. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#description StorageInsightsDatasetConfig#description}
+        :param exclude_cloud_storage_buckets: exclude_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#exclude_cloud_storage_buckets StorageInsightsDatasetConfig#exclude_cloud_storage_buckets}
+        :param exclude_cloud_storage_locations: exclude_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#exclude_cloud_storage_locations StorageInsightsDatasetConfig#exclude_cloud_storage_locations}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#id StorageInsightsDatasetConfig#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param include_cloud_storage_buckets: include_cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#include_cloud_storage_buckets StorageInsightsDatasetConfig#include_cloud_storage_buckets}
+        :param include_cloud_storage_locations: include_cloud_storage_locations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#include_cloud_storage_locations StorageInsightsDatasetConfig#include_cloud_storage_locations}
+        :param include_newly_created_buckets: If set to true, the request includes all the newly created buckets in the dataset that meet the inclusion and exclusion rules. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#include_newly_created_buckets StorageInsightsDatasetConfig#include_newly_created_buckets}
+        :param link_dataset: A boolean terraform only flag to link/unlink dataset. Setting this field to true while creation will automatically link the created dataset as an additional functionality. -> **Note** A dataset config resource can only be destroyed once it is unlinked, so users must set this field to false to unlink the dataset and destroy the dataset config resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#link_dataset StorageInsightsDatasetConfig#link_dataset}
+        :param organization_number: Organization resource ID that the source projects should belong to. Projects that do not belong to the provided organization are not considered when creating the dataset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#organization_number StorageInsightsDatasetConfig#organization_number}
+        :param organization_scope: Defines the options for providing a source organization for the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#organization_scope StorageInsightsDatasetConfig#organization_scope}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#project StorageInsightsDatasetConfig#project}.
+        :param source_folders: source_folders block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#source_folders StorageInsightsDatasetConfig#source_folders}
+        :param source_projects: source_projects block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#source_projects StorageInsightsDatasetConfig#source_projects}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#timeouts StorageInsightsDatasetConfig#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -928,7 +928,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def dataset_config_id(self) -> builtins.str:
         '''The user-defined ID of the DatasetConfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#dataset_config_id StorageInsightsDatasetConfig#dataset_config_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#dataset_config_id StorageInsightsDatasetConfig#dataset_config_id}
         '''
         result = self._values.get("dataset_config_id")
         assert result is not None, "Required property 'dataset_config_id' is missing"
@@ -938,7 +938,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def identity(self) -> "StorageInsightsDatasetConfigIdentity":
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#identity StorageInsightsDatasetConfig#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#identity StorageInsightsDatasetConfig#identity}
         '''
         result = self._values.get("identity")
         assert result is not None, "Required property 'identity' is missing"
@@ -948,7 +948,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def location(self) -> builtins.str:
         '''The location of the DatasetConfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#location StorageInsightsDatasetConfig#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#location StorageInsightsDatasetConfig#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -958,7 +958,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def retention_period_days(self) -> jsii.Number:
         '''Number of days of history that must be retained.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#retention_period_days StorageInsightsDatasetConfig#retention_period_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#retention_period_days StorageInsightsDatasetConfig#retention_period_days}
         '''
         result = self._values.get("retention_period_days")
         assert result is not None, "Required property 'retention_period_days' is missing"
@@ -968,7 +968,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional user-provided description for the dataset configuration with a maximum length of 256 characters.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#description StorageInsightsDatasetConfig#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#description StorageInsightsDatasetConfig#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -979,7 +979,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional["StorageInsightsDatasetConfigExcludeCloudStorageBuckets"]:
         '''exclude_cloud_storage_buckets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#exclude_cloud_storage_buckets StorageInsightsDatasetConfig#exclude_cloud_storage_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#exclude_cloud_storage_buckets StorageInsightsDatasetConfig#exclude_cloud_storage_buckets}
         '''
         result = self._values.get("exclude_cloud_storage_buckets")
         return typing.cast(typing.Optional["StorageInsightsDatasetConfigExcludeCloudStorageBuckets"], result)
@@ -990,14 +990,14 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional["StorageInsightsDatasetConfigExcludeCloudStorageLocations"]:
         '''exclude_cloud_storage_locations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#exclude_cloud_storage_locations StorageInsightsDatasetConfig#exclude_cloud_storage_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#exclude_cloud_storage_locations StorageInsightsDatasetConfig#exclude_cloud_storage_locations}
         '''
         result = self._values.get("exclude_cloud_storage_locations")
         return typing.cast(typing.Optional["StorageInsightsDatasetConfigExcludeCloudStorageLocations"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#id StorageInsightsDatasetConfig#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#id StorageInsightsDatasetConfig#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1011,7 +1011,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional["StorageInsightsDatasetConfigIncludeCloudStorageBuckets"]:
         '''include_cloud_storage_buckets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#include_cloud_storage_buckets StorageInsightsDatasetConfig#include_cloud_storage_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#include_cloud_storage_buckets StorageInsightsDatasetConfig#include_cloud_storage_buckets}
         '''
         result = self._values.get("include_cloud_storage_buckets")
         return typing.cast(typing.Optional["StorageInsightsDatasetConfigIncludeCloudStorageBuckets"], result)
@@ -1022,7 +1022,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional["StorageInsightsDatasetConfigIncludeCloudStorageLocations"]:
         '''include_cloud_storage_locations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#include_cloud_storage_locations StorageInsightsDatasetConfig#include_cloud_storage_locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#include_cloud_storage_locations StorageInsightsDatasetConfig#include_cloud_storage_locations}
         '''
         result = self._values.get("include_cloud_storage_locations")
         return typing.cast(typing.Optional["StorageInsightsDatasetConfigIncludeCloudStorageLocations"], result)
@@ -1033,7 +1033,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, the request includes all the newly created buckets in the dataset that meet the inclusion and exclusion rules.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#include_newly_created_buckets StorageInsightsDatasetConfig#include_newly_created_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#include_newly_created_buckets StorageInsightsDatasetConfig#include_newly_created_buckets}
         '''
         result = self._values.get("include_newly_created_buckets")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1048,7 +1048,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         -> **Note** A dataset config resource can only be destroyed once it is unlinked,
         so users must set this field to false to unlink the dataset and destroy the dataset config resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#link_dataset StorageInsightsDatasetConfig#link_dataset}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#link_dataset StorageInsightsDatasetConfig#link_dataset}
         '''
         result = self._values.get("link_dataset")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1059,7 +1059,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
         Projects that do not belong to the provided organization are not considered when creating the dataset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#organization_number StorageInsightsDatasetConfig#organization_number}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#organization_number StorageInsightsDatasetConfig#organization_number}
         '''
         result = self._values.get("organization_number")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1070,14 +1070,14 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Defines the options for providing a source organization for the DatasetConfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#organization_scope StorageInsightsDatasetConfig#organization_scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#organization_scope StorageInsightsDatasetConfig#organization_scope}
         '''
         result = self._values.get("organization_scope")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#project StorageInsightsDatasetConfig#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#project StorageInsightsDatasetConfig#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1087,7 +1087,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional["StorageInsightsDatasetConfigSourceFolders"]:
         '''source_folders block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#source_folders StorageInsightsDatasetConfig#source_folders}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#source_folders StorageInsightsDatasetConfig#source_folders}
         '''
         result = self._values.get("source_folders")
         return typing.cast(typing.Optional["StorageInsightsDatasetConfigSourceFolders"], result)
@@ -1098,7 +1098,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     ) -> typing.Optional["StorageInsightsDatasetConfigSourceProjects"]:
         '''source_projects block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#source_projects StorageInsightsDatasetConfig#source_projects}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#source_projects StorageInsightsDatasetConfig#source_projects}
         '''
         result = self._values.get("source_projects")
         return typing.cast(typing.Optional["StorageInsightsDatasetConfigSourceProjects"], result)
@@ -1107,7 +1107,7 @@ class StorageInsightsDatasetConfigConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def timeouts(self) -> typing.Optional["StorageInsightsDatasetConfigTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#timeouts StorageInsightsDatasetConfig#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#timeouts StorageInsightsDatasetConfig#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["StorageInsightsDatasetConfigTimeouts"], result)
@@ -1136,7 +1136,7 @@ class StorageInsightsDatasetConfigExcludeCloudStorageBuckets:
         cloud_storage_buckets: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["StorageInsightsDatasetConfigExcludeCloudStorageBucketsCloudStorageBuckets", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param cloud_storage_buckets: cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#cloud_storage_buckets StorageInsightsDatasetConfig#cloud_storage_buckets}
+        :param cloud_storage_buckets: cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#cloud_storage_buckets StorageInsightsDatasetConfig#cloud_storage_buckets}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4225bd9520c86647c68f0bdd5f3f77a2742b5906cb2a1afe3bfb514b33e7ec35)
@@ -1151,7 +1151,7 @@ class StorageInsightsDatasetConfigExcludeCloudStorageBuckets:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageInsightsDatasetConfigExcludeCloudStorageBucketsCloudStorageBuckets"]]:
         '''cloud_storage_buckets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#cloud_storage_buckets StorageInsightsDatasetConfig#cloud_storage_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#cloud_storage_buckets StorageInsightsDatasetConfig#cloud_storage_buckets}
         '''
         result = self._values.get("cloud_storage_buckets")
         assert result is not None, "Required property 'cloud_storage_buckets' is missing"
@@ -1185,8 +1185,8 @@ class StorageInsightsDatasetConfigExcludeCloudStorageBucketsCloudStorageBuckets:
         bucket_prefix_regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: The list of cloud storage bucket names to exclude in the DatasetConfig. Exactly one of the bucket_name and bucket_prefix_regex should be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#bucket_name StorageInsightsDatasetConfig#bucket_name}
-        :param bucket_prefix_regex: The list of regex patterns for bucket names matching the regex. Regex should follow the syntax specified in google/re2 on GitHub. Exactly one of the bucket_name and bucket_prefix_regex should be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#bucket_prefix_regex StorageInsightsDatasetConfig#bucket_prefix_regex}
+        :param bucket_name: The list of cloud storage bucket names to exclude in the DatasetConfig. Exactly one of the bucket_name and bucket_prefix_regex should be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#bucket_name StorageInsightsDatasetConfig#bucket_name}
+        :param bucket_prefix_regex: The list of regex patterns for bucket names matching the regex. Regex should follow the syntax specified in google/re2 on GitHub. Exactly one of the bucket_name and bucket_prefix_regex should be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#bucket_prefix_regex StorageInsightsDatasetConfig#bucket_prefix_regex}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9bfa56324644ca0510e45e5f327746d8d3d8ce72753227e42193e22615d02907)
@@ -1204,7 +1204,7 @@ class StorageInsightsDatasetConfigExcludeCloudStorageBucketsCloudStorageBuckets:
 
         Exactly one of the bucket_name and bucket_prefix_regex should be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#bucket_name StorageInsightsDatasetConfig#bucket_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#bucket_name StorageInsightsDatasetConfig#bucket_name}
         '''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1216,7 +1216,7 @@ class StorageInsightsDatasetConfigExcludeCloudStorageBucketsCloudStorageBuckets:
         Regex should follow the syntax specified in google/re2 on GitHub.
         Exactly one of the bucket_name and bucket_prefix_regex should be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#bucket_prefix_regex StorageInsightsDatasetConfig#bucket_prefix_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#bucket_prefix_regex StorageInsightsDatasetConfig#bucket_prefix_regex}
         '''
         result = self._values.get("bucket_prefix_regex")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1485,7 +1485,7 @@ class StorageInsightsDatasetConfigExcludeCloudStorageBucketsOutputReference(
 class StorageInsightsDatasetConfigExcludeCloudStorageLocations:
     def __init__(self, *, locations: typing.Sequence[builtins.str]) -> None:
         '''
-        :param locations: The list of cloud storage locations to exclude in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#locations StorageInsightsDatasetConfig#locations}
+        :param locations: The list of cloud storage locations to exclude in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#locations StorageInsightsDatasetConfig#locations}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__78d7935df1add3649894a7ef62ff07b4e47eb1003cff5e6d5f005f9301448617)
@@ -1498,7 +1498,7 @@ class StorageInsightsDatasetConfigExcludeCloudStorageLocations:
     def locations(self) -> typing.List[builtins.str]:
         '''The list of cloud storage locations to exclude in the DatasetConfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#locations StorageInsightsDatasetConfig#locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#locations StorageInsightsDatasetConfig#locations}
         '''
         result = self._values.get("locations")
         assert result is not None, "Required property 'locations' is missing"
@@ -1579,7 +1579,7 @@ class StorageInsightsDatasetConfigExcludeCloudStorageLocationsOutputReference(
 class StorageInsightsDatasetConfigIdentity:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Type of identity to use for the DatasetConfig. Possible values: ["IDENTITY_TYPE_PER_CONFIG", "IDENTITY_TYPE_PER_PROJECT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#type StorageInsightsDatasetConfig#type}
+        :param type: Type of identity to use for the DatasetConfig. Possible values: ["IDENTITY_TYPE_PER_CONFIG", "IDENTITY_TYPE_PER_PROJECT"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#type StorageInsightsDatasetConfig#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28c06bd4b39f71086b7888b4b6b04f18ad82ccadd1a2ac79d0fdc68dd0701633)
@@ -1592,7 +1592,7 @@ class StorageInsightsDatasetConfigIdentity:
     def type(self) -> builtins.str:
         '''Type of identity to use for the DatasetConfig. Possible values: ["IDENTITY_TYPE_PER_CONFIG", "IDENTITY_TYPE_PER_PROJECT"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#type StorageInsightsDatasetConfig#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#type StorageInsightsDatasetConfig#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1680,7 +1680,7 @@ class StorageInsightsDatasetConfigIncludeCloudStorageBuckets:
         cloud_storage_buckets: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["StorageInsightsDatasetConfigIncludeCloudStorageBucketsCloudStorageBuckets", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param cloud_storage_buckets: cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#cloud_storage_buckets StorageInsightsDatasetConfig#cloud_storage_buckets}
+        :param cloud_storage_buckets: cloud_storage_buckets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#cloud_storage_buckets StorageInsightsDatasetConfig#cloud_storage_buckets}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1048c27191bc66f3e2cd289b435696bfe28b59c8cf93d9079de5009b1bd770b7)
@@ -1695,7 +1695,7 @@ class StorageInsightsDatasetConfigIncludeCloudStorageBuckets:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StorageInsightsDatasetConfigIncludeCloudStorageBucketsCloudStorageBuckets"]]:
         '''cloud_storage_buckets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#cloud_storage_buckets StorageInsightsDatasetConfig#cloud_storage_buckets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#cloud_storage_buckets StorageInsightsDatasetConfig#cloud_storage_buckets}
         '''
         result = self._values.get("cloud_storage_buckets")
         assert result is not None, "Required property 'cloud_storage_buckets' is missing"
@@ -1729,8 +1729,8 @@ class StorageInsightsDatasetConfigIncludeCloudStorageBucketsCloudStorageBuckets:
         bucket_prefix_regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param bucket_name: The list of cloud storage bucket names to include in the DatasetConfig. Exactly one of the bucket_name and bucket_prefix_regex should be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#bucket_name StorageInsightsDatasetConfig#bucket_name}
-        :param bucket_prefix_regex: The list of regex patterns for bucket names matching the regex. Regex should follow the syntax specified in google/re2 on GitHub. Exactly one of the bucket_name and bucket_prefix_regex should be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#bucket_prefix_regex StorageInsightsDatasetConfig#bucket_prefix_regex}
+        :param bucket_name: The list of cloud storage bucket names to include in the DatasetConfig. Exactly one of the bucket_name and bucket_prefix_regex should be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#bucket_name StorageInsightsDatasetConfig#bucket_name}
+        :param bucket_prefix_regex: The list of regex patterns for bucket names matching the regex. Regex should follow the syntax specified in google/re2 on GitHub. Exactly one of the bucket_name and bucket_prefix_regex should be specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#bucket_prefix_regex StorageInsightsDatasetConfig#bucket_prefix_regex}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__496153a8397cb5eb9aae6156d84d68e8eb0a9be677693b6bb9837f21dc5cbaef)
@@ -1748,7 +1748,7 @@ class StorageInsightsDatasetConfigIncludeCloudStorageBucketsCloudStorageBuckets:
 
         Exactly one of the bucket_name and bucket_prefix_regex should be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#bucket_name StorageInsightsDatasetConfig#bucket_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#bucket_name StorageInsightsDatasetConfig#bucket_name}
         '''
         result = self._values.get("bucket_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1760,7 +1760,7 @@ class StorageInsightsDatasetConfigIncludeCloudStorageBucketsCloudStorageBuckets:
         Regex should follow the syntax specified in google/re2 on GitHub.
         Exactly one of the bucket_name and bucket_prefix_regex should be specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#bucket_prefix_regex StorageInsightsDatasetConfig#bucket_prefix_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#bucket_prefix_regex StorageInsightsDatasetConfig#bucket_prefix_regex}
         '''
         result = self._values.get("bucket_prefix_regex")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2029,7 +2029,7 @@ class StorageInsightsDatasetConfigIncludeCloudStorageBucketsOutputReference(
 class StorageInsightsDatasetConfigIncludeCloudStorageLocations:
     def __init__(self, *, locations: typing.Sequence[builtins.str]) -> None:
         '''
-        :param locations: The list of cloud storage locations to include in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#locations StorageInsightsDatasetConfig#locations}
+        :param locations: The list of cloud storage locations to include in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#locations StorageInsightsDatasetConfig#locations}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b89eec1ebff63807a45128681bb14ef270ffb269c0dd5dc40eb381bf636c6e26)
@@ -2042,7 +2042,7 @@ class StorageInsightsDatasetConfigIncludeCloudStorageLocations:
     def locations(self) -> typing.List[builtins.str]:
         '''The list of cloud storage locations to include in the DatasetConfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#locations StorageInsightsDatasetConfig#locations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#locations StorageInsightsDatasetConfig#locations}
         '''
         result = self._values.get("locations")
         assert result is not None, "Required property 'locations' is missing"
@@ -2276,7 +2276,7 @@ class StorageInsightsDatasetConfigSourceFolders:
         folder_numbers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param folder_numbers: The list of folder numbers to include in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#folder_numbers StorageInsightsDatasetConfig#folder_numbers}
+        :param folder_numbers: The list of folder numbers to include in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#folder_numbers StorageInsightsDatasetConfig#folder_numbers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c0115f914cfa2e9387da0a305aa89a5fe479170177bb87e15af42ebbcf3e0b22)
@@ -2289,7 +2289,7 @@ class StorageInsightsDatasetConfigSourceFolders:
     def folder_numbers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of folder numbers to include in the DatasetConfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#folder_numbers StorageInsightsDatasetConfig#folder_numbers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#folder_numbers StorageInsightsDatasetConfig#folder_numbers}
         '''
         result = self._values.get("folder_numbers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2377,7 +2377,7 @@ class StorageInsightsDatasetConfigSourceProjects:
         project_numbers: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param project_numbers: The list of project numbers to include in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#project_numbers StorageInsightsDatasetConfig#project_numbers}
+        :param project_numbers: The list of project numbers to include in the DatasetConfig. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#project_numbers StorageInsightsDatasetConfig#project_numbers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__54449a145359cbd0ea7ab193d838e4f38bbe2a41cda491eb645f3ab7cfc03c79)
@@ -2390,7 +2390,7 @@ class StorageInsightsDatasetConfigSourceProjects:
     def project_numbers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of project numbers to include in the DatasetConfig.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#project_numbers StorageInsightsDatasetConfig#project_numbers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#project_numbers StorageInsightsDatasetConfig#project_numbers}
         '''
         result = self._values.get("project_numbers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2480,9 +2480,9 @@ class StorageInsightsDatasetConfigTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#create StorageInsightsDatasetConfig#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#delete StorageInsightsDatasetConfig#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#update StorageInsightsDatasetConfig#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#create StorageInsightsDatasetConfig#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#delete StorageInsightsDatasetConfig#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#update StorageInsightsDatasetConfig#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c0f1cbf9f1a3ef3994dae70818eeeeec4ab2c6b6c85bed5a03f48e6df385af23)
@@ -2499,19 +2499,19 @@ class StorageInsightsDatasetConfigTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#create StorageInsightsDatasetConfig#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#create StorageInsightsDatasetConfig#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#delete StorageInsightsDatasetConfig#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#delete StorageInsightsDatasetConfig#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/storage_insights_dataset_config#update StorageInsightsDatasetConfig#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/storage_insights_dataset_config#update StorageInsightsDatasetConfig#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

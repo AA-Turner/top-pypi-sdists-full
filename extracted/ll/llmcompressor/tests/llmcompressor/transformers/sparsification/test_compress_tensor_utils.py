@@ -28,7 +28,7 @@ from llmcompressor.transformers.compression.sparsity_metadata_config import (
 from llmcompressor.transformers.sparsification.compressed_tensors_utils import (
     get_model_compressor,
     modify_save_pretrained,
-    patch_tied_tensors_bug,
+    untie_word_embeddings,
 )
 from tests.testing_utils import requires_gpu
 
@@ -47,9 +47,6 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
     recipe_str = "tests/llmcompressor/transformers/obcq/recipes/test_tiny2.yaml"
     expected_sparsity = 0.5
     model_path = "nm-testing/llama2.c-stories15M"
-    device = "cuda:0"
-    if not torch.cuda.is_available():
-        device = "cpu"
     dataset = "open_platypus"
     concatenate_data = False
     num_calibration_samples = 64
@@ -66,7 +63,6 @@ def test_sparse_model_reload(compressed, config, dtype, tmp_path):
         recipe=recipe_str,
         concatenate_data=concatenate_data,
         splits=splits,
-        oneshot_device=device,
         precision=dtype,
         clear_sparse_session=False,
     )
@@ -166,9 +162,7 @@ def test_quant_model_reload(format, dtype, tmp_path):
         "tests/llmcompressor/transformers/compression/recipes/new_quant_simple.yaml"
     )
     model_path = "nm-testing/llama2.c-stories15M"
-    device = "cuda:0"
-    if not torch.cuda.is_available():
-        device = "cpu"
+    device = "cuda:0" if not torch.cuda.is_available() else "cpu"
     dataset = "open_platypus"
     concatenate_data = False
     num_calibration_samples = 16
@@ -182,7 +176,6 @@ def test_quant_model_reload(format, dtype, tmp_path):
         recipe=recipe_str,
         concatenate_data=concatenate_data,
         splits=splits,
-        oneshot_device=device,
         precision=dtype,
         clear_sparse_session=False,
     )
@@ -231,8 +224,6 @@ def test_quant_model_reload(format, dtype, tmp_path):
         shutil.rmtree(tmp_path)
 
 
-# technically only tie_word_embeddings=False is supported right now
-# setting to True is discouraged
 @pytest.mark.parametrize(
     "offload,torch_dtype,tie_word_embeddings,device",
     [
@@ -244,25 +235,23 @@ def test_quant_model_reload(format, dtype, tmp_path):
         # offloading
         (True, torch.float16, False, "cpu"),
         (True, torch.float32, False, "cpu"),
-        # (True, torch.float16, True, "cpu"),  # TODO: fails
-        # (True, torch.float32, True, "cpu"),  # TODO: fails
+        (True, torch.float16, True, "cpu"),
+        (True, torch.float32, True, "cpu"),
     ],
 )
 def test_model_reload(offload, torch_dtype, tie_word_embeddings, device, tmp_path):
     model_path = "nm-testing/llama2.c-stories15M"
     save_path = tmp_path / "save_path"
 
-    model = AutoModelForCausalLM.from_pretrained(
-        model_path,
-        tie_word_embeddings=tie_word_embeddings,
-        torch_dtype=torch_dtype,
-    )
+    model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch_dtype)
     if offload:
         model = dispatch_model(model, {"": device}, force_hooks=True)
     else:
         model = model.to(device)
 
-    patch_tied_tensors_bug(model)
+    if not tie_word_embeddings:
+        untie_word_embeddings(model)
+
     modify_save_pretrained(model)
     model.save_pretrained(save_path, safe_serialization=True)
 
@@ -301,21 +290,17 @@ def test_model_reload_gpu(offload, torch_dtype, tie_word_embeddings, device, tmp
         (True, torch.float32, True, "cpu"),
     ],
 )
-def test_model_shared_tensors(
-    offload, torch_dtype, tie_word_embeddings, device, tmp_path
-):
+def test_model_shared_tensors(offload, torch_dtype, tie_word_embeddings, device):
     # load model
-    model = AutoModelForCausalLM.from_pretrained(
-        "nm-testing/llama2.c-stories15M",
-        torch_dtype=torch_dtype,
-        tie_word_embeddings=tie_word_embeddings,
-    )
-    patch_tied_tensors_bug(model)
-
+    model_path = "nm-testing/llama2.c-stories15M"
+    model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch_dtype)
     if offload:
         model = dispatch_model(model, {"": device}, force_hooks=True)
     else:
         model = model.to(device)
+
+    if not tie_word_embeddings:
+        untie_word_embeddings(model)
 
     # modify lm head
     with torch.no_grad(), align_module_device(model.lm_head):
@@ -339,12 +324,8 @@ def test_model_shared_tensors(
         (False, torch.float32, True, "cuda:0"),
     ],
 )
-def test_model_shared_tensors_gpu(
-    offload, torch_dtype, tie_word_embeddings, device, tmp_path
-):
-    test_model_shared_tensors(
-        offload, torch_dtype, tie_word_embeddings, device, tmp_path
-    )
+def test_model_shared_tensors_gpu(offload, torch_dtype, tie_word_embeddings, device):
+    test_model_shared_tensors(offload, torch_dtype, tie_word_embeddings, device)
 
 
 @requires_gpu
@@ -362,9 +343,7 @@ def test_model_shared_tensors_gpu(
 def test_compressor_stacking(model_stub, recipe, sparse_format, quant_format, tmp_path):
     from llmcompressor.pytorch.model_load.helpers import get_session_model
 
-    device = "cuda"
-    if not torch.cuda.is_available():
-        device = "cpu"
+    device = "cuda:0" if not torch.cuda.is_available() else "cpu"
     dataset = "open_platypus"
     concatenate_data = False
     num_calibration_samples = 64
@@ -378,7 +357,6 @@ def test_compressor_stacking(model_stub, recipe, sparse_format, quant_format, tm
         recipe=recipe,
         concatenate_data=concatenate_data,
         splits=splits,
-        oneshot_device=device,
         clear_sparse_session=False,
     )
 
@@ -446,9 +424,7 @@ def test_compressor_stacking(model_stub, recipe, sparse_format, quant_format, tm
     ],
 )
 def test_sparse_24_compressor_is_lossless(model_stub, recipe, sparse_format, tmp_path):
-    device = "cuda"
-    if not torch.cuda.is_available():
-        device = "cpu"
+    device = "cuda:0" if not torch.cuda.is_available() else "cpu"
     dataset = "open_platypus"
     concatenate_data = False
     num_calibration_samples = 64
@@ -462,7 +438,6 @@ def test_sparse_24_compressor_is_lossless(model_stub, recipe, sparse_format, tmp
         recipe=recipe,
         concatenate_data=concatenate_data,
         splits=splits,
-        oneshot_device=device,
         clear_sparse_session=False,
     )
 

@@ -1,4 +1,4 @@
-from project.core.util import setup_logging
+from project.core.setup_logging import setup_logging
 from project.tg_bot.start_tg_bot import start_tg_bot
 
 

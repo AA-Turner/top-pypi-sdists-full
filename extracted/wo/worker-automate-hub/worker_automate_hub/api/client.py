@@ -24,9 +24,10 @@ async def get_new_task(stop_event: threading.Event) -> RpaProcessoEntradaDTO:
     try:
         headers_basic = {"Authorization": f"Basic {env_config["API_AUTHORIZATION"]}"}
         data = await get_new_task_info()
+        timeout = aiohttp.ClientTimeout(total=600) 
 
         async with aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(verify_ssl=True)
+            connector=aiohttp.TCPConnector(verify_ssl=True),timeout=timeout
         ) as session:
             async with session.post(
                 f"{env_config["API_BASE_URL"]}/robo/new-job",

@@ -377,7 +377,7 @@ def bits(key: ArrayLike,
   """
   key, _ = _check_prng_key("bits", key)
   if dtype is None:
-    dtype = dtypes.canonicalize_dtype(np.uint)
+    dtype = dtypes.default_uint_dtype()
   else:
     dtypes.check_user_dtype_supported(dtype)
   if not dtypes.issubdtype(dtype, np.unsignedinteger):
@@ -394,7 +394,7 @@ def bits(key: ArrayLike,
 def canonicalize_sharding_for_samplers(out_sharding, name, shape):
   out_sharding = canonicalize_sharding(out_sharding, name)
   cur_mesh = get_abstract_mesh()
-  if cur_mesh._are_all_axes_explicit and out_sharding is None and not shape:
+  if cur_mesh.are_all_axes_explicit and out_sharding is None and not shape:
     # when shape is empty i.e. scalar, we can choose a replicated sharding.
     out_sharding = NamedSharding(cur_mesh, P())
   return out_sharding
@@ -495,17 +495,72 @@ def randint(key: ArrayLike,
 
   Returns:
     A random array with the specified shape and dtype.
+
+  .. note::
+
+     :func:`randint` uses a modulus-based computation that is known to produce
+     slightly biased values in some cases. The magnitude of the bias scales as
+     ``(maxval - minval) * ((2 ** nbits ) % (maxval - minval)) / 2 ** nbits``:
+     in words, the bias goes to zero when ``(maxval - minval)`` is a power of 2,
+     and otherwise the bias will be small whenever ``(maxval - minval)`` is
+     small compared to the range of the sampled type.
+
+     To reduce this bias, 8-bit and 16-bit values will always be sampled at 32-bit and
+     then cast to the requested type. If you find yourself sampling values for which
+     this bias may be problematic, a possible alternative is to sample via uniform::
+
+       def randint_via_uniform(key, shape, minval, maxval, dtype):
+         u = jax.random.uniform(key, shape, minval=minval - 0.5, maxval=maxval - 0.5)
+         return u.round().astype(dtype)
+
+     But keep in mind this method has its own biases due to floating point rounding
+     errors, and in particular there may be some integers in the range
+     ``[minval, maxval)`` that are impossible to produce with this approach.
   """
   key, _ = _check_prng_key("randint", key)
   dtypes.check_user_dtype_supported(dtype)
   dtype = dtypes.canonicalize_dtype(dtype)
   shape = core.canonicalize_shape(shape)
   out_sharding = canonicalize_sharding_for_samplers(out_sharding, "randint", shape)
+
+  if not dtypes.issubdtype(dtype, np.integer):
+    raise TypeError(f"randint only accepts integer dtypes, got {dtype}")
+
+  # TODO(jakevdp): migrate users to safer randint and remove the old version.
+  if config.safer_randint.value:
+    info = dtypes.iinfo(dtype)
+    dtype_for_sampling = dtype
+    if info.bits < 32:
+      # Sample in 32 bits to avoid biased results.
+      dtype_for_sampling = np.dtype('int32')
+      minval = jnp.asarray(minval).astype('int32').clip(int(info.min), int(info.max))
+      maxval = jnp.asarray(maxval).astype('int32').clip(int(info.min), int(info.max) + 1)
+
+    return maybe_auto_axes(_randint, out_sharding, shape=shape, dtype=dtype_for_sampling)(
+        key, minval, maxval).astype(dtype)
+
   return maybe_auto_axes(_randint, out_sharding, shape=shape, dtype=dtype)(
       key, minval, maxval)
 
 @partial(jit, static_argnums=(3, 4))
 def _randint(key, minval, maxval, shape, dtype) -> Array:
+  # We have three imperfect options for generating random integers in an arbitrary
+  # user-specified range:
+  #
+  # 1. Rejection sampling. This produces unbiased results, but involves a dynamic
+  #    number of iterations, so it's not suitable for computation on accelerators.
+  # 2. Generate floating point values between minval and maxval, and cast to int.
+  #    This introduces bias for large ranges due to floating point rounding error:
+  #    many integers within a given range would never be sampled.
+  # 3. Generate numbers in a range that is a power of 2, and use an integer modulus
+  #    to shift them into the desired range. This produces a biased distribution
+  #    when the desired range is not a power of 2, which scales as
+  #    O[bias] ~= (desired_range ** 2) / full_range.
+  #
+  # Given these three imperfect options, we opt for a modified version of (3), where we
+  # sample 2 * nbits bits per value, because it is efficient and works well in most cases
+  # of interest. To help users avoid inadvertently producing biased results, we always
+  # generate samples in at least 32 bits.
   _check_shape("randint", shape, np.shape(minval), np.shape(maxval))
   if not dtypes.issubdtype(dtype, np.integer):
     raise TypeError(f"randint only accepts integer dtypes, got {dtype}")
@@ -1042,6 +1097,8 @@ def _beta(key, a, b, shape, dtype) -> Array:
   else:
     _check_shape("beta", shape, np.shape(a), np.shape(b))
 
+  key, (a, b) = random_insert_pvary("jax.random.beta", key, a, b)
+
   a = lax.convert_element_type(a, dtype)
   b = lax.convert_element_type(b, dtype)
   key_a, key_b = _split(key)
@@ -1205,11 +1262,17 @@ def _gamma_one(key: Array, alpha, log_space) -> Array:
   # https://en.wikipedia.org/wiki/Gamma_distribution#Generating_gamma-distributed_random_variables
   zero = lax._const(alpha, 0)
   one = lax._const(alpha, 1)
+  two = lax._const(alpha, 2)
   minus_one = lax._const(alpha, -1)
   one_over_two = lax._const(alpha, 0.5)
   one_over_three = lax._const(alpha, 1. / 3.)
   squeeze_const = lax._const(alpha, 0.0331)
   dtype = lax.dtype(alpha)
+
+  zero = core.pvary(zero, tuple(core.typeof(alpha).vma))
+  one = core.pvary(one, tuple(core.typeof(alpha).vma))
+  minus_one = core.pvary(minus_one, tuple(core.typeof(alpha).vma))
+  two = core.pvary(two, tuple(core.typeof(alpha).vma))
 
   # for alpha < 1, we boost alpha to alpha + 1 and get a sample according to
   #   Gamma(alpha) ~ Gamma(alpha+1) * Uniform()^(1 / alpha)
@@ -1232,10 +1295,11 @@ def _gamma_one(key: Array, alpha, log_space) -> Array:
     # TODO: use lax.cond when its batching rule is supported
     # The reason is to avoid evaluating second condition which involves log+log
     # if the first condition is satisfied
-    cond = lax.bitwise_and(lax.ge(U, lax.sub(one, lax.mul(squeeze_const, lax.mul(X, X)))),
-                           lax.ge(lax.log(U), lax.add(lax.mul(X, one_over_two),
-                                                      lax.mul(d, lax.add(lax.sub(one, V),
-                                                                         lax.log(V))))))
+    cond = lax.bitwise_and(
+        lax.ge(U, lax.sub(one, lax.mul(squeeze_const, lax.mul(X, X)))),
+        lax.ge(lax.log(U), lax.add(lax.mul(X, one_over_two),
+                                   lax.mul(d, lax.add(lax.sub(one, V),
+                                                      lax.log(V))))))
     return cond
 
   def _body_fn(kXVU):
@@ -1248,7 +1312,8 @@ def _gamma_one(key: Array, alpha, log_space) -> Array:
 
     key = kXVU[0]
     key, x_key, U_key = _split(key, 3)
-    _, x, v = lax_control_flow.while_loop(lambda kxv: lax.le(kxv[2], zero), _next_kxv, (x_key, zero, minus_one))
+    _, x, v = lax_control_flow.while_loop(lambda kxv: lax.le(kxv[2], zero),
+                                          _next_kxv, (x_key, zero, minus_one))
     X = lax.mul(x, x)
     V = lax.mul(lax.mul(v, v), v)
     U = uniform(U_key, (), dtype=dtype)
@@ -1256,14 +1321,17 @@ def _gamma_one(key: Array, alpha, log_space) -> Array:
 
   # initial state is chosen such that _cond_fn will return True
   key, subkey = _split(key)
-  _, _, V, _ = lax_control_flow.while_loop(_cond_fn, _body_fn, (key, zero, one, lax._const(alpha, 2)))
+  _, _, V, _ = lax_control_flow.while_loop(
+      _cond_fn, _body_fn, (key, zero, one, two))
   if log_space:
     log_samples = lax.neg(exponential(subkey, (), dtype=dtype))
-    log_boost = lax.select(boost_mask | (log_samples == 0), zero, lax.mul(log_samples, lax.div(one, alpha_orig)))
+    log_boost = lax.select(boost_mask | (log_samples == 0), zero,
+                           lax.mul(log_samples, lax.div(one, alpha_orig)))
     return lax.add(lax.add(lax.log(d), lax.log(V)), log_boost)
   else:
     samples = 1 - uniform(subkey, (), dtype=dtype)
-    boost = lax.select(boost_mask, one, lax.pow(samples, lax.div(one, alpha_orig)))
+    boost = lax.select(boost_mask, one,
+                       lax.pow(samples, lax.div(one, alpha_orig)))
     return lax.mul(lax.mul(d, V), boost)
 
 
@@ -1278,7 +1346,8 @@ def _gamma_grad(sample, a, *, log_space):
     zero = lax._const(sample, 0)
     tiny = lax.full_like(samples, dtypes.finfo(samples.dtype).tiny)
     samples = lax.select(lax.eq(samples, zero), tiny, samples)
-    gamma_grad = lambda alpha, sample: lax_special.random_gamma_grad(alpha, sample) / sample
+    gamma_grad = lambda alpha, sample: (
+        lax_special.random_gamma_grad(alpha, sample) / sample)
   else:
     gamma_grad = lax_special.random_gamma_grad
   if xla_bridge.get_backend().platform == 'cpu':
@@ -1315,7 +1384,12 @@ def _gamma_batching_rule(batched_args, batch_dims, *, log_space):
 
 random_gamma_p = core.Primitive('random_gamma')
 random_gamma_p.def_impl(_gamma_impl)
-random_gamma_p.def_abstract_eval(lambda key, a, **_: a)
+
+def _random_gamma_abstract_eval(key, a, **_):
+  core.standard_vma_rule('random_gamma', key, a)
+  return a
+random_gamma_p.def_abstract_eval(_random_gamma_abstract_eval)
+
 ad.defjvp2(
     random_gamma_p, None,
     lambda tangent, ans, key, a, **kwds: tangent * _gamma_grad(ans, a, **kwds))
@@ -1426,6 +1500,7 @@ def _gamma(key, a, shape, dtype, log_space=False) -> Array:
   a = lax.convert_element_type(a, dtype)
   if np.shape(a) != shape:
     a = jnp.broadcast_to(a, shape)
+  key, (a,) = random_insert_pvary('gamma', key, a)
   return random_gamma_p.bind(key, a, log_space=log_space)
 
 
@@ -1564,7 +1639,9 @@ def poisson(key: ArrayLike,
 def gumbel(key: ArrayLike,
            shape: Shape = (),
            dtype: DTypeLikeFloat = float,
-           mode: str | None = None) -> Array:
+           mode: str | None = None,
+           *,
+           out_sharding=None) -> Array:
   """Sample Gumbel random values with given shape and float dtype.
 
   The values are distributed according to the probability density function:
@@ -1599,7 +1676,9 @@ def gumbel(key: ArrayLike,
     mode = "high" if config.use_high_dynamic_range_gumbel.value else "low"
   if mode not in ("high", "low"):
     raise ValueError("Must provide valid mode for gumbel got: %s" % mode)
-  return _gumbel(key, shape, dtype, mode)
+  out_sharding = canonicalize_sharding_for_samplers(out_sharding, "gumbel", shape)
+  return maybe_auto_axes(_gumbel, out_sharding, shape=shape, dtype=dtype,
+                         mode=mode)(key)
 
 @partial(jit, static_argnums=(1, 2, 3))
 def _gumbel(key, shape, dtype, mode) -> Array:
@@ -2847,3 +2926,29 @@ def clone(key):
     >>> assert data == same_data
   """
   return random_clone_p.bind(key)
+
+
+def random_insert_pvary(name, key, *args):
+  if not config._check_vma.value:
+    return key, args
+  if not args:
+    return key, args
+  key_vma = core.typeof(key).vma
+  out = []
+  for a in args:
+    arg_vma = (aval.vma if isinstance(aval := core.typeof(a), core.ShapedArray)
+               else frozenset())
+    # If key is less varying than the args, then it's an error and user should
+    # pvary at their level because it has key-reuse implications. They can
+    # shard the keys passed to shard_map correctly so as to avoid key-reuse
+    # getting correctly varying keys. But JAX shouldn't auto-pvary the key.
+    if key_vma - arg_vma:
+      a = core.pvary(a, tuple(k for k in key_vma if k not in arg_vma))
+    if key_vma != core.typeof(a).vma:
+      raise TypeError(
+          f"{name} requires all arguments to have matching type. Got key type:"
+          f" {core.typeof(key)} vs arg type: {core.typeof(a)}. Use"
+          " jax.lax.pvary(...) to make them match. If your key is less varying"
+          " than arg, watch out for key-reuse problems.")
+    out.append(a)
+  return key, out

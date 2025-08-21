@@ -1,4 +1,3 @@
-# sage_setup: distribution = sagemath-database-symbolic-data
 """
 Ideals from the Symbolic Data project
 

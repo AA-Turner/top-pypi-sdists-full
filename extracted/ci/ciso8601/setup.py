@@ -31,7 +31,7 @@ if os.environ.get("STRICT_WARNINGS", "0") == "1":
         os.environ["_CL_"] = ""
     os.environ["_CL_"] += " /WX"
 
-VERSION = "2.3.2"
+VERSION = "2.3.3"
 CISO8601_CACHING_ENABLED = int(os.environ.get('CISO8601_CACHING_ENABLED', '1') == '1')
 
 setup(
@@ -75,6 +75,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
 )

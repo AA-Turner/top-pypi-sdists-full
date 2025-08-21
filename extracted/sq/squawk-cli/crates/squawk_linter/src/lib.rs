@@ -10,11 +10,12 @@ use rowan::TextRange;
 use rowan::TextSize;
 use serde::{Deserialize, Serialize};
 
+use squawk_syntax::SyntaxNode;
 use squawk_syntax::{Parse, SourceFile};
 
 pub use version::Version;
 
-mod ignore;
+pub mod ignore;
 mod ignore_index;
 mod version;
 mod visitors;
@@ -219,16 +220,6 @@ impl fmt::Display for Rule {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Violation {
-    // TODO: should this be String instead?
-    pub code: Rule,
-    pub message: String,
-    pub text_range: TextRange,
-    pub help: Option<String>,
-    pub fix: Option<Fix>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fix {
     pub title: String,
     pub edits: Vec<Edit>,
@@ -249,7 +240,7 @@ pub struct Edit {
     pub text: Option<String>,
 }
 impl Edit {
-    fn insert<T: Into<String>>(text: T, at: TextSize) -> Self {
+    pub fn insert<T: Into<String>>(text: T, at: TextSize) -> Self {
         Self {
             text_range: TextRange::new(at, at),
             text: Some(text.into()),
@@ -257,25 +248,55 @@ impl Edit {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Violation {
+    // TODO: should this be String instead?
+    pub code: Rule,
+    pub message: String,
+    pub text_range: TextRange,
+    pub help: Option<String>,
+    pub fix: Option<Fix>,
+}
+
 impl Violation {
     #[must_use]
-    pub fn new(
-        code: Rule,
-        message: String,
-        text_range: TextRange,
-        help: impl Into<Option<String>>,
-    ) -> Self {
+    pub fn for_node(code: Rule, message: String, node: &SyntaxNode) -> Self {
+        let range = node.text_range();
+
+        let start = node
+            .children_with_tokens()
+            .filter(|x| !x.kind().is_trivia())
+            .next()
+            .map(|x| x.text_range().start())
+            // Not sure we actually hit this, but just being safe
+            .unwrap_or_else(|| range.start());
+
         Self {
             code,
-            text_range,
+            text_range: TextRange::new(start, range.end()),
             message,
-            help: help.into(),
+            help: None,
             fix: None,
         }
     }
 
-    fn with_fix(mut self, fix: Option<Fix>) -> Violation {
+    #[must_use]
+    pub fn for_range(code: Rule, message: String, text_range: TextRange) -> Self {
+        Self {
+            code,
+            text_range,
+            message,
+            help: None,
+            fix: None,
+        }
+    }
+
+    fn fix(mut self, fix: Option<Fix>) -> Violation {
         self.fix = fix;
+        self
+    }
+    fn help(mut self, help: impl Into<String>) -> Violation {
+        self.help = Some(help.into());
         self
     }
 }
@@ -303,7 +324,7 @@ impl Linter {
     }
 
     #[must_use]
-    pub fn lint(&mut self, file: Parse<SourceFile>, text: &str) -> Vec<Violation> {
+    pub fn lint(&mut self, file: &Parse<SourceFile>, text: &str) -> Vec<Violation> {
         if self.rules.contains(&Rule::AddingFieldWithDefault) {
             adding_field_with_default(self, &file);
         }

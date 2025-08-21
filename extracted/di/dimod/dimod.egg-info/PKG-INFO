@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dimod
-Version: 0.12.20
+Version: 0.12.21
 Summary: A shared API for binary quadratic model samplers.
 Home-page: https://github.com/dwavesystems/dimod
 Download-URL: https://github.com/dwavesystems/dimod/releases

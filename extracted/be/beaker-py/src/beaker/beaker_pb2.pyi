@@ -64,6 +64,14 @@ class ClusterSchedulingPolicy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper)
     CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_PREEMPTIBLE_ONLY: _ClassVar[ClusterSchedulingPolicy]
     CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_ALL: _ClassVar[ClusterSchedulingPolicy]
 
+class NodeEventStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    NODE_EVENT_STATUS_UNSPECIFIED: _ClassVar[NodeEventStatus]
+    NODE_EVENT_STATUS_CORDONED: _ClassVar[NodeEventStatus]
+    NODE_EVENT_STATUS_UNCORDONED: _ClassVar[NodeEventStatus]
+    NODE_EVENT_STATUS_XID_ERROR: _ClassVar[NodeEventStatus]
+    NODE_EVENT_STATUS_SXID_ERROR: _ClassVar[NodeEventStatus]
+
 class JobKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     JOB_KIND_UNSPECIFIED: _ClassVar[JobKind]
@@ -164,6 +172,11 @@ CLUSTER_SCHEDULING_POLICY_UNSPECIFIED: ClusterSchedulingPolicy
 CLUSTER_SCHEDULING_POLICY_EAGER: ClusterSchedulingPolicy
 CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_PREEMPTIBLE_ONLY: ClusterSchedulingPolicy
 CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_ALL: ClusterSchedulingPolicy
+NODE_EVENT_STATUS_UNSPECIFIED: NodeEventStatus
+NODE_EVENT_STATUS_CORDONED: NodeEventStatus
+NODE_EVENT_STATUS_UNCORDONED: NodeEventStatus
+NODE_EVENT_STATUS_XID_ERROR: NodeEventStatus
+NODE_EVENT_STATUS_SXID_ERROR: NodeEventStatus
 JOB_KIND_UNSPECIFIED: JobKind
 JOB_KIND_BATCH: JobKind
 JOB_KIND_SESSION: JobKind
@@ -506,6 +519,74 @@ class CordonDetails(_message.Message):
     cordon_reason: str
     cordon_agent_id: str
     def __init__(self, cordoned: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., cordon_reason: _Optional[str] = ..., cordon_agent_id: _Optional[str] = ...) -> None: ...
+
+class NodeEvent(_message.Message):
+    __slots__ = ("id", "node", "created", "occurred", "processed_by_node_controller", "status", "message", "xid_error", "sxid_error", "cordoned", "uncordoned")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    NODE_FIELD_NUMBER: _ClassVar[int]
+    CREATED_FIELD_NUMBER: _ClassVar[int]
+    OCCURRED_FIELD_NUMBER: _ClassVar[int]
+    PROCESSED_BY_NODE_CONTROLLER_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    XID_ERROR_FIELD_NUMBER: _ClassVar[int]
+    SXID_ERROR_FIELD_NUMBER: _ClassVar[int]
+    CORDONED_FIELD_NUMBER: _ClassVar[int]
+    UNCORDONED_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    node: str
+    created: _timestamp_pb2.Timestamp
+    occurred: _timestamp_pb2.Timestamp
+    processed_by_node_controller: _timestamp_pb2.Timestamp
+    status: NodeEventStatus
+    message: str
+    xid_error: XidErrorEvent
+    sxid_error: SXidErrorEvent
+    cordoned: CordonedEvent
+    uncordoned: UncordonedEvent
+    def __init__(self, id: _Optional[str] = ..., node: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., occurred: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., processed_by_node_controller: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., status: _Optional[_Union[NodeEventStatus, str]] = ..., message: _Optional[str] = ..., xid_error: _Optional[_Union[XidErrorEvent, _Mapping]] = ..., sxid_error: _Optional[_Union[SXidErrorEvent, _Mapping]] = ..., cordoned: _Optional[_Union[CordonedEvent, _Mapping]] = ..., uncordoned: _Optional[_Union[UncordonedEvent, _Mapping]] = ...) -> None: ...
+
+class XidErrorEvent(_message.Message):
+    __slots__ = ("xid_error_code", "gpu_ids", "logs")
+    XID_ERROR_CODE_FIELD_NUMBER: _ClassVar[int]
+    GPU_IDS_FIELD_NUMBER: _ClassVar[int]
+    LOGS_FIELD_NUMBER: _ClassVar[int]
+    xid_error_code: int
+    gpu_ids: _containers.RepeatedScalarFieldContainer[str]
+    logs: _containers.RepeatedCompositeFieldContainer[KernelLog]
+    def __init__(self, xid_error_code: _Optional[int] = ..., gpu_ids: _Optional[_Iterable[str]] = ..., logs: _Optional[_Iterable[_Union[KernelLog, _Mapping]]] = ...) -> None: ...
+
+class SXidErrorEvent(_message.Message):
+    __slots__ = ("sxid_error_code", "gpu_ids", "logs")
+    SXID_ERROR_CODE_FIELD_NUMBER: _ClassVar[int]
+    GPU_IDS_FIELD_NUMBER: _ClassVar[int]
+    LOGS_FIELD_NUMBER: _ClassVar[int]
+    sxid_error_code: int
+    gpu_ids: _containers.RepeatedScalarFieldContainer[str]
+    logs: _containers.RepeatedCompositeFieldContainer[KernelLog]
+    def __init__(self, sxid_error_code: _Optional[int] = ..., gpu_ids: _Optional[_Iterable[str]] = ..., logs: _Optional[_Iterable[_Union[KernelLog, _Mapping]]] = ...) -> None: ...
+
+class CordonedEvent(_message.Message):
+    __slots__ = ("reason", "agent_id")
+    REASON_FIELD_NUMBER: _ClassVar[int]
+    AGENT_ID_FIELD_NUMBER: _ClassVar[int]
+    reason: str
+    agent_id: str
+    def __init__(self, reason: _Optional[str] = ..., agent_id: _Optional[str] = ...) -> None: ...
+
+class UncordonedEvent(_message.Message):
+    __slots__ = ("agent_id",)
+    AGENT_ID_FIELD_NUMBER: _ClassVar[int]
+    agent_id: str
+    def __init__(self, agent_id: _Optional[str] = ...) -> None: ...
+
+class KernelLog(_message.Message):
+    __slots__ = ("timestamp", "message")
+    TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    timestamp: _timestamp_pb2.Timestamp
+    message: str
+    def __init__(self, timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., message: _Optional[str] = ...) -> None: ...
 
 class Node(_message.Message):
     __slots__ = ("id", "created", "cluster_id", "hostname", "expiry", "cordon_details", "node_resources", "account_id", "heartbeat")
@@ -1186,16 +1267,20 @@ class SchedulerRun(_message.Message):
     def __init__(self, input: _Optional[_Union[SchedulerInput, _Mapping]] = ..., output: _Optional[_Union[SchedulerOutput, _Mapping]] = ...) -> None: ...
 
 class Budget(_message.Message):
-    __slots__ = ("id", "organization_id", "name", "organization_name")
+    __slots__ = ("id", "organization_id", "name", "organization_name", "deprecated", "full_name")
     ID_FIELD_NUMBER: _ClassVar[int]
     ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     ORGANIZATION_NAME_FIELD_NUMBER: _ClassVar[int]
+    DEPRECATED_FIELD_NUMBER: _ClassVar[int]
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
     id: str
     organization_id: str
     name: str
     organization_name: str
-    def __init__(self, id: _Optional[str] = ..., organization_id: _Optional[str] = ..., name: _Optional[str] = ..., organization_name: _Optional[str] = ...) -> None: ...
+    deprecated: bool
+    full_name: str
+    def __init__(self, id: _Optional[str] = ..., organization_id: _Optional[str] = ..., name: _Optional[str] = ..., organization_name: _Optional[str] = ..., deprecated: bool = ..., full_name: _Optional[str] = ...) -> None: ...
 
 class Queue(_message.Message):
     __slots__ = ("id", "name", "created", "workspace_id", "author_id", "input_schema", "output_schema", "batch_size", "max_claimed_entries", "wait_timeout", "full_name")
@@ -1769,7 +1854,7 @@ class UpdateClusterResponse(_message.Message):
     def __init__(self, cluster: _Optional[_Union[Cluster, _Mapping]] = ...) -> None: ...
 
 class UpdateClusterRestrictionsRequest(_message.Message):
-    __slots__ = ("cluster_id", "restricted_user_ids", "clear_restricted_user_ids", "restricted_budget_ids", "clear_restricted_budget_ids")
+    __slots__ = ("cluster_id", "restricted_user_ids", "clear_restricted_user_ids", "restricted_budget_ids", "clear_restricted_budget_ids", "allow_preemptible_restriction_exception")
     class RestrictedUserIDs(_message.Message):
         __slots__ = ("restricted_user_ids",)
         RESTRICTED_USER_IDS_FIELD_NUMBER: _ClassVar[int]
@@ -1785,12 +1870,14 @@ class UpdateClusterRestrictionsRequest(_message.Message):
     CLEAR_RESTRICTED_USER_IDS_FIELD_NUMBER: _ClassVar[int]
     RESTRICTED_BUDGET_IDS_FIELD_NUMBER: _ClassVar[int]
     CLEAR_RESTRICTED_BUDGET_IDS_FIELD_NUMBER: _ClassVar[int]
+    ALLOW_PREEMPTIBLE_RESTRICTION_EXCEPTION_FIELD_NUMBER: _ClassVar[int]
     cluster_id: str
     restricted_user_ids: UpdateClusterRestrictionsRequest.RestrictedUserIDs
     clear_restricted_user_ids: _empty_pb2.Empty
     restricted_budget_ids: UpdateClusterRestrictionsRequest.RestrictedBudgetIDs
     clear_restricted_budget_ids: _empty_pb2.Empty
-    def __init__(self, cluster_id: _Optional[str] = ..., restricted_user_ids: _Optional[_Union[UpdateClusterRestrictionsRequest.RestrictedUserIDs, _Mapping]] = ..., clear_restricted_user_ids: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., restricted_budget_ids: _Optional[_Union[UpdateClusterRestrictionsRequest.RestrictedBudgetIDs, _Mapping]] = ..., clear_restricted_budget_ids: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ...) -> None: ...
+    allow_preemptible_restriction_exception: bool
+    def __init__(self, cluster_id: _Optional[str] = ..., restricted_user_ids: _Optional[_Union[UpdateClusterRestrictionsRequest.RestrictedUserIDs, _Mapping]] = ..., clear_restricted_user_ids: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., restricted_budget_ids: _Optional[_Union[UpdateClusterRestrictionsRequest.RestrictedBudgetIDs, _Mapping]] = ..., clear_restricted_budget_ids: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., allow_preemptible_restriction_exception: bool = ...) -> None: ...
 
 class UpdateClusterRestrictionsResponse(_message.Message):
     __slots__ = ("cluster",)
@@ -1948,6 +2035,89 @@ class CordonNodeResponse(_message.Message):
     node: Node
     def __init__(self, node: _Optional[_Union[Node, _Mapping]] = ...) -> None: ...
 
+class CreateNodeEventRequest(_message.Message):
+    __slots__ = ("node", "occurred", "status", "message", "xid_error", "sxid_error")
+    NODE_FIELD_NUMBER: _ClassVar[int]
+    OCCURRED_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    XID_ERROR_FIELD_NUMBER: _ClassVar[int]
+    SXID_ERROR_FIELD_NUMBER: _ClassVar[int]
+    node: str
+    occurred: _timestamp_pb2.Timestamp
+    status: NodeEventStatus
+    message: str
+    xid_error: XidErrorEvent
+    sxid_error: SXidErrorEvent
+    def __init__(self, node: _Optional[str] = ..., occurred: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., status: _Optional[_Union[NodeEventStatus, str]] = ..., message: _Optional[str] = ..., xid_error: _Optional[_Union[XidErrorEvent, _Mapping]] = ..., sxid_error: _Optional[_Union[SXidErrorEvent, _Mapping]] = ...) -> None: ...
+
+class CreateNodeEventsRequest(_message.Message):
+    __slots__ = ("node_events",)
+    NODE_EVENTS_FIELD_NUMBER: _ClassVar[int]
+    node_events: _containers.RepeatedCompositeFieldContainer[CreateNodeEventRequest]
+    def __init__(self, node_events: _Optional[_Iterable[_Union[CreateNodeEventRequest, _Mapping]]] = ...) -> None: ...
+
+class CreateNodeEventsResponse(_message.Message):
+    __slots__ = ("node_events",)
+    NODE_EVENTS_FIELD_NUMBER: _ClassVar[int]
+    node_events: _containers.RepeatedCompositeFieldContainer[NodeEvent]
+    def __init__(self, node_events: _Optional[_Iterable[_Union[NodeEvent, _Mapping]]] = ...) -> None: ...
+
+class ListNodeEventsRequest(_message.Message):
+    __slots__ = ("next_page_token", "options")
+    class Opts(_message.Message):
+        __slots__ = ("sort_clause", "page_size", "node_id", "processed", "organization_id")
+        class SortClause(_message.Message):
+            __slots__ = ("sort_order", "occurred")
+            SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
+            OCCURRED_FIELD_NUMBER: _ClassVar[int]
+            sort_order: SortOrder
+            occurred: _empty_pb2.Empty
+            def __init__(self, sort_order: _Optional[_Union[SortOrder, str]] = ..., occurred: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ...) -> None: ...
+        SORT_CLAUSE_FIELD_NUMBER: _ClassVar[int]
+        PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+        NODE_ID_FIELD_NUMBER: _ClassVar[int]
+        PROCESSED_FIELD_NUMBER: _ClassVar[int]
+        ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
+        sort_clause: ListNodeEventsRequest.Opts.SortClause
+        page_size: int
+        node_id: str
+        processed: bool
+        organization_id: str
+        def __init__(self, sort_clause: _Optional[_Union[ListNodeEventsRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., node_id: _Optional[str] = ..., processed: bool = ..., organization_id: _Optional[str] = ...) -> None: ...
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    options: ListNodeEventsRequest.Opts
+    def __init__(self, next_page_token: _Optional[str] = ..., options: _Optional[_Union[ListNodeEventsRequest.Opts, _Mapping]] = ...) -> None: ...
+
+class ListNodeEventsResponse(_message.Message):
+    __slots__ = ("next_page_token", "node_events")
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    NODE_EVENTS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    node_events: _containers.RepeatedCompositeFieldContainer[NodeEvent]
+    def __init__(self, next_page_token: _Optional[str] = ..., node_events: _Optional[_Iterable[_Union[NodeEvent, _Mapping]]] = ...) -> None: ...
+
+class ProcessNodeEventRequest(_message.Message):
+    __slots__ = ("node_event_id", "actions")
+    class ProcessNodeEventAction(_message.Message):
+        __slots__ = ("cordon_node", "create_job_event")
+        CORDON_NODE_FIELD_NUMBER: _ClassVar[int]
+        CREATE_JOB_EVENT_FIELD_NUMBER: _ClassVar[int]
+        cordon_node: CordonNodeRequest
+        create_job_event: CreateJobEventRequest
+        def __init__(self, cordon_node: _Optional[_Union[CordonNodeRequest, _Mapping]] = ..., create_job_event: _Optional[_Union[CreateJobEventRequest, _Mapping]] = ...) -> None: ...
+    NODE_EVENT_ID_FIELD_NUMBER: _ClassVar[int]
+    ACTIONS_FIELD_NUMBER: _ClassVar[int]
+    node_event_id: str
+    actions: _containers.RepeatedCompositeFieldContainer[ProcessNodeEventRequest.ProcessNodeEventAction]
+    def __init__(self, node_event_id: _Optional[str] = ..., actions: _Optional[_Iterable[_Union[ProcessNodeEventRequest.ProcessNodeEventAction, _Mapping]]] = ...) -> None: ...
+
+class ProcessNodeEventResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class DeleteNodeRequest(_message.Message):
     __slots__ = ("node_id",)
     NODE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -2085,7 +2255,7 @@ class GetJobResponse(_message.Message):
 class ListJobsRequest(_message.Message):
     __slots__ = ("next_page_token", "options")
     class Opts(_message.Message):
-        __slots__ = ("sort_clause", "page_size", "organization_id", "task_id", "environment_id", "finalized", "eligible_for_cluster_id", "scheduled_on_node_id", "scheduled_on_cluster_id", "scheduled", "retry_ancestors_of_non_scheduled_non_finalized_jobs", "canceled", "exited")
+        __slots__ = ("sort_clause", "page_size", "organization_id", "task_id", "environment_id", "finalized", "eligible_for_cluster_id", "scheduled_on_node_id", "scheduled_on_cluster_id", "scheduled", "retry_ancestors_of_non_scheduled_non_finalized_jobs", "canceled", "exited", "running_at")
         class SortClause(_message.Message):
             __slots__ = ("sort_order", "created", "cluster_job_queue")
             SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
@@ -2108,6 +2278,7 @@ class ListJobsRequest(_message.Message):
         RETRY_ANCESTORS_OF_NON_SCHEDULED_NON_FINALIZED_JOBS_FIELD_NUMBER: _ClassVar[int]
         CANCELED_FIELD_NUMBER: _ClassVar[int]
         EXITED_FIELD_NUMBER: _ClassVar[int]
+        RUNNING_AT_FIELD_NUMBER: _ClassVar[int]
         sort_clause: ListJobsRequest.Opts.SortClause
         page_size: int
         organization_id: str
@@ -2121,7 +2292,8 @@ class ListJobsRequest(_message.Message):
         retry_ancestors_of_non_scheduled_non_finalized_jobs: bool
         canceled: bool
         exited: bool
-        def __init__(self, sort_clause: _Optional[_Union[ListJobsRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., organization_id: _Optional[str] = ..., task_id: _Optional[str] = ..., environment_id: _Optional[str] = ..., finalized: bool = ..., eligible_for_cluster_id: _Optional[str] = ..., scheduled_on_node_id: _Optional[str] = ..., scheduled_on_cluster_id: _Optional[str] = ..., scheduled: bool = ..., retry_ancestors_of_non_scheduled_non_finalized_jobs: bool = ..., canceled: bool = ..., exited: bool = ...) -> None: ...
+        running_at: _timestamp_pb2.Timestamp
+        def __init__(self, sort_clause: _Optional[_Union[ListJobsRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., organization_id: _Optional[str] = ..., task_id: _Optional[str] = ..., environment_id: _Optional[str] = ..., finalized: bool = ..., eligible_for_cluster_id: _Optional[str] = ..., scheduled_on_node_id: _Optional[str] = ..., scheduled_on_cluster_id: _Optional[str] = ..., scheduled: bool = ..., retry_ancestors_of_non_scheduled_non_finalized_jobs: bool = ..., canceled: bool = ..., exited: bool = ..., running_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
     NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     OPTIONS_FIELD_NUMBER: _ClassVar[int]
     next_page_token: str
@@ -2151,12 +2323,14 @@ class ScheduleJobsResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class UpdateJobSourcePriorityRequest(_message.Message):
-    __slots__ = ("job_id", "priority")
+    __slots__ = ("job_id", "priority", "reason")
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
     PRIORITY_FIELD_NUMBER: _ClassVar[int]
+    REASON_FIELD_NUMBER: _ClassVar[int]
     job_id: str
     priority: JobPriority
-    def __init__(self, job_id: _Optional[str] = ..., priority: _Optional[_Union[JobPriority, str]] = ...) -> None: ...
+    reason: str
+    def __init__(self, job_id: _Optional[str] = ..., priority: _Optional[_Union[JobPriority, str]] = ..., reason: _Optional[str] = ...) -> None: ...
 
 class UpdateJobSourcePriorityResponse(_message.Message):
     __slots__ = ("job",)
@@ -2207,16 +2381,6 @@ class StreamJobLogsRequest(_message.Message):
     follow: bool
     since: _timestamp_pb2.Timestamp
     def __init__(self, job_id: _Optional[str] = ..., tail_lines: _Optional[int] = ..., follow: bool = ..., since: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
-
-class FinalizeJobForUnavailableNodeRequest(_message.Message):
-    __slots__ = ("job_id",)
-    JOB_ID_FIELD_NUMBER: _ClassVar[int]
-    job_id: str
-    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
-
-class FinalizeJobForUnavailableNodeResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
 
 class CreateJobEventRequest(_message.Message):
     __slots__ = ("job_id", "status", "message", "occurred")
@@ -2904,6 +3068,40 @@ class ResolveBudgetNameResponse(_message.Message):
     BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
     budget_id: str
     def __init__(self, budget_id: _Optional[str] = ...) -> None: ...
+
+class ListBudgetsRequest(_message.Message):
+    __slots__ = ("next_page_token", "options")
+    class Opts(_message.Message):
+        __slots__ = ("organization_id", "sort_clause", "page_size", "include_deprecated")
+        class SortClause(_message.Message):
+            __slots__ = ("sort_order", "name")
+            SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
+            NAME_FIELD_NUMBER: _ClassVar[int]
+            sort_order: SortOrder
+            name: _empty_pb2.Empty
+            def __init__(self, sort_order: _Optional[_Union[SortOrder, str]] = ..., name: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ...) -> None: ...
+        ORGANIZATION_ID_FIELD_NUMBER: _ClassVar[int]
+        SORT_CLAUSE_FIELD_NUMBER: _ClassVar[int]
+        PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+        INCLUDE_DEPRECATED_FIELD_NUMBER: _ClassVar[int]
+        organization_id: str
+        sort_clause: ListBudgetsRequest.Opts.SortClause
+        page_size: int
+        include_deprecated: bool
+        def __init__(self, organization_id: _Optional[str] = ..., sort_clause: _Optional[_Union[ListBudgetsRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., include_deprecated: bool = ...) -> None: ...
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    options: ListBudgetsRequest.Opts
+    def __init__(self, next_page_token: _Optional[str] = ..., options: _Optional[_Union[ListBudgetsRequest.Opts, _Mapping]] = ...) -> None: ...
+
+class ListBudgetsResponse(_message.Message):
+    __slots__ = ("budgets", "next_page_token")
+    BUDGETS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    budgets: _containers.RepeatedCompositeFieldContainer[Budget]
+    next_page_token: str
+    def __init__(self, budgets: _Optional[_Iterable[_Union[Budget, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
 
 class CreateQueueRequest(_message.Message):
     __slots__ = ("name", "workspace_id", "input_schema", "output_schema", "batch_size", "max_claimed_entries", "wait_timeout")

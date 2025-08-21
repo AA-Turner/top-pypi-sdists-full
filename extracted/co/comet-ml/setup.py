@@ -70,5 +70,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3.12",
     ],
     license="MIT",
-    version="3.50.0",
+    version="3.51.0",
 )

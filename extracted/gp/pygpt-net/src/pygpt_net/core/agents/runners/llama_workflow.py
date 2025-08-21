@@ -275,12 +275,13 @@ class LlamaWorkflow(BaseRunner):
                 if verbose:
                     print("\n\n-----STEP-----\n\n")
                     print(f"[{event.name}] {event.index}/{event.total} meta={event.meta}")
-                item_ctx = self.on_next_ctx(
-                    item_ctx,
-                    signals=signals,
-                    begin=begin,
-                    stream=True,
-                )
+                if flush:
+                    item_ctx = self.on_next_ctx(
+                        item_ctx,
+                        signals=signals,
+                        begin=begin,
+                        stream=True,
+                    )
             elif isinstance(event, AgentStream):
                 if verbose:
                     print(f"{event.delta}", end="", flush=True)

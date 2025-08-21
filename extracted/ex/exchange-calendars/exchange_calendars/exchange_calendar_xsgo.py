@@ -45,6 +45,30 @@ from .exchange_calendar import (
 )
 
 
+def summer_solstice(dt: datetime.datetime) -> datetime.datetime:
+    """
+    The summer solstice is on June 20th, but in some years it can be on the
+    21st.
+    """
+    day = 20
+    if (dt.year % 4 > 1 and dt.year <= 2046) or (dt.year % 4 > 2 and dt.year <= 2075):
+        day = 21
+    return dt.replace(month=6, day=day)
+
+
+def national_day_of_indigenous_peoples_observed(dt: datetime.datetime) -> datetime.datetime | None:
+    """
+    Observed on the summer solstice, but in 2021 it was moved to June 21st.
+    """
+    if (dt.year == 2021):
+        dt = dt.replace(month=6, day=21)
+    elif (dt.year > 2021):
+        dt = summer_solstice(dt)
+    else:
+        dt = None
+    return dt
+
+
 def nearest_monday(dt: datetime.datetime) -> datetime.datetime:
     """
     If the holiday falls on a Saturday, Sunday or Monday then the date is
@@ -60,7 +84,7 @@ def nearest_monday(dt: datetime.datetime) -> datetime.datetime:
     return dt
 
 
-def tuesday_and_wednesday_to_friday(dt: datetime.datetime):
+def tuesday_and_wednesday_to_friday(dt: datetime.datetime) -> datetime.datetime:
     """
     If Evangelical Church Day (Halloween) falls on a Tuesday, it is observed
     the preceding Friday. If it falls on a Wednesday, it is observed the next
@@ -98,6 +122,14 @@ MondayPriorToCorpusChristi = Holiday(
 LabourDay = european_labour_day()
 
 NavyDay = Holiday("Navy Day", month=5, day=21)
+
+NationalDayOfIndigenousPeoples = Holiday(
+    "National Day of Indigenous Peoples",
+    month=6,
+    day=19,
+    observance=national_day_of_indigenous_peoples_observed,
+    start_date="2021",
+)
 
 SaintPeterAndSaintPaulDay = saint_peter_and_saint_paul_day(
     observance=nearest_monday,
@@ -170,6 +202,7 @@ class XSGOExchangeCalendar(ExchangeCalendar):
     """
     Calendar for the Santiago Stock Exchange (Bolsa de Comercio de Santiago) in
     Chile.
+    https://www.bolsadesantiago.com/mercado_horarios_feriados
 
     Open Time: 9:30 AM, CLT/CLST (Chile Standard Time/Chile Summer Time)
     Close Time: 4:00 PM, CLT (March to October)
@@ -226,6 +259,7 @@ class XSGOExchangeCalendar(ExchangeCalendar):
                 MondayPriorToCorpusChristi,
                 LabourDay,
                 NavyDay,
+                NationalDayOfIndigenousPeoples,
                 SaintPeterAndSaintPaulDay,
                 OurLadyOfMountCarmelDay,
                 AssumptionDay,
@@ -255,6 +289,8 @@ class XSGOExchangeCalendar(ExchangeCalendar):
             pd.Timestamp("2017-04-19"),
             # Pope Visit.
             pd.Timestamp("2018-01-16"),
+            # Day off for National Day
+            pd.Timestamp("2022-09-16"),
         ]
 
     @property

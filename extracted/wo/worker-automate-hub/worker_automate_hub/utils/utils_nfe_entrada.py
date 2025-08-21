@@ -73,7 +73,7 @@ class EMSys:
                 sucesso=False,
                 retorno="Não foi possivel acessar a aba de 'Itens da nota'",
                 status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
             )
         else:
             return True
@@ -127,7 +127,6 @@ class EMSys:
     async def percorrer_grid(self, cnpj=None):
         self.apenas_isqueiros = True
         await self.click_itens_da_nota()
-    
 
         console.print("Acessando os itens indivualmente... \n")
         send_keys("{TAB 2}", pause=0.1)
@@ -135,10 +134,10 @@ class EMSys:
         index_item_atual = 0
         index_ultimo_item = await self.get_ultimo_item()
         console.print(f"Index ultimo item: {index_ultimo_item}")
-        
+
         try:
             while index_item_atual < index_ultimo_item:
-                
+
                 send_keys("^({HOME})")
                 await worker_sleep(1)
 
@@ -150,9 +149,9 @@ class EMSys:
                 send_keys("{DOWN 2}")
                 await worker_sleep(1)
                 send_keys("{ENTER}")
-                
+
                 await worker_sleep(2)
-                
+
                 app = Application().connect(title="Alteração de Item")
                 main_window = app["Alteração de Item"]
 
@@ -161,26 +160,30 @@ class EMSys:
                 edit = main_window.child_window(
                     class_name="TDBIEditCode", found_index=0
                 )
-                 # Caminho da imagem
+                # Caminho da imagem
                 caminho_imagem = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\entrada_de_notas_16\ipi_0.png"
                 # Verifica se o arquivo existe
                 if os.path.exists(caminho_imagem):
                     print("Imagem já existe. Clicando em 'Cancelar'...")
-                                        
-                    # Conectando à janela do app 
-                    app = Application().connect(class_name="TFrmAlteraItemNFE", timeout=60)
+
+                    # Conectando à janela do app
+                    app = Application().connect(
+                        class_name="TFrmAlteraItemNFE", timeout=60
+                    )
                     janela_cancelar = app["TFrmAlteraItemNFE"]
 
                     # Encontra o botão pelo texto
                     try:
-                        cancelar_btn = janela_cancelar.child_window(class_name ="TDBIBitBtn", found_index=2)
+                        cancelar_btn = janela_cancelar.child_window(
+                            class_name="TDBIBitBtn", found_index=2
+                        )
                         cancelar_btn.click_input()
                         print("Clicou em 'Cancelar'.")
                         index_item_atual += 1
                         continue
                     except:
                         pass
-                #seta IPI 0%
+                # seta IPI 0%
                 ipi_combobox = main_window.child_window(
                     class_name="TDBIComboBox", found_index=4
                 )
@@ -199,15 +202,22 @@ class EMSys:
                 console.log(f"item name: {item_value}")
 
                 # Verifica se o item é 'isqueiro'
-                if ("isqueiro" in item_value.lower() or "acendedor" in item_value.lower()) and cnpj != "36359969000109":
+                if (
+                    "isqueiro" in item_value.lower()
+                    or "acendedor" in item_value.lower()
+                ) and cnpj != "36359969000109":
 
                     try:
-                        console.print(f"Trabalhando com os itens, alterando o código de tributação dos ISQUEIROS/ACENDEDORES para manual \n")
-                        console.print("Item encontrado: ISQUEIRO/ACENDEDORES. Processando...\n")
-                        
+                        console.print(
+                            f"Trabalhando com os itens, alterando o código de tributação dos ISQUEIROS/ACENDEDORES para manual \n"
+                        )
+                        console.print(
+                            "Item encontrado: ISQUEIRO/ACENDEDORES. Processando...\n"
+                        )
+
                         tipos_unidade = ["UNIDADE", "UN"]
                         for tipo in tipos_unidade:
-                            try:     
+                            try:
                                 await worker_sleep(4)
                                 # Selecionar natureza da operação 9 - outros
                                 select_other = main_window.child_window(
@@ -217,7 +227,7 @@ class EMSys:
                                 # Check Alterar Trib. Manual
                                 pyautogui.click(1177, 740)
                                 # pyautogui.moveTo(1177, 740)
-                                
+
                                 # Click Alterar
                                 await worker_sleep(1)
                                 pyautogui.click(1180, 776)
@@ -245,20 +255,24 @@ class EMSys:
                     # Verifica se o arquivo existe
                     if os.path.exists(caminho_imagem):
                         print("Imagem já existe. Clicando em 'Cancelar'...")
-                                            
-                        # Conectando à janela do app 
-                        app = Application().connect(class_name="TFrmAlteraItemNFE", timeout=60)
+
+                        # Conectando à janela do app
+                        app = Application().connect(
+                            class_name="TFrmAlteraItemNFE", timeout=60
+                        )
                         janela_cancelar = app["TFrmAlteraItemNFE"]
 
                         # Encontra o botão pelo texto
                         try:
-                            cancelar_btn = janela_cancelar.child_window(class_name ="TDBIBitBtn", found_index=2)
+                            cancelar_btn = janela_cancelar.child_window(
+                                class_name="TDBIBitBtn", found_index=2
+                            )
                             cancelar_btn.click_input()
                             print("Clicou em 'Cancelar'.")
                         except Exception as e:
                             print(f"Erro ao clicar no botão: {e}")
-                    else:    
-                        #Seleciona o IPI 0%
+                    else:
+                        # Seleciona o IPI 0%
                         ipi_combobox = main_window.child_window(
                             class_name="TDBIComboBox", found_index=4
                         )
@@ -283,7 +297,6 @@ class EMSys:
                 await worker_sleep(1)
                 pyautogui.click(1083, 682)
 
-
         except Exception as e:
             return {
                 "sucesso": False,
@@ -297,7 +310,7 @@ class EMSys:
     async def select_tipo_cobranca(self):
         await worker_sleep(3)
         # pyautogui.click(632, 384)
-        
+
         console.print("Navegando pela Janela de Nota Fiscal de Entrada...\n")
         app = Application().connect(class_name="TFrmNotaFiscalEntrada")
         main_window = app["TFrmNotaFiscalEntrada"]
@@ -312,7 +325,7 @@ class EMSys:
             await worker_sleep(2)
         panel_TTabSheet.click()
         send_keys("{DOWN " + ("2") + "}")
-        
+
         await worker_sleep(2)
         # pyautogui.click(893, 549)
         await worker_sleep(5)
@@ -322,9 +335,9 @@ class EMSys:
             localizacao = pyautogui.locateOnScreen(caminho_imagem, confidence=0.9)
             if localizacao:
                 pass
-        
+
         except:
-            try:   
+            try:
                 # Selecionar natureza da operação 9 - outros
                 select_other = main_window.child_window(
                     class_name="TDBIComboBox", found_index=0
@@ -337,29 +350,31 @@ class EMSys:
         # except:
         #     set_combobox("||List", "BOLETO")
 
-    async def inserir_vencimento_e_valor(self, nome_fornecedor, data_emissao, data_vencimento, valor):
+    async def inserir_vencimento_e_valor(
+        self, nome_fornecedor, data_emissao, data_vencimento, valor
+    ):
 
         if float(valor) <= 0:
             return RpaRetornoProcessoDTO(
                 sucesso=False,
                 retorno=f"O valor da nota não pode ser {valor}",
                 status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
             )
 
-        emission_date = datetime.strptime(data_emissao, '%d/%m/%Y')
-        due_date = datetime.strptime(data_vencimento, '%d/%m/%Y')
-        min_due_date = emission_date + timedelta(days=14)
+        emission_date = datetime.strptime(data_emissao, "%d/%m/%Y")
+        due_date = datetime.strptime(data_vencimento, "%d/%m/%Y")
+        min_due_date = emission_date + timedelta(days=7)
 
         pyautogui.click(1030, 648)
-        send_keys('^c')
+        send_keys("^c")
         await worker_sleep(1)
         current_content = pyperclip.paste().strip()
-        date_match = re.search(r'\d{2}/\d{2}/\d{4}', current_content)
+        date_match = re.search(r"\d{2}/\d{2}/\d{4}", current_content)
 
-        if 'SOUZA CRUZ' in nome_fornecedor.upper():
+        if "SOUZA CRUZ" in nome_fornecedor.upper():
             if due_date < min_due_date and date_match is not None:
-                new_due_date_str = min_due_date.strftime('%d/%m/%Y')
+                new_due_date_str = min_due_date.strftime("%d/%m/%Y")
                 pyautogui.click(891, 596)
                 await worker_sleep(1)
                 pyautogui.write(new_due_date_str)
@@ -371,7 +386,7 @@ class EMSys:
                 pyautogui.write(valor)
                 await worker_sleep(1)
             elif date_match is None:
-                new_due_date_str = min_due_date.strftime('%d/%m/%Y')
+                new_due_date_str = min_due_date.strftime("%d/%m/%Y")
                 pyautogui.click(891, 596)
                 await worker_sleep(1)
                 pyautogui.write(new_due_date_str)
@@ -399,7 +414,9 @@ class EMSys:
 
         await worker_sleep(5)
         try:
-            console.print("Verificando a existencia de warning acusando que a soma de pagamentos não bate com o valor da nota\n")
+            console.print(
+                "Verificando a existencia de warning acusando que a soma de pagamentos não bate com o valor da nota\n"
+            )
             app = Application().connect(title="Warning")
             main_window = app["Warning"]
             main_window.set_focus()
@@ -416,7 +433,9 @@ class EMSys:
                 }
 
         except:
-            console.print("Não há warnings durante a inserção de vencimento e valor...\n")
+            console.print(
+                "Não há warnings durante a inserção de vencimento e valor...\n"
+            )
 
     async def incluir_registro(self, chave_nfe=None, chave_cte=None):
         max_attempts = 3
@@ -428,11 +447,13 @@ class EMSys:
                 pyautogui.click(593, 297)
                 await worker_sleep(1)
             except Exception as err:
-                console.print(f"Não foi possível incluir o registro: {err}", style="bold red")
-            
+                console.print(
+                    f"Não foi possível incluir o registro: {err}", style="bold red"
+                )
+
             await worker_sleep(3)
             i += 1
-        
+
         if chave_nfe is not None:
             await worker_sleep(20)
             console.print("\nVerifica se a nota ja foi lançada...")
@@ -444,7 +465,7 @@ class EMSys:
                     retorno="Nota lançada com sucesso!",
                     status=RpaHistoricoStatusEnum.Sucesso,
                 )
-        
+
         if chave_cte is not None:
             await worker_sleep(20)
             console.print("\nVerifica se o CTE ja foi lançada...")
@@ -456,7 +477,6 @@ class EMSys:
                     retorno="CTE lançado com sucesso!",
                     status=RpaHistoricoStatusEnum.Sucesso,
                 )
-            
 
     async def get_ultimo_item(self):
         send_keys("^({END})")
@@ -540,7 +560,9 @@ class EMSys:
             for item in data_list:
                 variacao_custo = 20
                 if not (
-                    item["custo_min"] - variacao_custo <= item["curto"] <= item["custo_max"] + variacao_custo
+                    item["custo_min"] - variacao_custo
+                    <= item["curto"]
+                    <= item["custo_max"] + variacao_custo
                 ):
                     itens_invalidos.append(item["codigo"])
 
@@ -556,7 +578,7 @@ class EMSys:
                     sucesso=False,
                     retorno=observacao,
                     status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
                 )
             else:
                 console.print(
@@ -586,9 +608,9 @@ class EMSys:
                         sucesso=False,
                         retorno=observacao,
                         status=RpaHistoricoStatusEnum.Falha,
-                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
                     )
-                
+
                 return RpaRetornoProcessoDTO(
                     sucesso=True,
                     retorno=observacao,
@@ -652,7 +674,11 @@ class EMSys:
         return final_list
 
     async def download_xml(
-        self, google_drive_folder_id: str, get_gcp_token: RpaConfiguracao, get_gcp_credentials: RpaConfiguracao, chave_nota: str
+        self,
+        google_drive_folder_id: str,
+        get_gcp_token: RpaConfiguracao,
+        get_gcp_credentials: RpaConfiguracao,
+        chave_nota: str,
     ) -> dict:
 
         try:
@@ -671,7 +697,7 @@ class EMSys:
                     sucesso=False,
                     retorno=error_msg,
                     status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
                 )
 
             # Inicializando o serviço do Google Drive
@@ -701,9 +727,8 @@ class EMSys:
                     sucesso=False,
                     retorno=error_msg,
                     status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
                 )
-                
 
             # Pegando o primeiro arquivo encontrado
             file_id = items[0]["id"]
@@ -737,7 +762,7 @@ class EMSys:
                 sucesso=False,
                 retorno=error_msg,
                 status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
             )
 
     async def get_xml(self, xml_file):
@@ -755,7 +780,8 @@ class EMSys:
             return RpaRetornoProcessoDTO(
                 sucesso=False,
                 retorno=f"O xml {xml_name} não foi encontrado em {path_to_xml}",
-                status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
             )
 
     async def delete_xml(self, nfe_key: str) -> None:
@@ -798,12 +824,14 @@ class EMSys:
                 f"Erro ao deletar o arquivo {xml_filename}: {str(e)}"
             ) from e
 
-    async def alterar_nop(self, cfop: str, chave_acesso=None) -> RpaRetornoProcessoDTO | None:
+    async def alterar_nop(
+        self, cfop: str, chave_acesso=None
+    ) -> RpaRetornoProcessoDTO | None:
         await self.click_principal()
         console.print("Alterando a NOP...\n")
         pyautogui.click(945, 543)
         await worker_sleep(2)
-        
+
         if chave_acesso is not None:
             console.print("\nVerifica se a nota ja foi lançada...")
             nf_chave_acesso = int(chave_acesso)
@@ -818,7 +846,9 @@ class EMSys:
         try:
             if self.apenas_isqueiros:
                 nop_value = "1102 - COMPRA DE MERCADORIA ADQ. TERCEIROS - 1.102"
-                console.print(f"Inserindo a informação da NOP para apenas isqueiros: {nop_value} ...\n")
+                console.print(
+                    f"Inserindo a informação da NOP para apenas isqueiros: {nop_value} ...\n"
+                )
                 await worker_sleep(5)
                 set_combobox("||List", nop_value)
                 await worker_sleep(2)
@@ -827,7 +857,9 @@ class EMSys:
                 await self.incluir_registro()
             else:
                 if cfop:
-                    console.print(f"Inserindo a informação da NOP, caso se aplique {cfop} ...\n")
+                    console.print(
+                        f"Inserindo a informação da NOP, caso se aplique {cfop} ...\n"
+                    )
                     if cfop not in ["5910", "6910"]:
                         await worker_sleep(5)
                         set_combobox("||List", "1403 - COMPRA DE MERCADORIA - 1.403")
@@ -836,14 +868,16 @@ class EMSys:
                         await worker_sleep(6)
                         await self.incluir_registro()
                         await worker_sleep(15)
-                        
+
                         if chave_acesso is not None:
                             console.print("\nVerifica se a nota ja foi lançada...")
                             nf_chave_acesso = int(chave_acesso)
                             status_nf_emsys = await get_status_nf_emsys(nf_chave_acesso)
                             if status_nf_emsys.get("status") != "Lançada":
-                                raise ValueError("A nota não possui itens com o mesmo CFOP de capa. Necessário que ao menos um item possua este CFOP")
-                                
+                                raise ValueError(
+                                    "A nota não possui itens com o mesmo CFOP de capa. Necessário que ao menos um item possua este CFOP"
+                                )
+
                     else:
                         pyautogui.hotkey("esc")
                         observacao = f"Nota bonificada do tipo ({cfop}), está retornando diferença de itens sem o mesmo CFOP de capa. Por favor verifique a nota."
@@ -851,7 +885,7 @@ class EMSys:
                             sucesso=False,
                             retorno=observacao,
                             status=RpaHistoricoStatusEnum.Falha,
-                            tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                            tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
                         )
         except ValueError as e:
             console.print(f"Erro de validação ao alterar o NOP: {e}", style="bold red")
@@ -869,7 +903,8 @@ class EMSys:
     async def verify_nf_incuded(self) -> bool:
         try:
             nota_incluida = pyautogui.locateOnScreen(
-                ASSETS_PATH + "\\entrada_notas\\nota_fiscal_incluida.png", confidence=0.7
+                ASSETS_PATH + "\\entrada_notas\\nota_fiscal_incluida.png",
+                confidence=0.7,
             )
             if nota_incluida:
                 return True

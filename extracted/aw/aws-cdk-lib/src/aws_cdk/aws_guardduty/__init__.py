@@ -4104,6 +4104,474 @@ class CfnPublishingDestinationProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnThreatEntitySet(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnThreatEntitySet",
+):
+    '''Resource Type definition for AWS::GuardDuty::ThreatEntitySet.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html
+    :cloudformationResource: AWS::GuardDuty::ThreatEntitySet
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_guardduty as guardduty
+        
+        cfn_threat_entity_set = guardduty.CfnThreatEntitySet(self, "MyCfnThreatEntitySet",
+            format="format",
+            location="location",
+        
+            # the properties below are optional
+            activate=False,
+            detector_id="detectorId",
+            expected_bucket_owner="expectedBucketOwner",
+            name="name",
+            tags=[guardduty.CfnThreatEntitySet.TagItemProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        format: builtins.str,
+        location: builtins.str,
+        activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        detector_id: typing.Optional[builtins.str] = None,
+        expected_bucket_owner: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnThreatEntitySet.TagItemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param format: 
+        :param location: 
+        :param activate: 
+        :param detector_id: 
+        :param expected_bucket_owner: 
+        :param name: 
+        :param tags: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a633dbf3a335a1c89a81e2b20e0804a2398855b80b7f90aefcab3fcffd594ae2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnThreatEntitySetProps(
+            format=format,
+            location=location,
+            activate=activate,
+            detector_id=detector_id,
+            expected_bucket_owner=expected_bucket_owner,
+            name=name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1c32d5cebe463fb394e1de7987cf95ac14ed2d64bfb94244b7f53a5ae01e86fc)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4b473ab42cb6b4e41fbd30cc43368c741a796600957b905b8bd33b94ed1d9b19)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrErrorDetails")
+    def attr_error_details(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: ErrorDetails
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrErrorDetails"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="format")
+    def format(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "format"))
+
+    @format.setter
+    def format(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9bd1bb00f84d311b715627a92fb637272bd50eba86c2d16fa67691c6cc13b40b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "format", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="location")
+    def location(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "location"))
+
+    @location.setter
+    def location(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2309bb8657b4758bd1d620033861fc01383373882f360a452fe19c1513ef44e3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "location", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="activate")
+    def activate(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "activate"))
+
+    @activate.setter
+    def activate(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bdf2f505562fc426590d0aff2e1eca3a53df58abfd1e69b8495ac49ff3b42763)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "activate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="detectorId")
+    def detector_id(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "detectorId"))
+
+    @detector_id.setter
+    def detector_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a97f7e1867e5a54a3b03a0d24bd5ec7ca8d6200145e83b0f34c562f5e83448ba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "detectorId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="expectedBucketOwner")
+    def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "expectedBucketOwner"))
+
+    @expected_bucket_owner.setter
+    def expected_bucket_owner(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a7bd200e9cd51319cdc4298d4401a8a961a6af90f3ea47a9200a8820086e4278)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "expectedBucketOwner", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03df3be27a55c9923526c9497963c6527d389f1bb8ffed035526cc303afb8bd2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnThreatEntitySet.TagItemProperty"]]:
+        return typing.cast(typing.Optional[typing.List["CfnThreatEntitySet.TagItemProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnThreatEntitySet.TagItemProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fbaece4f1c2fc125ec3923bb0a3b4537f6091ab7f66da3db41faf4839aeb3931)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_guardduty.CfnThreatEntitySet.TagItemProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagItemProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-threatentityset-tagitem.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_guardduty as guardduty
+                
+                tag_item_property = guardduty.CfnThreatEntitySet.TagItemProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9bcb8d0f67c3b20709378a933f90454d6394d6f4608b78865e524eaaae71a082)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-threatentityset-tagitem.html#cfn-guardduty-threatentityset-tagitem-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-threatentityset-tagitem.html#cfn-guardduty-threatentityset-tagitem-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagItemProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnThreatEntitySetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "format": "format",
+        "location": "location",
+        "activate": "activate",
+        "detector_id": "detectorId",
+        "expected_bucket_owner": "expectedBucketOwner",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnThreatEntitySetProps:
+    def __init__(
+        self,
+        *,
+        format: builtins.str,
+        location: builtins.str,
+        activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        detector_id: typing.Optional[builtins.str] = None,
+        expected_bucket_owner: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[CfnThreatEntitySet.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnThreatEntitySet``.
+
+        :param format: 
+        :param location: 
+        :param activate: 
+        :param detector_id: 
+        :param expected_bucket_owner: 
+        :param name: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            cfn_threat_entity_set_props = guardduty.CfnThreatEntitySetProps(
+                format="format",
+                location="location",
+            
+                # the properties below are optional
+                activate=False,
+                detector_id="detectorId",
+                expected_bucket_owner="expectedBucketOwner",
+                name="name",
+                tags=[guardduty.CfnThreatEntitySet.TagItemProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__adc8d4ad73863c00637d46455ebd458e48d6cb964a55dada4ed53522b2f348d3)
+            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+            check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+            check_type(argname="argument activate", value=activate, expected_type=type_hints["activate"])
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "format": format,
+            "location": location,
+        }
+        if activate is not None:
+            self._values["activate"] = activate
+        if detector_id is not None:
+            self._values["detector_id"] = detector_id
+        if expected_bucket_owner is not None:
+            self._values["expected_bucket_owner"] = expected_bucket_owner
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def format(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-format
+        '''
+        result = self._values.get("format")
+        assert result is not None, "Required property 'format' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def location(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-location
+        '''
+        result = self._values.get("location")
+        assert result is not None, "Required property 'location' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def activate(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-activate
+        '''
+        result = self._values.get("activate")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def detector_id(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-detectorid
+        '''
+        result = self._values.get("detector_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-expectedbucketowner
+        '''
+        result = self._values.get("expected_bucket_owner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[CfnThreatEntitySet.TagItemProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-threatentityset.html#cfn-guardduty-threatentityset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[CfnThreatEntitySet.TagItemProperty]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnThreatEntitySetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _ITaggable_36806126)
 class CfnThreatIntelSet(
     _CfnResource_9df397a6,
@@ -4498,6 +4966,474 @@ class CfnThreatIntelSetProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnTrustedEntitySet(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnTrustedEntitySet",
+):
+    '''Resource Type definition for AWS::GuardDuty::TrustedEntitySet.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html
+    :cloudformationResource: AWS::GuardDuty::TrustedEntitySet
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_guardduty as guardduty
+        
+        cfn_trusted_entity_set = guardduty.CfnTrustedEntitySet(self, "MyCfnTrustedEntitySet",
+            format="format",
+            location="location",
+        
+            # the properties below are optional
+            activate=False,
+            detector_id="detectorId",
+            expected_bucket_owner="expectedBucketOwner",
+            name="name",
+            tags=[guardduty.CfnTrustedEntitySet.TagItemProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        format: builtins.str,
+        location: builtins.str,
+        activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        detector_id: typing.Optional[builtins.str] = None,
+        expected_bucket_owner: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnTrustedEntitySet.TagItemProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param format: 
+        :param location: 
+        :param activate: 
+        :param detector_id: 
+        :param expected_bucket_owner: 
+        :param name: 
+        :param tags: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f97ca040c13911b4ef646900134e880ef92baa555cc7ae3a3f589a5b783d6bdd)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTrustedEntitySetProps(
+            format=format,
+            location=location,
+            activate=activate,
+            detector_id=detector_id,
+            expected_bucket_owner=expected_bucket_owner,
+            name=name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f85867f300862bdc19c810d7170de8926f6bfa348b3b9b7637ca7d82c91ca639)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0655ff4592955f2b692a51501ca73340533b66fea6a2af184a48abc64610afdc)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrErrorDetails")
+    def attr_error_details(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: ErrorDetails
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrErrorDetails"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="format")
+    def format(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "format"))
+
+    @format.setter
+    def format(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3f59ae26c1cd9cfdc43b89ee8cb5d6b984a93181052f1593fd7aec0dc07a1f2a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "format", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="location")
+    def location(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "location"))
+
+    @location.setter
+    def location(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bcd25b55717469a06d21cea3ebb5a2ebf71c8c12f4cbe767468b1229bc75b1d6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "location", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="activate")
+    def activate(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "activate"))
+
+    @activate.setter
+    def activate(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fcb17f7765a352c56401cef5289d093d9eeec88b494b555090ed231a335472a8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "activate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="detectorId")
+    def detector_id(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "detectorId"))
+
+    @detector_id.setter
+    def detector_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__636e61a3a1c928a11a4066ee35f6bd92c4e7d47c477e0cd77a1425f7de881ecf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "detectorId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="expectedBucketOwner")
+    def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "expectedBucketOwner"))
+
+    @expected_bucket_owner.setter
+    def expected_bucket_owner(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a30865cdc288b85a7993b1a2560d8b3fc83c414826a40802fd4657ae5addfe4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "expectedBucketOwner", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__52b7aaed8e52f7e5b8652ad3132eee56ee0c858468ce1c9df82ddffa47a56714)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnTrustedEntitySet.TagItemProperty"]]:
+        return typing.cast(typing.Optional[typing.List["CfnTrustedEntitySet.TagItemProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnTrustedEntitySet.TagItemProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__99d5ac870e6a4e9a44e3854050f1d9a604df1353c4102d42a55b690097b0396c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_guardduty.CfnTrustedEntitySet.TagItemProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagItemProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-trustedentityset-tagitem.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_guardduty as guardduty
+                
+                tag_item_property = guardduty.CfnTrustedEntitySet.TagItemProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a1c81f11cd29394c009789b30463ba1931458f7dde6533e82b4d108b5890ccb6)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-trustedentityset-tagitem.html#cfn-guardduty-trustedentityset-tagitem-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-trustedentityset-tagitem.html#cfn-guardduty-trustedentityset-tagitem-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagItemProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_guardduty.CfnTrustedEntitySetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "format": "format",
+        "location": "location",
+        "activate": "activate",
+        "detector_id": "detectorId",
+        "expected_bucket_owner": "expectedBucketOwner",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnTrustedEntitySetProps:
+    def __init__(
+        self,
+        *,
+        format: builtins.str,
+        location: builtins.str,
+        activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        detector_id: typing.Optional[builtins.str] = None,
+        expected_bucket_owner: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[CfnTrustedEntitySet.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTrustedEntitySet``.
+
+        :param format: 
+        :param location: 
+        :param activate: 
+        :param detector_id: 
+        :param expected_bucket_owner: 
+        :param name: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_guardduty as guardduty
+            
+            cfn_trusted_entity_set_props = guardduty.CfnTrustedEntitySetProps(
+                format="format",
+                location="location",
+            
+                # the properties below are optional
+                activate=False,
+                detector_id="detectorId",
+                expected_bucket_owner="expectedBucketOwner",
+                name="name",
+                tags=[guardduty.CfnTrustedEntitySet.TagItemProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__00765e3940374511fc72a70d3a0ae2969dd9c1bda5e42af5ac72c84b1ecc9735)
+            check_type(argname="argument format", value=format, expected_type=type_hints["format"])
+            check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+            check_type(argname="argument activate", value=activate, expected_type=type_hints["activate"])
+            check_type(argname="argument detector_id", value=detector_id, expected_type=type_hints["detector_id"])
+            check_type(argname="argument expected_bucket_owner", value=expected_bucket_owner, expected_type=type_hints["expected_bucket_owner"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "format": format,
+            "location": location,
+        }
+        if activate is not None:
+            self._values["activate"] = activate
+        if detector_id is not None:
+            self._values["detector_id"] = detector_id
+        if expected_bucket_owner is not None:
+            self._values["expected_bucket_owner"] = expected_bucket_owner
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def format(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-format
+        '''
+        result = self._values.get("format")
+        assert result is not None, "Required property 'format' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def location(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-location
+        '''
+        result = self._values.get("location")
+        assert result is not None, "Required property 'location' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def activate(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-activate
+        '''
+        result = self._values.get("activate")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def detector_id(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-detectorid
+        '''
+        result = self._values.get("detector_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def expected_bucket_owner(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-expectedbucketowner
+        '''
+        result = self._values.get("expected_bucket_owner")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[CfnTrustedEntitySet.TagItemProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-trustedentityset.html#cfn-guardduty-trustedentityset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[CfnTrustedEntitySet.TagItemProperty]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTrustedEntitySetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnDetector",
     "CfnDetectorProps",
@@ -4513,8 +5449,12 @@ __all__ = [
     "CfnMemberProps",
     "CfnPublishingDestination",
     "CfnPublishingDestinationProps",
+    "CfnThreatEntitySet",
+    "CfnThreatEntitySetProps",
     "CfnThreatIntelSet",
     "CfnThreatIntelSetProps",
+    "CfnTrustedEntitySet",
+    "CfnTrustedEntitySetProps",
 ]
 
 publication.publish()
@@ -5145,6 +6085,96 @@ def _typecheckingstub__5035cd8908ac8fcff142733ecf98576b3480f30c7c0fd250caa41a83b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a633dbf3a335a1c89a81e2b20e0804a2398855b80b7f90aefcab3fcffd594ae2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    format: builtins.str,
+    location: builtins.str,
+    activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    detector_id: typing.Optional[builtins.str] = None,
+    expected_bucket_owner: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnThreatEntitySet.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c32d5cebe463fb394e1de7987cf95ac14ed2d64bfb94244b7f53a5ae01e86fc(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b473ab42cb6b4e41fbd30cc43368c741a796600957b905b8bd33b94ed1d9b19(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bd1bb00f84d311b715627a92fb637272bd50eba86c2d16fa67691c6cc13b40b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2309bb8657b4758bd1d620033861fc01383373882f360a452fe19c1513ef44e3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bdf2f505562fc426590d0aff2e1eca3a53df58abfd1e69b8495ac49ff3b42763(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a97f7e1867e5a54a3b03a0d24bd5ec7ca8d6200145e83b0f34c562f5e83448ba(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7bd200e9cd51319cdc4298d4401a8a961a6af90f3ea47a9200a8820086e4278(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03df3be27a55c9923526c9497963c6527d389f1bb8ffed035526cc303afb8bd2(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fbaece4f1c2fc125ec3923bb0a3b4537f6091ab7f66da3db41faf4839aeb3931(
+    value: typing.Optional[typing.List[CfnThreatEntitySet.TagItemProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bcb8d0f67c3b20709378a933f90454d6394d6f4608b78865e524eaaae71a082(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__adc8d4ad73863c00637d46455ebd458e48d6cb964a55dada4ed53522b2f348d3(
+    *,
+    format: builtins.str,
+    location: builtins.str,
+    activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    detector_id: typing.Optional[builtins.str] = None,
+    expected_bucket_owner: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnThreatEntitySet.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e60035c0bc955afb794ee89f0439deae280bfec665014cbbd161f08566de73a7(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5223,6 +6253,96 @@ def _typecheckingstub__0a5d0bedab8c4fad4ab288ce5a467dbe6a4d07ef2947521b14162f1e7
     expected_bucket_owner: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f97ca040c13911b4ef646900134e880ef92baa555cc7ae3a3f589a5b783d6bdd(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    format: builtins.str,
+    location: builtins.str,
+    activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    detector_id: typing.Optional[builtins.str] = None,
+    expected_bucket_owner: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnTrustedEntitySet.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f85867f300862bdc19c810d7170de8926f6bfa348b3b9b7637ca7d82c91ca639(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0655ff4592955f2b692a51501ca73340533b66fea6a2af184a48abc64610afdc(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f59ae26c1cd9cfdc43b89ee8cb5d6b984a93181052f1593fd7aec0dc07a1f2a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bcd25b55717469a06d21cea3ebb5a2ebf71c8c12f4cbe767468b1229bc75b1d6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fcb17f7765a352c56401cef5289d093d9eeec88b494b555090ed231a335472a8(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__636e61a3a1c928a11a4066ee35f6bd92c4e7d47c477e0cd77a1425f7de881ecf(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a30865cdc288b85a7993b1a2560d8b3fc83c414826a40802fd4657ae5addfe4(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__52b7aaed8e52f7e5b8652ad3132eee56ee0c858468ce1c9df82ddffa47a56714(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__99d5ac870e6a4e9a44e3854050f1d9a604df1353c4102d42a55b690097b0396c(
+    value: typing.Optional[typing.List[CfnTrustedEntitySet.TagItemProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1c81f11cd29394c009789b30463ba1931458f7dde6533e82b4d108b5890ccb6(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00765e3940374511fc72a70d3a0ae2969dd9c1bda5e42af5ac72c84b1ecc9735(
+    *,
+    format: builtins.str,
+    location: builtins.str,
+    activate: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    detector_id: typing.Optional[builtins.str] = None,
+    expected_bucket_owner: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnTrustedEntitySet.TagItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

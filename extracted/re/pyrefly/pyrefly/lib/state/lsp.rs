@@ -85,12 +85,30 @@ fn default_true() -> bool {
     true
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum OnOff {
+    On,
+    #[default]
+    Off,
+}
+
+impl OnOff {
+    #[expect(unused)]
+    pub fn value(self) -> bool {
+        match self {
+            Self::On => true,
+            Self::Off => false,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InlayHintConfig {
     #[serde(default)]
     #[expect(unused)]
-    pub call_argument_names: bool,
+    pub call_argument_names: OnOff,
     #[serde(default = "default_true")]
     pub function_return_types: bool,
     #[serde(default)]
@@ -103,7 +121,7 @@ pub struct InlayHintConfig {
 impl Default for InlayHintConfig {
     fn default() -> Self {
         Self {
-            call_argument_names: false,
+            call_argument_names: OnOff::Off,
             function_return_types: true,
             pytest_parameters: false,
             variable_types: true,
@@ -225,6 +243,9 @@ enum IdentifierContext {
     /// An identifier appeared as the name of a function.
     /// ex: `x` in `def x(...): ...`
     FunctionDef { docstring_range: Option<TextRange> },
+    /// An identifier appeared as the name of a method.
+    /// ex: `x` in `def x(self, ...): ...` inside a class
+    MethodDef { docstring_range: Option<TextRange> },
     /// An identifier appeared as the name of a class.
     /// ex: `x` in `class x(...): ...`
     ClassDef { docstring_range: Option<TextRange> },
@@ -323,6 +344,13 @@ impl IdentifierWithContext {
         Self {
             identifier: id.clone(),
             context: IdentifierContext::FunctionDef { docstring_range },
+        }
+    }
+
+    fn from_stmt_method_def(id: &Identifier, docstring_range: Option<TextRange>) -> Self {
+        Self {
+            identifier: id.clone(),
+            context: IdentifierContext::MethodDef { docstring_range },
         }
     }
 
@@ -432,8 +460,8 @@ pub struct FindDefinitionItem {
 impl<'a> Transaction<'a> {
     fn get_type(&self, handle: &Handle, key: &Key) -> Option<Type> {
         let idx = self.get_bindings(handle)?.key_to_idx(key);
-        let ans = self.get_answers(handle)?;
-        Some(ans.for_display(ans.get_idx(idx)?.arc_clone_ty()))
+        let answers = self.get_answers(handle)?;
+        answers.get_type_at(idx)
     }
 
     fn get_type_trace(&self, handle: &Handle, range: TextRange) -> Option<Type> {
@@ -496,6 +524,18 @@ impl<'a> Transaction<'a> {
                     id,
                     alias,
                     import_from,
+                ))
+            }
+            (
+                Some(AnyNodeRef::Identifier(id)),
+                Some(AnyNodeRef::StmtFunctionDef(stmt)),
+                Some(AnyNodeRef::StmtClassDef(_)),
+                _,
+            ) => {
+                // def id(...): ...
+                Some(IdentifierWithContext::from_stmt_method_def(
+                    id,
+                    Docstring::range_from_stmts(&stmt.body),
                 ))
             }
             (Some(AnyNodeRef::Identifier(id)), Some(AnyNodeRef::StmtFunctionDef(stmt)), _, _) => {
@@ -690,7 +730,9 @@ impl<'a> Transaction<'a> {
             }
             Some(IdentifierWithContext {
                 identifier: _,
-                context: IdentifierContext::FunctionDef { docstring_range: _ },
+                context:
+                    IdentifierContext::FunctionDef { docstring_range: _ }
+                    | IdentifierContext::MethodDef { docstring_range: _ },
             }) => {
                 // TODO(grievejia): Handle definitions of functions
                 None
@@ -1143,6 +1185,11 @@ impl<'a> Transaction<'a> {
                 .import_handle_prefer_executable(handle, module_name, None)
                 .ok()?,
         };
+        // if the module is not yet loaded, force loading by asking for exports
+        // necessary for imports that are not in tdeps (e.g. .py when there is also a .pyi)
+        // todo(kylei): better solution
+        let _ = self.get_exports(&handle);
+
         let module_info = self.get_module_info(&handle)?;
         Some(FindDefinitionItemWithDocstring {
             metadata: DefinitionMetadata::Module,
@@ -1270,6 +1317,17 @@ impl<'a> Transaction<'a> {
             }) => self
                 .find_definition_for_name_def(handle, &name_after_import, preference)
                 .map_or(vec![], |item| vec![item]),
+            Some(IdentifierWithContext {
+                identifier,
+                context: IdentifierContext::MethodDef { docstring_range },
+            }) => self.get_module_info(handle).map_or(vec![], |module| {
+                vec![FindDefinitionItemWithDocstring {
+                    metadata: DefinitionMetadata::Attribute(identifier.id().clone()),
+                    module,
+                    definition_range: identifier.range,
+                    docstring_range,
+                }]
+            }),
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::FunctionDef { docstring_range },

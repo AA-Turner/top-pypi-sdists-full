@@ -39,10 +39,8 @@ from jax._src import effects
 from jax._src import mesh as mesh_lib
 from jax._src.interpreters import mlir
 from jax._src.interpreters import pxla
-from jax._src.lib import ifrt_version
 from jax._src.lib import xla_client
 from jax._src.lib import _jax
-from jax._src.lib import jaxlib_extension_version
 from jax._src.lib.mlir import ir, passmanager
 from jax._src.lib.mlir.dialects import hlo
 from jax._src.lib.mlir.dialects import func as func_dialect, sdy
@@ -228,8 +226,6 @@ class Exported:
 
     Example usage:
 
-      >>> from jax._src.lib import ifrt_version
-      >>> if ifrt_version < 12: jax.config.update("jax_use_shardy_partitioner", False)
       >>> from jax import export, sharding
       >>> # Prepare the exported object:
       >>> exp_mesh = sharding.Mesh(jax.devices(), ("a",))
@@ -558,7 +554,7 @@ def export(
         of `jax.export.DisabledSafetyCheck`.
 
   Returns:
-    a function that takes args and kwargs pytrees of {class}`jax.ShapeDtypeStruct`,
+    a function that takes args and kwargs pytrees of :class:`jax.ShapeDtypeStruct`,
     or values with `.shape` and `.dtype` attributes, and returns an
     `Exported`.
 
@@ -621,6 +617,7 @@ def _export_internal(
         _private_parameters=mlir.LoweringParameters(
             override_lowering_rules=override_lowering_rules,
             for_export=True,
+            hoist_constants_as_args=False,
             export_ignore_forward_compatibility=config.export_ignore_forward_compatibility.value))
     return _export_lowered(
         lowered, traced.jaxpr, traced.fun_name,
@@ -838,15 +835,8 @@ def _module_to_bytecode(module: ir.Module) -> bytes:
   else:
     target_version = hlo.get_version_from_compatibility_requirement(
       hlo.StablehloCompatibilityRequirement.WEEK_4)
-  if jaxlib_extension_version >= 357 and ifrt_version >= 14:
-    module_serialized = xla_client._xla.mlir.serialize_portable_artifact(  # type: ignore
-        mlir_str, target_version, xb.get_backend().serialize_with_sdy)
-  else:
-    # pylint: disable=no-value-for-parameter
-    module_serialized = xla_client._xla.mlir.serialize_portable_artifact(  # type: ignore
-        mlir_str, target_version)
-    # pylint: disable=no-value-for-parameter
-
+  module_serialized = xla_client._xla.mlir.serialize_portable_artifact(  # type: ignore
+      mlir_str, target_version, xb.get_backend().serialize_with_sdy)
   return module_serialized
 
 
@@ -965,7 +955,7 @@ def _wrap_main_func(
           host_callbacks=[], module=wrapped_module, context=context,
           lowering_parameters=mlir.LoweringParameters(
               global_constant_computation=True,
-              for_export=True,
+              for_export=True, hoist_constants_as_args=False,
               export_ignore_forward_compatibility=config.export_ignore_forward_compatibility.value,
           ))
       ctx = mlir.LoweringRuleContext(
@@ -973,7 +963,8 @@ def _wrap_main_func(
         name_stack=source_info_util.new_name_stack(), traceback=None,
         primitive=None,
         avals_in=args_avals_flat, avals_out=None,
-        tokens_in=mlir.TokenSet(), tokens_out=None)
+        tokens_in=mlir.TokenSet(), tokens_out=None,
+        const_lowering={})
       # We compute dim_values from the array arguments.
       new_main_op_array_args = new_main_op.arguments[-nr_array_args:]
       if shape_poly.all_dim_vars(args_avals_flat):
@@ -1125,7 +1116,7 @@ _CUSTOM_CALL_TARGETS_GUARANTEED_STABLE = {
     "ApproxTopK", "stablehlo.dynamic_approx_top_k",
     "tf.call_tf_function",  # From jax2tf.call_tf(func, call_tf_graph=True)
     "tpu_custom_call",  # Pallas/TPU kernels
-    "mosaic_gpu",  # Pallas Mosaic GPU kernels
+    "mosaic_gpu_v2",  # Pallas Mosaic GPU kernels
     # TODO(burmako): maintain backwards compatibility for these, until they
     # are upstreamed to StableHLO.
     # See https://github.com/openxla/stablehlo/issues/8.
@@ -1479,15 +1470,10 @@ def _call_exported_lowering(ctx: mlir.LoweringRuleContext, *args,
     # TODO(b/422690222): remove this pass once we don't need to support 6m
     # old exported modules.
     if has_sdy_meshes_in_frontend_attributes(submodule):
-      if jaxlib_extension_version < 356:
-        submodule = ir.Module.parse(
-            _jax.sdy.sdy_round_trip_import_shardings(
-                mlir.module_to_bytecode(submodule)))  # type: ignore[module-attr]
-      else:
-        with submodule.context:
-          pipeline = passmanager.PassManager.parse(
-              'builtin.module(xla-sdy-round-trip-import-shardy-attrs)')
-          pipeline.run(submodule.operation)
+      with submodule.context:
+        pipeline = passmanager.PassManager.parse(
+            'builtin.module(xla-sdy-round-trip-import-shardy-attrs)')
+        pipeline.run(submodule.operation)
 
   with submodule.context:
     pipeline = passmanager.PassManager.parse(

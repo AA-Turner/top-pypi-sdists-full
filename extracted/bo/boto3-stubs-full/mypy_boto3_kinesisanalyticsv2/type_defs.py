@@ -30,6 +30,7 @@ from .literals import (
     CodeContentTypeType,
     ConfigurationTypeType,
     InputStartingPositionType,
+    KeyTypeType,
     LogLevelType,
     MetricsLevelType,
     OperationStatusType,
@@ -71,6 +72,9 @@ __all__ = (
     "ApplicationConfigurationTypeDef",
     "ApplicationConfigurationUpdateTypeDef",
     "ApplicationDetailTypeDef",
+    "ApplicationEncryptionConfigurationDescriptionTypeDef",
+    "ApplicationEncryptionConfigurationTypeDef",
+    "ApplicationEncryptionConfigurationUpdateTypeDef",
     "ApplicationMaintenanceConfigurationDescriptionTypeDef",
     "ApplicationMaintenanceConfigurationUpdateTypeDef",
     "ApplicationOperationInfoDetailsTypeDef",
@@ -285,6 +289,11 @@ class VpcConfigurationDescriptionTypeDef(TypedDict):
     SecurityGroupIds: List[str]
 
 
+class ApplicationEncryptionConfigurationDescriptionTypeDef(TypedDict):
+    KeyType: KeyTypeType
+    KeyId: NotRequired[str]
+
+
 class ApplicationSnapshotConfigurationDescriptionTypeDef(TypedDict):
     SnapshotsEnabled: bool
 
@@ -293,12 +302,22 @@ class ApplicationSystemRollbackConfigurationDescriptionTypeDef(TypedDict):
     RollbackEnabled: bool
 
 
+class ApplicationEncryptionConfigurationTypeDef(TypedDict):
+    KeyType: KeyTypeType
+    KeyId: NotRequired[str]
+
+
 class ApplicationSnapshotConfigurationTypeDef(TypedDict):
     SnapshotsEnabled: bool
 
 
 class ApplicationSystemRollbackConfigurationTypeDef(TypedDict):
     RollbackEnabled: bool
+
+
+class ApplicationEncryptionConfigurationUpdateTypeDef(TypedDict):
+    KeyTypeUpdate: KeyTypeType
+    KeyIdUpdate: NotRequired[str]
 
 
 class ApplicationSnapshotConfigurationUpdateTypeDef(TypedDict):
@@ -505,14 +524,6 @@ class DescribeApplicationRequestTypeDef(TypedDict):
 class DescribeApplicationSnapshotRequestTypeDef(TypedDict):
     ApplicationName: str
     SnapshotName: str
-
-
-class SnapshotDetailsTypeDef(TypedDict):
-    SnapshotName: str
-    SnapshotStatus: SnapshotStatusType
-    ApplicationVersionId: int
-    SnapshotCreationTimestamp: NotRequired[datetime]
-    RuntimeEnvironment: NotRequired[RuntimeEnvironmentType]
 
 
 class DescribeApplicationVersionRequestTypeDef(TypedDict):
@@ -847,6 +858,17 @@ class AddApplicationVpcConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class SnapshotDetailsTypeDef(TypedDict):
+    SnapshotName: str
+    SnapshotStatus: SnapshotStatusType
+    ApplicationVersionId: int
+    SnapshotCreationTimestamp: NotRequired[datetime]
+    RuntimeEnvironment: NotRequired[RuntimeEnvironmentType]
+    ApplicationEncryptionConfigurationDescription: NotRequired[
+        ApplicationEncryptionConfigurationDescriptionTypeDef
+    ]
+
+
 class UpdateApplicationMaintenanceConfigurationResponseTypeDef(TypedDict):
     ApplicationARN: str
     ApplicationMaintenanceConfigurationDescription: (
@@ -952,17 +974,6 @@ class DeployAsApplicationConfigurationTypeDef(TypedDict):
 
 class DeployAsApplicationConfigurationUpdateTypeDef(TypedDict):
     S3ContentLocationUpdate: NotRequired[S3ContentBaseLocationUpdateTypeDef]
-
-
-class DescribeApplicationSnapshotResponseTypeDef(TypedDict):
-    SnapshotDetails: SnapshotDetailsTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ListApplicationSnapshotsResponseTypeDef(TypedDict):
-    SnapshotSummaries: List[SnapshotDetailsTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
 
 
 class SqlRunConfigurationTypeDef(TypedDict):
@@ -1073,6 +1084,17 @@ class ListApplicationsRequestPaginateTypeDef(TypedDict):
 
 
 PropertyGroupUnionTypeDef = Union[PropertyGroupTypeDef, PropertyGroupOutputTypeDef]
+
+
+class DescribeApplicationSnapshotResponseTypeDef(TypedDict):
+    SnapshotDetails: SnapshotDetailsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListApplicationSnapshotsResponseTypeDef(TypedDict):
+    SnapshotSummaries: List[SnapshotDetailsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class ApplicationCodeConfigurationDescriptionTypeDef(TypedDict):
@@ -1315,6 +1337,9 @@ class ApplicationConfigurationDescriptionTypeDef(TypedDict):
     ZeppelinApplicationConfigurationDescription: NotRequired[
         ZeppelinApplicationConfigurationDescriptionTypeDef
     ]
+    ApplicationEncryptionConfigurationDescription: NotRequired[
+        ApplicationEncryptionConfigurationDescriptionTypeDef
+    ]
 
 
 class AddApplicationInputRequestTypeDef(TypedDict):
@@ -1377,6 +1402,7 @@ class ApplicationConfigurationTypeDef(TypedDict):
     ]
     VpcConfigurations: NotRequired[Sequence[VpcConfigurationTypeDef]]
     ZeppelinApplicationConfiguration: NotRequired[ZeppelinApplicationConfigurationTypeDef]
+    ApplicationEncryptionConfiguration: NotRequired[ApplicationEncryptionConfigurationTypeDef]
 
 
 class ApplicationConfigurationUpdateTypeDef(TypedDict):
@@ -1393,6 +1419,9 @@ class ApplicationConfigurationUpdateTypeDef(TypedDict):
     VpcConfigurationUpdates: NotRequired[Sequence[VpcConfigurationUpdateTypeDef]]
     ZeppelinApplicationConfigurationUpdate: NotRequired[
         ZeppelinApplicationConfigurationUpdateTypeDef
+    ]
+    ApplicationEncryptionConfigurationUpdate: NotRequired[
+        ApplicationEncryptionConfigurationUpdateTypeDef
     ]
 
 

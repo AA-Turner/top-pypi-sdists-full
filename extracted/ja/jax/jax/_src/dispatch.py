@@ -43,7 +43,6 @@ from jax._src.interpreters import ad
 from jax._src.interpreters import batching
 from jax._src.interpreters import mlir
 from jax._src.interpreters import pxla
-from jax._src.interpreters import xla
 from jax._src.api_util import InternalFloatingPointError
 from jax._src.layout import Layout, Format
 from jax._src.lib import xla_client as xc
@@ -52,7 +51,7 @@ from jax._src.monitoring import record_scalar, record_event_duration_secs, recor
 from jax._src.partition_spec import PartitionSpec
 from jax._src.sharding import Sharding
 from jax._src.sharding_impls import (
-    NamedSharding, SingleDeviceSharding, TransferToMemoryKind, GSPMDSharding,
+    NamedSharding, SingleDeviceSharding, GSPMDSharding,
     is_single_device_sharding)
 from jax._src.stages import SourceInfo
 import numpy as np
@@ -93,6 +92,11 @@ def apply_primitive(prim, *args, **params):
     lib.jax_jit.swap_thread_local_state_disable_jit(prev)
   return outs
 
+# TODO(necula): this cache will contain strong references to all
+# Jaxprs in `params` (for higher-order primitives).
+# This is not immediately fixable by using
+# util.multi_weakref_lru_cache, because the `params` (including the Jaxpr)
+# are closed over in the `prim_fun` lambda. Leaving this fix for a later PR.
 @util.cache()
 def xla_primitive_callable(prim: core.Primitive, **params):
   util.test_event("xla_primitive_callable_cache_miss")
@@ -300,29 +304,6 @@ def check_arg(arg: Any):
                     "JAX type.")
 
 
-def jaxpr_replicas(jaxpr: core.Jaxpr) -> int:
-  """The number of replicas needed for a jaxpr.
-
-  For a eqn, multiply the `axis_size` with the `jaxpr_replicas` of the
-  subjaxprs. For a list of eqns, take the maximum number of replicas.
-  """
-  return max(unsafe_map(_eqn_replicas, jaxpr.eqns), default=1)
-
-# TODO(mattjj): this function assumes that only pmap has a parameter named
-# axis_size, and that it corresponds to cross-replica mapping
-def _eqn_replicas(eqn: core.JaxprEqn) -> int:
-  call_jaxpr = eqn.params.get("call_jaxpr")
-  if call_jaxpr:
-    return eqn.params.get('axis_size', 1) * jaxpr_replicas(call_jaxpr)
-  elif eqn.primitive in xla.initial_style_primitives:
-    return _initial_style_primitive_replicas(eqn.params)
-  else:
-    return 1
-
-def _initial_style_primitive_replicas(params: dict[str, Any]) -> int:
-  return max(core.traverse_jaxpr_params(jaxpr_replicas, params).values(),
-             default=1)
-
 def needs_check_special() -> bool:
   return config.debug_infs.value or config.debug_nans.value
 
@@ -528,18 +509,15 @@ def _device_put_sharding_impl(x, aval, device, copy):
 def _device_put_impl(
     x, *, device: Device | Sharding | Format | None,
     src: Device | Sharding | Format | None, copy: CopySemantics):
-  if (isinstance(device, TransferToMemoryKind) or
-      isinstance(src, TransferToMemoryKind)):
-    raise ValueError(
-        "TransferToMemoryKind argument to jax.device_put can only be used"
-        " inside jax.jit. If you are using device_put outside jax.jit, then"
-        " please provide a concrete Sharding with memory_kind.")
-
   try:
     aval = core.abstractify(x)
   except TypeError as err:
     raise TypeError(
         f"Argument '{x}' of type {type(x)} is not a valid JAX type") from err
+
+  if isinstance(device, core.MemorySpace):
+    return apply_primitive(device_put_p, x, devices=(device,), srcs=(src,),
+                           copy_semantics=(copy,))[0]
 
   if isinstance(device, Format):
     l = device
@@ -598,8 +576,17 @@ device_put_p = core.Primitive('device_put')
 device_put_p.multiple_results = True
 device_put_p.def_impl(_batched_device_put_impl)
 
+
 def _device_put_abstract_eval(*xs, devices, srcs, copy_semantics):
-  return xs
+  out = []
+  for x, d in zip(xs, devices):
+    if isinstance(d, Sharding) and d.memory_kind is not None:
+      out.append(x.update(memory_space=core.mem_kind_to_space(d.memory_kind)))
+    elif isinstance(d, core.MemorySpace):
+      out.append(x.update(memory_space=d))
+    else:
+      out.append(x)
+  return out
 device_put_p.def_abstract_eval(_device_put_abstract_eval)
 
 def _device_put_transpose(cts, *_, devices, srcs, copy_semantics):
@@ -643,8 +630,8 @@ def _tpu_gpu_device_put_lowering(ctx, *xs, devices, srcs, copy_semantics):
   if ctx.module_context.all_default_mem_kind:
     return xs
   def lower(x, device, aval, out_aval):
-    if (isinstance(device, (Sharding, TransferToMemoryKind)) and
-        device.memory_kind is not None):
+    if ((isinstance(device, Sharding) and device.memory_kind is not None) or
+        isinstance(device, core.MemorySpace)):
       if isinstance(device, Sharding):
         if config.use_shardy_partitioner.value:
           x = mlir.wrap_with_sharding_op(
@@ -654,7 +641,9 @@ def _tpu_gpu_device_put_lowering(ctx, *xs, devices, srcs, copy_semantics):
           x = mlir.wrap_with_sharding_op(
               ctx, x, out_aval,
               device._to_xla_hlo_sharding(aval.ndim).to_proto())
-      x = mlir.wrap_with_memory_kind(x, device.memory_kind, out_aval)
+      mem_kind = (core.mem_space_to_kind(device)
+                  if isinstance(device, core.MemorySpace) else device.memory_kind)
+      x = mlir.wrap_with_memory_kind(x, mem_kind, out_aval)
       return x
     return x
   return list(map(lower, xs, devices, ctx.avals_in, ctx.avals_out))
@@ -668,13 +657,3 @@ mlir.register_lowering(
 def _common_device_put_lowering(ctx, *xs, devices, srcs, copy_semantics):
   return xs
 mlir.register_lowering(device_put_p, _common_device_put_lowering)
-
-def _propagate_mem_kind_dp(*xm, devices, srcs, copy_semantics):
-  memory_kinds = []
-  for device in devices:
-    if isinstance(device, (Sharding, TransferToMemoryKind)):
-      memory_kinds.append(device.memory_kind)
-    else:
-      memory_kinds.append(None)
-  return memory_kinds
-pxla.memory_kind_propagate_rule[device_put_p] = _propagate_mem_kind_dp

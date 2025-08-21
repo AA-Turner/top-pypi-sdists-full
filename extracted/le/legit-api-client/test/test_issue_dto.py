@@ -100,7 +100,7 @@ class TestIssueDto(unittest.TestCase):
                     ],
                 snoozed_type = 'DueDate',
                 snoozed_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                ai_validation_result = 'NotValidated',
+                ai_validation_result = 'Unknown',
                 dast_confidence_level = 'Unknown',
                 validity_status = 'NotApplicable',
                 verified_validation_url = '',

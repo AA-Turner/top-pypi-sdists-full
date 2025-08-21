@@ -6,7 +6,7 @@ from setuptools import (
 
 setup(
     name='nominal-api',
-    version='0.845.0',
+    version='0.849.0',
     python_requires='>=3.8',
     package_data={"": ["py.typed"]},
     packages=find_packages(),

@@ -34,6 +34,7 @@ from jax._src import api_util
 from jax._src import array
 from jax._src import config
 from jax._src import core
+from jax._src import deprecations
 from jax._src import dispatch
 from jax._src import dtypes
 from jax._src import effects
@@ -56,7 +57,7 @@ from jax._src.interpreters import partial_eval as pe
 from jax._src.interpreters import pxla
 from jax._src.interpreters.batching import RaggedAxis
 from jax._src.lax import slicing
-from jax._src import mesh as mesh_lib
+from jax._src.mesh import get_abstract_mesh, get_concrete_mesh
 from jax._src.lax.utils import (
   _input_dtype, dtype_to_string, standard_abstract_eval,
   standard_multi_result_abstract_eval, standard_primitive)
@@ -1918,13 +1919,22 @@ def _composite_lowering(
   Returns:
     The results of the composite.
   """
+  const_args = core.jaxpr_const_args(jaxpr.jaxpr)
+  const_arg_values = tuple(mlir.ir_constant(c, ctx.const_lowering,
+                                            canonicalize_dtype=True)
+                           for c in const_args)
+  in_avals = (*(core.shaped_abstractify(c) for c in const_args),
+              *ctx.avals_in)
   func_op, _, _ = mlir.lower_called_computation(
       name,
       jaxpr,
       ctx.module_context,
+      len(const_args),
+      in_avals,
       ctx.avals_out,
       ctx.tokens_in,
   )
+
   composite_attrs = {}
   for k, leaves, treedef in attributes:
     v = treedef.unflatten(leaves)
@@ -1933,7 +1943,7 @@ def _composite_lowering(
   symbol_name = func_op.name.value
   composite = hlo.CompositeOp(
       func_op.type.results,
-      mlir.flatten_ir_values(args),
+      mlir.flatten_ir_values(const_arg_values + args),
       name=ir.StringAttr.get(name),
       decomposition=ir.FlatSymbolRefAttr.get(symbol_name),
       composite_attributes=ir.DictAttr.get(composite_attrs),
@@ -2413,78 +2423,51 @@ CanonicalPrecision = Union[
 ]
 
 
-def dot(lhs: Array, rhs: Array, precision: PrecisionLike = None,
-        preferred_element_type: DTypeLike | None = None) -> Array:
-  """Vector/vector, matrix/vector, and matrix/matrix multiplication.
-
-  Wraps XLA's `Dot <https://www.openxla.org/xla/operation_semantics#dot>`_
-  operator.
-
-  For more general contraction, see the :func:`jax.lax.dot_general` operator.
-
-  Args:
-    lhs: an array of dimension 1 or 2.
-    rhs: an array of dimension 1 or 2.
-    precision: Optional. This parameter controls the numerics of the
-      computation, and it can be one of the following:
-
-      - ``None``, which means the default precision for the current backend,
-      - a :class:`~jax.lax.Precision` enum value or a tuple of two
-        :class:`~jax.lax.Precision` enums indicating precision of ``lhs``` and
-        ``rhs``, or
-      - a :class:`~jax.lax.DotAlgorithm` or a
-        :class:`~jax.lax.DotAlgorithmPreset` indicating the algorithm that
-        must be used to accumulate the dot product.
-
-    preferred_element_type: Optional. This parameter controls the data type
-      output by the dot product. By default, the output element type of this
-      operation will match the ``lhs`` and ``rhs`` input element types under
-      the usual type promotion rules. Setting ``preferred_element_type`` to a
-      specific ``dtype`` will mean that the operation returns that element type.
-      When ``precision`` is not a :class:`~jax.lax.DotAlgorithm` or
-      :class:`~jax.lax.DotAlgorithmPreset`, ``preferred_element_type`` provides
-      a hint to the compiler to accumulate the dot product using this data type.
-
-  Returns:
-    An array containing the product.
-  """
-  if 1 <= lhs.ndim <= 2 and 1 <= rhs.ndim <= 2 and core.definitely_equal(lhs.shape[-1], rhs.shape[0]):
-    return dot_general(lhs, rhs, (((lhs.ndim - 1,), (0,)), ((), ())),
-                       precision=precision,
-                       preferred_element_type=preferred_element_type)
-  else:
-    raise TypeError("Incompatible shapes for dot: got {} and {}.".format(
-        lhs.shape, rhs.shape))
-
-
 DotDimensionNumbers = tuple[tuple[Sequence[int], Sequence[int]],
                             tuple[Sequence[int], Sequence[int]]]
 
-def dot_general(lhs: ArrayLike, rhs: ArrayLike, dimension_numbers: DotDimensionNumbers,
+
+# TODO(jakevdp): consider deprecating jax.lax.dot_general.
+def dot_general(lhs: ArrayLike, rhs: ArrayLike,
+                dimension_numbers: DotDimensionNumbers,
                 precision: PrecisionLike = None,
                 preferred_element_type: DTypeLike | None = None,
                 *,
                 out_sharding=None) -> Array:
+  """Alias of :func:`jax.lax.dot`.
+
+  Prefer use of :func:`jax.lax.dot` directly, but note that it requires
+  all arguments after ``lhs`` and ``rhs`` to be specified by keyword
+  rather than position.
+  """
+  return dot(lhs, rhs, dimension_numbers=dimension_numbers, precision=precision,
+             preferred_element_type=preferred_element_type, out_sharding=out_sharding)
+
+
+def dot(lhs: ArrayLike, rhs: ArrayLike, *args,
+        dimension_numbers: DotDimensionNumbers | None = None,
+        precision: PrecisionLike = None,
+        preferred_element_type: DTypeLike | None = None,
+        out_sharding=None) -> Array:
   """General dot product/contraction operator.
 
-  Wraps XLA's `DotGeneral
-  <https://www.openxla.org/xla/operation_semantics#dotgeneral>`_
-  operator.
+  This operation lowers directly to the `stablehlo.dot_general`_ operation.
 
   The semantics of ``dot_general`` are complicated, but most users should not have to
   use it directly. Instead, you can use higher-level functions like :func:`jax.numpy.dot`,
   :func:`jax.numpy.matmul`, :func:`jax.numpy.tensordot`, :func:`jax.numpy.einsum`,
   and others which will construct appropriate calls to ``dot_general`` under the hood.
   If you really want to understand ``dot_general`` itself, we recommend reading XLA's
-  `DotGeneral  <https://www.openxla.org/xla/operation_semantics#dotgeneral>`_
-  operator documentation.
+  DotGeneral_ operator documentation.
 
   Args:
     lhs: an array
     rhs: an array
-    dimension_numbers: a tuple of tuples of sequences of ints of the form
+    dimension_numbers: an optional tuple of tuples of sequences of ints of the form
       ``((lhs_contracting_dims, rhs_contracting_dims), (lhs_batch_dims,
-      rhs_batch_dims))``
+      rhs_batch_dims))``. This may be left unspecified in the common case of
+      un-batched matrix-matrix, matrix-vector, or vector-vector dot products, as
+      determined by the shape of ``lhs`` and ``rhs``.
     precision: Optional. This parameter controls the numerics of the
       computation, and it can be one of the following:
 
@@ -2504,12 +2487,58 @@ def dot_general(lhs: ArrayLike, rhs: ArrayLike, dimension_numbers: DotDimensionN
       When ``precision`` is not a :class:`~jax.lax.DotAlgorithm` or
       :class:`~jax.lax.DotAlgorithmPreset`, ``preferred_element_type`` provides
       a hint to the compiler to accumulate the dot product using this data type.
+    out_sharding: an optional sharding specification for the output. If not specified,
+      it will be determined automatically by the compiler.
 
   Returns:
     An array whose first dimensions are the (shared) batch dimensions, followed
     by the ``lhs`` non-contracting/non-batch dimensions, and finally the ``rhs``
     non-contracting/non-batch dimensions.
+
+  .. _stablehlo.dot_general: https://openxla.org/stablehlo/spec#dot_general
+  .. _DotGeneral: https://www.openxla.org/xla/operation_semantics#dotgeneral
   """
+  # TODO(jakevdp): keyword warning added for JAX v0.7.1; finalize this for v0.9.0.
+  if args:
+    deprecations.warn(
+      "jax-lax-dot-positional-args",
+      (
+        "jax.lax.dot: passing precision or preferred_element_type by position"
+        " is deprecated; pass them by keyword instead."
+      ),
+      stacklevel=2
+    )
+    # Prior to merging dot and dot_general, dot() had two additional positional args:
+    # `precision` and `preferred_element_type`.
+    if len(args) == 1:
+      if precision is not None:
+        raise TypeError("jax.lax.dot got multiple values for argument 'precision'")
+      precision, = args
+    elif len(args) == 2:
+      if precision is not None:
+        raise TypeError("jax.lax.dot got multiple values for argument 'precision'")
+      if preferred_element_type is not None:
+        raise TypeError("jax.lax.dot got multiple values for argument 'preferred_element_type'")
+      precision, preferred_element_type = args
+    else:
+      raise TypeError("Too many positional arguments passed to jax.lax.dot.")
+  del args
+
+  lhs_shape = np.shape(lhs)
+  lhs_ndim = len(lhs_shape)
+
+  rhs_shape = np.shape(rhs)
+  rhs_ndim = len(rhs_shape)
+
+  if dimension_numbers is None:
+    if 1 <= lhs_ndim <= 2 and 1 <= rhs_ndim <= 2 and core.definitely_equal(lhs_shape[-1], rhs_shape[0]):
+      dimension_numbers = (((lhs_ndim - 1,), (0,)), ((), ()))
+    else:
+      raise ValueError(
+        "jax.lax.dot: dimension_numbers must be specified when not performing simple"
+        " un-batched matrix-matrix, matrix-vector, or vector-vector products;"
+        f" got {lhs_shape=} {rhs_shape=}")
+
   out_sharding = canonicalize_sharding(out_sharding, 'dot_general')
   (lhs_contract, rhs_contract), (lhs_batch, rhs_batch) = dimension_numbers
   cdims = (api_util._ensure_index_tuple(lhs_contract),
@@ -2780,11 +2809,15 @@ def reshape(operand: ArrayLike, new_sizes: Shape,
   else:
     dims = api_util._ensure_index_tuple(dimensions)
     same_dims = tuple(dims) == tuple(range(np.ndim(operand)))
-  if np.shape(operand) and same_shape and same_dims and isinstance(operand, Array):
+  out_sharding = canonicalize_sharding(out_sharding, 'reshape')
+  same_sharding = (out_sharding is None or
+                   core.typeof(operand).sharding == out_sharding)
+
+  if (np.shape(operand) and same_shape and same_dims and same_sharding and
+      isinstance(operand, Array)):
     return operand
   else:
     dyn_shape, static_new_sizes = _extract_tracers_dyn_shape(new_sizes)
-    out_sharding = canonicalize_sharding(out_sharding, 'reshape')
     return reshape_p.bind(
       operand, *dyn_shape, new_sizes=tuple(static_new_sizes),
       dimensions=None if dims is None or same_dims else dims,
@@ -3294,6 +3327,11 @@ def top_k(operand: ArrayLike, k: int) -> tuple[Array, Array]:
     - ``values`` is an array containing the top k values along the last axis.
     - ``indices`` is an array containing the indices corresponding to values.
 
+  ``values[..., i]`` is the ``i``-th largest entry in ``operand`` along the last
+  axis, and its index is ``indices[..., i]``.
+
+  If two elements are equal, the lower-index element appears first.
+
   See also:
     - :func:`jax.lax.approx_max_k`
     - :func:`jax.lax.approx_min_k`
@@ -3566,7 +3604,7 @@ def full_like(x: ArrayLike | DuckTypedArray,
         and not isinstance(x, core.Tracer)
         and hasattr(x, 'sharding')
         and x.sharding is not None
-        and x.sharding._is_concrete
+        and (x.sharding._is_concrete or not get_concrete_mesh().empty)
         and getattr(x, '_committed', True)
         and not weak_type
         and fill_shape == np.shape(x)  # type: ignore[arg-type]
@@ -3948,7 +3986,7 @@ def broadcasting_sharding_rule(name, *avals):
             f'Mesh for all inputs should be equal. Got one mesh: {mesh} and'
             f' another mesh: {a.sharding.mesh}')
       mesh = a.sharding.mesh
-  mesh = mesh_lib.get_abstract_mesh() if mesh is None else mesh
+  mesh = get_abstract_mesh() if mesh is None else mesh
 
   shapes = [aval.shape for aval in avals if aval.shape]
   if not shapes:
@@ -4006,15 +4044,19 @@ def _unbroadcast(aval, x):
   if not isinstance(aval, (core.DShapedArray, ShapedArray)):
     raise TypeError("transpose with implicit broadcasting of unshaped values")
   x_shape = np.shape(x)
-  if core.definitely_equal_shape(aval.shape, x_shape):
+  if (core.definitely_equal_shape(aval.shape, x_shape) and
+      aval.sharding == core.typeof(x).sharding):
     return x
   assert not aval.shape or len(x_shape) == len(aval.shape)
   if not aval.shape:
     return reduce_sum(x, list(range(len(x_shape))))
   else:
-    dims = [i for i, (a, b) in enumerate(zip(x_shape, aval.shape)) if not core.definitely_equal(a, b)]
-    if config.enable_checks.value: assert all(aval.shape[i] == 1 for i in dims)
-    return reshape(reduce_sum(x, dims), aval.shape)
+    dims = [i for i, (a, b) in enumerate(zip(x_shape, aval.shape))
+            if not core.definitely_equal(a, b)]
+    if config.enable_checks.value:
+      assert all(aval.shape[i] == 1 for i in dims)
+    x = reduce_sum(x, dims) if dims else x
+    return reshape(x, aval.shape, out_sharding=aval.to_cotangent_aval().sharding)
 
 def _maybe_broadcast(target_shape, x):
   x_shape = np.shape(x)
@@ -5236,25 +5278,13 @@ def _dot_general_sharding_rule(lhs, rhs, *, dimension_numbers, precision,
         'Mesh of both lhs and rhs should match. Got lhs:'
         f' {lhs.sharding.mesh} and rhs: {rhs.sharding.mesh}')
 
+  if out_sharding is not None:
+    assert isinstance(out_sharding, NamedSharding)
+    return out_sharding
+
   (lhs_contracting, rhs_contracting), (lhs_batch, rhs_batch) = dimension_numbers
   lhs_contracting_spec = tuple(lhs.sharding.spec[i] for i in lhs_contracting)
   rhs_contracting_spec = tuple(rhs.sharding.spec[i] for i in rhs_contracting)
-
-  if out_sharding is not None:
-    assert isinstance(out_sharding, NamedSharding)
-    if out_sharding.spec.unreduced:
-      if lhs_contracting_spec != rhs_contracting_spec:
-        raise core.ShardingTypeError(
-            'lhs and rhs contracting dims should be sharded identically when'
-            ' out_sharding provided to dot_general mentions unreduced_axes.'
-            f' Got {out_sharding=}, {lhs_contracting_spec=},'
-            f' {rhs_contracting_spec=}')
-      if out_sharding.spec.unreduced != frozenset(lhs_contracting_spec):
-        raise core.ShardingTypeError(
-            "out_sharding's unreduced axes should be equal to the contracting"
-            f' specs. Got unreduced axes={out_sharding.spec.unreduced} and'
-            f' contracting spec={lhs_contracting_spec}')
-    return out_sharding
 
   lhs_batch_spec = tuple(lhs.sharding.spec[i] for i in lhs_batch)
   rhs_batch_spec = tuple(rhs.sharding.spec[i] for i in rhs_batch)
@@ -5291,6 +5321,27 @@ def _dot_general_sharding_computation(lhs_spec, rhs_spec,
   rhs_contract_or_batch = tuple(sorted(tuple(rhs_contracting) + tuple(rhs_batch)))
   rhs_tensored_spec = tuple_delete(rhs_spec, rhs_contract_or_batch)
   return NamedSharding(mesh, P(*(batch_spec + lhs_tensored_spec + rhs_tensored_spec)))
+
+
+def _dot_general_unreduced_rule(out_s, lhs, rhs, *, dimension_numbers,
+                                **kwargs):
+  if out_s.spec.unreduced:
+    (lhs_contracting, rhs_contracting), _ = dimension_numbers
+    lhs_contracting_spec = tuple(lhs.sharding.spec[i] for i in lhs_contracting)
+    rhs_contracting_spec = tuple(rhs.sharding.spec[i] for i in rhs_contracting)
+    if lhs_contracting_spec != rhs_contracting_spec:
+      raise core.ShardingTypeError(
+          'lhs and rhs contracting dims should be sharded identically when'
+          ' out_sharding provided to dot_general mentions unreduced_axes.'
+          f' Got {out_s=}, {lhs_contracting_spec=},'
+          f' {rhs_contracting_spec=}')
+    if out_s.spec.unreduced != frozenset(lhs_contracting_spec):
+      raise core.ShardingTypeError(
+          "out_sharding's unreduced axes should be equal to the contracting"
+          f' specs. Got unreduced axes={out_s.spec.unreduced} and'
+          f' contracting spec={lhs_contracting_spec}')
+  return out_s
+
 
 def tuple_delete(tup, idx):
   idx_ = set(idx)
@@ -5590,7 +5641,8 @@ dot_general_p = standard_primitive(
     _dot_general_dtype_rule,
     'dot_general',
     sharding_rule=_dot_general_sharding_rule,
-    vma_rule=partial(core.standard_vma_rule, 'dot_general')
+    vma_rule=partial(core.standard_vma_rule, 'dot_general'),
+    unreduced_rule=_dot_general_unreduced_rule,
 )
 
 
@@ -6622,9 +6674,9 @@ def _broadcast_in_dim_ragged_prop_rule(eqn_params, invar_raggedness, outvars):
   return invar_raggedness, [None] * len(outvars)
 
 
-broadcast_in_dim_p = standard_primitive(
-    _broadcast_in_dim_shape_rule, _input_dtype, 'broadcast_in_dim')
+broadcast_in_dim_p = core.Primitive('broadcast_in_dim')
 broadcast_in_dim_p.def_abstract_eval(_broadcast_in_dim_abstract_eval)
+broadcast_in_dim_p.def_impl(partial(dispatch.apply_primitive, broadcast_in_dim_p))
 ad.primitive_jvps[broadcast_in_dim_p] = _broadcast_in_dim_jvp_rule
 ad.primitive_transposes[broadcast_in_dim_p] = _broadcast_in_dim_transpose_rule
 batching.fancy_primitive_batchers[broadcast_in_dim_p] = _broadcast_in_dim_batch_rule
@@ -7132,7 +7184,7 @@ def _reshape_sharding_rule(operand, *, new_sizes, dimensions, sharding):
   raise core.ShardingTypeError(
       'This reshape is not supported. Please specify the sharding of'
       ' the output via the `out_sharding` argument of jax.lax.reshape. Got'
-      f' operand shape: {operand}, new sizes: {new_sizes}')
+      f' operand type: {operand}, new sizes: {new_sizes}')
 
 def _split_merge_singleton_dim_sharding_rule(operand, new_sizes):
   filtered_spec = [sp for sh, sp in zip(operand.shape, operand.sharding.spec)
@@ -7164,7 +7216,7 @@ def _split_an_axis_sharding_rule(operand, out_split, new_sizes, dimensions):
         raise core.ShardingTypeError(
             'This reshape is not supported. Please specify the sharding of the'
             ' output via the `out_sharding` argument of jax.lax.reshape. Got'
-            f' operand shape: {operand}, new sizes: {new_sizes}')
+            f' operand type: {operand}, new sizes: {new_sizes}')
     else:
       new_spec.append(sp)
   assert len(new_spec) == len(new_sizes), (new_spec, new_sizes)
@@ -7188,7 +7240,7 @@ def _merge_an_axis_sharding_rule(operand, operand_merge, new_sizes, dimensions):
         raise core.ShardingTypeError(
             'This reshape is not supported. Please specify the sharding of the'
             ' output via the `out_sharding` argument of jax.lax.reshape. Got'
-            f' operand shape: {operand}, new sizes: {new_sizes}')
+            f' operand type: {operand}, new sizes: {new_sizes}')
     else:
       new_spec.append(next(op_spec))
   assert next(op_spec, None) is None
@@ -7647,7 +7699,8 @@ reduce_p.def_abstract_eval(
 batching.primitive_batchers[reduce_p] = _reduce_batch_rule
 ad.primitive_jvps[reduce_p] = _reduce_jvp_rule
 
-def _reduce_lower(ctx, *values, computation, jaxpr, dimensions):
+def _reduce_lower(ctx: mlir.LoweringRuleContext, *values,
+                  computation, jaxpr: core.ClosedJaxpr, dimensions):
   assert all(isinstance(x, core.ShapedArray) for x in ctx.avals_in), ctx.avals_in
   operands, init_values = util.split_list(values, [len(values) // 2])
   init_value_avals = ctx.avals_in[len(values) // 2:]
@@ -7663,7 +7716,8 @@ def _reduce_lower(ctx, *values, computation, jaxpr, dimensions):
                                       name_stack, mlir.TokenSet(),
                                       jaxpr.consts,
                                       *reducer.arguments,
-                                      dim_var_values=ctx.dim_var_values)
+                                      dim_var_values=ctx.dim_var_values,
+                                      const_lowering=ctx.const_lowering)
     hlo.return_(mlir.flatten_ir_values(out_nodes))
   return [mlir.lower_with_sharding_in_types(ctx, r, aval)
           for r, aval in safe_zip(op.results, ctx.avals_out)]
@@ -8460,9 +8514,6 @@ mlir.register_lowering(copy_p, lambda ctx, x: [x])
 ad.deflinear(copy_p, lambda t: [copy_p.bind(t)])
 pe.def_trivial_padding(copy_p)
 batching.defvectorized(copy_p)
-def _propagate_mem_kind_copy(in_mem_kind):
-  return in_mem_kind
-pxla.memory_kind_propagate_rule[copy_p] = _propagate_mem_kind_copy
 
 # The dce_sink_p primitive marks a value as "used" from the perspective of DCE
 # so the computation producing it won't be eliminated.

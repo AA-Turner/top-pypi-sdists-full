@@ -3636,7 +3636,7 @@ class CfnStage(
             *,
             participant_thumbnail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnStage.ParticipantThumbnailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''A complex type that allows you to enable/disable the recording of thumbnails for individual participant recording and modify the interval at which thumbnails are generated for the live session.
+            '''An object representing a configuration of thumbnails for recorded video.
 
             :param participant_thumbnail_configuration: An object representing a configuration of thumbnails for recorded video from an individual participant.
 

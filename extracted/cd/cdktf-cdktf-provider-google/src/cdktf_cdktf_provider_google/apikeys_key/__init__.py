@@ -1,7 +1,7 @@
 r'''
 # `google_apikeys_key`
 
-Refer to the Terraform Registry for docs: [`google_apikeys_key`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key).
+Refer to the Terraform Registry for docs: [`google_apikeys_key`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApikeysKey(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.apikeysKey.ApikeysKey",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key google_apikeys_key}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key google_apikeys_key}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class ApikeysKey(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key google_apikeys_key} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key google_apikeys_key} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The resource name of the key. The name must be unique within the project, must conform with RFC-1034, is restricted to lower-cased letters, and has a maximum length of 63 characters. In another word, the name must match the regular expression: ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#name ApikeysKey#name}
-        :param display_name: Human-readable display name of this API key. Modifiable by user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#display_name ApikeysKey#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#id ApikeysKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#project ApikeysKey#project}
-        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#restrictions ApikeysKey#restrictions}
-        :param service_account_email: The email of the service account the key is bound to. If this field is specified, the key is a service account bound key and auth enabled. See `Documentation <https://cloud.devsite.corp.google.com/docs/authentication/api-keys?#api-keys-bound-sa>`_ for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#service_account_email ApikeysKey#service_account_email}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#timeouts ApikeysKey#timeouts}
+        :param name: The resource name of the key. The name must be unique within the project, must conform with RFC-1034, is restricted to lower-cased letters, and has a maximum length of 63 characters. In another word, the name must match the regular expression: ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#name ApikeysKey#name}
+        :param display_name: Human-readable display name of this API key. Modifiable by user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#display_name ApikeysKey#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#id ApikeysKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#project ApikeysKey#project}
+        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#restrictions ApikeysKey#restrictions}
+        :param service_account_email: The email of the service account the key is bound to. If this field is specified, the key is a service account bound key and auth enabled. See `Documentation <https://cloud.devsite.corp.google.com/docs/authentication/api-keys?#api-keys-bound-sa>`_ for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#service_account_email ApikeysKey#service_account_email}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#timeouts ApikeysKey#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class ApikeysKey(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApikeysKey to import.
-        :param import_from_id: The id of the existing ApikeysKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApikeysKey that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApikeysKey to import is found.
         '''
         if __debug__:
@@ -143,11 +143,11 @@ class ApikeysKey(
         server_key_restrictions: typing.Optional[typing.Union["ApikeysKeyRestrictionsServerKeyRestrictions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param android_key_restrictions: android_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#android_key_restrictions ApikeysKey#android_key_restrictions}
-        :param api_targets: api_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#api_targets ApikeysKey#api_targets}
-        :param browser_key_restrictions: browser_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#browser_key_restrictions ApikeysKey#browser_key_restrictions}
-        :param ios_key_restrictions: ios_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#ios_key_restrictions ApikeysKey#ios_key_restrictions}
-        :param server_key_restrictions: server_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#server_key_restrictions ApikeysKey#server_key_restrictions}
+        :param android_key_restrictions: android_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#android_key_restrictions ApikeysKey#android_key_restrictions}
+        :param api_targets: api_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#api_targets ApikeysKey#api_targets}
+        :param browser_key_restrictions: browser_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#browser_key_restrictions ApikeysKey#browser_key_restrictions}
+        :param ios_key_restrictions: ios_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#ios_key_restrictions ApikeysKey#ios_key_restrictions}
+        :param server_key_restrictions: server_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#server_key_restrictions ApikeysKey#server_key_restrictions}
         '''
         value = ApikeysKeyRestrictions(
             android_key_restrictions=android_key_restrictions,
@@ -168,9 +168,9 @@ class ApikeysKey(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#create ApikeysKey#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#delete ApikeysKey#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#update ApikeysKey#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#create ApikeysKey#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#delete ApikeysKey#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#update ApikeysKey#update}.
         '''
         value = ApikeysKeyTimeouts(create=create, delete=delete, update=update)
 
@@ -378,13 +378,13 @@ class ApikeysKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The resource name of the key. The name must be unique within the project, must conform with RFC-1034, is restricted to lower-cased letters, and has a maximum length of 63 characters. In another word, the name must match the regular expression: ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#name ApikeysKey#name}
-        :param display_name: Human-readable display name of this API key. Modifiable by user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#display_name ApikeysKey#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#id ApikeysKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#project ApikeysKey#project}
-        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#restrictions ApikeysKey#restrictions}
-        :param service_account_email: The email of the service account the key is bound to. If this field is specified, the key is a service account bound key and auth enabled. See `Documentation <https://cloud.devsite.corp.google.com/docs/authentication/api-keys?#api-keys-bound-sa>`_ for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#service_account_email ApikeysKey#service_account_email}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#timeouts ApikeysKey#timeouts}
+        :param name: The resource name of the key. The name must be unique within the project, must conform with RFC-1034, is restricted to lower-cased letters, and has a maximum length of 63 characters. In another word, the name must match the regular expression: ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#name ApikeysKey#name}
+        :param display_name: Human-readable display name of this API key. Modifiable by user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#display_name ApikeysKey#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#id ApikeysKey#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: The project for the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#project ApikeysKey#project}
+        :param restrictions: restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#restrictions ApikeysKey#restrictions}
+        :param service_account_email: The email of the service account the key is bound to. If this field is specified, the key is a service account bound key and auth enabled. See `Documentation <https://cloud.devsite.corp.google.com/docs/authentication/api-keys?#api-keys-bound-sa>`_ for more details. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#service_account_email ApikeysKey#service_account_email}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#timeouts ApikeysKey#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -508,7 +508,7 @@ class ApikeysKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The name must be unique within the project, must conform with RFC-1034, is restricted to lower-cased letters, and has a maximum length of 63 characters. In another word, the name must match the regular expression: ``[a-z]([a-z0-9-]{0,61}[a-z0-9])?``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#name ApikeysKey#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#name ApikeysKey#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -518,14 +518,14 @@ class ApikeysKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Human-readable display name of this API key. Modifiable by user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#display_name ApikeysKey#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#display_name ApikeysKey#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#id ApikeysKey#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#id ApikeysKey#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -537,7 +537,7 @@ class ApikeysKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''The project for the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#project ApikeysKey#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#project ApikeysKey#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -546,7 +546,7 @@ class ApikeysKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def restrictions(self) -> typing.Optional["ApikeysKeyRestrictions"]:
         '''restrictions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#restrictions ApikeysKey#restrictions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#restrictions ApikeysKey#restrictions}
         '''
         result = self._values.get("restrictions")
         return typing.cast(typing.Optional["ApikeysKeyRestrictions"], result)
@@ -557,7 +557,7 @@ class ApikeysKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If this field is specified, the key is a service account bound key and auth enabled. See `Documentation <https://cloud.devsite.corp.google.com/docs/authentication/api-keys?#api-keys-bound-sa>`_ for more details.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#service_account_email ApikeysKey#service_account_email}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#service_account_email ApikeysKey#service_account_email}
         '''
         result = self._values.get("service_account_email")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -566,7 +566,7 @@ class ApikeysKeyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApikeysKeyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#timeouts ApikeysKey#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#timeouts ApikeysKey#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApikeysKeyTimeouts"], result)
@@ -605,11 +605,11 @@ class ApikeysKeyRestrictions:
         server_key_restrictions: typing.Optional[typing.Union["ApikeysKeyRestrictionsServerKeyRestrictions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param android_key_restrictions: android_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#android_key_restrictions ApikeysKey#android_key_restrictions}
-        :param api_targets: api_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#api_targets ApikeysKey#api_targets}
-        :param browser_key_restrictions: browser_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#browser_key_restrictions ApikeysKey#browser_key_restrictions}
-        :param ios_key_restrictions: ios_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#ios_key_restrictions ApikeysKey#ios_key_restrictions}
-        :param server_key_restrictions: server_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#server_key_restrictions ApikeysKey#server_key_restrictions}
+        :param android_key_restrictions: android_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#android_key_restrictions ApikeysKey#android_key_restrictions}
+        :param api_targets: api_targets block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#api_targets ApikeysKey#api_targets}
+        :param browser_key_restrictions: browser_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#browser_key_restrictions ApikeysKey#browser_key_restrictions}
+        :param ios_key_restrictions: ios_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#ios_key_restrictions ApikeysKey#ios_key_restrictions}
+        :param server_key_restrictions: server_key_restrictions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#server_key_restrictions ApikeysKey#server_key_restrictions}
         '''
         if isinstance(android_key_restrictions, dict):
             android_key_restrictions = ApikeysKeyRestrictionsAndroidKeyRestrictions(**android_key_restrictions)
@@ -644,7 +644,7 @@ class ApikeysKeyRestrictions:
     ) -> typing.Optional["ApikeysKeyRestrictionsAndroidKeyRestrictions"]:
         '''android_key_restrictions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#android_key_restrictions ApikeysKey#android_key_restrictions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#android_key_restrictions ApikeysKey#android_key_restrictions}
         '''
         result = self._values.get("android_key_restrictions")
         return typing.cast(typing.Optional["ApikeysKeyRestrictionsAndroidKeyRestrictions"], result)
@@ -655,7 +655,7 @@ class ApikeysKeyRestrictions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApikeysKeyRestrictionsApiTargets"]]]:
         '''api_targets block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#api_targets ApikeysKey#api_targets}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#api_targets ApikeysKey#api_targets}
         '''
         result = self._values.get("api_targets")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApikeysKeyRestrictionsApiTargets"]]], result)
@@ -666,7 +666,7 @@ class ApikeysKeyRestrictions:
     ) -> typing.Optional["ApikeysKeyRestrictionsBrowserKeyRestrictions"]:
         '''browser_key_restrictions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#browser_key_restrictions ApikeysKey#browser_key_restrictions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#browser_key_restrictions ApikeysKey#browser_key_restrictions}
         '''
         result = self._values.get("browser_key_restrictions")
         return typing.cast(typing.Optional["ApikeysKeyRestrictionsBrowserKeyRestrictions"], result)
@@ -677,7 +677,7 @@ class ApikeysKeyRestrictions:
     ) -> typing.Optional["ApikeysKeyRestrictionsIosKeyRestrictions"]:
         '''ios_key_restrictions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#ios_key_restrictions ApikeysKey#ios_key_restrictions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#ios_key_restrictions ApikeysKey#ios_key_restrictions}
         '''
         result = self._values.get("ios_key_restrictions")
         return typing.cast(typing.Optional["ApikeysKeyRestrictionsIosKeyRestrictions"], result)
@@ -688,7 +688,7 @@ class ApikeysKeyRestrictions:
     ) -> typing.Optional["ApikeysKeyRestrictionsServerKeyRestrictions"]:
         '''server_key_restrictions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#server_key_restrictions ApikeysKey#server_key_restrictions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#server_key_restrictions ApikeysKey#server_key_restrictions}
         '''
         result = self._values.get("server_key_restrictions")
         return typing.cast(typing.Optional["ApikeysKeyRestrictionsServerKeyRestrictions"], result)
@@ -717,7 +717,7 @@ class ApikeysKeyRestrictionsAndroidKeyRestrictions:
         allowed_applications: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ApikeysKeyRestrictionsAndroidKeyRestrictionsAllowedApplications", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param allowed_applications: allowed_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#allowed_applications ApikeysKey#allowed_applications}
+        :param allowed_applications: allowed_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#allowed_applications ApikeysKey#allowed_applications}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e13cbd24ad08bd2323ff5cc7a0d62ca286c0eaa860b661e0e7ff65e0e13e89e9)
@@ -732,7 +732,7 @@ class ApikeysKeyRestrictionsAndroidKeyRestrictions:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApikeysKeyRestrictionsAndroidKeyRestrictionsAllowedApplications"]]:
         '''allowed_applications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#allowed_applications ApikeysKey#allowed_applications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#allowed_applications ApikeysKey#allowed_applications}
         '''
         result = self._values.get("allowed_applications")
         assert result is not None, "Required property 'allowed_applications' is missing"
@@ -766,8 +766,8 @@ class ApikeysKeyRestrictionsAndroidKeyRestrictionsAllowedApplications:
         sha1_fingerprint: builtins.str,
     ) -> None:
         '''
-        :param package_name: The package name of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#package_name ApikeysKey#package_name}
-        :param sha1_fingerprint: The SHA1 fingerprint of the application. For example, both sha1 formats are acceptable : DA:39:A3:EE:5E:6B:4B:0D:32:55:BF:EF:95:60:18:90:AF:D8:07:09 or DA39A3EE5E6B4B0D3255BFEF95601890AFD80709. Output format is the latter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#sha1_fingerprint ApikeysKey#sha1_fingerprint}
+        :param package_name: The package name of the application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#package_name ApikeysKey#package_name}
+        :param sha1_fingerprint: The SHA1 fingerprint of the application. For example, both sha1 formats are acceptable : DA:39:A3:EE:5E:6B:4B:0D:32:55:BF:EF:95:60:18:90:AF:D8:07:09 or DA39A3EE5E6B4B0D3255BFEF95601890AFD80709. Output format is the latter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#sha1_fingerprint ApikeysKey#sha1_fingerprint}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__689261839cc9f86060f3781c21d3b4bd23e4cb8712accabf83e111751ca92570)
@@ -782,7 +782,7 @@ class ApikeysKeyRestrictionsAndroidKeyRestrictionsAllowedApplications:
     def package_name(self) -> builtins.str:
         '''The package name of the application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#package_name ApikeysKey#package_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#package_name ApikeysKey#package_name}
         '''
         result = self._values.get("package_name")
         assert result is not None, "Required property 'package_name' is missing"
@@ -794,7 +794,7 @@ class ApikeysKeyRestrictionsAndroidKeyRestrictionsAllowedApplications:
 
         For example, both sha1 formats are acceptable : DA:39:A3:EE:5E:6B:4B:0D:32:55:BF:EF:95:60:18:90:AF:D8:07:09 or DA39A3EE5E6B4B0D3255BFEF95601890AFD80709. Output format is the latter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#sha1_fingerprint ApikeysKey#sha1_fingerprint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#sha1_fingerprint ApikeysKey#sha1_fingerprint}
         '''
         result = self._values.get("sha1_fingerprint")
         assert result is not None, "Required property 'sha1_fingerprint' is missing"
@@ -1061,8 +1061,8 @@ class ApikeysKeyRestrictionsApiTargets:
         methods: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param service: The service for this restriction. It should be the canonical service name, for example: ``translate.googleapis.com``. You can use ``gcloud services list`` to get a list of services that are enabled in the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#service ApikeysKey#service}
-        :param methods: Optional. List of one or more methods that can be called. If empty, all methods for the service are allowed. A wildcard (*) can be used as the last symbol. Valid examples: ``google.cloud.translate.v2.TranslateService.GetSupportedLanguage`` ``TranslateText`` ``Get*`` ``translate.googleapis.com.Get*`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#methods ApikeysKey#methods}
+        :param service: The service for this restriction. It should be the canonical service name, for example: ``translate.googleapis.com``. You can use ``gcloud services list`` to get a list of services that are enabled in the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#service ApikeysKey#service}
+        :param methods: Optional. List of one or more methods that can be called. If empty, all methods for the service are allowed. A wildcard (*) can be used as the last symbol. Valid examples: ``google.cloud.translate.v2.TranslateService.GetSupportedLanguage`` ``TranslateText`` ``Get*`` ``translate.googleapis.com.Get*`` Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#methods ApikeysKey#methods}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f4c8d5c48ebf56143ae3d852cd5f2d4b5f7f7fcbeae4f8a82cda757a56e8e71)
@@ -1080,7 +1080,7 @@ class ApikeysKeyRestrictionsApiTargets:
 
         It should be the canonical service name, for example: ``translate.googleapis.com``. You can use ``gcloud services list`` to get a list of services that are enabled in the project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#service ApikeysKey#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#service ApikeysKey#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -1092,7 +1092,7 @@ class ApikeysKeyRestrictionsApiTargets:
 
         List of one or more methods that can be called. If empty, all methods for the service are allowed. A wildcard (*) can be used as the last symbol. Valid examples: ``google.cloud.translate.v2.TranslateService.GetSupportedLanguage`` ``TranslateText`` ``Get*`` ``translate.googleapis.com.Get*``
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#methods ApikeysKey#methods}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#methods ApikeysKey#methods}
         '''
         result = self._values.get("methods")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1292,7 +1292,7 @@ class ApikeysKeyRestrictionsApiTargetsOutputReference(
 class ApikeysKeyRestrictionsBrowserKeyRestrictions:
     def __init__(self, *, allowed_referrers: typing.Sequence[builtins.str]) -> None:
         '''
-        :param allowed_referrers: A list of regular expressions for the referrer URLs that are allowed to make API calls with this key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#allowed_referrers ApikeysKey#allowed_referrers}
+        :param allowed_referrers: A list of regular expressions for the referrer URLs that are allowed to make API calls with this key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#allowed_referrers ApikeysKey#allowed_referrers}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57ffaa4ef11a0c664d33e4f135e2a57124772f9ff8e2c1534799a721b638b07d)
@@ -1305,7 +1305,7 @@ class ApikeysKeyRestrictionsBrowserKeyRestrictions:
     def allowed_referrers(self) -> typing.List[builtins.str]:
         '''A list of regular expressions for the referrer URLs that are allowed to make API calls with this key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#allowed_referrers ApikeysKey#allowed_referrers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#allowed_referrers ApikeysKey#allowed_referrers}
         '''
         result = self._values.get("allowed_referrers")
         assert result is not None, "Required property 'allowed_referrers' is missing"
@@ -1386,7 +1386,7 @@ class ApikeysKeyRestrictionsBrowserKeyRestrictionsOutputReference(
 class ApikeysKeyRestrictionsIosKeyRestrictions:
     def __init__(self, *, allowed_bundle_ids: typing.Sequence[builtins.str]) -> None:
         '''
-        :param allowed_bundle_ids: A list of bundle IDs that are allowed when making API calls with this key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#allowed_bundle_ids ApikeysKey#allowed_bundle_ids}
+        :param allowed_bundle_ids: A list of bundle IDs that are allowed when making API calls with this key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#allowed_bundle_ids ApikeysKey#allowed_bundle_ids}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e950e0ee910878c5f0705a8c087265587392a74f0fcc26625950f501ccfb3a0)
@@ -1399,7 +1399,7 @@ class ApikeysKeyRestrictionsIosKeyRestrictions:
     def allowed_bundle_ids(self) -> typing.List[builtins.str]:
         '''A list of bundle IDs that are allowed when making API calls with this key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#allowed_bundle_ids ApikeysKey#allowed_bundle_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#allowed_bundle_ids ApikeysKey#allowed_bundle_ids}
         '''
         result = self._values.get("allowed_bundle_ids")
         assert result is not None, "Required property 'allowed_bundle_ids' is missing"
@@ -1499,7 +1499,7 @@ class ApikeysKeyRestrictionsOutputReference(
         allowed_applications: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ApikeysKeyRestrictionsAndroidKeyRestrictionsAllowedApplications, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param allowed_applications: allowed_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#allowed_applications ApikeysKey#allowed_applications}
+        :param allowed_applications: allowed_applications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#allowed_applications ApikeysKey#allowed_applications}
         '''
         value = ApikeysKeyRestrictionsAndroidKeyRestrictions(
             allowed_applications=allowed_applications
@@ -1527,7 +1527,7 @@ class ApikeysKeyRestrictionsOutputReference(
         allowed_referrers: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param allowed_referrers: A list of regular expressions for the referrer URLs that are allowed to make API calls with this key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#allowed_referrers ApikeysKey#allowed_referrers}
+        :param allowed_referrers: A list of regular expressions for the referrer URLs that are allowed to make API calls with this key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#allowed_referrers ApikeysKey#allowed_referrers}
         '''
         value = ApikeysKeyRestrictionsBrowserKeyRestrictions(
             allowed_referrers=allowed_referrers
@@ -1542,7 +1542,7 @@ class ApikeysKeyRestrictionsOutputReference(
         allowed_bundle_ids: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param allowed_bundle_ids: A list of bundle IDs that are allowed when making API calls with this key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#allowed_bundle_ids ApikeysKey#allowed_bundle_ids}
+        :param allowed_bundle_ids: A list of bundle IDs that are allowed when making API calls with this key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#allowed_bundle_ids ApikeysKey#allowed_bundle_ids}
         '''
         value = ApikeysKeyRestrictionsIosKeyRestrictions(
             allowed_bundle_ids=allowed_bundle_ids
@@ -1557,7 +1557,7 @@ class ApikeysKeyRestrictionsOutputReference(
         allowed_ips: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param allowed_ips: A list of the caller IP addresses that are allowed to make API calls with this key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#allowed_ips ApikeysKey#allowed_ips}
+        :param allowed_ips: A list of the caller IP addresses that are allowed to make API calls with this key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#allowed_ips ApikeysKey#allowed_ips}
         '''
         value = ApikeysKeyRestrictionsServerKeyRestrictions(allowed_ips=allowed_ips)
 
@@ -1672,7 +1672,7 @@ class ApikeysKeyRestrictionsOutputReference(
 class ApikeysKeyRestrictionsServerKeyRestrictions:
     def __init__(self, *, allowed_ips: typing.Sequence[builtins.str]) -> None:
         '''
-        :param allowed_ips: A list of the caller IP addresses that are allowed to make API calls with this key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#allowed_ips ApikeysKey#allowed_ips}
+        :param allowed_ips: A list of the caller IP addresses that are allowed to make API calls with this key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#allowed_ips ApikeysKey#allowed_ips}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58e2c7ed7a53e1f714d20c1bf5adcb366d2952b42d815a3e77bd858dc36cf991)
@@ -1685,7 +1685,7 @@ class ApikeysKeyRestrictionsServerKeyRestrictions:
     def allowed_ips(self) -> typing.List[builtins.str]:
         '''A list of the caller IP addresses that are allowed to make API calls with this key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#allowed_ips ApikeysKey#allowed_ips}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#allowed_ips ApikeysKey#allowed_ips}
         '''
         result = self._values.get("allowed_ips")
         assert result is not None, "Required property 'allowed_ips' is missing"
@@ -1772,9 +1772,9 @@ class ApikeysKeyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#create ApikeysKey#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#delete ApikeysKey#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#update ApikeysKey#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#create ApikeysKey#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#delete ApikeysKey#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#update ApikeysKey#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7f8bd51e6e5bb3c78de2ba49d6c99cb150583c571bfed38c9439eac2251ef00f)
@@ -1791,19 +1791,19 @@ class ApikeysKeyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#create ApikeysKey#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#create ApikeysKey#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#delete ApikeysKey#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#delete ApikeysKey#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/apikeys_key#update ApikeysKey#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/apikeys_key#update ApikeysKey#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-19T23:54:55.972128                                                            #
+# Generated on 2025-08-20T21:57:30.288403                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import abc
 import typing
+import abc
 if typing.TYPE_CHECKING:
-    import io
-    import abc
     import typing
+    import abc
+    import io
 
 
 class PackagingBackend(abc.ABC, metaclass=abc.ABCMeta):

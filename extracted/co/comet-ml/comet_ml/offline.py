@@ -289,7 +289,7 @@ class OfflineExperiment(CometExperiment):
         auto_histogram_activation_logging: Optional[bool] = False,
         experiment_key: Optional[str] = None,
         distributed_node_identifier: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """
         Creates a new experiment and serialize it on disk. The experiment file will need to be
@@ -411,7 +411,7 @@ class OfflineExperiment(CometExperiment):
 
         self.offline_zip_uploader: Optional[UploadCallback] = None
 
-        if not self.disabled:
+        if self.disabled is False:
             # Check that the offline directory is usable
             # Try to create ZIP file for the experiment
             zip_file, self.offline_directory = self._create_offline_archive(
@@ -420,7 +420,6 @@ class OfflineExperiment(CometExperiment):
             # Close the file handle, it will be reopened later
             zip_file.close()
 
-        if self.disabled is not True:
             if api_key is not None:
                 self._log_once_at_level(
                     logging.WARNING,
@@ -1774,7 +1773,7 @@ class OfflineSender(object):
         sender: Callable,
         rest_fail_prompt: str,
         general_fail_prompt: str,
-        **kwargs
+        **kwargs,
     ) -> None:
         try:
             sender(**kwargs)

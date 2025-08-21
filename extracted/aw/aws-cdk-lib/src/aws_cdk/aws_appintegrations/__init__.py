@@ -102,6 +102,17 @@ class CfnApplication(
             namespace="namespace",
         
             # the properties below are optional
+            application_config=appintegrations.CfnApplication.ApplicationConfigProperty(
+                contact_handling=appintegrations.CfnApplication.ContactHandlingProperty(
+                    scope="scope"
+                )
+            ),
+            iframe_config=appintegrations.CfnApplication.IframeConfigProperty(
+                allow=["allow"],
+                sandbox=["sandbox"]
+            ),
+            initialization_timeout=123,
+            is_service=False,
             permissions=["permissions"],
             tags=[CfnTag(
                 key="key",
@@ -119,6 +130,10 @@ class CfnApplication(
         description: builtins.str,
         name: builtins.str,
         namespace: builtins.str,
+        application_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ApplicationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        iframe_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.IframeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        initialization_timeout: typing.Optional[jsii.Number] = None,
+        is_service: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -129,6 +144,10 @@ class CfnApplication(
         :param description: The description of the application.
         :param name: The name of the application.
         :param namespace: The namespace of the application.
+        :param application_config: 
+        :param iframe_config: 
+        :param initialization_timeout: The initialization timeout in milliseconds. Required when IsService is true.
+        :param is_service: Indicates if the application is a service. Default: - false
         :param permissions: The configuration of events or requests that the application has access to.
         :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
         '''
@@ -141,6 +160,10 @@ class CfnApplication(
             description=description,
             name=name,
             namespace=namespace,
+            application_config=application_config,
+            iframe_config=iframe_config,
+            initialization_timeout=initialization_timeout,
+            is_service=is_service,
             permissions=permissions,
             tags=tags,
         )
@@ -264,6 +287,71 @@ class CfnApplication(
         jsii.set(self, "namespace", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="applicationConfig")
+    def application_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApplicationConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApplicationConfigProperty"]], jsii.get(self, "applicationConfig"))
+
+    @application_config.setter
+    def application_config(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApplicationConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f3caf601b0f569fd019f866e47cc5b0bb49379d4b882f320078ed605052b7ca7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="iframeConfig")
+    def iframe_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.IframeConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.IframeConfigProperty"]], jsii.get(self, "iframeConfig"))
+
+    @iframe_config.setter
+    def iframe_config(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.IframeConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__132e84c3b7d79e8adb5125bdb2456de645edaaaecf7c9ace8f172b799e55c46d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "iframeConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="initializationTimeout")
+    def initialization_timeout(self) -> typing.Optional[jsii.Number]:
+        '''The initialization timeout in milliseconds.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "initializationTimeout"))
+
+    @initialization_timeout.setter
+    def initialization_timeout(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3537c46fc02c6c8123f54755ecdc6281ac08636fb1bb28aa4bd15f35b256420b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "initializationTimeout", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="isService")
+    def is_service(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates if the application is a service.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "isService"))
+
+    @is_service.setter
+    def is_service(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__024ff94ee9a9dbd7a4348422377053fce4ef5b4393f67aa6561ab4f37e813332)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "isService", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="permissions")
     def permissions(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The configuration of events or requests that the application has access to.'''
@@ -288,6 +376,63 @@ class CfnApplication(
             type_hints = typing.get_type_hints(_typecheckingstub__bf726959aa4191428101440b70a3eb393290a7cdec2b995b07413ac05f6d0c28)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appintegrations.CfnApplication.ApplicationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"contact_handling": "contactHandling"},
+    )
+    class ApplicationConfigProperty:
+        def __init__(
+            self,
+            *,
+            contact_handling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ContactHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param contact_handling: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appintegrations-application-applicationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appintegrations as appintegrations
+                
+                application_config_property = appintegrations.CfnApplication.ApplicationConfigProperty(
+                    contact_handling=appintegrations.CfnApplication.ContactHandlingProperty(
+                        scope="scope"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7a200fd881a848470f5631cfc744a53d5588ec7b4c6cf9b16ad4a194b4b85b1d)
+                check_type(argname="argument contact_handling", value=contact_handling, expected_type=type_hints["contact_handling"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if contact_handling is not None:
+                self._values["contact_handling"] = contact_handling
+
+        @builtins.property
+        def contact_handling(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ContactHandlingProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appintegrations-application-applicationconfig.html#cfn-appintegrations-application-applicationconfig-contacthandling
+            '''
+            result = self._values.get("contact_handling")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ContactHandlingProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ApplicationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_appintegrations.CfnApplication.ApplicationSourceConfigProperty",
@@ -349,6 +494,56 @@ class CfnApplication(
 
         def __repr__(self) -> str:
             return "ApplicationSourceConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appintegrations.CfnApplication.ContactHandlingProperty",
+        jsii_struct_bases=[],
+        name_mapping={"scope": "scope"},
+    )
+    class ContactHandlingProperty:
+        def __init__(self, *, scope: builtins.str) -> None:
+            '''
+            :param scope: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appintegrations-application-contacthandling.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appintegrations as appintegrations
+                
+                contact_handling_property = appintegrations.CfnApplication.ContactHandlingProperty(
+                    scope="scope"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b220c6975b2fa737bd89eee1ab6f116e5ebe4d905d6233b53e35f5b0b40f162e)
+                check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "scope": scope,
+            }
+
+        @builtins.property
+        def scope(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appintegrations-application-contacthandling.html#cfn-appintegrations-application-contacthandling-scope
+            '''
+            result = self._values.get("scope")
+            assert result is not None, "Required property 'scope' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContactHandlingProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -428,6 +623,73 @@ class CfnApplication(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appintegrations.CfnApplication.IframeConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"allow": "allow", "sandbox": "sandbox"},
+    )
+    class IframeConfigProperty:
+        def __init__(
+            self,
+            *,
+            allow: typing.Optional[typing.Sequence[builtins.str]] = None,
+            sandbox: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param allow: 
+            :param sandbox: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appintegrations-application-iframeconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appintegrations as appintegrations
+                
+                iframe_config_property = appintegrations.CfnApplication.IframeConfigProperty(
+                    allow=["allow"],
+                    sandbox=["sandbox"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a4e1d29a683508d5dce338ead2d5d12168d88348304cab46c45234c9c8e6d558)
+                check_type(argname="argument allow", value=allow, expected_type=type_hints["allow"])
+                check_type(argname="argument sandbox", value=sandbox, expected_type=type_hints["sandbox"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if allow is not None:
+                self._values["allow"] = allow
+            if sandbox is not None:
+                self._values["sandbox"] = sandbox
+
+        @builtins.property
+        def allow(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appintegrations-application-iframeconfig.html#cfn-appintegrations-application-iframeconfig-allow
+            '''
+            result = self._values.get("allow")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def sandbox(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appintegrations-application-iframeconfig.html#cfn-appintegrations-application-iframeconfig-sandbox
+            '''
+            result = self._values.get("sandbox")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IframeConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_appintegrations.CfnApplicationProps",
@@ -437,6 +699,10 @@ class CfnApplication(
         "description": "description",
         "name": "name",
         "namespace": "namespace",
+        "application_config": "applicationConfig",
+        "iframe_config": "iframeConfig",
+        "initialization_timeout": "initializationTimeout",
+        "is_service": "isService",
         "permissions": "permissions",
         "tags": "tags",
     },
@@ -449,6 +715,10 @@ class CfnApplicationProps:
         description: builtins.str,
         name: builtins.str,
         namespace: builtins.str,
+        application_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        iframe_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IframeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        initialization_timeout: typing.Optional[jsii.Number] = None,
+        is_service: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -458,6 +728,10 @@ class CfnApplicationProps:
         :param description: The description of the application.
         :param name: The name of the application.
         :param namespace: The namespace of the application.
+        :param application_config: 
+        :param iframe_config: 
+        :param initialization_timeout: The initialization timeout in milliseconds. Required when IsService is true.
+        :param is_service: Indicates if the application is a service. Default: - false
         :param permissions: The configuration of events or requests that the application has access to.
         :param tags: The tags used to organize, track, or control access for this resource. For example, { "tags": {"key1":"value1", "key2":"value2"} }.
 
@@ -484,6 +758,17 @@ class CfnApplicationProps:
                 namespace="namespace",
             
                 # the properties below are optional
+                application_config=appintegrations.CfnApplication.ApplicationConfigProperty(
+                    contact_handling=appintegrations.CfnApplication.ContactHandlingProperty(
+                        scope="scope"
+                    )
+                ),
+                iframe_config=appintegrations.CfnApplication.IframeConfigProperty(
+                    allow=["allow"],
+                    sandbox=["sandbox"]
+                ),
+                initialization_timeout=123,
+                is_service=False,
                 permissions=["permissions"],
                 tags=[CfnTag(
                     key="key",
@@ -497,6 +782,10 @@ class CfnApplicationProps:
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+            check_type(argname="argument application_config", value=application_config, expected_type=type_hints["application_config"])
+            check_type(argname="argument iframe_config", value=iframe_config, expected_type=type_hints["iframe_config"])
+            check_type(argname="argument initialization_timeout", value=initialization_timeout, expected_type=type_hints["initialization_timeout"])
+            check_type(argname="argument is_service", value=is_service, expected_type=type_hints["is_service"])
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -505,6 +794,14 @@ class CfnApplicationProps:
             "name": name,
             "namespace": namespace,
         }
+        if application_config is not None:
+            self._values["application_config"] = application_config
+        if iframe_config is not None:
+            self._values["iframe_config"] = iframe_config
+        if initialization_timeout is not None:
+            self._values["initialization_timeout"] = initialization_timeout
+        if is_service is not None:
+            self._values["is_service"] = is_service
         if permissions is not None:
             self._values["permissions"] = permissions
         if tags is not None:
@@ -551,6 +848,50 @@ class CfnApplicationProps:
         result = self._values.get("namespace")
         assert result is not None, "Required property 'namespace' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def application_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.ApplicationConfigProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appintegrations-application.html#cfn-appintegrations-application-applicationconfig
+        '''
+        result = self._values.get("application_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.ApplicationConfigProperty]], result)
+
+    @builtins.property
+    def iframe_config(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.IframeConfigProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appintegrations-application.html#cfn-appintegrations-application-iframeconfig
+        '''
+        result = self._values.get("iframe_config")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.IframeConfigProperty]], result)
+
+    @builtins.property
+    def initialization_timeout(self) -> typing.Optional[jsii.Number]:
+        '''The initialization timeout in milliseconds.
+
+        Required when IsService is true.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appintegrations-application.html#cfn-appintegrations-application-initializationtimeout
+        '''
+        result = self._values.get("initialization_timeout")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def is_service(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates if the application is a service.
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appintegrations-application.html#cfn-appintegrations-application-isservice
+        '''
+        result = self._values.get("is_service")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
 
     @builtins.property
     def permissions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1609,6 +1950,10 @@ def _typecheckingstub__2c1bbb1e03e672595eb80bdb7dcb70bb6e71fccf39633133ee8a5b86b
     description: builtins.str,
     name: builtins.str,
     namespace: builtins.str,
+    application_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iframe_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IframeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initialization_timeout: typing.Optional[jsii.Number] = None,
+    is_service: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -1651,6 +1996,30 @@ def _typecheckingstub__c1133ff0df5163630ae65aa9c2ffa87e2e0db4c7e7d6a197c3a256bd1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f3caf601b0f569fd019f866e47cc5b0bb49379d4b882f320078ed605052b7ca7(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.ApplicationConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__132e84c3b7d79e8adb5125bdb2456de645edaaaecf7c9ace8f172b799e55c46d(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApplication.IframeConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3537c46fc02c6c8123f54755ecdc6281ac08636fb1bb28aa4bd15f35b256420b(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__024ff94ee9a9dbd7a4348422377053fce4ef5b4393f67aa6561ab4f37e813332(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1aafc4daa721930073f0dbbb7da26dc3c3c3be9c01fc9424bbc85944b766472d(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -1663,9 +2032,23 @@ def _typecheckingstub__bf726959aa4191428101440b70a3eb393290a7cdec2b995b07413ac05
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7a200fd881a848470f5631cfc744a53d5588ec7b4c6cf9b16ad4a194b4b85b1d(
+    *,
+    contact_handling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ContactHandlingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__599151bfc17f24879de38cf44b4a12c218d6b40ffaf8a24fc33beaa3691268b7(
     *,
     external_url_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ExternalUrlConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b220c6975b2fa737bd89eee1ab6f116e5ebe4d905d6233b53e35f5b0b40f162e(
+    *,
+    scope: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1678,12 +2061,24 @@ def _typecheckingstub__685c9ea63d4a7f3b4f8c0ba5680f0ec9ac1f12cdeb524e0b6a869beee
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a4e1d29a683508d5dce338ead2d5d12168d88348304cab46c45234c9c8e6d558(
+    *,
+    allow: typing.Optional[typing.Sequence[builtins.str]] = None,
+    sandbox: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7d2c7ce5dfd3af1b41c02f961c30070527579ac243574e11a9dfe26cc453fe9f(
     *,
     application_source_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationSourceConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     description: builtins.str,
     name: builtins.str,
     namespace: builtins.str,
+    application_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    iframe_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.IframeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    initialization_timeout: typing.Optional[jsii.Number] = None,
+    is_service: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

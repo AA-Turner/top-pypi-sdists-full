@@ -45,6 +45,7 @@ defaults:
     environment: {environment}  # For Rift-based Stream Feature Views
   feature_table:
     tecton_materialization_runtime: {current_version}
+    environment: {environment}  # For Rift-based Feature Tables
 
 # Below is an example of other defaults that can be set using the `defaults` keyword.
 # defaults:

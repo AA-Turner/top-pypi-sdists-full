@@ -19,9 +19,9 @@ class RunScriptPreviewJsonBody:
     """
     Attributes:
         args (RunScriptPreviewJsonBodyArgs): The arguments to pass to the script or flow
-        content (Union[Unset, str]):
-        path (Union[Unset, str]):
-        script_hash (Union[Unset, str]):
+        content (Union[Unset, str]): The code to run
+        path (Union[Unset, str]): The path to the script
+        script_hash (Union[Unset, str]): The hash of the script
         language (Union[Unset, RunScriptPreviewJsonBodyLanguage]):
         tag (Union[Unset, str]):
         kind (Union[Unset, RunScriptPreviewJsonBodyKind]):

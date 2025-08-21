@@ -239,14 +239,11 @@ def _get_custom_auth_middleware(
 
 @functools.lru_cache(maxsize=1)
 def _get_auth_instance(path: str | None = None) -> Auth | Literal["js"] | None:
-    if path is not None:
-        auth_instance = _load_auth_obj(path)
-    else:
-        auth_instance = None
+    auth_instance = _load_auth_obj(path) if path is not None else None
 
     if auth_instance == "js":
         return auth_instance
-
+    deps = None
     if auth_instance is not None and (
         deps := _get_dependencies(auth_instance._authenticate_handler)
     ):
@@ -524,6 +521,12 @@ class ProxyUser(BaseUser):
     def __getattr__(self, name: str) -> Any:
         """Proxy any other attributes to the underlying user object."""
         return getattr(self._user, name)
+
+    def __iter__(self):
+        return iter(self._user)
+
+    def __len__(self):
+        return len(self._user)
 
     def __str__(self) -> str:
         return f"{self._user}"

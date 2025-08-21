@@ -42,10 +42,10 @@ fn comment_body(token: &SyntaxToken) -> Option<(&str, TextRange)> {
 }
 
 // TODO: maybe in a future version we can rename this to squawk-ignore-line
-const IGNORE_LINE_TEXT: &str = "squawk-ignore";
-const IGNORE_FILE_TEXT: &str = "squawk-ignore-file";
+pub const IGNORE_LINE_TEXT: &str = "squawk-ignore";
+pub const IGNORE_FILE_TEXT: &str = "squawk-ignore-file";
 
-fn ignore_rule_names(token: &SyntaxToken) -> Option<(&str, TextRange, IgnoreKind)> {
+pub fn ignore_rule_info(token: &SyntaxToken) -> Option<(&str, TextRange, IgnoreKind)> {
     if let Some((comment_body, range)) = comment_body(token) {
         let without_start = comment_body.trim_start();
         let trim_start_size = comment_body.len() - without_start.len();
@@ -74,7 +74,7 @@ pub(crate) fn find_ignores(ctx: &mut Linter, file: &SyntaxNode) {
             rowan::WalkEvent::Enter(NodeOrToken::Token(token))
                 if token.kind() == SyntaxKind::COMMENT =>
             {
-                if let Some((rule_names, range, kind)) = ignore_rule_names(&token) {
+                if let Some((rule_names, range, kind)) = ignore_rule_info(&token) {
                     let mut set = HashSet::new();
                     let mut offset = 0usize;
 
@@ -98,11 +98,10 @@ pub(crate) fn find_ignores(ctx: &mut Linter, file: &SyntaxNode) {
                             let end = start + TextSize::new(trimmed.len() as u32);
                             let range = TextRange::new(start, end);
 
-                            ctx.report(Violation::new(
+                            ctx.report(Violation::for_range(
                                 Rule::UnusedIgnore,
                                 format!("unknown name {trimmed}"),
                                 range,
-                                None,
                             ));
                         }
 
@@ -142,6 +141,37 @@ alter table t drop column c cascade;
         assert_eq!(linter.ignores.len(), 1);
         let ignore = &linter.ignores[0];
         assert!(ignore.violation_names.contains(&Rule::BanDropColumn));
+    }
+
+    #[test]
+    fn multiple_sql_comments_with_ignore_is_ok() {
+        let sql = "
+-- fooo bar
+-- buzz
+-- squawk-ignore prefer-robust-stmts
+create table x();
+
+select 1;
+";
+
+        let parse = squawk_syntax::SourceFile::parse(sql);
+        let mut linter = Linter::with_all_rules();
+        find_ignores(&mut linter, &parse.syntax_node());
+
+        assert_eq!(linter.ignores.len(), 1);
+        let ignore = &linter.ignores[0];
+        assert!(
+            ignore.violation_names.contains(&Rule::PreferRobustStmts),
+            "Make sure we picked up the ignore"
+        );
+
+        let errors = linter.lint(&parse, sql);
+
+        assert_eq!(
+            errors,
+            vec![],
+            "We shouldn't have any errors because we have the ignore setup"
+        );
     }
 
     #[test]
@@ -217,7 +247,7 @@ create table users (
 "#;
 
         let parse = squawk_syntax::SourceFile::parse(sql);
-        let errors = linter.lint(parse, sql);
+        let errors = linter.lint(&parse, sql);
         assert_eq!(errors.len(), 0);
     }
 
@@ -227,7 +257,7 @@ create table users (
         let sql = r#"alter table t add column c char;"#;
 
         let parse = squawk_syntax::SourceFile::parse(sql);
-        let errors = linter.lint(parse, sql);
+        let errors = linter.lint(&parse, sql);
         assert_eq!(errors.len(), 1);
     }
 
@@ -244,7 +274,7 @@ create table test_table (
         "#;
 
         let parse = squawk_syntax::SourceFile::parse(sql);
-        let errors = linter.lint(parse, sql);
+        let errors = linter.lint(&parse, sql);
         assert_eq!(errors.len(), 0);
     }
 
@@ -282,7 +312,7 @@ alter table t drop column c cascade;
         assert!(ignore.violation_names.is_empty());
 
         let errors: Vec<_> = linter
-            .lint(parse, sql)
+            .lint(&parse, sql)
             .into_iter()
             .map(|x| x.code)
             .collect();
@@ -353,7 +383,7 @@ alter table t2 drop column c2 cascade;
 
         let parse = squawk_syntax::SourceFile::parse(sql);
         let errors: Vec<_> = linter
-            .lint(parse, sql)
+            .lint(&parse, sql)
             .into_iter()
             .map(|x| x.code)
             .collect();
@@ -377,7 +407,7 @@ alter table t2 drop column c2 cascade;
 
         let parse = squawk_syntax::SourceFile::parse(sql);
         let errors: Vec<_> = linter
-            .lint(parse, sql)
+            .lint(&parse, sql)
             .into_iter()
             .map(|x| x.code)
             .collect();

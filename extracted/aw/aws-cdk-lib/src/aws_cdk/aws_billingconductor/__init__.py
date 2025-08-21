@@ -1271,11 +1271,11 @@ class CfnCustomLineItem(
         ) -> None:
             '''A representation of the line item filter for your custom line item.
 
-            You can use line item filters to include or exclude specific resource values from the billing group's total cost. For example, if you create a custom line item and you want to filter out a value, such as Savings Plan discounts, you can update ``LineItemFilter`` to exclude it.
+            You can use line item filters to include or exclude specific resource values from the billing group's total cost. For example, if you create a custom line item and you want to filter out a value, such as Savings Plans discounts, you can update ``LineItemFilter`` to exclude it.
 
             :param attribute: The attribute of the line item filter. This specifies what attribute that you can filter on.
             :param match_option: The match criteria of the line item filter. This parameter specifies whether not to include the resource value from the billing group total cost.
-            :param values: The values of the line item filter. This specifies the values to filter on. Currently, you can only exclude Savings Plan discounts.
+            :param values: The values of the line item filter. This specifies the values to filter on. Currently, you can only exclude Savings Plans discounts.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-billingconductor-customlineitem-lineitemfilter.html
             :exampleMetadata: fixture=_generated
@@ -1331,7 +1331,7 @@ class CfnCustomLineItem(
         def values(self) -> typing.List[builtins.str]:
             '''The values of the line item filter.
 
-            This specifies the values to filter on. Currently, you can only exclude Savings Plan discounts.
+            This specifies the values to filter on. Currently, you can only exclude Savings Plans discounts.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-billingconductor-customlineitem-lineitemfilter.html#cfn-billingconductor-customlineitem-lineitemfilter-values
             '''

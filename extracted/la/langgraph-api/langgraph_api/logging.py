@@ -16,8 +16,16 @@ LOG_JSON = log_env("LOG_JSON", cast=bool, default=False)
 LOG_COLOR = log_env("LOG_COLOR", cast=bool, default=True)
 LOG_LEVEL = log_env("LOG_LEVEL", cast=str, default="INFO")
 
+logger = logging.getLogger()
 logging.getLogger().setLevel(LOG_LEVEL.upper())
 logging.getLogger("psycopg").setLevel(logging.WARNING)
+if hasattr(logger, "isEnabledFor"):
+    LOG_LEVEL_DEBUG = logger.isEnabledFor(logging.DEBUG)
+elif hasattr(logger, "is_enabled_for"):
+    LOG_LEVEL_DEBUG = logger.is_enabled_for(logging.DEBUG)
+else:
+    LOG_LEVEL_DEBUG = False
+del logger
 
 worker_config = contextvars.ContextVar[dict[str, typing.Any] | None](
     "worker_config", default=None
@@ -86,6 +94,7 @@ class AddLoggingContext:
     ) -> EventDict:
         if (ctx := worker_config.get()) is not None:
             event_dict.update(ctx)
+        lgnode = None
         if (
             self.cvar is not None
             and (conf := self.cvar.get())

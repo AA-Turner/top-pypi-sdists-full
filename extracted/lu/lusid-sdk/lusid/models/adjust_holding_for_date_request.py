@@ -21,11 +21,12 @@ import json
 from typing import Any, Dict, List, Optional
 from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist, constr 
 from lusid.models.perpetual_property import PerpetualProperty
+from lusid.models.resource_id import ResourceId
 from lusid.models.target_tax_lot_request import TargetTaxLotRequest
 
 class AdjustHoldingForDateRequest(BaseModel):
     """
-    This request specifies target holdings. i.e. holding data that the  system should match. When processed by the movement  engine, it will create 'true-up' adjustments on the fly.  # noqa: E501
+    This request specifies target holdings. i.e. holding data that the system should match. When processed by the movement engine, it will create 'true-up' adjustments on the fly.  # noqa: E501
     """
     effective_at:  StrictStr = Field(...,alias="effectiveAt", description="The Effective date that the target holding will be adjusted at.") 
     instrument_identifiers: Dict[str, StrictStr] = Field(..., alias="instrumentIdentifiers", description="A set of instrument identifiers that can resolve the holding adjustment to a unique instrument.")
@@ -33,7 +34,8 @@ class AdjustHoldingForDateRequest(BaseModel):
     properties: Optional[Dict[str, PerpetualProperty]] = Field(None, description="Set of unique holding properties and associated values to store with the target holding. Each property must be from the 'Holding' domain.")
     tax_lots: conlist(TargetTaxLotRequest) = Field(..., alias="taxLots", description="The tax-lots that together make up the target holding.")
     currency:  Optional[StrictStr] = Field(None,alias="currency", description="The Holding currency. This needs to be equal with the one on the TaxLot -> cost if one is specified") 
-    __properties = ["effectiveAt", "instrumentIdentifiers", "subHoldingKeys", "properties", "taxLots", "currency"]
+    custodian_account_id: Optional[ResourceId] = Field(None, alias="custodianAccountId")
+    __properties = ["effectiveAt", "instrumentIdentifiers", "subHoldingKeys", "properties", "taxLots", "currency", "custodianAccountId"]
 
     class Config:
         """Pydantic configuration"""
@@ -88,6 +90,9 @@ class AdjustHoldingForDateRequest(BaseModel):
                 if _item:
                     _items.append(_item.to_dict())
             _dict['taxLots'] = _items
+        # override the default output from pydantic by calling `to_dict()` of custodian_account_id
+        if self.custodian_account_id:
+            _dict['custodianAccountId'] = self.custodian_account_id.to_dict()
         # set to None if sub_holding_keys (nullable) is None
         # and __fields_set__ contains the field
         if self.sub_holding_keys is None and "sub_holding_keys" in self.__fields_set__:
@@ -130,6 +135,7 @@ class AdjustHoldingForDateRequest(BaseModel):
             if obj.get("properties") is not None
             else None,
             "tax_lots": [TargetTaxLotRequest.from_dict(_item) for _item in obj.get("taxLots")] if obj.get("taxLots") is not None else None,
-            "currency": obj.get("currency")
+            "currency": obj.get("currency"),
+            "custodian_account_id": ResourceId.from_dict(obj.get("custodianAccountId")) if obj.get("custodianAccountId") is not None else None
         })
         return _obj

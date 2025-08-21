@@ -1,7 +1,7 @@
 r'''
 # `data_google_kms_key_handles`
 
-Refer to the Terraform Registry for docs: [`data_google_kms_key_handles`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles).
+Refer to the Terraform Registry for docs: [`data_google_kms_key_handles`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleKmsKeyHandles(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleKmsKeyHandles.DataGoogleKmsKeyHandles",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles google_kms_key_handles}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles google_kms_key_handles}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleKmsKeyHandles(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles google_kms_key_handles} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles google_kms_key_handles} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: The canonical id for the location. For example: "us-east1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles#location DataGoogleKmsKeyHandles#location}
-        :param resource_type_selector: The resource_type_selector argument is used to add a filter query parameter that limits which key handles are retrieved by the data source: ?filter=resource_type_selector="{{resource_type_selector}}". Example values: * resource_type_selector="{SERVICE}.googleapis.com/{TYPE}". `See the documentation about using filters <https://cloud.google.com/kms/docs/reference/rest/v1/projects.locations.keyHandles/list>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles#resource_type_selector DataGoogleKmsKeyHandles#resource_type_selector}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles#id DataGoogleKmsKeyHandles#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Project ID of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles#project DataGoogleKmsKeyHandles#project}
+        :param location: The canonical id for the location. For example: "us-east1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles#location DataGoogleKmsKeyHandles#location}
+        :param resource_type_selector: The resource_type_selector argument is used to add a filter query parameter that limits which key handles are retrieved by the data source: ?filter=resource_type_selector="{{resource_type_selector}}". Example values: * resource_type_selector="{SERVICE}.googleapis.com/{TYPE}". `See the documentation about using filters <https://cloud.google.com/kms/docs/reference/rest/v1/projects.locations.keyHandles/list>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles#resource_type_selector DataGoogleKmsKeyHandles#resource_type_selector}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles#id DataGoogleKmsKeyHandles#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Project ID of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles#project DataGoogleKmsKeyHandles#project}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleKmsKeyHandles(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleKmsKeyHandles to import.
-        :param import_from_id: The id of the existing DataGoogleKmsKeyHandles that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleKmsKeyHandles that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleKmsKeyHandles to import is found.
         '''
         if __debug__:
@@ -259,10 +259,10 @@ class DataGoogleKmsKeyHandlesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: The canonical id for the location. For example: "us-east1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles#location DataGoogleKmsKeyHandles#location}
-        :param resource_type_selector: The resource_type_selector argument is used to add a filter query parameter that limits which key handles are retrieved by the data source: ?filter=resource_type_selector="{{resource_type_selector}}". Example values: * resource_type_selector="{SERVICE}.googleapis.com/{TYPE}". `See the documentation about using filters <https://cloud.google.com/kms/docs/reference/rest/v1/projects.locations.keyHandles/list>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles#resource_type_selector DataGoogleKmsKeyHandles#resource_type_selector}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles#id DataGoogleKmsKeyHandles#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Project ID of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles#project DataGoogleKmsKeyHandles#project}
+        :param location: The canonical id for the location. For example: "us-east1". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles#location DataGoogleKmsKeyHandles#location}
+        :param resource_type_selector: The resource_type_selector argument is used to add a filter query parameter that limits which key handles are retrieved by the data source: ?filter=resource_type_selector="{{resource_type_selector}}". Example values: * resource_type_selector="{SERVICE}.googleapis.com/{TYPE}". `See the documentation about using filters <https://cloud.google.com/kms/docs/reference/rest/v1/projects.locations.keyHandles/list>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles#resource_type_selector DataGoogleKmsKeyHandles#resource_type_selector}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles#id DataGoogleKmsKeyHandles#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Project ID of the project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles#project DataGoogleKmsKeyHandles#project}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -370,7 +370,7 @@ class DataGoogleKmsKeyHandlesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The canonical id for the location. For example: "us-east1".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles#location DataGoogleKmsKeyHandles#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles#location DataGoogleKmsKeyHandles#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -380,7 +380,7 @@ class DataGoogleKmsKeyHandlesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def resource_type_selector(self) -> builtins.str:
         '''The resource_type_selector argument is used to add a filter query parameter that limits which key handles are retrieved by the data source: ?filter=resource_type_selector="{{resource_type_selector}}". Example values: * resource_type_selector="{SERVICE}.googleapis.com/{TYPE}". `See the documentation about using filters <https://cloud.google.com/kms/docs/reference/rest/v1/projects.locations.keyHandles/list>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles#resource_type_selector DataGoogleKmsKeyHandles#resource_type_selector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles#resource_type_selector DataGoogleKmsKeyHandles#resource_type_selector}
         '''
         result = self._values.get("resource_type_selector")
         assert result is not None, "Required property 'resource_type_selector' is missing"
@@ -388,7 +388,7 @@ class DataGoogleKmsKeyHandlesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles#id DataGoogleKmsKeyHandles#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles#id DataGoogleKmsKeyHandles#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -400,7 +400,7 @@ class DataGoogleKmsKeyHandlesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def project(self) -> typing.Optional[builtins.str]:
         '''Project ID of the project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/data-sources/kms_key_handles#project DataGoogleKmsKeyHandles#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/data-sources/kms_key_handles#project DataGoogleKmsKeyHandles#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)

@@ -67,6 +67,7 @@ class AccountNotificationSettingsModelType(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `ALATION`: Alation
+    * `DATADOG`: Datadog
     * `EMAIL`: Email
     * `GOOGLE_CHAT`: Google Chat
     * `INCIDENTIO`: Incidentio
@@ -85,6 +86,7 @@ class AccountNotificationSettingsModelType(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "ALATION",
+        "DATADOG",
         "EMAIL",
         "GOOGLE_CHAT",
         "INCIDENTIO",
@@ -5937,7 +5939,7 @@ class AudienceNotificationSettingInput(sgqlc.types.Input):
     """Specify the notification integration to use. Supported options
     include: email, opsgenie, pagerduty, slack, slack_v2, google_chat,
     webhook, msteams, msteams_v2, alation, servicenow, jira, webex,
-    incidentio
+    incidentio, datadog
     """
 
     extra = sgqlc.types.Field("NotificationExtra", graphql_name="extra")
@@ -23860,6 +23862,12 @@ class MonitorLabelObject(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "exclude_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="excludeMcons", default=None
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -23930,6 +23938,8 @@ class MonitorLabelObject(sgqlc.types.Type):
       monitors will be included in result (default: `false`)
     * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
       or tables (MCON)
+    * `exclude_mcons` (`[String]`): Exclude monitors associated with
+      these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
@@ -30051,7 +30061,7 @@ class Mutation(sgqlc.types.Type):
     * `notification_type` (`String!`): Specify the notification
       integration to use. Supported options include: email, opsgenie,
       pagerduty, slack, slack_v2, webhook, msteams, msteams_v2,
-      alation, servicenow, jira, webex, incidentio
+      alation, servicenow, jira, webex, incidentio, datadog
     * `recipient` (`String`): Deprecated
     * `recipients` (`[String]`): Destination to send notifications to
     * `rules` (`NotificationRoutingRules`): Routing rules
@@ -30222,7 +30232,8 @@ class Mutation(sgqlc.types.Type):
     * `notification_type` (`String!`): Specify the notification
       integration to use. Supported options include: email, opsgenie,
       pagerduty, slack, slack_v2, google_chat, webhook, msteams,
-      msteams_v2, alation, servicenow, jira, webex, incidentio
+      msteams_v2, alation, servicenow, jira, webex, incidentio,
+      datadog
     * `recipients` (`[String]!`): Destination to send notifications to
     * `recipients_display_names` (`[String]`): Display names for the
       recipients. If this input parameter is provided, it should
@@ -42513,6 +42524,7 @@ class Query(sgqlc.types.Type):
         "get_table_monitor_validation_statuses",
         "get_table_monitor_configuration",
         "get_default_monitor_configuration",
+        "test_datadog_credentials",
         "get_datadog_integrations",
         "get_billing_credit_grants",
         "get_contract_commits",
@@ -43516,6 +43528,41 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `mcon` (`String!`)None
+    """
+
+    test_datadog_credentials = sgqlc.types.Field(
+        "TestDatadogCredentialsOutput",
+        graphql_name="testDatadogCredentials",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "site",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="site", default=None
+                    ),
+                ),
+                (
+                    "api_key",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="apiKey", default=None
+                    ),
+                ),
+                (
+                    "application_key",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="applicationKey", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Test the Datadog connection credentials
+
+    Arguments:
+
+    * `site` (`String!`): Datadog site (e.g. datadoghq.com)
+    * `api_key` (`String!`): Datadog API key
+    * `application_key` (`String!`): Datadog Application key
     """
 
     get_datadog_integrations = sgqlc.types.Field(
@@ -48899,6 +48946,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "exclude_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="excludeMcons", default=None
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -48969,6 +49022,8 @@ class Query(sgqlc.types.Type):
       monitors will be included in result (default: `false`)
     * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
       or tables (MCON)
+    * `exclude_mcons` (`[String]`): Exclude monitors associated with
+      these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
@@ -49112,6 +49167,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "exclude_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="excludeMcons", default=None
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -49182,6 +49243,8 @@ class Query(sgqlc.types.Type):
       monitors will be included in result (default: `false`)
     * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
       or tables (MCON)
+    * `exclude_mcons` (`[String]`): Exclude monitors associated with
+      these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
@@ -49325,6 +49388,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "exclude_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="excludeMcons", default=None
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -49395,6 +49464,8 @@ class Query(sgqlc.types.Type):
       monitors will be included in result (default: `false`)
     * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
       or tables (MCON)
+    * `exclude_mcons` (`[String]`): Exclude monitors associated with
+      these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
@@ -49538,6 +49609,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "exclude_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="excludeMcons", default=None
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -49608,6 +49685,8 @@ class Query(sgqlc.types.Type):
       monitors will be included in result (default: `false`)
     * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
       or tables (MCON)
+    * `exclude_mcons` (`[String]`): Exclude monitors associated with
+      these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
@@ -49751,6 +49830,12 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "exclude_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="excludeMcons", default=None
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -49821,6 +49906,8 @@ class Query(sgqlc.types.Type):
       monitors will be included in result (default: `false`)
     * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
       or tables (MCON)
+    * `exclude_mcons` (`[String]`): Exclude monitors associated with
+      these warehouses, projects, datasets, or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
@@ -53465,6 +53552,10 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.list_of(String), graphql_name="biTypes", default=None
                     ),
                 ),
+                (
+                    "order_by_table_component",
+                    sgqlc.types.Arg(Boolean, graphql_name="orderByTableComponent", default=None),
+                ),
             )
         ),
     )
@@ -53508,6 +53599,8 @@ class Query(sgqlc.types.Type):
     * `warehouse_types` (`[String]`): Filter by warehouse types
     * `etl_types` (`[String]`): Filter by ETL types
     * `bi_types` (`[String]`): Filter by BI types
+    * `order_by_table_component` (`Boolean`): Order results by
+      project, dataset, everything else.
     """
 
     search_tables_for_dynamic_schedule = sgqlc.types.Field(
@@ -57023,6 +57116,10 @@ class Query(sgqlc.types.Type):
                 ),
                 ("search", sgqlc.types.Arg(String, graphql_name="search", default=None)),
                 (
+                    "search_database_schema",
+                    sgqlc.types.Arg(String, graphql_name="searchDatabaseSchema", default=None),
+                ),
+                (
                     "search_full_table_id",
                     sgqlc.types.Arg(String, graphql_name="searchFullTableId", default=None),
                 ),
@@ -57048,6 +57145,7 @@ class Query(sgqlc.types.Type):
     * `filter_by_schema_name` (`String`)None
     * `domain_restrictions` (`[UUID!]`)None
     * `search` (`String`)None
+    * `search_database_schema` (`String`)None
     * `search_full_table_id` (`String`)None
     * `is_monitored` (`Boolean`): Filter by monitored status if
       provided
@@ -62350,6 +62448,14 @@ class TestDatabricksSqlWarehouseCredentialsV2(sgqlc.types.Type):
         TestCredentialsV2Response, graphql_name="validationResult"
     )
     """Result of the validation."""
+
+
+class TestDatadogCredentialsOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("valid_credentials",)
+    valid_credentials = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="validCredentials"
+    )
 
 
 class TestDbtCloudCredentials(sgqlc.types.Type):

@@ -33,6 +33,7 @@ use crate::alt::attr::DescriptorBase;
 use crate::alt::attr::NoAccessReason;
 use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_metadata::EnumMetadata;
 use crate::binding::binding::Binding;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::binding::binding::ExprOrBinding;
@@ -1168,7 +1169,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         && dm.field_specifiers.contains(&func_kind)
                     {
                         let flags =
-                            self.dataclass_field_keywords(&func_ty, arguments, &ignore_errors);
+                            self.dataclass_field_keywords(&func_ty, arguments, dm, &ignore_errors);
                         ClassFieldInitialization::ClassBody(Some(flags))
                     } else {
                         ClassFieldInitialization::ClassBody(None)
@@ -1705,9 +1706,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .map(|member| self.as_instance_attribute(&member.value, &Instance::of_class(cls)))
     }
 
-    pub fn get_bounded_type_var_attribute(
+    pub fn get_bounded_quantified_attribute(
         &self,
-        type_var: Quantified,
+        quantified: Quantified,
         upper_bound: &ClassType,
         name: &Name,
     ) -> Option<Attribute> {
@@ -1715,7 +1716,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .map(|member| {
                 self.as_instance_attribute(
                     &member.value,
-                    &Instance::of_type_var(type_var, upper_bound),
+                    &Instance::of_type_var(quantified, upper_bound),
                 )
             })
     }
@@ -1849,6 +1850,44 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Arc::unwrap_or_clone(attr.value)
                 .as_raw_special_method_type(&Instance::of_class(metaclass))
                 .and_then(|ty| make_bound_method(Type::type_form(cls.clone().to_type()), ty).ok())
+        }
+    }
+
+    pub fn resolve_named_tuple_element(&self, cls: ClassType, name: &Name) -> Option<Type> {
+        let field = self.get_class_member(cls.class_object(), name)?.value;
+        match field.instantiate_for(&Instance::of_class(&cls)).0 {
+            ClassFieldInner::Simple {
+                ty,
+                read_only_reason: Some(_),
+                descriptor_getter: None,
+                descriptor_setter: None,
+                is_function_without_return_annotation: false,
+                ..
+            } => Some(ty),
+            _ => None,
+        }
+    }
+
+    /// Look up the `_value_` attribute of an enum class. This field has to be a plain instance
+    /// attribute annotated in the class body; it is used to validate enum member values, which are
+    /// supposed to all share this type.
+    ///
+    /// TODO(stroxler): We don't currently enforce in this function that it is
+    /// an instance attribute annotated in the class body. Should we? It is unclear; this helper
+    /// is only used to validate enum members, not to produce errors on invalid `_value_`
+    fn type_of_enum_value(&self, enum_: &EnumMetadata) -> Option<Type> {
+        let field = self
+            .get_class_member(enum_.cls.class_object(), &Name::new_static("_value_"))?
+            .value;
+        match &field.0 {
+            ClassFieldInner::Simple {
+                ty,
+                descriptor_getter: None,
+                descriptor_setter: None,
+                is_function_without_return_annotation: false,
+                ..
+            } => Some(ty.clone()),
+            _ => None,
         }
     }
 }

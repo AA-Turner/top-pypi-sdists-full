@@ -1764,7 +1764,7 @@ class IssuesApi:
         opening_reason: Optional[Any] = None,
         issue_ids: Optional[List[StrictStr]] = None,
         file_path: Optional[StrictStr] = None,
-        vulnerable_file: Annotated[Optional[StrictStr], Field(description="get vulnerabilities that originated from this file (both secretes and depndencies)")] = None,
+        vulnerable_file: Annotated[Optional[StrictStr], Field(description="get vulnerabilities that originated from this file (both secrets and depndencies)")] = None,
         issue_assignment: Optional[Any] = None,
         last_update_time_from_date: Optional[StrictStr] = None,
         last_update_time_to_date: Optional[StrictStr] = None,
@@ -1847,7 +1847,7 @@ class IssuesApi:
         :type issue_ids: List[str]
         :param file_path:
         :type file_path: str
-        :param vulnerable_file: get vulnerabilities that originated from this file (both secretes and depndencies)
+        :param vulnerable_file: get vulnerabilities that originated from this file (both secrets and depndencies)
         :type vulnerable_file: str
         :param issue_assignment:
         :type issue_assignment: IssueAssignment
@@ -1864,7 +1864,7 @@ class IssuesApi:
         :param workspace_ids:
         :type workspace_ids: List[str]
         :param ai_validation_result:
-        :type ai_validation_result: AiValidationResult
+        :type ai_validation_result: AiSecretValidationResult
         :param validity_status:
         :type validity_status: SecretIssueValidityStatus
         :param search:
@@ -1995,7 +1995,7 @@ class IssuesApi:
         opening_reason: Optional[Any] = None,
         issue_ids: Optional[List[StrictStr]] = None,
         file_path: Optional[StrictStr] = None,
-        vulnerable_file: Annotated[Optional[StrictStr], Field(description="get vulnerabilities that originated from this file (both secretes and depndencies)")] = None,
+        vulnerable_file: Annotated[Optional[StrictStr], Field(description="get vulnerabilities that originated from this file (both secrets and depndencies)")] = None,
         issue_assignment: Optional[Any] = None,
         last_update_time_from_date: Optional[StrictStr] = None,
         last_update_time_to_date: Optional[StrictStr] = None,
@@ -2078,7 +2078,7 @@ class IssuesApi:
         :type issue_ids: List[str]
         :param file_path:
         :type file_path: str
-        :param vulnerable_file: get vulnerabilities that originated from this file (both secretes and depndencies)
+        :param vulnerable_file: get vulnerabilities that originated from this file (both secrets and depndencies)
         :type vulnerable_file: str
         :param issue_assignment:
         :type issue_assignment: IssueAssignment
@@ -2095,7 +2095,7 @@ class IssuesApi:
         :param workspace_ids:
         :type workspace_ids: List[str]
         :param ai_validation_result:
-        :type ai_validation_result: AiValidationResult
+        :type ai_validation_result: AiSecretValidationResult
         :param validity_status:
         :type validity_status: SecretIssueValidityStatus
         :param search:
@@ -2226,7 +2226,7 @@ class IssuesApi:
         opening_reason: Optional[Any] = None,
         issue_ids: Optional[List[StrictStr]] = None,
         file_path: Optional[StrictStr] = None,
-        vulnerable_file: Annotated[Optional[StrictStr], Field(description="get vulnerabilities that originated from this file (both secretes and depndencies)")] = None,
+        vulnerable_file: Annotated[Optional[StrictStr], Field(description="get vulnerabilities that originated from this file (both secrets and depndencies)")] = None,
         issue_assignment: Optional[Any] = None,
         last_update_time_from_date: Optional[StrictStr] = None,
         last_update_time_to_date: Optional[StrictStr] = None,
@@ -2309,7 +2309,7 @@ class IssuesApi:
         :type issue_ids: List[str]
         :param file_path:
         :type file_path: str
-        :param vulnerable_file: get vulnerabilities that originated from this file (both secretes and depndencies)
+        :param vulnerable_file: get vulnerabilities that originated from this file (both secrets and depndencies)
         :type vulnerable_file: str
         :param issue_assignment:
         :type issue_assignment: IssueAssignment
@@ -2326,7 +2326,7 @@ class IssuesApi:
         :param workspace_ids:
         :type workspace_ids: List[str]
         :param ai_validation_result:
-        :type ai_validation_result: AiValidationResult
+        :type ai_validation_result: AiSecretValidationResult
         :param validity_status:
         :type validity_status: SecretIssueValidityStatus
         :param search:

@@ -17,7 +17,6 @@ test = ["pytest", "pytest-asyncio"]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
-include = ["stubs/kcl.pyi"]
 manifest-path = "kcl-python-bindings/Cargo.toml"
 
 [tool.setuptools]

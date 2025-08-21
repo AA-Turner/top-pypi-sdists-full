@@ -20,7 +20,6 @@ import dataclasses
 import functools
 from typing import Any, Union
 
-from jax._src import config
 from jax._src.util import use_cpp_class, cache, use_cpp_method
 from jax._src.lib import xla_client as xc
 from jax._src.lib.mlir.dialects import sdy
@@ -198,10 +197,8 @@ class NamedSharding(JSharding.Sharding):
     if isinstance(self.mesh, mesh_lib.AbstractMesh):
       raise ValueError('is_fully_addressable is not implemented for '
                        '`jax.sharding.AbstractMesh`.')
-    if config.enable_empty_arrays.value:
-      # return False if addressable_device_list is empty.
-      return self._internal_device_list.is_fully_addressable  # type: ignore
-    return not self.mesh.is_multi_process
+    # return False if addressable_device_list is empty.
+    return self._internal_device_list.is_fully_addressable  # type: ignore
 
   @property
   def _is_concrete(self) -> bool:
@@ -518,12 +515,12 @@ def _check_mesh_resource_axis(mesh, pspec):
             f"Resource axis: {r} of {pspec} "
             f"is not found in mesh: {tuple(mesh.shape.keys())}.")
   check_pspec_mix_axis_type(mesh, pspec)
-  if (AxisType.Auto not in mesh._axis_types_dict and
+  if (AxisType.Auto not in mesh.axis_types and
       PartitionSpec.UNCONSTRAINED in pspec):
     raise ValueError(
         f'{pspec} cannot contain'
         ' `P.UNCONSTRAINED` when no mesh axis_types are `Auto`. Got mesh'
-        f' axis_types: {mesh._axis_types_dict}')
+        f' axis_types: {mesh.axis_types}')
 
 def _check_mesh_unreduced(mesh, pspec):
   for u in pspec.unreduced:

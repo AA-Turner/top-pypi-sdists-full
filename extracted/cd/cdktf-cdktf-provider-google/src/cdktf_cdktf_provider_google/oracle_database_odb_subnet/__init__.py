@@ -1,7 +1,7 @@
 r'''
 # `google_oracle_database_odb_subnet`
 
-Refer to the Terraform Registry for docs: [`google_oracle_database_odb_subnet`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet).
+Refer to the Terraform Registry for docs: [`google_oracle_database_odb_subnet`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OracleDatabaseOdbSubnet(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.oracleDatabaseOdbSubnet.OracleDatabaseOdbSubnet",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet google_oracle_database_odb_subnet}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet google_oracle_database_odb_subnet}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class OracleDatabaseOdbSubnet(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet google_oracle_database_odb_subnet} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet google_oracle_database_odb_subnet} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cidr_range: The CIDR range of the subnet. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#cidr_range OracleDatabaseOdbSubnet#cidr_range}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#location OracleDatabaseOdbSubnet#location}
-        :param odbnetwork: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#odbnetwork OracleDatabaseOdbSubnet#odbnetwork}
-        :param odb_subnet_id: The ID of the OdbSubnet to create. This value is restricted to (^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$) and must be a maximum of 63 characters in length. The value must start with a letter and end with a letter or a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#odb_subnet_id OracleDatabaseOdbSubnet#odb_subnet_id}
-        :param purpose: Purpose of the subnet. Possible values: CLIENT_SUBNET BACKUP_SUBNET. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#purpose OracleDatabaseOdbSubnet#purpose}
-        :param deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or terraform apply that would delete the instance will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#deletion_protection OracleDatabaseOdbSubnet#deletion_protection}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#id OracleDatabaseOdbSubnet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels or tags associated with the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#labels OracleDatabaseOdbSubnet#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#project OracleDatabaseOdbSubnet#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#timeouts OracleDatabaseOdbSubnet#timeouts}
+        :param cidr_range: The CIDR range of the subnet. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#cidr_range OracleDatabaseOdbSubnet#cidr_range}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#location OracleDatabaseOdbSubnet#location}
+        :param odbnetwork: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#odbnetwork OracleDatabaseOdbSubnet#odbnetwork}
+        :param odb_subnet_id: The ID of the OdbSubnet to create. This value is restricted to (^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$) and must be a maximum of 63 characters in length. The value must start with a letter and end with a letter or a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#odb_subnet_id OracleDatabaseOdbSubnet#odb_subnet_id}
+        :param purpose: Purpose of the subnet. Possible values: CLIENT_SUBNET BACKUP_SUBNET. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#purpose OracleDatabaseOdbSubnet#purpose}
+        :param deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or terraform apply that would delete the instance will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#deletion_protection OracleDatabaseOdbSubnet#deletion_protection}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#id OracleDatabaseOdbSubnet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels or tags associated with the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#labels OracleDatabaseOdbSubnet#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#project OracleDatabaseOdbSubnet#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#timeouts OracleDatabaseOdbSubnet#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class OracleDatabaseOdbSubnet(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OracleDatabaseOdbSubnet to import.
-        :param import_from_id: The id of the existing OracleDatabaseOdbSubnet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OracleDatabaseOdbSubnet that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OracleDatabaseOdbSubnet to import is found.
         '''
         if __debug__:
@@ -150,9 +150,9 @@ class OracleDatabaseOdbSubnet(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#create OracleDatabaseOdbSubnet#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#delete OracleDatabaseOdbSubnet#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#update OracleDatabaseOdbSubnet#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#create OracleDatabaseOdbSubnet#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#delete OracleDatabaseOdbSubnet#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#update OracleDatabaseOdbSubnet#update}.
         '''
         value = OracleDatabaseOdbSubnetTimeouts(
             create=create, delete=delete, update=update
@@ -446,16 +446,16 @@ class OracleDatabaseOdbSubnetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cidr_range: The CIDR range of the subnet. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#cidr_range OracleDatabaseOdbSubnet#cidr_range}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#location OracleDatabaseOdbSubnet#location}
-        :param odbnetwork: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#odbnetwork OracleDatabaseOdbSubnet#odbnetwork}
-        :param odb_subnet_id: The ID of the OdbSubnet to create. This value is restricted to (^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$) and must be a maximum of 63 characters in length. The value must start with a letter and end with a letter or a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#odb_subnet_id OracleDatabaseOdbSubnet#odb_subnet_id}
-        :param purpose: Purpose of the subnet. Possible values: CLIENT_SUBNET BACKUP_SUBNET. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#purpose OracleDatabaseOdbSubnet#purpose}
-        :param deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or terraform apply that would delete the instance will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#deletion_protection OracleDatabaseOdbSubnet#deletion_protection}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#id OracleDatabaseOdbSubnet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels or tags associated with the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#labels OracleDatabaseOdbSubnet#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#project OracleDatabaseOdbSubnet#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#timeouts OracleDatabaseOdbSubnet#timeouts}
+        :param cidr_range: The CIDR range of the subnet. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#cidr_range OracleDatabaseOdbSubnet#cidr_range}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#location OracleDatabaseOdbSubnet#location}
+        :param odbnetwork: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#odbnetwork OracleDatabaseOdbSubnet#odbnetwork}
+        :param odb_subnet_id: The ID of the OdbSubnet to create. This value is restricted to (^`a-z <%5Ba-z0-9-%5D%7B0,61%7D%5Ba-z0-9%5D>`_?$) and must be a maximum of 63 characters in length. The value must start with a letter and end with a letter or a number. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#odb_subnet_id OracleDatabaseOdbSubnet#odb_subnet_id}
+        :param purpose: Purpose of the subnet. Possible values: CLIENT_SUBNET BACKUP_SUBNET. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#purpose OracleDatabaseOdbSubnet#purpose}
+        :param deletion_protection: Whether or not to allow Terraform to destroy the instance. Unless this field is set to false in Terraform state, a terraform destroy or terraform apply that would delete the instance will fail. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#deletion_protection OracleDatabaseOdbSubnet#deletion_protection}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#id OracleDatabaseOdbSubnet#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels or tags associated with the resource. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#labels OracleDatabaseOdbSubnet#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#project OracleDatabaseOdbSubnet#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#timeouts OracleDatabaseOdbSubnet#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -580,7 +580,7 @@ class OracleDatabaseOdbSubnetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cidr_range(self) -> builtins.str:
         '''The CIDR range of the subnet.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#cidr_range OracleDatabaseOdbSubnet#cidr_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#cidr_range OracleDatabaseOdbSubnet#cidr_range}
         '''
         result = self._values.get("cidr_range")
         assert result is not None, "Required property 'cidr_range' is missing"
@@ -590,7 +590,7 @@ class OracleDatabaseOdbSubnetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#location OracleDatabaseOdbSubnet#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#location OracleDatabaseOdbSubnet#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -600,7 +600,7 @@ class OracleDatabaseOdbSubnetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def odbnetwork(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#odbnetwork OracleDatabaseOdbSubnet#odbnetwork}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#odbnetwork OracleDatabaseOdbSubnet#odbnetwork}
         '''
         result = self._values.get("odbnetwork")
         assert result is not None, "Required property 'odbnetwork' is missing"
@@ -615,7 +615,7 @@ class OracleDatabaseOdbSubnetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters in length. The value must start with a letter and end with
         a letter or a number.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#odb_subnet_id OracleDatabaseOdbSubnet#odb_subnet_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#odb_subnet_id OracleDatabaseOdbSubnet#odb_subnet_id}
         '''
         result = self._values.get("odb_subnet_id")
         assert result is not None, "Required property 'odb_subnet_id' is missing"
@@ -625,7 +625,7 @@ class OracleDatabaseOdbSubnetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def purpose(self) -> builtins.str:
         '''Purpose of the subnet. Possible values: CLIENT_SUBNET BACKUP_SUBNET.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#purpose OracleDatabaseOdbSubnet#purpose}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#purpose OracleDatabaseOdbSubnet#purpose}
         '''
         result = self._values.get("purpose")
         assert result is not None, "Required property 'purpose' is missing"
@@ -639,14 +639,14 @@ class OracleDatabaseOdbSubnetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Unless this field is set to false in Terraform state, a terraform destroy or terraform apply that would delete the instance will fail.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#deletion_protection OracleDatabaseOdbSubnet#deletion_protection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#deletion_protection OracleDatabaseOdbSubnet#deletion_protection}
         '''
         result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#id OracleDatabaseOdbSubnet#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#id OracleDatabaseOdbSubnet#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -661,14 +661,14 @@ class OracleDatabaseOdbSubnetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#labels OracleDatabaseOdbSubnet#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#labels OracleDatabaseOdbSubnet#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#project OracleDatabaseOdbSubnet#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#project OracleDatabaseOdbSubnet#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -676,7 +676,7 @@ class OracleDatabaseOdbSubnetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["OracleDatabaseOdbSubnetTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#timeouts OracleDatabaseOdbSubnet#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#timeouts OracleDatabaseOdbSubnet#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OracleDatabaseOdbSubnetTimeouts"], result)
@@ -707,9 +707,9 @@ class OracleDatabaseOdbSubnetTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#create OracleDatabaseOdbSubnet#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#delete OracleDatabaseOdbSubnet#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#update OracleDatabaseOdbSubnet#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#create OracleDatabaseOdbSubnet#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#delete OracleDatabaseOdbSubnet#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#update OracleDatabaseOdbSubnet#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e24e98357efa45ea56a813b4c9d4bd3416f99fcd61337fbc2b0da8c01c56c16e)
@@ -726,19 +726,19 @@ class OracleDatabaseOdbSubnetTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#create OracleDatabaseOdbSubnet#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#create OracleDatabaseOdbSubnet#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#delete OracleDatabaseOdbSubnet#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#delete OracleDatabaseOdbSubnet#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/oracle_database_odb_subnet#update OracleDatabaseOdbSubnet#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/oracle_database_odb_subnet#update OracleDatabaseOdbSubnet#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

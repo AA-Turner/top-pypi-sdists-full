@@ -84,6 +84,8 @@ from .skin_cancer_classification_img import SkinCancerClassificationConfig, Skin
 from .plaque_segmentation_img import PlaqueSegmentationConfig, PlaqueSegmentationUseCase
 from .cardiomegaly_classification import CardiomegalyConfig, CardiomegalyUseCase
 from .Histopathological_Cancer_Detection_img import HistopathologicalCancerDetectionConfig,HistopathologicalCancerDetectionUseCase
+from .cell_microscopy_segmentation import CellMicroscopyConfig, CellMicroscopyUseCase
+
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -156,6 +158,7 @@ __all__ = [
     'PlaqueSegmentationUseCase',
     'CardiomegalyUseCase',
     'HistopathologicalCancerDetectionUseCase',
+    'CellMicroscopyUseCase',
 
 
 
@@ -230,6 +233,7 @@ __all__ = [
     'PlaqueSegmentationConfig',
     'CardiomegalyConfig',
     'HistopathologicalCancerDetectionConfig',
+    'CellMicroscopyConfig',
 
 
 ]

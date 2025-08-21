@@ -8,7 +8,7 @@ from emoji import emojize
 
 from arpakitlib.ar_str_util import remove_tags_and_html
 from project.core.settings import get_cached_settings
-from project.core.util import setup_logging
+from project.core.setup_logging import setup_logging
 from project.sqlalchemy_db_.sqlalchemy_db import get_cached_sqlalchemy_db
 from project.sqlalchemy_db_.sqlalchemy_model import UserDBM
 from project.tg_bot.tg_bot import get_cached_tg_bot

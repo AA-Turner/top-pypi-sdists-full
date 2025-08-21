@@ -75,6 +75,8 @@ __all__ = (
     "AddonHealthTypeDef",
     "AddonInfoTypeDef",
     "AddonIssueTypeDef",
+    "AddonNamespaceConfigRequestTypeDef",
+    "AddonNamespaceConfigResponseTypeDef",
     "AddonPodIdentityAssociationsTypeDef",
     "AddonPodIdentityConfigurationTypeDef",
     "AddonTypeDef",
@@ -363,6 +365,14 @@ class AddonIssueTypeDef(TypedDict):
 class MarketplaceInformationTypeDef(TypedDict):
     productId: NotRequired[str]
     productUrl: NotRequired[str]
+
+
+class AddonNamespaceConfigRequestTypeDef(TypedDict):
+    namespace: NotRequired[str]
+
+
+class AddonNamespaceConfigResponseTypeDef(TypedDict):
+    namespace: NotRequired[str]
 
 
 class AddonPodIdentityAssociationsTypeDef(TypedDict):
@@ -1023,6 +1033,7 @@ class CreateAddonRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     configurationValues: NotRequired[str]
     podIdentityAssociations: NotRequired[Sequence[AddonPodIdentityAssociationsTypeDef]]
+    namespaceConfig: NotRequired[AddonNamespaceConfigRequestTypeDef]
 
 
 class UpdateAddonRequestTypeDef(TypedDict):
@@ -1540,6 +1551,7 @@ class AddonTypeDef(TypedDict):
     marketplaceInformation: NotRequired[MarketplaceInformationTypeDef]
     configurationValues: NotRequired[str]
     podIdentityAssociations: NotRequired[List[str]]
+    namespaceConfig: NotRequired[AddonNamespaceConfigResponseTypeDef]
 
 
 AddonInfoTypeDef = TypedDict(
@@ -1551,6 +1563,7 @@ AddonInfoTypeDef = TypedDict(
         "publisher": NotRequired[str],
         "owner": NotRequired[str],
         "marketplaceInformation": NotRequired[MarketplaceInformationTypeDef],
+        "defaultNamespace": NotRequired[str],
     },
 )
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: session-info2
-Version: 0.2
+Version: 0.2.1
 Summary: Print versions of imported packages.
 Project-URL: Documentation, https://github.com/flying-sheep/session-info2#readme
 Project-URL: Issues, https://github.com/flying-sheep/session-info2/issues

@@ -93,6 +93,7 @@ from .logging_messages import (
     API_EXPERIMENT_EXTRA_PROJECT_NAME_KWARGS_IGNORED_INFO,
     API_EXPERIMENT_EXTRA_WORKSPACE_KWARGS_IGNORED_INFO,
     API_EXPERIMENT_GET_ARTIFACT_LINEAGE_WRONG_DIRECTION,
+    API_EXPERIMENT_GET_ASSET_BY_NAME_DEPRECATION_WARNING,
     API_EXPERIMENT_GET_ENV_DETAILS_DEPRECATED_WARNING,
     API_EXPERIMENT_GPU_STATIC_LIST_EXPECTED_EXCEPTION,
     API_EXPERIMENT_GPU_STATIC_LIST_OF_DICTS_EXPECTED_EXCEPTION,
@@ -151,6 +152,7 @@ from .query import (  # noqa
     QueryVariable,
     Tag,
 )
+from .semantic_version import SemanticVersion
 from .utils import compress_git_patch, merge_url, read_git_patch_zip, valid_ui_tabs
 from .validation.curve_data_validator import CurveDataValidator
 from .validation.tag_validator import TagsValidator, TagValidator
@@ -1783,7 +1785,7 @@ class APIExperiment(CommonExperiment):
         return_type: str = "binary",
         stream: bool = False,
         timeout: int = 600,
-    ):
+    ) -> Optional[Union[bytes, Dict[str, Any], requests.Response]]:
         """
         Get an asset, given the asset filename.
 
@@ -1791,7 +1793,7 @@ class APIExperiment(CommonExperiment):
             asset_filename (str): The asset filename.
             asset_type (str): Type of asset to return. Can be
                 "all", "image", "histogram_combined_3d", "video", or "audio".
-            return_type (str): The type of object returned. Default is
+            return_type (str): The type of the object returned. The default is
                 "binary". Options: "binary", "json", or "response"
             stream (bool): When return_type is "response", you can also
                 use stream=True to use the response as a stream
@@ -1811,17 +1813,84 @@ class APIExperiment(CommonExperiment):
             api_experiment.get_asset_by_name("features.json", return_type="json")
             ```
         """
-        results = self._api._client.get_experiment_asset_list(
-            self.id, asset_type, timeout=timeout
-        )
-        for asset in results:
-            if asset["fileName"] == asset_filename:
+        version = self._api._client.get_api_backend_version()
+        if version.compare(SemanticVersion.parse("4.3.385")) < 0:
+            results = self._api._client.get_experiment_asset_list(
+                experiment_key=self.id, asset_type=asset_type, timeout=timeout
+            )
+            for asset in results:
+                if asset["fileName"] == asset_filename:
+                    return self.get_asset(
+                        asset["assetId"], return_type=return_type, stream=stream
+                    )
+        else:
+            LOGGER.warning(API_EXPERIMENT_GET_ASSET_BY_NAME_DEPRECATION_WARNING)
+            if asset_type == "all":
+                # with the new endpoint None is all
+                asset_type = None
+
+            results = self._api._client.get_experiment_assets_list_by_name(
+                experiment_key=self.id,
+                asset_name=asset_filename,
+                asset_type=asset_type,
+                timeout=timeout,
+            )
+            if results:
                 return self.get_asset(
-                    asset["assetId"], return_type=return_type, stream=stream
+                    results[0]["assetId"], return_type=return_type, stream=stream
                 )
+
         return None
 
-    def get_asset(self, asset_id, return_type="binary", stream=False):
+    def get_assets_by_name(
+        self,
+        asset_filename: str,
+        asset_type: Optional[str] = None,
+        return_type: str = "binary",
+        timeout: int = 600,
+    ) -> Optional[List[Union[bytes, Dict[str, Any]]]]:
+        """
+        Retrieves assets by their name from the current experiment.
+
+        Searches for assets in the current experiment with the specified filename and
+        optionally filters by asset type, return data type, and a timeout duration.
+
+        Args:
+            asset_filename:
+                The name of the asset file to search for.
+            asset_type:
+                The type of the asset to retrieve (default is None). Must match valid
+                asset type strings ("image", "histogram_combined_3d", "video", "audio", etc.).
+                If None, then the method will match all asset types.
+            return_type:
+                The desired return type of the asset's content. The default is
+                "binary". Options: "binary", "json" or "text".
+            timeout:
+                The maximum time (in seconds) to allow for retrieving a response
+                (default is 600).
+
+        Returns:
+            A list of assets matching the given criteria if found, with each asset
+            represented in the specified return type, or None if no matching assets
+            are found.
+        """
+        results = self._api._client.get_experiment_assets_list_by_name(
+            experiment_key=self.id,
+            asset_name=asset_filename,
+            asset_type=asset_type,
+            timeout=timeout,
+        )
+        if results is not None and len(results) > 0:
+            return [
+                self.get_asset(asset["assetId"], return_type=return_type)
+                for asset in results
+            ]
+
+        return None
+
+    def get_asset(
+        self, asset_id: str, return_type: str = "binary", stream: bool = False
+    ) -> Union[bytes, Dict[str, Any], requests.Response]:
         """
         Get an asset, given the asset_id.
 
@@ -3573,7 +3642,7 @@ class APIExperiment(CommonExperiment):
         filename: str,
         tabular_data: Optional[Any] = None,
         headers: Union[Sequence[str], bool] = False,
-        **format_kwargs: Any
+        **format_kwargs: Any,
     ) -> Optional[Dict[str, str]]:
         """
         Log tabular data, including data, csv files, tsv files, and Pandas dataframes.

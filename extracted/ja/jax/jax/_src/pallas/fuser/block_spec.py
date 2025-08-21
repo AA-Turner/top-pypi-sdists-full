@@ -958,7 +958,7 @@ def _slice_rule(
     strides: tuple[int, ...] | None,
 ):
   del ctx
-  if strides is not None:
+  if strides is not None and not all(stride == 1 for stride in strides):
     raise NotImplementedError('strides are not supported yet')
   slice_sizes = tuple(
       int(end - start) for start, end in zip(start_indices, limit_indices)
@@ -1534,10 +1534,16 @@ def _iota_eval_rule(
   block_spec = eval_ctx.out_block_specs[0]
   block_idx = eval_ctx.get_out_block_indices()[0]
   assert len(block_idx) == len(shape)
-  iota_shape = tuple(s for s in block_spec.block_shape if s is not None)
-  dim_ = dimension - sum(s is None for s in block_spec.block_shape[:dimension])
+  iota_shape = tuple(
+      _block_size(s) for s in block_spec.block_shape if s is not None
+  )
+  dim_ = dimension - sum(
+      _block_size(s) is None for s in block_spec.block_shape[:dimension]
+  )
   local_iota = jax.lax.broadcasted_iota(dtype, iota_shape, dim_)
-  return local_iota + block_idx[dimension] * block_spec.block_shape[dimension]
+  return local_iota + block_idx[dimension] * _block_size(
+      block_spec.block_shape[dimension]
+  )
 
 
 @register_pull_block_spec_rule(lax.iota_p)
@@ -1705,6 +1711,58 @@ def _reshape_eval_rule(
   # basic reshape here.
   x = x.reshape(out_shape)
   return x
+
+
+@register_pull_block_spec_rule(lax.reduce_sum_p)
+def _reduce_sum_pull_rule(
+    ctx: PullRuleContext,
+    block_spec: pallas_core.BlockSpec,
+    *,
+    axes: tuple[int, ...],
+):
+  aval_in = ctx.avals_in[0]
+  assert isinstance(aval_in, core.ShapedArray)
+  new_block_shape = []
+  block_shape = iter(block_spec.block_shape)
+  for i, d in enumerate(aval_in.shape):
+    if i in axes:
+      new_block_shape.append(pallas_core.Blocked(d))
+    else:
+      new_block_shape.append(next(block_shape))
+  assert next(block_shape, None) is None
+  def new_index_map(*args):
+    idx = block_spec.index_map(*args)
+    new_idx = []
+    idx_iter = iter(idx)
+    for i in range(len(aval_in.shape)):
+      if i in axes:
+        new_idx.append(0)
+      else:
+        new_idx.append(next(idx_iter))
+    assert next(idx_iter, None) is None
+    return tuple(new_idx)
+  new_block_spec = block_spec.replace(block_shape=tuple(new_block_shape),
+                                      index_map=new_index_map)
+  return [new_block_spec]
+
+
+@register_eval_rule(lax.reduce_sum_p)
+def _reduce_sum_eval_rule(
+    ctx: KernelEvalContext,
+    x,
+    *,
+    axes: tuple[int, ...],
+):
+  aval_in = ctx.avals_in[0]
+  assert isinstance(aval_in, core.ShapedArray)
+  block_shape = tuple(ctx.in_block_specs[0].block_shape)
+  for i in axes:
+    if _block_size(block_shape[i]) != aval_in.shape[i]:
+      raise NotImplementedError(
+          f'reduce_sum on partial blocks not supported: {aval_in=},'
+          f' {block_shape=}'
+      )
+  return jax.lax.reduce_sum(x, axes=axes)
 
 
 # Higher order primitives
@@ -2199,3 +2257,16 @@ def _reshape_push_rule(
 
     return pallas_core.BlockSpec(new_block_shape, new_index_map)
   raise NotImplementedError(f'reshape not supported yet: {aval_in}, {aval_out}')
+
+
+@register_push_block_spec_rule(lax.reduce_sum_p)
+def _reduce_sum_push_rule(
+    ctx: PushRuleContext,
+    block_spec: pallas_core.BlockSpec,
+    *,
+    axes: tuple[int, ...],
+):
+  del ctx
+  if axes:
+   raise NotImplementedError('reduce_sum with no axes not supported yet')
+  return block_spec

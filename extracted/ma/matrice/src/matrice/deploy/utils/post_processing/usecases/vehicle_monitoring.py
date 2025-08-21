@@ -569,10 +569,40 @@ class VehicleMonitoringUseCase(BaseProcessor):
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}")
         for cat, count in per_category_count.items():
             human_text_lines.append(f"\t{cat}: {count}")
+        # Append zone-wise current counts if available
+        if zone_analysis:
+            human_text_lines.append("\tZones (current):")
+            for zone_name, zone_data in zone_analysis.items():
+                current_count = 0
+                if isinstance(zone_data, dict):
+                    if "current_count" in zone_data:
+                        current_count = zone_data.get("current_count", 0)
+                    else:
+                        counts_dict = zone_data.get("original_counts") if isinstance(zone_data.get("original_counts"), dict) else zone_data
+                        current_count = counts_dict.get(
+                            "total",
+                            sum(v for v in counts_dict.values() if isinstance(v, (int, float)))
+                        )
+                human_text_lines.append(f"\t{zone_name}: {int(current_count)}")
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}")
         for cat, count in total_counts_dict.items():
             if count > 0:
                 human_text_lines.append(f"\t{cat}: {count}")
+        # Append zone-wise total counts if available
+        if zone_analysis:
+            human_text_lines.append("\tZones (total):")
+            for zone_name, zone_data in zone_analysis.items():
+                total_count = 0
+                if isinstance(zone_data, dict):
+                    if "total_count" in zone_data:
+                        total_count = zone_data.get("total_count", 0)
+                    else:
+                        counts_dict = zone_data.get("original_counts") if isinstance(zone_data.get("original_counts"), dict) else zone_data
+                        total_count = counts_dict.get(
+                            "total",
+                            sum(v for v in counts_dict.values() if isinstance(v, (int, float)))
+                        )
+                human_text_lines.append(f"\t{zone_name}: {int(total_count)}")
         if alerts:
             for alert in alerts:
                 human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")

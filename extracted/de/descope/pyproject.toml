@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "descope"
-version = "1.7.8"
+version = "1.7.9"
 description = "Descope Python SDK"
 authors = ["Descope <info@descope.com>"]
 license = "MIT"

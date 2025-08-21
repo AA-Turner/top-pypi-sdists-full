@@ -86,9 +86,10 @@ class LangsmithAuthBackend(AuthenticationBackend):
             # If tenant id verification is disabled, the bearer token requests
             # are not required to match the tenant id. Api key requests are
             # always required to match the tenant id.
-            if LANGSMITH_AUTH_VERIFY_TENANT_ID or conn.headers.get("x-api-key"):
-                if auth_dict["tenant_id"] != LANGSMITH_TENANT_ID:
-                    raise AuthenticationError("Invalid tenant ID")
+            if (
+                LANGSMITH_AUTH_VERIFY_TENANT_ID or conn.headers.get("x-api-key")
+            ) and auth_dict["tenant_id"] != LANGSMITH_TENANT_ID:
+                raise AuthenticationError("Invalid tenant ID")
 
         credentials = AuthCredentials(["authenticated"])
         user = StudioUser(auth_dict.get("user_id"), is_authenticated=True)

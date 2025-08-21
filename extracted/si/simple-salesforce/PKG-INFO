@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simple-salesforce
-Version: 1.12.7
+Version: 1.12.8
 Summary: A basic Salesforce.com REST API client.
 Author-email: Nick Catalano <nickcatal@gmail.com>
 Maintainer-email: Jonathan Wobken <jonathanwobken@gmail.com>

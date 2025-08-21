@@ -1584,7 +1584,10 @@ class CfnGlobalTable(
         
                 # the properties below are optional
                 contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                    enabled=False
+                    enabled=False,
+        
+                    # the properties below are optional
+                    mode="mode"
                 ),
                 deletion_protection_enabled=False,
                 global_secondary_indexes=[dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty(
@@ -1592,7 +1595,10 @@ class CfnGlobalTable(
         
                     # the properties below are optional
                     contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                        enabled=False
+                        enabled=False,
+        
+                        # the properties below are optional
+                        mode="mode"
                     ),
                     read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
                         max_read_request_units=123
@@ -2358,17 +2364,19 @@ class CfnGlobalTable(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty",
         jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled"},
+        name_mapping={"enabled": "enabled", "mode": "mode"},
     )
     class ContributorInsightsSpecificationProperty:
         def __init__(
             self,
             *,
             enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            mode: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configures contributor insights settings for a replica or one of its indexes.
 
             :param enabled: Indicates whether CloudWatch Contributor Insights are to be enabled (true) or disabled (false).
+            :param mode: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-contributorinsightsspecification.html
             :exampleMetadata: fixture=_generated
@@ -2380,15 +2388,21 @@ class CfnGlobalTable(
                 from aws_cdk import aws_dynamodb as dynamodb
                 
                 contributor_insights_specification_property = dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                    enabled=False
+                    enabled=False,
+                
+                    # the properties below are optional
+                    mode="mode"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__0c4c1ec1851b3df040f636031283503da693894fbb627b438be175be8c1d8995)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "enabled": enabled,
             }
+            if mode is not None:
+                self._values["mode"] = mode
 
         @builtins.property
         def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
@@ -2399,6 +2413,14 @@ class CfnGlobalTable(
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
             return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def mode(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-contributorinsightsspecification.html#cfn-dynamodb-globaltable-contributorinsightsspecification-mode
+            '''
+            result = self._values.get("mode")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3287,7 +3309,10 @@ class CfnGlobalTable(
                 
                     # the properties below are optional
                     contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                        enabled=False
+                        enabled=False,
+                
+                        # the properties below are optional
+                        mode="mode"
                     ),
                     read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
                         max_read_request_units=123
@@ -3513,7 +3538,10 @@ class CfnGlobalTable(
                 
                     # the properties below are optional
                     contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                        enabled=False
+                        enabled=False,
+                
+                        # the properties below are optional
+                        mode="mode"
                     ),
                     deletion_protection_enabled=False,
                     global_secondary_indexes=[dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty(
@@ -3521,7 +3549,10 @@ class CfnGlobalTable(
                 
                         # the properties below are optional
                         contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                            enabled=False
+                            enabled=False,
+                
+                            # the properties below are optional
+                            mode="mode"
                         ),
                         read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
                             max_read_request_units=123
@@ -4564,7 +4595,10 @@ class CfnGlobalTableProps:
             
                     # the properties below are optional
                     contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                        enabled=False
+                        enabled=False,
+            
+                        # the properties below are optional
+                        mode="mode"
                     ),
                     deletion_protection_enabled=False,
                     global_secondary_indexes=[dynamodb.CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty(
@@ -4572,7 +4606,10 @@ class CfnGlobalTableProps:
             
                         # the properties below are optional
                         contributor_insights_specification=dynamodb.CfnGlobalTable.ContributorInsightsSpecificationProperty(
-                            enabled=False
+                            enabled=False,
+            
+                            # the properties below are optional
+                            mode="mode"
                         ),
                         read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
                             max_read_request_units=123
@@ -5051,7 +5088,10 @@ class CfnTable(
             )],
             billing_mode="billingMode",
             contributor_insights_specification=dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
-                enabled=False
+                enabled=False,
+        
+                # the properties below are optional
+                mode="mode"
             ),
             deletion_protection_enabled=False,
             global_secondary_indexes=[dynamodb.CfnTable.GlobalSecondaryIndexProperty(
@@ -5067,7 +5107,10 @@ class CfnTable(
         
                 # the properties below are optional
                 contributor_insights_specification=dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
-                    enabled=False
+                    enabled=False,
+        
+                    # the properties below are optional
+                    mode="mode"
                 ),
                 on_demand_throughput=dynamodb.CfnTable.OnDemandThroughputProperty(
                     max_read_request_units=123,
@@ -5733,17 +5776,19 @@ class CfnTable(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dynamodb.CfnTable.ContributorInsightsSpecificationProperty",
         jsii_struct_bases=[],
-        name_mapping={"enabled": "enabled"},
+        name_mapping={"enabled": "enabled", "mode": "mode"},
     )
     class ContributorInsightsSpecificationProperty:
         def __init__(
             self,
             *,
             enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            mode: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The settings used to enable or disable CloudWatch Contributor Insights.
 
             :param enabled: Indicates whether CloudWatch Contributor Insights are to be enabled (true) or disabled (false).
+            :param mode: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-contributorinsightsspecification.html
             :exampleMetadata: fixture=_generated
@@ -5755,15 +5800,21 @@ class CfnTable(
                 from aws_cdk import aws_dynamodb as dynamodb
                 
                 contributor_insights_specification_property = dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
-                    enabled=False
+                    enabled=False,
+                
+                    # the properties below are optional
+                    mode="mode"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__0a8b688e9e547ebf94c63195c5144ea544272eec7f4f0112bdff07a522156c82)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "enabled": enabled,
             }
+            if mode is not None:
+                self._values["mode"] = mode
 
         @builtins.property
         def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
@@ -5774,6 +5825,14 @@ class CfnTable(
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
             return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+
+        @builtins.property
+        def mode(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-contributorinsightsspecification.html#cfn-dynamodb-table-contributorinsightsspecification-mode
+            '''
+            result = self._values.get("mode")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5917,7 +5976,10 @@ class CfnTable(
                 
                     # the properties below are optional
                     contributor_insights_specification=dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
-                        enabled=False
+                        enabled=False,
+                
+                        # the properties below are optional
+                        mode="mode"
                     ),
                     on_demand_throughput=dynamodb.CfnTable.OnDemandThroughputProperty(
                         max_read_request_units=123,
@@ -7460,7 +7522,10 @@ class CfnTableProps:
                 )],
                 billing_mode="billingMode",
                 contributor_insights_specification=dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
-                    enabled=False
+                    enabled=False,
+            
+                    # the properties below are optional
+                    mode="mode"
                 ),
                 deletion_protection_enabled=False,
                 global_secondary_indexes=[dynamodb.CfnTable.GlobalSecondaryIndexProperty(
@@ -7476,7 +7541,10 @@ class CfnTableProps:
             
                     # the properties below are optional
                     contributor_insights_specification=dynamodb.CfnTable.ContributorInsightsSpecificationProperty(
-                        enabled=False
+                        enabled=False,
+            
+                        # the properties below are optional
+                        mode="mode"
                     ),
                     on_demand_throughput=dynamodb.CfnTable.OnDemandThroughputProperty(
                         max_read_request_units=123,
@@ -16889,6 +16957,7 @@ def _typecheckingstub__51587895f2d228591cb8c1b278064c8ca442192e93e2e20c22de9e04b
 def _typecheckingstub__0c4c1ec1851b3df040f636031283503da693894fbb627b438be175be8c1d8995(
     *,
     enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    mode: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17265,6 +17334,7 @@ def _typecheckingstub__09c7a32c39444fb07dbb26b4ad1f9b87ad574421e0b12ac175c090173
 def _typecheckingstub__0a8b688e9e547ebf94c63195c5144ea544272eec7f4f0112bdff07a522156c82(
     *,
     enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    mode: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

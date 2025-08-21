@@ -8,29 +8,31 @@ description = "Unified Histogram Interface: tools to help library authors work w
 authors = [
   {name="Henry Schreiner", email="henryschreineriii@gmail.com"},
   {name="Hans Dembinski", email="hans.dembinski@gmail.com"},
-  {name="Jim Pivaski", email="pivarski@princeton.edu"},
+  {name="Jim Pivaski", email="jpivarski@gmail.com"},
+  {name="Silia Taider", email="siliataider@gmail.com"},
 ]
 maintainers = [
   {name="The Scikit-HEP admins", email="scikit-hep-admins@googlegroups.com"},
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 readme = "README.md"
-license = {file="LICENSE"}
+license = "bsd-3-clause"
+license-files =["LICENSE"]
 dependencies = [
-  "numpy>=1.13.3",
+  "numpy>=1.19.3",
+  "typing_extensions>=4; python_version<'3.11'",
 ]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
-  "License :: OSI Approved :: BSD License",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
@@ -47,6 +49,11 @@ schema = [
   "fastjsonschema",
   "importlib-resources; python_version<'3.9'",
 ]
+hdf5 = [
+  "h5py",
+]
+
+[dependency-groups]
 docs = [
   "sphinx>=4.0",
   "furo",
@@ -55,10 +62,18 @@ docs = [
   "myst-parser",
   "sphinx_github_changelog",
 ]
-test = [
+test-core = [
   "pytest>=6",
-  "boost-histogram>=1.0",
+  "boost-histogram>=1.4",
+  "hist>=2.6",
+  "fastjsonschema",
+  "packaging",
 ]
+test = [
+  { include-group = "test-core" },
+  "h5py; platform_python_implementation == 'CPython' and python_version<'3.14'",  # Doesn't support free-threaded Python currently
+]
+dev = [{ include-group = "test" }]
 
 
 [tool.hatch]
@@ -72,19 +87,19 @@ addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = ["error"]
 testpaths = ["tests"]
-log_cli_level = "info"
+log_cli_level = "INFO"
 
 
 [tool.mypy]
-files = "src"
-python_version = "3.8"
-warn_unused_configs = "true"
+files = ["src", "tests"]
+python_version = "3.9"
+warn_unused_configs = true
 strict = true
 warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
 [[tool.mypy.overrides]]
-module = ["fastjsonschema"]
+module = ["fastjsonschema", "h5py"]
 ignore_missing_imports = true
 
 
@@ -114,15 +129,15 @@ extend-select = [
   "PD",          # pandas-vet
 ]
 ignore = [
-  "PLR",    # Design related pylint codes
-  "PT004",  # Use underscore for non-returning fixture (use usefixture instead)
-  "PT013",  # Incorrect import of pytest
-  "ISC001", # Conflicts with formatter
+  "PLR09",    # Design related pylint codes
+  "PLR2004",  # Magic value in comparison
+  "PT013",    # Incorrect import of pytest
 ]
 flake8-unused-arguments.ignore-variadic-names = true
 isort.required-imports = ["from __future__ import annotations"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["T20"]
+"tests/**" = ["T20", "PLC0415"]
 "noxfile.py" = ["T20"]
 "tests/test_ensure.py" = ["NPY002"]
+"src/**" = ["PT"]

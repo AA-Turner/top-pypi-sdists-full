@@ -105,6 +105,7 @@ from .usecases import (
     PlaqueSegmentationUseCase,
     CardiomegalyUseCase,
     HistopathologicalCancerDetectionUseCase,
+    CellMicroscopyUseCase,
 
 
 )
@@ -246,6 +247,7 @@ class PostProcessor:
         registry.register_use_case("healthcare", "plaque_img_segmentation", PlaqueSegmentationUseCase)
         registry.register_use_case("healthcare", "cardiomegaly_classification", CardiomegalyUseCase)
         registry.register_use_case("healthcare", "histopathological_cancer_detection", HistopathologicalCancerDetectionUseCase)
+        registry.register_use_case("healthcare", "cell_microscopy_segmentation", CellMicroscopyUseCase)
         
 
         logger.debug("Registered use cases with registry")
@@ -431,6 +433,8 @@ class PostProcessor:
             elif isinstance(use_case, CardiomegalyUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, HistopathologicalCancerDetectionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, CellMicroscopyUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
 
             else:

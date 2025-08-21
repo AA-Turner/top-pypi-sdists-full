@@ -1,7 +1,7 @@
 r'''
 # `datadog_compliance_custom_framework`
 
-Refer to the Terraform Registry for docs: [`datadog_compliance_custom_framework`](https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework).
+Refer to the Terraform Registry for docs: [`datadog_compliance_custom_framework`](https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComplianceCustomFramework(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.complianceCustomFramework.ComplianceCustomFramework",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework datadog_compliance_custom_framework}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework datadog_compliance_custom_framework}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class ComplianceCustomFramework(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework datadog_compliance_custom_framework} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework datadog_compliance_custom_framework} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param handle: The framework handle. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#handle ComplianceCustomFramework#handle}
-        :param name: The framework name. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
-        :param version: The framework version. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#version ComplianceCustomFramework#version}
-        :param icon_url: The URL of the icon representing the framework. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#icon_url ComplianceCustomFramework#icon_url}
-        :param requirements: requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#requirements ComplianceCustomFramework#requirements}
+        :param handle: The framework handle. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#handle ComplianceCustomFramework#handle}
+        :param name: The framework name. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
+        :param version: The framework version. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#version ComplianceCustomFramework#version}
+        :param icon_url: The URL of the icon representing the framework. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#icon_url ComplianceCustomFramework#icon_url}
+        :param requirements: requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#requirements ComplianceCustomFramework#requirements}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class ComplianceCustomFramework(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComplianceCustomFramework to import.
-        :param import_from_id: The id of the existing ComplianceCustomFramework that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComplianceCustomFramework that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComplianceCustomFramework to import is found.
         '''
         if __debug__:
@@ -289,11 +289,11 @@ class ComplianceCustomFrameworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param handle: The framework handle. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#handle ComplianceCustomFramework#handle}
-        :param name: The framework name. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
-        :param version: The framework version. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#version ComplianceCustomFramework#version}
-        :param icon_url: The URL of the icon representing the framework. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#icon_url ComplianceCustomFramework#icon_url}
-        :param requirements: requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#requirements ComplianceCustomFramework#requirements}
+        :param handle: The framework handle. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#handle ComplianceCustomFramework#handle}
+        :param name: The framework name. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
+        :param version: The framework version. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#version ComplianceCustomFramework#version}
+        :param icon_url: The URL of the icon representing the framework. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#icon_url ComplianceCustomFramework#icon_url}
+        :param requirements: requirements block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#requirements ComplianceCustomFramework#requirements}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -403,7 +403,7 @@ class ComplianceCustomFrameworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def handle(self) -> builtins.str:
         '''The framework handle. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#handle ComplianceCustomFramework#handle}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#handle ComplianceCustomFramework#handle}
         '''
         result = self._values.get("handle")
         assert result is not None, "Required property 'handle' is missing"
@@ -413,7 +413,7 @@ class ComplianceCustomFrameworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The framework name. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -423,7 +423,7 @@ class ComplianceCustomFrameworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def version(self) -> builtins.str:
         '''The framework version. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#version ComplianceCustomFramework#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#version ComplianceCustomFramework#version}
         '''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
@@ -433,7 +433,7 @@ class ComplianceCustomFrameworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def icon_url(self) -> typing.Optional[builtins.str]:
         '''The URL of the icon representing the framework.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#icon_url ComplianceCustomFramework#icon_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#icon_url ComplianceCustomFramework#icon_url}
         '''
         result = self._values.get("icon_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -444,7 +444,7 @@ class ComplianceCustomFrameworkConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComplianceCustomFrameworkRequirements"]]]:
         '''requirements block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#requirements ComplianceCustomFramework#requirements}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#requirements ComplianceCustomFramework#requirements}
         '''
         result = self._values.get("requirements")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComplianceCustomFrameworkRequirements"]]], result)
@@ -474,8 +474,8 @@ class ComplianceCustomFrameworkRequirements:
         controls: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ComplianceCustomFrameworkRequirementsControls", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: The name of the requirement. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
-        :param controls: controls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#controls ComplianceCustomFramework#controls}
+        :param name: The name of the requirement. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
+        :param controls: controls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#controls ComplianceCustomFramework#controls}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e9cb760fd005aec3b74fe56b2661abd92b7c162476b779ef8ab8e567e2beb403)
@@ -491,7 +491,7 @@ class ComplianceCustomFrameworkRequirements:
     def name(self) -> builtins.str:
         '''The name of the requirement. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -503,7 +503,7 @@ class ComplianceCustomFrameworkRequirements:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComplianceCustomFrameworkRequirementsControls"]]]:
         '''controls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#controls ComplianceCustomFramework#controls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#controls ComplianceCustomFramework#controls}
         '''
         result = self._values.get("controls")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComplianceCustomFrameworkRequirementsControls"]]], result)
@@ -533,8 +533,8 @@ class ComplianceCustomFrameworkRequirementsControls:
         rules_id: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param name: The name of the control. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
-        :param rules_id: The set of rules IDs for the control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#rules_id ComplianceCustomFramework#rules_id}
+        :param name: The name of the control. String length must be at least 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
+        :param rules_id: The set of rules IDs for the control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#rules_id ComplianceCustomFramework#rules_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81b34414a21116081dab839183808f826aa7efcf8b4688a08aa2246fa5586a7d)
@@ -549,7 +549,7 @@ class ComplianceCustomFrameworkRequirementsControls:
     def name(self) -> builtins.str:
         '''The name of the control. String length must be at least 1.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#name ComplianceCustomFramework#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -559,7 +559,7 @@ class ComplianceCustomFrameworkRequirementsControls:
     def rules_id(self) -> typing.List[builtins.str]:
         '''The set of rules IDs for the control.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/compliance_custom_framework#rules_id ComplianceCustomFramework#rules_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/compliance_custom_framework#rules_id ComplianceCustomFramework#rules_id}
         '''
         result = self._values.get("rules_id")
         assert result is not None, "Required property 'rules_id' is missing"

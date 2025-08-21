@@ -28,6 +28,7 @@ use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 
 use crate::binding::base_class::BaseClass;
+use crate::binding::base_class::BaseClassGeneric;
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
@@ -38,6 +39,7 @@ use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassMro;
 use crate::binding::binding::BindingClassSynthesizedFields;
 use crate::binding::binding::BindingConsistentOverrideCheck;
+use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingTParams;
 use crate::binding::binding::BindingVariance;
 use crate::binding::binding::ClassBinding;
@@ -52,6 +54,7 @@ use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::binding::KeyConsistentOverrideCheck;
+use crate::binding::binding::KeyExpect;
 use crate::binding::binding::KeyTParams;
 use crate::binding::binding::KeyVariance;
 use crate::binding::bindings::BindingsBuilder;
@@ -125,7 +128,6 @@ impl<'a> BindingsBuilder<'a> {
 
         let (mut class_object, class_indices) = self.class_object_and_indices(&x.name);
         let mut pydantic_frozen = None;
-        let mut pydantic_validation_alias = None;
         let docstring_range = Docstring::range_from_stmts(x.body.as_slice());
         let body = mem::take(&mut x.body);
         let decorators_with_ranges = self.ensure_and_bind_decorators_with_ranges(
@@ -166,7 +168,25 @@ impl<'a> BindingsBuilder<'a> {
                 &mut legacy
             };
             self.ensure_type(&mut base, legacy);
-            self.base_class_of(base)
+
+            let base_class = self.base_class_of(base.clone());
+            // NOTE(grievejia): If any of the class base is a specialized generic class (e.g. `Foo[Bar]`), and if the tparam of the
+            // generic class has a bound or constraint, we won't be validating the type `Bar` against that bound/constraint of the
+            // tparam eagerly in order to avoid dependency cycle. But the validation needs to happen somewhere.
+            //
+            // Since we can't create "delayed" computations on-the-fly in the answer phase, we'll create a static computation here
+            // trying to type check all valid base class expressions. We are duplicating a lot of work with class base calculation,
+            // which is sad. Hence we were able to figure out a better places to insert those checks we should migrate.
+            //
+            // Also note that there's no risk of first-usage tracking issues here because `ensure_type` does not participate in first
+            // usage tracking.
+            if matches!(base_class, BaseClass::BaseClassExpr(..)) {
+                self.insert_binding(
+                    KeyExpect(base.range()),
+                    BindingExpect::TypeCheckBaseClassExpr(base),
+                );
+            }
+            base_class
         });
 
         let mut keywords = Vec::new();
@@ -194,7 +214,6 @@ impl<'a> BindingsBuilder<'a> {
                 class_idx: class_indices.class_idx,
                 is_new_type: false,
                 bases: bases.clone().into_boxed_slice(),
-                special_base: None,
             },
         );
         self.insert_binding_idx(
@@ -244,7 +263,6 @@ impl<'a> BindingsBuilder<'a> {
                                     name,
                                     &mut pydantic_frozen,
                                 );
-                                self.extract_validation_alias(&e, &mut pydantic_validation_alias);
                                 (
                                     ClassFieldDefinition::AssignedInBody {
                                         value: ExprOrBinding::Expr(e.clone()),
@@ -340,7 +358,14 @@ impl<'a> BindingsBuilder<'a> {
                 BindingTParams {
                     name: x.name.clone(),
                     scoped_type_params,
-                    bases: bases.clone().into_boxed_slice(),
+                    generic_bases: bases
+                        .iter()
+                        .filter_map(|base| match base {
+                            BaseClass::Generic(x) => Some(x),
+                            _ => None,
+                        })
+                        .cloned()
+                        .collect::<Box<[BaseClassGeneric]>>(),
                     legacy_tparams: legacy_tparams.into_boxed_slice(),
                 },
             );
@@ -378,9 +403,7 @@ impl<'a> BindingsBuilder<'a> {
                 keywords: keywords.into_boxed_slice(),
                 decorators: decorators_with_ranges.clone().into_boxed_slice(),
                 is_new_type: false,
-                special_base: None,
-                pydantic_metadata: self
-                    .make_pydantic_metadata(pydantic_frozen, pydantic_validation_alias),
+                pydantic_metadata: self.make_pydantic_metadata(pydantic_frozen),
             },
         );
     }
@@ -457,11 +480,12 @@ impl<'a> BindingsBuilder<'a> {
         illegal_identifier_handling: IllegalIdentifierHandling,
         force_class_initialization: bool,
         class_kind: SynthesizedClassKind,
-        special_base: Option<Box<BaseClass>>,
+        special_base: Option<BaseClass>,
     ) {
         let base_classes = base
             .into_iter()
             .map(|base| self.base_class_of(base))
+            .chain(special_base)
             .collect::<Vec<_>>();
         let is_new_type = class_kind == SynthesizedClassKind::NewType;
         self.insert_binding_idx(
@@ -470,7 +494,6 @@ impl<'a> BindingsBuilder<'a> {
                 class_idx: class_indices.class_idx,
                 is_new_type,
                 bases: base_classes.clone().into_boxed_slice(),
-                special_base: special_base.clone(),
             },
         );
         self.insert_binding_idx(
@@ -481,7 +504,6 @@ impl<'a> BindingsBuilder<'a> {
                 keywords,
                 decorators: Box::new([]),
                 is_new_type,
-                special_base,
                 pydantic_metadata: PydanticMetadataBinding::default(),
             },
         );
@@ -828,7 +850,7 @@ impl<'a> BindingsBuilder<'a> {
             illegal_identifier_handling,
             false,
             SynthesizedClassKind::NamedTuple,
-            Some(Box::new(BaseClass::NamedTuple(range))),
+            Some(BaseClass::NamedTuple(range)),
         );
     }
 

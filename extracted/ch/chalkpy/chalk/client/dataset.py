@@ -1368,21 +1368,11 @@ This occurred during the actual execution of resolver {resolver.fqn}.
         show_progress: bool | ellipsis = ...,
         timeout: float | timedelta | ellipsis | None = ...,
         caller_method: str | None = None,
-        raise_on_dataset_failure: bool = True,
     ) -> None:
-        self._hydrate(
-            show_progress=show_progress,
-            timeout=timeout,
-            caller_method=caller_method,
-            raise_on_dataset_failure=raise_on_dataset_failure,
-        )
+        self._hydrate(show_progress=show_progress, timeout=timeout, caller_method=caller_method)
 
     def _hydrate(
-        self,
-        show_progress: bool | ellipsis,
-        caller_method: Optional[str],
-        timeout: float | timedelta | ellipsis | None,
-        raise_on_dataset_failure: bool = True,
+        self, show_progress: bool | ellipsis, caller_method: Optional[str], timeout: float | timedelta | ellipsis | None
     ) -> None:
         """
         :param show_progress: Pass `True` to show a progress bar while waiting for the operation to complete.
@@ -1408,7 +1398,7 @@ This occurred during the actual execution of resolver {resolver.fqn}.
             environment_id=self.environment,
             num_computers=self.num_computers,
             timeout=timeout,
-            raise_on_dataset_failure=raise_on_dataset_failure,
+            raise_on_dataset_failure=True,
         )
         dataset = self._client.get_anonymous_dataset(
             revision_id=str(self.revision_id),

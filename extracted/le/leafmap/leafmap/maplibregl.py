@@ -635,16 +635,23 @@ class Map(MapWidget):
 
         super().add_call("removeLayer", name)
         if name in self.layer_dict:
-            source = self.layer_dict[name]["layer"].source
-            self.layer_dict.pop(name)
-            if source in self.source_dict:
-                self.remove_source(source)
+            if isinstance(self.layer_dict[name]["layer"], Layer):
+                if hasattr(self.layer_dict[name]["layer"], "source"):
+                    source = self.layer_dict[name]["layer"].source
+                    self.layer_dict.pop(name)
+                    if source in self.source_dict:
+                        self.remove_source(source)
+            else:
+                self.layer_dict.pop(name)
 
         if self.layer_manager is not None:
             self.layer_manager.refresh()
 
     def add_deck_layers(
-        self, layers: list[dict], tooltip: Union[str, dict] = None
+        self,
+        layers: list[dict],
+        tooltip: Union[str, dict] = None,
+        columns: list[str] = None,
     ) -> None:
         """Add Deck.GL layers to the layer stack
 
@@ -652,7 +659,11 @@ class Map(MapWidget):
             layers (list[dict]): A list of dictionaries containing the Deck.GL layers to be added.
             tooltip (str | dict): Either a single mustache template string applied to all layers
                 or a dictionary where keys are layer ids and values are mustache template strings.
+            columns (list[str]): A list of column names to be used for the tooltip.
         """
+        if isinstance(columns, list) and (tooltip is None):
+            tooltip = "<br>".join([f"<b>{col}:</b> {{{{ {col} }}}}" for col in columns])
+
         super().add_deck_layers(layers, tooltip)
 
         for layer in layers:
@@ -664,6 +675,9 @@ class Map(MapWidget):
                 "type": layer.get("@@type", "deck"),
                 "color": layer.get("getFillColor", "#ffffff"),
             }
+
+        if self.layer_manager is not None:
+            self.layer_manager.refresh()
 
     def add_arc_layer(
         self,
@@ -719,7 +733,9 @@ class Map(MapWidget):
             columns = df.columns
         elif isinstance(tooltip, list):
             columns = tooltip
-        tooltip_content = "<br>".join([f"{col}: {{{{ {col} }}}}" for col in columns])
+        tooltip_content = "<br>".join(
+            [f"<b>{col}:</b> {{{{ {col} }}}}" for col in columns]
+        )
 
         deck_arc_layer = {
             "@@type": "ArcLayer",
@@ -2321,7 +2337,12 @@ class Map(MapWidget):
             return
 
         if name in self.layer_dict:
-            layer_type = self.layer_dict[name]["layer"].to_dict()["type"]
+            if isinstance(self.layer_dict[name]["layer"], Layer):
+                layer_type = self.layer_dict[name]["layer"].to_dict()["type"]
+            elif isinstance(self.layer_dict[name]["layer"], dict):
+                layer_type = self.layer_dict[name]["type"]
+            else:
+                layer_type = self.layer_dict[name]["type"]
             prop_name = f"{layer_type}-opacity"
             self.layer_dict[name]["opacity"] = opacity
         elif name in self.style_dict:
@@ -5521,7 +5542,8 @@ class Map(MapWidget):
                 [
                     layer["layer"].source
                     for layer in self.layer_dict.values()
-                    if layer["layer"].source is not None
+                    if hasattr(layer["layer"], "source")
+                    and (layer["layer"].source is not None)
                 ]
             )
         )
@@ -8350,6 +8372,8 @@ class LayerManagerWidget(v.ExpansionPanels):
                     self.m.remove_from_sidebar(name=f"Style {layer_name}")
 
             def on_settings_clicked(btn, layer_name=name):
+                # if isinstance(self.m.layer_dict[layer_name]["layer"], dict):
+                #     return
                 style_widget = LayerStyleWidget(self.m.layer_dict[layer_name], self.m)
                 self.m.add_to_sidebar(
                     style_widget,
@@ -8585,8 +8609,15 @@ class LayerStyleWidget(widgets.VBox):
         self.layer = layer
         self.map = map_widget
         self.layer_type = self._get_layer_type()
-        self.layer_id = layer["layer"].id
-        self.layer_paint = layer["layer"].paint
+        if isinstance(layer["layer"], dict):
+            self.layer_id = layer["layer"]["id"]
+            if "paint" in layer["layer"]:
+                self.layer_paint = layer["layer"]["paint"]
+            else:
+                self.layer_paint = {}
+        else:
+            self.layer_id = layer["layer"].id
+            self.layer_paint = layer["layer"].paint
         self.original_style = self._get_current_style()
         self.widget_width = widget_width
         self.label_width = label_width
@@ -8817,7 +8848,7 @@ class LayerStyleWidget(widgets.VBox):
     def _close_widget(self, _) -> None:
         """Close the widget."""
         # self.close()
-        self.map.remove_from_sidebar(name=f"Style {self.layer['layer'].id}")
+        self.map.remove_from_sidebar(name=f"Style {self.layer_id}")
 
 
 class DateFilterWidget(widgets.VBox):
@@ -9450,3 +9481,74 @@ def TimeSliderWidget(
     slider.observe(slider_changed, "value")
 
     return slider_widget
+
+
+def create_arc_layer(
+    data: Union[str, pd.DataFrame],
+    src_lon: str,
+    src_lat: str,
+    dst_lon: str,
+    dst_lat: str,
+    src_color: List[int] = [255, 0, 0],
+    dst_color: List[int] = [255, 255, 0],
+    line_width: int = 2,
+    layer_id: str = "arc_layer",
+    pickable: bool = True,
+    tooltip: Optional[Union[str, List[str]]] = None,
+    **kwargs: Any,
+) -> dict:
+    """
+    Create a DeckGL ArcLayer.
+
+    Args:
+        data (Union[str, pd.DataFrame]): The file path or DataFrame containing the data.
+        src_lon (str): The source longitude column name.
+        src_lat (str): The source latitude column name.
+        dst_lon (str): The destination longitude column name.
+        dst_lat (str): The destination latitude column name.
+        src_color (List[int]): The source color as an RGB list.
+        dst_color (List[int]): The destination color as an RGB list.
+        line_width (int): The width of the lines.
+        layer_id (str): The ID of the layer.
+        pickable (bool): Whether the layer is pickable.
+        tooltip (Optional[Union[str, List[str]]], optional): The tooltip content or list of columns. Defaults to None.
+        **kwargs (Any): Additional arguments for the layer.
+
+    Returns:
+        None
+    """
+
+    df = common.read_file(data)
+    if "geometry" in df.columns:
+        df = df.drop(columns=["geometry"])
+
+    arc_data = [
+        {
+            "source_position": [row[src_lon], row[src_lat]],
+            "target_position": [row[dst_lon], row[dst_lat]],
+            **row.to_dict(),  # Include other columns
+        }
+        for _, row in df.iterrows()
+    ]
+
+    # Generate tooltip template dynamically based on the columns
+    if tooltip is None:
+        columns = df.columns
+    elif isinstance(tooltip, list):
+        columns = tooltip
+
+    deck_arc_layer = {
+        "@@type": "ArcLayer",
+        "id": layer_id,
+        "data": arc_data,
+        "getSourcePosition": "@@=source_position",
+        "getTargetPosition": "@@=target_position",
+        "getSourceColor": src_color,
+        "getTargetColor": dst_color,
+        "getWidth": line_width,
+        "pickable": pickable,
+    }
+
+    deck_arc_layer.update(kwargs)
+
+    return deck_arc_layer

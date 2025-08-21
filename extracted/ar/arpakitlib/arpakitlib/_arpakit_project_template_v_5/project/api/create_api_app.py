@@ -12,7 +12,7 @@ from project.api.openapi_ui import add_local_openapi_ui_to_api_app
 from project.api.router.main_router import main_api_router
 from project.core.const import ProjectPaths
 from project.core.settings import get_cached_settings
-from project.core.util import setup_logging
+from project.core.setup_logging import setup_logging
 
 _logger = logging.getLogger(__name__)
 

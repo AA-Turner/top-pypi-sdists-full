@@ -13,6 +13,7 @@ from collections import OrderedDict
 from pathlib import Path
 
 import pytest
+
 import ujson
 
 
@@ -154,7 +155,7 @@ def test_encode_control_escaping():
 # 16 bits) are represented as \UXXXXXXXX in python but should be encoded
 # as \uXXXX\uXXXX in json.
 def test_encode_unicode_bmp():
-    s = "\U0001f42e\U0001f42e\U0001F42D\U0001F42D"  # 🐮🐮🐭🐭
+    s = "\U0001f42e\U0001f42e\U0001f42d\U0001f42d"  # 🐮🐮🐭🐭
     encoded = ujson.dumps(s)
     encoded_json = json.dumps(s)
 
@@ -303,7 +304,7 @@ def test_encode_recursion_max():
     test_input = O1()
     test_input.member = O2()
     test_input.member.member = test_input
-    with pytest.raises(OverflowError):
+    with pytest.raises((OverflowError, RecursionError)):
         ujson.encode(test_input)
 
 
@@ -543,23 +544,23 @@ def test_encode_surrogate_characters():
     "test_input, expected",
     [
         # Normal cases
-        (r'"\uD83D\uDCA9"', "\U0001F4A9"),
-        (r'"a\uD83D\uDCA9b"', "a\U0001F4A9b"),
+        (r'"\uD83D\uDCA9"', "\U0001f4a9"),
+        (r'"a\uD83D\uDCA9b"', "a\U0001f4a9b"),
         # Unpaired surrogates
-        (r'"\uD800"', "\uD800"),
-        (r'"a\uD800b"', "a\uD800b"),
-        (r'"\uDEAD"', "\uDEAD"),
-        (r'"a\uDEADb"', "a\uDEADb"),
-        (r'"\uD83D\uD83D\uDCA9"', "\uD83D\U0001F4A9"),
-        (r'"\uDCA9\uD83D\uDCA9"', "\uDCA9\U0001F4A9"),
-        (r'"\uD83D\uDCA9\uD83D"', "\U0001F4A9\uD83D"),
-        (r'"\uD83D\uDCA9\uDCA9"', "\U0001F4A9\uDCA9"),
-        (r'"\uD83D \uDCA9"', "\uD83D \uDCA9"),
+        (r'"\uD800"', "\ud800"),
+        (r'"a\uD800b"', "a\ud800b"),
+        (r'"\uDEAD"', "\udead"),
+        (r'"a\uDEADb"', "a\udeadb"),
+        (r'"\uD83D\uD83D\uDCA9"', "\ud83d\U0001f4a9"),
+        (r'"\uDCA9\uD83D\uDCA9"', "\udca9\U0001f4a9"),
+        (r'"\uD83D\uDCA9\uD83D"', "\U0001f4a9\ud83d"),
+        (r'"\uD83D\uDCA9\uDCA9"', "\U0001f4a9\udca9"),
+        (r'"\uD83D \uDCA9"', "\ud83d \udca9"),
         # No decoding of actual surrogate characters (rather than escaped ones)
-        ('"\uD800"', "\uD800"),
-        ('"\uDEAD"', "\uDEAD"),
-        ('"\uD800a\uDEAD"', "\uD800a\uDEAD"),
-        ('"\uD83D\uDCA9"', "\uD83D\uDCA9"),
+        ('"\ud800"', "\ud800"),
+        ('"\udead"', "\udead"),
+        ('"\ud800a\udead"', "\ud800a\udead"),
+        ('"\ud83d\udca9"', "\ud83d\udca9"),
     ],
 )
 def test_decode_surrogate_characters(test_input, expected):
@@ -1214,6 +1215,21 @@ def test_enum(enum_classes, value, expected):
         FOO = value
 
     assert ujson.dumps(MyEnum.FOO) == expected
+
+
+def test_nested_json_decode_error():
+    """Parsing a nested json string raises JSONDecodeError and not SystemError."""
+
+    # Test that nested JSON with invalid format raises JSONDecodeError
+    with pytest.raises(ujson.JSONDecodeError):
+        ujson.loads(b'{{"a":"b"}:"c"}')
+
+    # Test with another nested JSON case
+    with pytest.raises(ujson.JSONDecodeError):
+        ujson.loads('{"a":{"b":"c"}:"d"}')
+
+    # Test that JSONDecodeError is a subclass of ValueError
+    assert issubclass(ujson.JSONDecodeError, ValueError)
 
 
 """

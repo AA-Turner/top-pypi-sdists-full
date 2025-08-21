@@ -22,6 +22,7 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -143,6 +144,12 @@ class WindowConfigResolved:
       - group_by = (Transactions.user_id,)
       - aggregate_on = None
       - aggregation = "count"
+
+    User.transactions[_.user_id.approx_top_k(k=3)
+      - namespace = "transactions"
+      - group_by = (Transactions.user_id,)
+      - aggregate_on = Transaction.user_id
+      - aggregation = "approx_top_k"
     """
 
     namespace: str
@@ -166,6 +173,9 @@ class WindowConfigResolved:
     """If there was no provided child feature,
     as could be the case with count, we will
     pick the primary key"""
+
+    aggregation_kwargs: Sequence[Tuple[Any, Any]]
+    """Only some aggregations allow kwargs, namely 'approx_top_k'."""
 
     pyarrow_dtype: pa.DataType
 

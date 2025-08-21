@@ -1,5 +1,5 @@
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Any
 
 import httpx
@@ -17,11 +17,10 @@ _client: "JsonHttpClient"
 def is_retriable_error(exception: BaseException) -> bool:
     if isinstance(exception, httpx.TransportError):
         return True
-    if isinstance(exception, httpx.HTTPStatusError):
-        if exception.response.status_code > 499:
-            return True
-
-    return False
+    return (
+        isinstance(exception, httpx.HTTPStatusError)
+        and exception.response.status_code > 499
+    )
 
 
 retry_httpx = retry(
@@ -106,10 +105,8 @@ def create_client() -> JsonHttpClient:
 async def close_auth_client() -> None:
     """Close the auth http client."""
     global _client
-    try:
+    with suppress(NameError):
         await _client.client.aclose()
-    except NameError:
-        pass
 
 
 async def initialize_auth_client() -> None:
@@ -132,10 +129,7 @@ async def auth_client() -> AsyncGenerator[JsonHttpClient, None]:
             await client.client.aclose()
     else:
         try:
-            if not _client.client.is_closed:
-                found = True
-            else:
-                found = False
+            found = bool(not _client.client.is_closed)
         except NameError:
             found = False
         if found:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-latte-4ti2
-Version: 10.6.5
+Version: 10.6.6
 Summary: passagemath: Lattice points in polyhedra with LattE integrale and 4ti2
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -30,8 +30,8 @@ Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/x-rst
 Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
-Requires-Dist: passagemath-categories~=10.6.5.0
-Requires-Dist: passagemath-cddlib~=10.6.5.0
+Requires-Dist: passagemath-categories~=10.6.6.0
+Requires-Dist: passagemath-cddlib~=10.6.6.0
 Provides-Extra: test
 Requires-Dist: passagemath-polyhedra; extra == "test"
 Requires-Dist: passagemath-flint; extra == "test"

@@ -1,71 +1,35 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: uhi
-Version: 0.5.0
+Version: 1.0.0
 Summary: Unified Histogram Interface: tools to help library authors work with histograms
 Project-URL: Homepage, https://github.com/Scikit-HEP/uhi
 Project-URL: Repository, https://github.com/Scikit-HEP/uhi
 Project-URL: Documentation, https://uhi.readthedocs.io/en/latest/
 Project-URL: Changelog, https://github.com/scikit-hep/uhi/releases
-Author-email: Henry Schreiner <henryschreineriii@gmail.com>, Hans Dembinski <hans.dembinski@gmail.com>, Jim Pivaski <pivarski@princeton.edu>
+Author-email: Henry Schreiner <henryschreineriii@gmail.com>, Hans Dembinski <hans.dembinski@gmail.com>, Jim Pivaski <jpivarski@gmail.com>, Silia Taider <siliataider@gmail.com>
 Maintainer-email: The Scikit-HEP admins <scikit-hep-admins@googlegroups.com>
-License: BSD 3-Clause License
-        
-        Copyright (c) 2021, Henry Schreiner.
-        All rights reserved.
-        
-        Redistribution and use in source and binary forms, with or without
-        modification, are permitted provided that the following conditions are met:
-        
-        * Redistributions of source code must retain the above copyright notice, this
-          list of conditions and the following disclaimer.
-        
-        * Redistributions in binary form must reproduce the above copyright notice,
-          this list of conditions and the following disclaimer in the documentation
-          and/or other materials provided with the distribution.
-        
-        * Neither the name of the vector package developers nor the names of its
-          contributors may be used to endorse or promote products derived from
-          this software without specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-Expression: BSD-3-Clause
 License-File: LICENSE
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
-Requires-Dist: numpy>=1.13.3
-Provides-Extra: docs
-Requires-Dist: furo; extra == 'docs'
-Requires-Dist: myst-parser; extra == 'docs'
-Requires-Dist: sphinx-copybutton>=0.3.1; extra == 'docs'
-Requires-Dist: sphinx-github-changelog; extra == 'docs'
-Requires-Dist: sphinx-jsonschema; extra == 'docs'
-Requires-Dist: sphinx>=4.0; extra == 'docs'
+Requires-Python: >=3.9
+Requires-Dist: numpy>=1.19.3
+Requires-Dist: typing-extensions>=4; python_version < '3.11'
+Provides-Extra: hdf5
+Requires-Dist: h5py; extra == 'hdf5'
 Provides-Extra: schema
 Requires-Dist: fastjsonschema; extra == 'schema'
 Requires-Dist: importlib-resources; (python_version < '3.9') and extra == 'schema'
-Provides-Extra: test
-Requires-Dist: boost-histogram>=1.0; extra == 'test'
-Requires-Dist: pytest>=6; extra == 'test'
 Description-Content-Type: text/markdown
 
 # UHI: Universal Histogram Interface
@@ -83,6 +47,7 @@ Description-Content-Type: text/markdown
 [![Gitter][gitter-badge]][gitter-link]
 [![Zenodo][zenodo-badge]][zenodo-link]
 [![Scikit-HEP][sk-badge]](https://scikit-hep.org/)
+[![SPEC 4 — Using and Creating Nightly Wheels][spec4-badge]][spec4-link]
 
 
 This is a package meant primarily for [documenting][rtd-link] histogram
@@ -115,8 +80,8 @@ might be simpler than manually checking for the expected methods.
 [github-discussions-link]:  https://github.com/Scikit-HEP/uhi/discussions
 [gitter-badge]:             https://badges.gitter.im/https://github.com/Scikit-HEP/uhi/community.svg
 [gitter-link]:              https://gitter.im/https://github.com/Scikit-HEP/uhi/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge
-[zenodo-badge]:             https://zenodo.org/badge/DOI/10.5281/zenodo.10014713.svg
-[zenodo-link]:              https://doi.org/10.5281/zenodo.10014713
+[zenodo-badge]:             https://zenodo.org/badge/DOI/10.5281/zenodo.13883674.svg
+[zenodo-link]:              https://doi.org/10.5281/zenodo.13883674
 [pre-commit-badge]:         https://results.pre-commit.ci/badge/github/scikit-hep/uhi/main.svg
 [pre-commit-link]:          https://results.pre-commit.ci/repo/github/309772485
 [pypi-link]:                https://pypi.org/project/uhi/
@@ -125,6 +90,8 @@ might be simpler than manually checking for the expected methods.
 [rtd-badge]:                https://readthedocs.org/projects/uhi/badge/?version=latest
 [rtd-link]:                 https://uhi.readthedocs.io/en/latest/?badge=latest
 [sk-badge]:                 https://scikit-hep.org/assets/images/Scikit--HEP-Project-blue.svg
+[spec4-badge]:              https://img.shields.io/badge/SPEC-4-green?labelColor=%23004811&color=%235CA038
+[spec4-link]:               https://scientific-python.org/specs/spec-0004/
 
 [boost-histogram]:          https://github.com/scikit-hep/boost-histogram
 [hist]:                     https://github.com/scikit-hep/hist

@@ -1474,6 +1474,12 @@ class CfnCanary(
                 handler="handler",
         
                 # the properties below are optional
+                dependencies=[synthetics.CfnCanary.DependencyProperty(
+                    reference="reference",
+        
+                    # the properties below are optional
+                    type="type"
+                )],
                 s3_bucket="s3Bucket",
                 s3_key="s3Key",
                 s3_object_version="s3ObjectVersion",
@@ -2120,6 +2126,7 @@ class CfnCanary(
         jsii_struct_bases=[],
         name_mapping={
             "handler": "handler",
+            "dependencies": "dependencies",
             "s3_bucket": "s3Bucket",
             "s3_key": "s3Key",
             "s3_object_version": "s3ObjectVersion",
@@ -2132,6 +2139,7 @@ class CfnCanary(
             self,
             *,
             handler: builtins.str,
+            dependencies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.DependencyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             s3_bucket: typing.Optional[builtins.str] = None,
             s3_key: typing.Optional[builtins.str] = None,
             s3_object_version: typing.Optional[builtins.str] = None,
@@ -2143,6 +2151,7 @@ class CfnCanary(
             This structure contains the Lambda handler with the location where the canary should start running the script. If the script is stored in an S3 bucket, the bucket name, key, and version are also included. If the script is passed into the canary directly, the script code is contained in the value of ``Script`` .
 
             :param handler: The entry point to use for the source code when running the canary. For canaries that use the ``syn-python-selenium-1.0`` runtime or a ``syn-nodejs.puppeteer`` runtime earlier than ``syn-nodejs.puppeteer-3.4`` , the handler must be specified as ``*fileName* .handler`` . For ``syn-python-selenium-1.1`` , ``syn-nodejs.puppeteer-3.4`` , and later runtimes, the handler can be specified as ``*fileName* . *functionName*`` , or you can specify a folder where canary scripts reside as ``*folder* / *fileName* . *functionName*`` .
+            :param dependencies: List of Lambda layers to attach to the canary.
             :param s3_bucket: If your canary script is located in S3, specify the bucket name here. The bucket must already exist.
             :param s3_key: The Amazon S3 key of your script. For more information, see `Working with Amazon S3 Objects <https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingObjects.html>`_ .
             :param s3_object_version: The Amazon S3 version ID of your script.
@@ -2162,6 +2171,12 @@ class CfnCanary(
                     handler="handler",
                 
                     # the properties below are optional
+                    dependencies=[synthetics.CfnCanary.DependencyProperty(
+                        reference="reference",
+                
+                        # the properties below are optional
+                        type="type"
+                    )],
                     s3_bucket="s3Bucket",
                     s3_key="s3Key",
                     s3_object_version="s3ObjectVersion",
@@ -2172,6 +2187,7 @@ class CfnCanary(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__3d403372a613babc1ab10717d050ec9a7f4055961f3545f2d0600d89c7b3dcc3)
                 check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
+                check_type(argname="argument dependencies", value=dependencies, expected_type=type_hints["dependencies"])
                 check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
                 check_type(argname="argument s3_key", value=s3_key, expected_type=type_hints["s3_key"])
                 check_type(argname="argument s3_object_version", value=s3_object_version, expected_type=type_hints["s3_object_version"])
@@ -2180,6 +2196,8 @@ class CfnCanary(
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "handler": handler,
             }
+            if dependencies is not None:
+                self._values["dependencies"] = dependencies
             if s3_bucket is not None:
                 self._values["s3_bucket"] = s3_bucket
             if s3_key is not None:
@@ -2202,6 +2220,17 @@ class CfnCanary(
             result = self._values.get("handler")
             assert result is not None, "Required property 'handler' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def dependencies(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.DependencyProperty"]]]]:
+            '''List of Lambda layers to attach to the canary.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-dependencies
+            '''
+            result = self._values.get("dependencies")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.DependencyProperty"]]]], result)
 
         @builtins.property
         def s3_bucket(self) -> typing.Optional[builtins.str]:
@@ -2262,6 +2291,78 @@ class CfnCanary(
 
         def __repr__(self) -> str:
             return "CodeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.DependencyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"reference": "reference", "type": "type"},
+    )
+    class DependencyProperty:
+        def __init__(
+            self,
+            *,
+            reference: builtins.str,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param reference: ARN of the Lambda layer.
+            :param type: Type of dependency.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-dependency.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                dependency_property = synthetics.CfnCanary.DependencyProperty(
+                    reference="reference",
+                
+                    # the properties below are optional
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__02338e317b0b84f714774aabea98599cd96fe9cff23790733ad426e75f9984f4)
+                check_type(argname="argument reference", value=reference, expected_type=type_hints["reference"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "reference": reference,
+            }
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def reference(self) -> builtins.str:
+            '''ARN of the Lambda layer.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-dependency.html#cfn-synthetics-canary-dependency-reference
+            '''
+            result = self._values.get("reference")
+            assert result is not None, "Required property 'reference' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''Type of dependency.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-dependency.html#cfn-synthetics-canary-dependency-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DependencyProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2935,6 +3036,12 @@ class CfnCanaryProps:
                     handler="handler",
             
                     # the properties below are optional
+                    dependencies=[synthetics.CfnCanary.DependencyProperty(
+                        reference="reference",
+            
+                        # the properties below are optional
+                        type="type"
+                    )],
                     s3_bucket="s3Bucket",
                     s3_key="s3Key",
                     s3_object_version="s3ObjectVersion",
@@ -5173,11 +5280,20 @@ def _typecheckingstub__8d401a2416919aef18322e23fb875fc37ad8f90f34f8f5708a245f22f
 def _typecheckingstub__3d403372a613babc1ab10717d050ec9a7f4055961f3545f2d0600d89c7b3dcc3(
     *,
     handler: builtins.str,
+    dependencies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.DependencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     s3_bucket: typing.Optional[builtins.str] = None,
     s3_key: typing.Optional[builtins.str] = None,
     s3_object_version: typing.Optional[builtins.str] = None,
     script: typing.Optional[builtins.str] = None,
     source_location_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02338e317b0b84f714774aabea98599cd96fe9cff23790733ad426e75f9984f4(
+    *,
+    reference: builtins.str,
+    type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

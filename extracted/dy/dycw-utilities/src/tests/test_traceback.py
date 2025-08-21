@@ -19,7 +19,7 @@ from utilities.traceback import (
     make_except_hook,
 )
 from utilities.tzlocal import LOCAL_TIME_ZONE_NAME
-from utilities.whenever import SECOND, get_now, to_local_plain
+from utilities.whenever import SECOND, format_compact, get_now
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -106,7 +106,7 @@ class TestMakeExceptHook:
             exc_type, exc_val, traceback = exc_info()
             hook(exc_type, exc_val, traceback)
         path = one(tmp_path.iterdir())
-        assert search(r"^[\dT]+\.txt$", path.name)
+        assert search(r"^.+?\.txt$", path.name)
 
     def test_non_error(self) -> None:
         hook = make_except_hook()
@@ -114,13 +114,22 @@ class TestMakeExceptHook:
         with raises(MakeExceptHookError, match="No exception to log"):
             hook(exc_type, exc_val, traceback)
 
-    def test_purge(self, *, tmp_path: Path) -> None:
+
+class TestMakeExceptHookPurge:
+    def test_main(self, *, tmp_path: Path) -> None:
         now = get_now()
-        path = tmp_path.joinpath(to_local_plain(now - 2 * SECOND)).with_suffix(".txt")
+        path = tmp_path.joinpath(
+            format_compact(now - 2 * SECOND, path=True)
+        ).with_suffix(".txt")
         path.touch()
         assert len(list(tmp_path.iterdir())) == 1
         _make_except_hook_purge(tmp_path, SECOND)
         assert len(list(tmp_path.iterdir())) == 0
+
+    def test_purge_invalid_path(self, *, tmp_path: Path) -> None:
+        tmp_path.joinpath("invalid").touch()
+        _make_except_hook_purge(tmp_path, SECOND)
+        assert len(list(tmp_path.iterdir())) == 1
 
 
 class TestPathToDots:

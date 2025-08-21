@@ -83,6 +83,22 @@ test(C())
 );
 
 testcase!(
+    test_base_class_bound,
+    r#"
+class A: pass
+class B: pass
+
+class Foo[T: B]:
+    pass
+
+class Bar(Foo[B]):  # OK
+    pass
+class Bar(Foo[A]):  # E: Type `A` is not assignable to upper bound `B` of type variable `T`
+    pass
+ "#,
+);
+
+testcase!(
     bug = "Instantiation is not validated against constraints, see https://github.com/facebook/pyrefly/issues/111",
     test_generic_constraints,
     r#"
@@ -101,6 +117,23 @@ test(A())  # Not OK
 test(B())
 test(C())
 test(D())
+ "#,
+);
+
+testcase!(
+    test_base_class_constraint,
+    r#"
+class A: pass
+class B: pass
+class C: pass
+
+class Foo[T: (B, C)]:
+    pass
+
+class Bar(Foo[B]):  # OK
+    pass
+class Bar(Foo[A]):  # E: Type `A` is not assignable to upper bound `B | C` of type variable `T`
+    pass
  "#,
 );
 
@@ -162,6 +195,27 @@ T = TypeVar('T', bound=Callable[[int], int])
 def func(a: T, b: int) -> T:
     assert_type(a(b), int)
     return a
+T2 = TypeVar('T2', Callable[[int], int], Callable[[int], bool])
+def func2(a: T2, b: int) -> T2:
+    assert_type(a(b), int | bool)
+    return a
+ "#,
+);
+
+testcase!(
+    test_bounded_callable_protocol,
+    r#"
+from typing import Protocol, TypeVar, Self, assert_type
+class A(Protocol):
+    def __call__(self) -> Self: ...
+class B(Protocol):
+    def __call__(self) -> Self: ...
+T = TypeVar('T', bound=A | B)
+def func(a: T) -> T:
+    return a()
+T2 = TypeVar('T2', A, B)
+def func2(a: T2) -> T2:
+    return a()
  "#,
 );
 

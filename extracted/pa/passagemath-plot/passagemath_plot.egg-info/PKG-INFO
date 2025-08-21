@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-plot
-Version: 10.6.5
+Version: 10.6.6
 Summary: passagemath: Plotting and graphics with Matplotlib, Three.JS, etc.
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -33,8 +33,8 @@ Requires-Dist: gmpy2~=2.1.b999
 Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: memory_allocator
-Requires-Dist: passagemath-categories~=10.6.5.0
-Requires-Dist: passagemath-modules~=10.6.5.0
+Requires-Dist: passagemath-categories~=10.6.6.0
+Requires-Dist: passagemath-modules~=10.6.6.0
 Requires-Dist: numpy>=1.19
 Requires-Dist: numpy>=1.22.4
 Requires-Dist: scipy>=1.5
@@ -50,7 +50,7 @@ Provides-Extra: matplotlib
 Provides-Extra: playwright
 Requires-Dist: playwright; extra == "playwright"
 Provides-Extra: tachyon
-Requires-Dist: passagemath-tachyon~=10.6.5.0; extra == "tachyon"
+Requires-Dist: passagemath-tachyon~=10.6.6.0; extra == "tachyon"
 Provides-Extra: threejs
 Provides-Extra: graphs
 Requires-Dist: passagemath-graphs; extra == "graphs"

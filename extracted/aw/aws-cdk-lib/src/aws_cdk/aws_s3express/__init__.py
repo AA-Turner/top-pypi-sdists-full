@@ -151,7 +151,7 @@ class CfnAccessPoint(
         :param policy: The access point policy associated with the specified access point.
         :param public_access_block_configuration: Public access is blocked by default to access points for directory buckets.
         :param scope: You can use the access point scope to restrict access to specific prefixes, API operations, or a combination of both. For more information, see `Manage the scope of your access points for directory buckets. <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-points-directory-buckets-manage-scope.html>`_
-        :param tags: 
+        :param tags: An array of tags that you can apply to access points. Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
         :param vpc_configuration: If you include this field, Amazon S3 restricts access to this access point to requests from the specified virtual private cloud (VPC).
         '''
         if __debug__:
@@ -321,6 +321,7 @@ class CfnAccessPoint(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''An array of tags that you can apply to access points.'''
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -640,7 +641,7 @@ class CfnAccessPointProps:
         :param policy: The access point policy associated with the specified access point.
         :param public_access_block_configuration: Public access is blocked by default to access points for directory buckets.
         :param scope: You can use the access point scope to restrict access to specific prefixes, API operations, or a combination of both. For more information, see `Manage the scope of your access points for directory buckets. <https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-points-directory-buckets-manage-scope.html>`_
-        :param tags: 
+        :param tags: An array of tags that you can apply to access points. Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
         :param vpc_configuration: If you include this field, Amazon S3 restricts access to this access point to requests from the specified virtual private cloud (VPC).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html
@@ -773,7 +774,10 @@ class CfnAccessPointProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''
+        '''An array of tags that you can apply to access points.
+
+        Tags are key-value pairs of metadata used to categorize your access points and control access. For more information, see `Using tags for attribute-based access control (ABAC) <https://docs.aws.amazon.com/AmazonS3/latest/userguide/tagging.html#using-tags-for-abac>`_ .
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3express-accesspoint.html#cfn-s3express-accesspoint-tags
         '''
         result = self._values.get("tags")

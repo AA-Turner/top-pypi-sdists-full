@@ -48,6 +48,7 @@ class TestPaginateddebPackageIndexResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         artifacts = pulpcore.client.pulp_deb.models.artifacts.artifacts(), 
                         component = '', 
                         architecture = '', 
@@ -66,6 +67,7 @@ class TestPaginateddebPackageIndexResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         artifacts = pulpcore.client.pulp_deb.models.artifacts.artifacts(), 
                         component = '', 
                         architecture = '', 

@@ -8,6 +8,7 @@ from vellum.client.types.number_vellum_value import NumberVellumValue
 from vellum.workflows import BaseWorkflow
 from vellum.workflows.nodes import BaseNode
 from vellum.workflows.state.context import WorkflowContext
+from vellum.workflows.utils.uuids import generate_workflow_deployment_prefix
 from vellum_ee.workflows.display.workflows.base_workflow_display import BaseWorkflowDisplay
 from vellum_ee.workflows.server.virtual_file_loader import VirtualFileFinder
 
@@ -566,3 +567,97 @@ class Workflow(BaseWorkflow[Inputs, BaseState]):
 
     # THEN the serialization should complete successfully
     assert result is not None
+
+
+def test_resolve_workflow_deployment__returns_workflow_with_generated_files():
+    """
+    Test that resolve_workflow_deployment returns a workflow with artifacts
+    in generated_files using the correct prefix format.
+    """
+    # GIVEN a deployment name and release tag
+    deployment_name = "test_deployment"
+    release_tag = "LATEST"
+
+    expected_prefix = generate_workflow_deployment_prefix(deployment_name, release_tag)
+
+    # Create a simple test node for the resolved workflow
+    test_node_code = """
+from vellum.workflows.nodes.bases.base import BaseNode
+from vellum.workflows.outputs import BaseOutputs
+
+class TestNode(BaseNode):
+    template = "Hello"
+
+    class Outputs(BaseOutputs):
+        result: str
+
+    def run(self):
+        return self.Outputs(result="Hello, {template}")
+"""
+
+    mock_workflow_code = """
+from vellum.workflows import BaseWorkflow
+from .nodes.test_node import TestNode
+
+class ResolvedWorkflow(BaseWorkflow):
+    graph = TestNode
+"""
+
+    # Create parent workflow files that reference the subworkflow deployment
+    parent_workflow_code = """
+from vellum.workflows import BaseWorkflow
+from .nodes.subworkflow_deployment_node import TestSubworkflowDeploymentNode
+
+class ParentWorkflow(BaseWorkflow):
+    graph = TestSubworkflowDeploymentNode
+"""
+
+    parent_node_code = """
+from vellum.workflows.nodes import SubworkflowDeploymentNode
+from vellum.workflows.outputs import BaseOutputs
+
+class TestSubworkflowDeploymentNode(SubworkflowDeploymentNode):
+    deployment = "test_deployment"
+
+    class Outputs(BaseOutputs):
+        result: str
+
+    subworkflow_inputs = {"message": "test"}
+"""
+
+    files = {
+        "__init__.py": "",
+        "workflow.py": parent_workflow_code,
+        "nodes/__init__.py": """
+from .subworkflow_deployment_node import TestSubworkflowDeploymentNode
+
+__all__ = ["TestSubworkflowDeploymentNode"]
+""",
+        "nodes/subworkflow_deployment_node.py": parent_node_code,
+        f"{expected_prefix}/__init__.py": "",
+        f"{expected_prefix}/workflow.py": mock_workflow_code,
+        f"{expected_prefix}/nodes/__init__.py": """
+from .test_node import TestNode
+
+__all__ = ["TestNode"]
+""",
+        f"{expected_prefix}/nodes/test_node.py": test_node_code,
+    }
+
+    namespace = str(uuid4())
+
+    # AND the virtual file loader is registered
+    finder = VirtualFileFinder(files, namespace)
+    sys.meta_path.append(finder)
+
+    # WHEN we execute the root workflow
+    Workflow = BaseWorkflow.load_from_module(namespace)
+    workflow = Workflow(context=WorkflowContext(generated_files=files, namespace=namespace))
+
+    # THEN the workflow should be successfully initialized
+    assert workflow
+
+    event = workflow.run()
+
+    # AND the method should return a workflow (not None) - this will pass once implemented
+    assert event.name == "workflow.execution.fulfilled"

@@ -3031,8 +3031,8 @@ class FSxLustreFileSystemConfigTypeDef(TypedDict):
 
 
 class S3FileSystemConfigTypeDef(TypedDict):
+    S3Uri: str
     MountPath: NotRequired[str]
-    S3Uri: NotRequired[str]
 
 
 class EFSFileSystemTypeDef(TypedDict):
@@ -3044,7 +3044,7 @@ class FSxLustreFileSystemTypeDef(TypedDict):
 
 
 class S3FileSystemTypeDef(TypedDict):
-    S3Uri: NotRequired[str]
+    S3Uri: str
 
 
 class CustomPosixUserConfigTypeDef(TypedDict):

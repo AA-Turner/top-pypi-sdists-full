@@ -3,7 +3,6 @@
 import base64
 import copy
 import hashlib
-import itertools
 import json
 import logging
 import mimetypes
@@ -54,8 +53,8 @@ from docling_core.types.doc.labels import (
     GroupLabel,
     PictureClassificationLabel,
 )
-from docling_core.types.doc.tokens import _LOC_PREFIX, DocumentToken, TableToken
-from docling_core.types.doc.utils import relative_path
+from docling_core.types.doc.tokens import DocumentToken, TableToken
+from docling_core.types.doc.utils import parse_otsl_table_content, relative_path
 
 _logger = logging.getLogger(__name__)
 
@@ -4688,181 +4687,6 @@ class DoclingDocument(BaseModel):
                 bbox = None
             return caption_item, bbox
 
-        def otsl_parse_texts(texts, tokens):
-            split_word = TableToken.OTSL_NL.value
-            # CLEAN tokens from extra tags, only structural OTSL allowed
-            clean_tokens = []
-            for t in tokens:
-                if t in [
-                    TableToken.OTSL_ECEL.value,
-                    TableToken.OTSL_FCEL.value,
-                    TableToken.OTSL_LCEL.value,
-                    TableToken.OTSL_UCEL.value,
-                    TableToken.OTSL_XCEL.value,
-                    TableToken.OTSL_NL.value,
-                    TableToken.OTSL_CHED.value,
-                    TableToken.OTSL_RHED.value,
-                    TableToken.OTSL_SROW.value,
-                ]:
-                    clean_tokens.append(t)
-            tokens = clean_tokens
-            split_row_tokens = [
-                list(y)
-                for x, y in itertools.groupby(tokens, lambda z: z == split_word)
-                if not x
-            ]
-
-            table_cells = []
-            r_idx = 0
-            c_idx = 0
-
-            def count_right(tokens, c_idx, r_idx, which_tokens):
-                span = 0
-                c_idx_iter = c_idx
-                while tokens[r_idx][c_idx_iter] in which_tokens:
-                    c_idx_iter += 1
-                    span += 1
-                    if c_idx_iter >= len(tokens[r_idx]):
-                        return span
-                return span
-
-            def count_down(tokens, c_idx, r_idx, which_tokens):
-                span = 0
-                r_idx_iter = r_idx
-                while tokens[r_idx_iter][c_idx] in which_tokens:
-                    r_idx_iter += 1
-                    span += 1
-                    if r_idx_iter >= len(tokens):
-                        return span
-                return span
-
-            for i, text in enumerate(texts):
-                cell_text = ""
-                if text in [
-                    TableToken.OTSL_FCEL.value,
-                    TableToken.OTSL_ECEL.value,
-                    TableToken.OTSL_CHED.value,
-                    TableToken.OTSL_RHED.value,
-                    TableToken.OTSL_SROW.value,
-                ]:
-                    row_span = 1
-                    col_span = 1
-                    right_offset = 1
-                    if text != TableToken.OTSL_ECEL.value:
-                        cell_text = texts[i + 1]
-                        right_offset = 2
-
-                    # Check next element(s) for lcel / ucel / xcel,
-                    # set properly row_span, col_span
-                    next_right_cell = ""
-                    if i + right_offset < len(texts):
-                        next_right_cell = texts[i + right_offset]
-
-                    next_bottom_cell = ""
-                    if r_idx + 1 < len(split_row_tokens):
-                        if c_idx < len(split_row_tokens[r_idx + 1]):
-                            next_bottom_cell = split_row_tokens[r_idx + 1][c_idx]
-
-                    if next_right_cell in [
-                        TableToken.OTSL_LCEL.value,
-                        TableToken.OTSL_XCEL.value,
-                    ]:
-                        # we have horisontal spanning cell or 2d spanning cell
-                        col_span += count_right(
-                            split_row_tokens,
-                            c_idx + 1,
-                            r_idx,
-                            [TableToken.OTSL_LCEL.value, TableToken.OTSL_XCEL.value],
-                        )
-                    if next_bottom_cell in [
-                        TableToken.OTSL_UCEL.value,
-                        TableToken.OTSL_XCEL.value,
-                    ]:
-                        # we have a vertical spanning cell or 2d spanning cell
-                        row_span += count_down(
-                            split_row_tokens,
-                            c_idx,
-                            r_idx + 1,
-                            [TableToken.OTSL_UCEL.value, TableToken.OTSL_XCEL.value],
-                        )
-
-                    table_cells.append(
-                        TableCell(
-                            text=cell_text.strip(),
-                            row_span=row_span,
-                            col_span=col_span,
-                            start_row_offset_idx=r_idx,
-                            end_row_offset_idx=r_idx + row_span,
-                            start_col_offset_idx=c_idx,
-                            end_col_offset_idx=c_idx + col_span,
-                        )
-                    )
-                if text in [
-                    TableToken.OTSL_FCEL.value,
-                    TableToken.OTSL_ECEL.value,
-                    TableToken.OTSL_CHED.value,
-                    TableToken.OTSL_RHED.value,
-                    TableToken.OTSL_SROW.value,
-                    TableToken.OTSL_LCEL.value,
-                    TableToken.OTSL_UCEL.value,
-                    TableToken.OTSL_XCEL.value,
-                ]:
-                    c_idx += 1
-                if text == TableToken.OTSL_NL.value:
-                    r_idx += 1
-                    c_idx = 0
-            return table_cells, split_row_tokens
-
-        def otsl_extract_tokens_and_text(s: str):
-            # Pattern to match anything enclosed by < >
-            # (including the angle brackets themselves)
-            pattern = r"(<[^>]+>)"
-            # Find all tokens (e.g. "<otsl>", "<loc_140>", etc.)
-            tokens = re.findall(pattern, s)
-            # Remove any tokens that start with "<loc_"
-            tokens = [
-                token
-                for token in tokens
-                if not (
-                    token.startswith(rf"<{_LOC_PREFIX}")
-                    or token
-                    in [
-                        rf"<{DocumentToken.OTSL.value}>",
-                        rf"</{DocumentToken.OTSL.value}>",
-                    ]
-                )
-            ]
-            # Split the string by those tokens to get the in-between text
-            text_parts = re.split(pattern, s)
-            text_parts = [
-                token
-                for token in text_parts
-                if not (
-                    token.startswith(rf"<{_LOC_PREFIX}")
-                    or token
-                    in [
-                        rf"<{DocumentToken.OTSL.value}>",
-                        rf"</{DocumentToken.OTSL.value}>",
-                    ]
-                )
-            ]
-            # Remove any empty or purely whitespace strings from text_parts
-            text_parts = [part for part in text_parts if part.strip()]
-
-            return tokens, text_parts
-
-        def parse_table_content(otsl_content: str) -> TableData:
-            tokens, mixed_texts = otsl_extract_tokens_and_text(otsl_content)
-            table_cells, split_row_tokens = otsl_parse_texts(mixed_texts, tokens)
-
-            return TableData(
-                num_rows=len(split_row_tokens),
-                num_cols=(
-                    max(len(row) for row in split_row_tokens) if split_row_tokens else 0
-                ),
-                table_cells=table_cells,
-            )
-
         def extract_chart_type(text_chunk: str):
             label = None
             chart_labels = [
@@ -5094,7 +4918,7 @@ class DoclingDocument(BaseModel):
                 doc_label = tag_to_doclabel.get(tag_name, DocItemLabel.TEXT)
 
                 if tag_name == DocumentToken.OTSL.value:
-                    table_data = parse_table_content(full_chunk)
+                    table_data = parse_otsl_table_content(full_chunk)
                     caption, caption_bbox = extract_caption(full_chunk)
                     if caption is not None and caption_bbox is not None:
                         caption.prov.append(
@@ -5137,7 +4961,7 @@ class DoclingDocument(BaseModel):
                     table_data = None
                     chart_type = None
                     if tag_name == DocumentToken.CHART.value:
-                        table_data = parse_table_content(full_chunk)
+                        table_data = parse_otsl_table_content(full_chunk)
                         chart_type = extract_chart_type(full_chunk)
                     if image:
                         if bbox:
@@ -5683,69 +5507,174 @@ class DoclingDocument(BaseModel):
                 )
         return self
 
+    class _DocIndex(BaseModel):
+        """A document merge buffer."""
+
+        groups: list[GroupItem] = []
+        texts: list[TextItem] = []
+        pictures: list[PictureItem] = []
+        tables: list[TableItem] = []
+        key_value_items: list[KeyValueItem] = []
+        form_items: list[FormItem] = []
+
+        pages: dict[int, PageItem] = {}
+
+        _body: Optional[GroupItem] = None
+        _max_page: int = 0
+        _names: list[str] = []
+
+        def get_item_list(self, key: str) -> list[NodeItem]:
+            return getattr(self, key)
+
+        def index(self, doc: "DoclingDocument") -> None:
+
+            orig_ref_to_new_ref: dict[str, str] = {}
+            page_delta = self._max_page - min(doc.pages.keys()) + 1 if doc.pages else 0
+
+            if self._body is None:
+                self._body = GroupItem(**doc.body.model_dump(exclude={"children"}))
+
+            self._names.append(doc.name)
+
+            # collect items in traversal order
+            for item, _ in doc.iterate_items(
+                with_groups=True,
+                traverse_pictures=True,
+                included_content_layers={c for c in ContentLayer},
+            ):
+                key = item.self_ref.split("/")[1]
+                is_body = key == "body"
+                new_cref = (
+                    "#/body" if is_body else f"#/{key}/{len(self.get_item_list(key))}"
+                )
+                # register cref mapping:
+                orig_ref_to_new_ref[item.self_ref] = new_cref
+
+                if not is_body:
+                    new_item = copy.deepcopy(item)
+                    new_item.children = []
+
+                    # put item in the right list
+                    self.get_item_list(key).append(new_item)
+
+                    # update item's self reference
+                    new_item.self_ref = new_cref
+
+                    if isinstance(new_item, DocItem):
+                        # update page numbers
+                        # NOTE other prov sources (e.g. GraphCell) currently not covered
+                        for prov in new_item.prov:
+                            prov.page_no += page_delta
+
+                    if item.parent:
+                        # set item's parent
+                        new_parent_cref = orig_ref_to_new_ref[item.parent.cref]
+                        new_item.parent = RefItem(cref=new_parent_cref)
+
+                        # add item to parent's children
+                        path_components = new_parent_cref.split("/")
+                        num_components = len(path_components)
+                        if num_components == 3:
+                            _, parent_key, parent_index_str = path_components
+                            parent_index = int(parent_index_str)
+                            parent_item = self.get_item_list(parent_key)[parent_index]
+
+                            # update captions field (not possible in iterate_items order):
+                            if isinstance(parent_item, FloatingItem):
+                                for cap_it, cap in enumerate(parent_item.captions):
+                                    if cap.cref == item.self_ref:
+                                        parent_item.captions[cap_it] = RefItem(
+                                            cref=new_cref
+                                        )
+                                        break
+
+                        elif num_components == 2 and path_components[1] == "body":
+                            parent_item = self._body
+                        else:
+                            raise RuntimeError(
+                                f"Unsupported ref format: {new_parent_cref}"
+                            )
+                        parent_item.children.append(RefItem(cref=new_cref))
+
+            # update pages
+            new_max_page = None
+            for page_nr in doc.pages:
+                new_page = copy.deepcopy(doc.pages[page_nr])
+                new_page_nr = page_nr + page_delta
+                new_page.page_no = new_page_nr
+                self.pages[new_page_nr] = new_page
+                if new_max_page is None or new_page_nr > new_max_page:
+                    new_max_page = new_page_nr
+            if new_max_page is not None:
+                self._max_page = new_max_page
+
+        def get_name(self) -> str:
+            return " + ".join(self._names)
+
+    def _update_from_index(self, doc_index: "_DocIndex") -> None:
+        if doc_index._body is not None:
+            self.body = doc_index._body
+        self.groups = doc_index.groups
+        self.texts = doc_index.texts
+        self.pictures = doc_index.pictures
+        self.tables = doc_index.tables
+        self.key_value_items = doc_index.key_value_items
+        self.form_items = doc_index.form_items
+        self.pages = doc_index.pages
+        self.name = doc_index.get_name()
+
     def _normalize_references(self) -> None:
-        """Normalize ref numbering by ordering node items as per iterate_items()."""
-        new_body = GroupItem(**self.body.model_dump(exclude={"children"}))
+        doc_index = DoclingDocument._DocIndex()
+        doc_index.index(doc=self)
+        self._update_from_index(doc_index)
 
-        item_lists: dict[str, list[NodeItem]] = {
-            "groups": [],
-            "texts": [],
-            "pictures": [],
-            "tables": [],
-            "key_value_items": [],
-            "form_items": [],
-        }
-        orig_ref_to_new_ref: dict[str, str] = {}
+    @classmethod
+    def concatenate(cls, docs: Sequence["DoclingDocument"]) -> "DoclingDocument":
+        """Concatenate multiple documents into a single document."""
+        doc_index = DoclingDocument._DocIndex()
+        for doc in docs:
+            doc_index.index(doc=doc)
 
-        # collect items in traversal order
+        res_doc = DoclingDocument(name=" + ".join([doc.name for doc in docs]))
+        res_doc._update_from_index(doc_index)
+        return res_doc
+
+    def _validate_rules(self):
+        def validate_list_group(doc: DoclingDocument, item: ListGroup):
+            for ref in item.children:
+                child = ref.resolve(doc)
+                if not isinstance(child, ListItem):
+                    raise ValueError(
+                        f"ListGroup {item.self_ref} contains non-ListItem {child.self_ref} ({child.label=})"
+                    )
+
+        def validate_list_item(doc: DoclingDocument, item: ListItem):
+            if item.parent is None:
+                raise ValueError(f"ListItem {item.self_ref} has no parent")
+            if not isinstance(item.parent.resolve(doc), ListGroup):
+                raise ValueError(
+                    f"ListItem {item.self_ref} has non-ListGroup parent: {item.parent.cref}"
+                )
+
+        def validate_group(doc: DoclingDocument, item: GroupItem):
+            if (
+                item.parent and not item.children
+            ):  # tolerate empty body, but not other groups
+                raise ValueError(f"Group {item.self_ref} has no children")
+
         for item, _ in self.iterate_items(
             with_groups=True,
             traverse_pictures=True,
             included_content_layers={c for c in ContentLayer},
         ):
-            key = item.self_ref.split("/")[1]
-            is_body = key == "body"
-            new_cref = "#/body" if is_body else f"#/{key}/{len(item_lists[key])}"
-            # register cref mapping:
-            orig_ref_to_new_ref[item.self_ref] = new_cref
+            if isinstance(item, ListGroup):
+                validate_list_group(self, item)
 
-            if not is_body:
-                new_item = copy.deepcopy(item)
-                new_item.children = []
+            elif isinstance(item, GroupItem):
+                validate_group(self, item)
 
-                # put item in the right list
-                item_lists[key].append(new_item)
-
-                # update item's self reference
-                new_item.self_ref = new_cref
-
-                if item.parent:
-                    # set item's parent
-                    new_parent_cref = orig_ref_to_new_ref[item.parent.cref]
-                    new_item.parent = RefItem(cref=new_parent_cref)
-
-                    # add item to parent's children
-                    path_components = new_parent_cref.split("/")
-                    num_components = len(path_components)
-                    parent_node: NodeItem
-                    if num_components == 3:
-                        _, parent_key, parent_index_str = path_components
-                        parent_index = int(parent_index_str)
-                        parent_node = item_lists[parent_key][parent_index]
-                    elif num_components == 2 and path_components[1] == "body":
-                        parent_node = new_body
-                    else:
-                        raise RuntimeError(f"Unsupported ref format: {new_parent_cref}")
-                    parent_node.children.append(RefItem(cref=new_cref))
-
-        # update document
-        self.groups = item_lists["groups"]  # type: ignore
-        self.texts = item_lists["texts"]  # type: ignore
-        self.pictures = item_lists["pictures"]  # type: ignore
-        self.tables = item_lists["tables"]  # type: ignore
-        self.key_value_items = item_lists["key_value_items"]  # type: ignore
-        self.form_items = item_lists["form_items"]  # type: ignore
-        self.body = new_body
+            elif isinstance(item, ListItem):
+                validate_list_item(self, item)
 
 
 # deprecated aliases (kept for backwards compatibility):

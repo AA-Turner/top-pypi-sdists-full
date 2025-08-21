@@ -24,6 +24,14 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class DebSourcePackageResponse(BaseModel):
     """
     A Serializer for DscFile.
@@ -33,6 +41,7 @@ class DebSourcePackageResponse(BaseModel):
     pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
     pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")
+    vuln_report: Optional[StrictStr] = None
     artifacts: Dict[str, Any] = Field(description="A dict mapping relative paths inside the Content to the correspondingArtifact URLs. E.g.: {'relative/path': '/artifacts/1/'")
     relative_path: Optional[StrictStr] = Field(default=None, description="Relative path of the Debian Source Control (dsc) file.It is normally advised to let Pulp generate this.")
     sha256: Optional[StrictStr] = Field(default=None, description="sha256 digest of the dsc file.")
@@ -63,7 +72,7 @@ class DebSourcePackageResponse(BaseModel):
     build_conflicts_indep: Optional[StrictStr] = None
     build_conflicts_arch: Optional[StrictStr] = None
     package_list: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "artifacts", "relative_path", "sha256", "format", "source", "binary", "architecture", "version", "maintainer", "uploaders", "homepage", "vcs_browser", "vcs_arch", "vcs_bzr", "vcs_cvs", "vcs_darcs", "vcs_git", "vcs_hg", "vcs_mtn", "vcs_snv", "testsuite", "dgit", "standards_version", "build_depends", "build_depends_indep", "build_depends_arch", "build_conflicts", "build_conflicts_indep", "build_conflicts_arch", "package_list"]
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "vuln_report", "artifacts", "relative_path", "sha256", "format", "source", "binary", "architecture", "version", "maintainer", "uploaders", "homepage", "vcs_browser", "vcs_arch", "vcs_bzr", "vcs_cvs", "vcs_darcs", "vcs_git", "vcs_hg", "vcs_mtn", "vcs_snv", "testsuite", "dgit", "standards_version", "build_depends", "build_depends_indep", "build_depends_arch", "build_conflicts", "build_conflicts_indep", "build_conflicts_arch", "package_list"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -128,12 +137,14 @@ class DebSourcePackageResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
+        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
             "prn",
             "pulp_created",
             "pulp_last_updated",
+            "vuln_report",
             "artifacts",
             "sha256",
             "format",
@@ -187,6 +198,7 @@ class DebSourcePackageResponse(BaseModel):
             "pulp_created": obj.get("pulp_created"),
             "pulp_last_updated": obj.get("pulp_last_updated"),
             "pulp_labels": obj.get("pulp_labels"),
+            "vuln_report": obj.get("vuln_report"),
             "artifacts": obj.get("artifacts"),
             "relative_path": obj.get("relative_path"),
             "sha256": obj.get("sha256"),

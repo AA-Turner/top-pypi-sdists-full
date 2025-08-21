@@ -135,7 +135,7 @@ class CfnComponent(
         :param change_description: The change description of the component. Describes what change has been made in this version, or what makes this version different from other versions of the component.
         :param data: Component ``data`` contains inline YAML document content for the component. Alternatively, you can specify the ``uri`` of a YAML document file stored in Amazon S3. However, you cannot specify both properties.
         :param description: Describes the contents of the component.
-        :param kms_key_id: The ID of the KMS key that is used to encrypt this component.
+        :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this component. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
         :param supported_os_versions: The operating system (OS) version supported by the component. If the OS information is available, a prefix match is performed against the base image OS version during image recipe creation.
         :param tags: The tags that apply to the component.
         :param uri: The ``uri`` of a YAML component document file. This must be an S3 URL ( ``s3://bucket/key`` ), and the requester must have permission to access the S3 bucket it points to. If you use Amazon S3, you can specify component content up to your service quota. Alternatively, you can specify the YAML document inline, using the component ``data`` property. You cannot specify both properties.
@@ -323,7 +323,7 @@ class CfnComponent(
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the KMS key that is used to encrypt this component.'''
+        '''The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this component.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
 
     @kms_key_id.setter
@@ -418,7 +418,7 @@ class CfnComponentProps:
         :param change_description: The change description of the component. Describes what change has been made in this version, or what makes this version different from other versions of the component.
         :param data: Component ``data`` contains inline YAML document content for the component. Alternatively, you can specify the ``uri`` of a YAML document file stored in Amazon S3. However, you cannot specify both properties.
         :param description: Describes the contents of the component.
-        :param kms_key_id: The ID of the KMS key that is used to encrypt this component.
+        :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this component. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
         :param supported_os_versions: The operating system (OS) version supported by the component. If the OS information is available, a prefix match is performed against the base image OS version during image recipe creation.
         :param tags: The tags that apply to the component.
         :param uri: The ``uri`` of a YAML component document file. This must be an S3 URL ( ``s3://bucket/key`` ), and the requester must have permission to access the S3 bucket it points to. If you use Amazon S3, you can specify component content up to your service quota. Alternatively, you can specify the YAML document inline, using the component ``data`` property. You cannot specify both properties.
@@ -546,7 +546,9 @@ class CfnComponentProps:
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the KMS key that is used to encrypt this component.
+        '''The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this component.
+
+        This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-component.html#cfn-imagebuilder-component-kmskeyid
         '''
@@ -702,7 +704,7 @@ class CfnContainerRecipe(
         :param dockerfile_template_uri: The S3 URI for the Dockerfile that will be used to build your container image.
         :param image_os_version_override: Specifies the operating system version for the base image.
         :param instance_configuration: A group of options that can be used to configure an instance for building and testing container images.
-        :param kms_key_id: Identifies which KMS key is used to encrypt the container image for distribution to the target Region.
+        :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies which KMS key is used to encrypt the container image for distribution to the target Region. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
         :param platform_override: Specifies the operating system platform when you use a custom base image.
         :param tags: Tags that are attached to the container recipe.
         :param working_directory: The working directory for use during build and test workflows.
@@ -953,7 +955,7 @@ class CfnContainerRecipe(
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Identifies which KMS key is used to encrypt the container image for distribution to the target Region.'''
+        '''The Amazon Resource Name (ARN) that uniquely identifies which KMS key is used to encrypt the container image for distribution to the target Region.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
 
     @kms_key_id.setter
@@ -1183,7 +1185,7 @@ class CfnContainerRecipe(
             :param delete_on_termination: Use to configure delete on termination of the associated device.
             :param encrypted: Use to configure device encryption.
             :param iops: Use to configure device IOPS.
-            :param kms_key_id: Use to configure the KMS key to use when encrypting the device.
+            :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies the KMS key to use when encrypting the device. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
             :param snapshot_id: The snapshot that defines the device contents.
             :param throughput: *For GP3 volumes only* – The throughput in MiB/s that the volume supports.
             :param volume_size: Use to override the device's volume size.
@@ -1270,7 +1272,9 @@ class CfnContainerRecipe(
 
         @builtins.property
         def kms_key_id(self) -> typing.Optional[builtins.str]:
-            '''Use to configure the KMS key to use when encrypting the device.
+            '''The Amazon Resource Name (ARN) that uniquely identifies the KMS key to use when encrypting the device.
+
+            This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-containerrecipe-ebsinstanceblockdevicespecification.html#cfn-imagebuilder-containerrecipe-ebsinstanceblockdevicespecification-kmskeyid
             '''
@@ -1660,7 +1664,7 @@ class CfnContainerRecipeProps:
         :param dockerfile_template_uri: The S3 URI for the Dockerfile that will be used to build your container image.
         :param image_os_version_override: Specifies the operating system version for the base image.
         :param instance_configuration: A group of options that can be used to configure an instance for building and testing container images.
-        :param kms_key_id: Identifies which KMS key is used to encrypt the container image for distribution to the target Region.
+        :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies which KMS key is used to encrypt the container image for distribution to the target Region. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
         :param platform_override: Specifies the operating system platform when you use a custom base image.
         :param tags: Tags that are attached to the container recipe.
         :param working_directory: The working directory for use during build and test workflows.
@@ -1895,7 +1899,9 @@ class CfnContainerRecipeProps:
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Identifies which KMS key is used to encrypt the container image for distribution to the target Region.
+        '''The Amazon Resource Name (ARN) that uniquely identifies which KMS key is used to encrypt the container image for distribution to the target Region.
+
+        This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-kmskeyid
         '''
@@ -2184,7 +2190,7 @@ class CfnDistributionConfiguration(
 
             :param ami_tags: The tags to apply to AMIs distributed to this Region.
             :param description: The description of the AMI distribution configuration. Minimum and maximum length are in characters.
-            :param kms_key_id: The KMS key identifier used to encrypt the distributed image.
+            :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt the distributed image. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
             :param launch_permission_configuration: Launch permissions can be used to configure which AWS account s can use the AMI to launch instances.
             :param name: The name of the output AMI.
             :param target_account_ids: The ID of an account to which you want to distribute an image.
@@ -2260,7 +2266,9 @@ class CfnDistributionConfiguration(
 
         @builtins.property
         def kms_key_id(self) -> typing.Optional[builtins.str]:
-            '''The KMS key identifier used to encrypt the distributed image.
+            '''The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt the distributed image.
+
+            This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-distributionconfiguration-amidistributionconfiguration.html#cfn-imagebuilder-distributionconfiguration-amidistributionconfiguration-kmskeyid
             '''
@@ -6183,7 +6191,7 @@ class CfnImageRecipe(
             :param delete_on_termination: Configures delete on termination of the associated device.
             :param encrypted: Use to configure device encryption.
             :param iops: Use to configure device IOPS.
-            :param kms_key_id: Use to configure the KMS key to use when encrypting the device.
+            :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies the KMS key to use when encrypting the device. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
             :param snapshot_id: The snapshot that defines the device contents.
             :param throughput: *For GP3 volumes only* – The throughput in MiB/s that the volume supports.
             :param volume_size: Overrides the volume size of the device.
@@ -6270,7 +6278,9 @@ class CfnImageRecipe(
 
         @builtins.property
         def kms_key_id(self) -> typing.Optional[builtins.str]:
-            '''Use to configure the KMS key to use when encrypting the device.
+            '''The Amazon Resource Name (ARN) that uniquely identifies the KMS key to use when encrypting the device.
+
+            This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-imagerecipe-ebsinstanceblockdevicespecification.html#cfn-imagebuilder-imagerecipe-ebsinstanceblockdevicespecification-kmskeyid
             '''
@@ -6457,7 +6467,7 @@ class CfnImageRecipe(
         ) -> None:
             '''Contains settings for the Systems Manager agent on your build instance.
 
-            :param uninstall_after_build: Controls whether the Systems Manager agent is removed from your final build image, prior to creating the new AMI. If this is set to true, then the agent is removed from the final image. If it's set to false, then the agent is left in, so that it is included in the new AMI. The default value is false.
+            :param uninstall_after_build: Controls whether the Systems Manager agent is removed from your final build image, prior to creating the new AMI. If this is set to true, then the agent is removed from the final image. If it's set to false, then the agent is left in, so that it is included in the new AMI. default value is false. The default behavior of uninstallAfterBuild is to remove the SSM Agent if it was installed by EC2 Image Builder
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-imagerecipe-systemsmanageragent.html
             :exampleMetadata: fixture=_generated
@@ -6485,7 +6495,9 @@ class CfnImageRecipe(
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
             '''Controls whether the Systems Manager agent is removed from your final build image, prior to creating the new AMI.
 
-            If this is set to true, then the agent is removed from the final image. If it's set to false, then the agent is left in, so that it is included in the new AMI. The default value is false.
+            If this is set to true, then the agent is removed from the final image. If it's set to false, then the agent is left in, so that it is included in the new AMI. default value is false.
+
+            The default behavior of uninstallAfterBuild is to remove the SSM Agent if it was installed by EC2 Image Builder
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-imagerecipe-systemsmanageragent.html#cfn-imagebuilder-imagerecipe-systemsmanageragent-uninstallafterbuild
             '''
@@ -9207,7 +9219,7 @@ class CfnWorkflow(
         :param change_description: Describes what change has been made in this version of the workflow, or what makes this version different from other versions of the workflow.
         :param data: Contains the UTF-8 encoded YAML document content for the workflow. Alternatively, you can specify the ``uri`` of a YAML document file stored in Amazon S3. However, you cannot specify both properties.
         :param description: Describes the workflow.
-        :param kms_key_id: The ID of the KMS key that is used to encrypt this workflow resource.
+        :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this workflow resource. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
         :param tags: Tags that apply to the workflow resource.
         :param uri: The ``uri`` of a YAML component document file. This must be an S3 URL ( ``s3://bucket/key`` ), and the requester must have permission to access the S3 bucket it points to. If you use Amazon S3, you can specify component content up to your service quota. Alternatively, you can specify the YAML document inline, using the component ``data`` property. You cannot specify both properties.
         '''
@@ -9363,7 +9375,7 @@ class CfnWorkflow(
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the KMS key that is used to encrypt this workflow resource.'''
+        '''The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this workflow resource.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
 
     @kms_key_id.setter
@@ -9440,7 +9452,7 @@ class CfnWorkflowProps:
         :param change_description: Describes what change has been made in this version of the workflow, or what makes this version different from other versions of the workflow.
         :param data: Contains the UTF-8 encoded YAML document content for the workflow. Alternatively, you can specify the ``uri`` of a YAML document file stored in Amazon S3. However, you cannot specify both properties.
         :param description: Describes the workflow.
-        :param kms_key_id: The ID of the KMS key that is used to encrypt this workflow resource.
+        :param kms_key_id: The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this workflow resource. This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
         :param tags: Tags that apply to the workflow resource.
         :param uri: The ``uri`` of a YAML component document file. This must be an S3 URL ( ``s3://bucket/key`` ), and the requester must have permission to access the S3 bucket it points to. If you use Amazon S3, you can specify component content up to your service quota. Alternatively, you can specify the YAML document inline, using the component ``data`` property. You cannot specify both properties.
 
@@ -9567,7 +9579,9 @@ class CfnWorkflowProps:
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the KMS key that is used to encrypt this workflow resource.
+        '''The Amazon Resource Name (ARN) that uniquely identifies the KMS key used to encrypt this workflow resource.
+
+        This can be either the Key ARN or the Alias ARN. For more information, see `Key identifiers (KeyId) <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#key-id-key-ARN>`_ in the *AWS Key Management Service Developer Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-workflow.html#cfn-imagebuilder-workflow-kmskeyid
         '''

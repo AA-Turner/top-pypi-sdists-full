@@ -2743,7 +2743,18 @@ async def itens_not_found_supplier(xml: str) -> RpaRetornoProcessoDTO:
             try:
                 main_window = app["TMessageForm"]
                 console.print("Janela 'TMessageForm' encontrada!")
-                break
+                await worker_sleep(15)
+                janela_aguarde = await is_window_open_by_class(
+                    "TFrmAguarde", "TFrmAguarde"
+                )
+                if janela_aguarde["IsOpened"] == True:
+                    console.print(
+                        "Aguardando tela de aguarde desaparecer ou conectar...\n"
+                    )
+                else:
+                    break
+
+                await worker_sleep(3)
             except Exception as e:
                 console.print(f"Erro ao tentar acessar TMessageForm: {e}")
                 janela_aguarde = await is_window_open_by_class(

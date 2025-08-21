@@ -1,9 +1,10 @@
+import os
+import json
 import psycopg2
 import psycopg2.extras as extras
-import psycopg2.sql as sql
 import pandas as pd
 import numpy as np
-import os
+from psycopg2.extras import execute_values
 from psycopg2.extensions import register_adapter, AsIs
 from maisaedu_utilities_prefect.database import detect_sql_injection
 
@@ -119,6 +120,17 @@ def select(conn, str, params=None):
         cur.close()
         raise error
 
+def select_as_dataframe(conn, str):
+    cursor = conn.cursor()
+    cursor.execute(str)
+    
+    results = cursor.fetchall()
+    
+    column_names = [desc[0] for desc in cursor.description]
+    
+    cursor.close()
+    
+    return pd.DataFrame(results, columns=column_names)
 
 def execute(conn, str, default_commit=True, params=None):
     cur = conn.cursor()
@@ -147,3 +159,31 @@ def execute_vacuum(conn, table_name, full = False):
         conn.autocommit = False
         cur.close()
         raise error
+
+def insert_dataframe(conn, df, table_name):
+    cursor = conn.cursor()
+    if df.empty:
+        return
+
+    df = df.copy()
+    for col in df.columns:
+        if df[col].apply(lambda x: isinstance(x, dict)).any():
+            df[col] = df[col].apply(json.dumps)
+            
+    records = df.to_records(index=False)
+    values = [tuple(row) for row in records]
+
+    columns = ','.join(df.columns)
+
+    placeholders = ','.join(['%s'] * len(df.columns))
+
+    insert_query = f"INSERT INTO {table_name} ({columns}) VALUES %s"
+
+    try:
+        execute_values(cursor, insert_query, values)
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+    finally:
+        cursor.close()
+        conn.close()

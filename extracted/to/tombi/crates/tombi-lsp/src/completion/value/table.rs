@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use futures::future::join_all;
+use itertools::Itertools;
 use tombi_future::{BoxFuture, Boxable};
 use tombi_schema_store::{
     is_online_url, Accessor, CurrentSchema, DocumentSchema, FindSchemaCandidates, PropertySchema,
@@ -33,6 +34,11 @@ impl FindCompletionContents for tombi_document_tree::Table {
 
         async move {
             if keys.is_empty() && self.kind() != tombi_document_tree::TableKind::InlineTable {
+                // Skip if the cursor is the end space of key value like:
+                //
+                // ```toml
+                // key = "value" █
+                // ```
                 for value in self.values() {
                     let end = value.range().end;
                     if end.line == position.line && end.column < position.column {
@@ -87,7 +93,11 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                             | CompletionHint::EqualTrigger { range, .. },
                                         ) => range.end <= key.range().start,
                                         Some(
-                                            CompletionHint::InArray | CompletionHint::InTableHeader,
+                                            CompletionHint::InArray
+                                            | CompletionHint::InTableHeader
+                                            | CompletionHint::LastComma { .. }
+                                            | CompletionHint::NeedHeadComma { .. }
+                                            | CompletionHint::NeedTailComma,
                                         ) => false,
                                         None => true,
                                     };
@@ -124,7 +134,7 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                                     .iter()
                                                     .cloned()
                                                     .chain(std::iter::once(accessor))
-                                                    .collect::<Vec<_>>(),
+                                                    .collect_vec(),
                                                 Some(&current_schema),
                                                 schema_context,
                                                 completion_hint,
@@ -414,7 +424,7 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                         .await
                                         .keys()
                                         .map(ToString::to_string)
-                                        .collect::<Vec<_>>();
+                                        .collect_vec();
                                     completion_contents.push(CompletionContent::new_pattern_key(
                                         patterns.as_ref(),
                                         position,
@@ -695,15 +705,6 @@ fn get_property_value_completion_contents<'a: 'b, 'b>(
     async move {
         if keys.len() == 1 {
             match completion_hint {
-                Some(CompletionHint::InArray) => {
-                    return type_hint_value(
-                        Some(key),
-                        position,
-                        schema_context.toml_version,
-                        None,
-                        completion_hint,
-                    )
-                }
                 Some(
                     CompletionHint::DotTrigger { range } | CompletionHint::EqualTrigger { range },
                 ) => {
@@ -735,30 +736,19 @@ fn get_property_value_completion_contents<'a: 'b, 'b>(
                         }
                     }
                 }
-                None => {
+                Some(
+                    CompletionHint::InArray
+                    | CompletionHint::NeedHeadComma { .. }
+                    | CompletionHint::NeedTailComma
+                    | CompletionHint::LastComma { .. },
+                )
+                | None => {
                     if matches!(value, tombi_document_tree::Value::Incomplete { .. }) {
-                        match completion_hint {
-                            Some(
-                                CompletionHint::InTableHeader
-                                | CompletionHint::DotTrigger { .. }
-                                | CompletionHint::EqualTrigger { .. },
-                            )
-                            | None => {
-                                return CompletionContent::new_magic_triggers(
-                                    &key.to_raw_text(schema_context.toml_version),
-                                    position,
-                                    current_schema.map(|schema| schema.schema_uri.as_ref()),
-                                );
-                            }
-                            Some(CompletionHint::InArray) => {
-                                return vec![CompletionContent::new_type_hint_key(
-                                    &key.to_raw_text(schema_context.toml_version),
-                                    key.range(),
-                                    current_schema.map(|schema| schema.schema_uri.as_ref()),
-                                    completion_hint,
-                                )];
-                            }
-                        }
+                        return CompletionContent::new_magic_triggers(
+                            &key.to_raw_text(schema_context.toml_version),
+                            position,
+                            current_schema.map(|schema| schema.schema_uri.as_ref()),
+                        );
                     }
                 }
             }
@@ -774,7 +764,7 @@ fn get_property_value_completion_contents<'a: 'b, 'b>(
                     .chain(std::iter::once(Accessor::Key(
                         key.to_raw_text(schema_context.toml_version),
                     )))
-                    .collect::<Vec<_>>(),
+                    .collect_vec(),
                 current_schema,
                 schema_context,
                 completion_hint,

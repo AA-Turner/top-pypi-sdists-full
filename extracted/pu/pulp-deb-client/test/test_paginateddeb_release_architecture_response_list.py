@@ -48,6 +48,7 @@ class TestPaginateddebReleaseArchitectureResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         architecture = '', 
                         distribution = '', )
                     ]
@@ -64,6 +65,7 @@ class TestPaginateddebReleaseArchitectureResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         architecture = '', 
                         distribution = '', )
                     ],

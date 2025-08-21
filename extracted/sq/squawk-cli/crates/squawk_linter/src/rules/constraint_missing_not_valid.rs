@@ -57,12 +57,11 @@ fn not_valid_validate_in_transaction(
                                     && not_valid_names.contains(&Identifier::new(&constraint_name))
                                 {
                                     ctx.report(
-                                        Violation::new(
+                                        Violation::for_node(
                                         Rule::ConstraintMissingNotValid,
                                         "Using `NOT VALID` and `VALIDATE CONSTRAINT` in the same transaction will block all reads while the constraint is validated.".into(),
-                                        validate_constraint.syntax().text_range(),
-                                        "Add constraint as `NOT VALID` in one transaction and `VALIDATE CONSTRAINT` in a separate transaction.".to_string(),
-                                    ))
+                                        validate_constraint.syntax(),
+                                    ).help("Add constraint as `NOT VALID` in one transaction and `VALIDATE CONSTRAINT` in a separate transaction."))
                                 }
                             }
                         }
@@ -127,12 +126,11 @@ pub(crate) fn constraint_missing_not_valid(ctx: &mut Linter, parse: &Parse<Sourc
                             }
                         }
 
-                        ctx.report(Violation::new(
+                        ctx.report(Violation::for_node(
                             Rule::ConstraintMissingNotValid,
                             "By default new constraints require a table scan and block writes to the table while that scan occurs.".into(),
-                            add_constraint.syntax().text_range(),
-                            "Use `NOT VALID` with a later `VALIDATE CONSTRAINT` call.".to_string(),
-                        ));
+                            add_constraint.syntax(),
+                        ).help("Use `NOT VALID` with a later `VALIDATE CONSTRAINT` call."));
                     }
                 }
             }
@@ -144,7 +142,10 @@ pub(crate) fn constraint_missing_not_valid(ctx: &mut Linter, parse: &Parse<Sourc
 mod test {
     use insta::assert_debug_snapshot;
 
-    use crate::{Rule, test_utils::{lint, lint_with_assume_in_transaction}};
+    use crate::{
+        Rule,
+        test_utils::{lint, lint_with_assume_in_transaction},
+    };
 
     #[test]
     fn not_valid_validate_transaction_err() {

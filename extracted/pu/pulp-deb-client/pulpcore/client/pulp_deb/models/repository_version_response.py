@@ -25,6 +25,14 @@ from pulpcore.client.pulp_deb.models.content_summary_response import ContentSumm
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class RepositoryVersionResponse(BaseModel):
     """
     Base serializer for use with [pulpcore.app.models.Model][]  This ensures that all Serializers provide values for the 'pulp_href` field.  The class provides a default for the ``ref_name`` attribute in the ModelSerializers's ``Meta`` class. This ensures that the OpenAPI definitions of plugins are namespaced properly.
@@ -37,7 +45,8 @@ class RepositoryVersionResponse(BaseModel):
     repository: Optional[StrictStr] = None
     base_version: Optional[StrictStr] = Field(default=None, description="A repository version whose content was used as the initial set of content for this repository version")
     content_summary: Optional[ContentSummaryResponse] = Field(default=None, description="Various count summaries of the content in the version and the HREF to view them.")
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "number", "repository", "base_version", "content_summary"]
+    vuln_report: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "number", "repository", "base_version", "content_summary", "vuln_report"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -76,6 +85,7 @@ class RepositoryVersionResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
+        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
@@ -85,6 +95,7 @@ class RepositoryVersionResponse(BaseModel):
             "number",
             "repository",
             "content_summary",
+            "vuln_report",
         ])
 
         _dict = self.model_dump(
@@ -114,7 +125,8 @@ class RepositoryVersionResponse(BaseModel):
             "number": obj.get("number"),
             "repository": obj.get("repository"),
             "base_version": obj.get("base_version"),
-            "content_summary": ContentSummaryResponse.from_dict(obj["content_summary"]) if obj.get("content_summary") is not None else None
+            "content_summary": ContentSummaryResponse.from_dict(obj["content_summary"]) if obj.get("content_summary") is not None else None,
+            "vuln_report": obj.get("vuln_report")
         })
         return _obj
 

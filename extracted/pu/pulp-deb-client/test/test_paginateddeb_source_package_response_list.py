@@ -48,6 +48,7 @@ class TestPaginateddebSourcePackageResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         artifacts = pulpcore.client.pulp_deb.models.artifacts.artifacts(), 
                         relative_path = '', 
                         sha256 = '', 
@@ -92,6 +93,7 @@ class TestPaginateddebSourcePackageResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         artifacts = pulpcore.client.pulp_deb.models.artifacts.artifacts(), 
                         relative_path = '', 
                         sha256 = '', 

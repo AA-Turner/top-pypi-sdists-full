@@ -1,0 +1,23 @@
+# 
+# list_files.toml
+# Generate list of files along with an empty column (invalid directory).
+# 
+# Author: GrimAndGreedy
+# License: MIT
+
+[environment]
+# cwd="~/"
+cwd="~/Downloads/new/"
+
+[data]
+files_command = "eza -1 --no-quotes -a"
+
+commands = [
+  """eza -1 --no-quotes -a""",
+  """eza -1 /nosuchdirectory""",
+]
+
+header = [
+  "file",
+  "empty column"
+]

@@ -160,6 +160,7 @@ class AlexaLogin:
         self.authorization_code: Optional[str] = oauth.get("authorization_code")
         self.oauth_login: bool = oauth_login
         self.csrf_token: Optional[str] = None
+        self.csrf_token_created_at: Optional[int] = None
         self.proxy_url: str = ""
         _LOGGER.debug(
             "Login created for %s - %s",
@@ -590,6 +591,7 @@ class AlexaLogin:
             token = meta_tag["content"]
             _LOGGER.debug("CSRF token found for %s: %s", self._url, token)
             self.csrf_token = token
+            self.csrf_token_created_at = int(datetime.datetime.now().timestamp())
             return token
         _LOGGER.debug("No CSRF token found for %s", self._url)
         return None

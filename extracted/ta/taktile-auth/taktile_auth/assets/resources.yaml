@@ -185,3 +185,7 @@ workspace_case:
   # write: can create, update and delete cases
   org_id: wildcard
   ws_id: wildcard
+workspace_case_flow_trigger:
+  # write: can execute case flow triggers
+  org_id: wildcard
+  ws_id: wildcard

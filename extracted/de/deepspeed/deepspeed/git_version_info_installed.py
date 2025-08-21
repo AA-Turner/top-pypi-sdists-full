@@ -1,4 +1,4 @@
-version='0.17.4 '
+version='0.17.5 '
 git_hash='unknown'
 git_branch='unknown'
 installed_ops={'deepspeed_not_implemented': False, 'async_io': False, 'deepspeed_ccl_comm': False, 'deepspeed_shm_comm': False, 'cpu_adam': False, 'fused_adam': False}

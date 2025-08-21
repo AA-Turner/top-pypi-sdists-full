@@ -6451,11 +6451,11 @@ class CfnWebhook(
             )],
             target_action="targetAction",
             target_pipeline="targetPipeline",
-            target_pipeline_version=123,
         
             # the properties below are optional
             name="name",
-            register_with_third_party=False
+            register_with_third_party=False,
+            target_pipeline_version=123
         )
     '''
 
@@ -6469,9 +6469,9 @@ class CfnWebhook(
         filters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebhook.WebhookFilterRuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         target_action: builtins.str,
         target_pipeline: builtins.str,
-        target_pipeline_version: jsii.Number,
         name: typing.Optional[builtins.str] = None,
         register_with_third_party: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        target_pipeline_version: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
@@ -6481,9 +6481,9 @@ class CfnWebhook(
         :param filters: A list of rules applied to the body/payload sent in the POST request to a webhook URL. All defined rules must pass for the request to be accepted and the pipeline started.
         :param target_action: The name of the action in a pipeline you want to connect to the webhook. The action must be from the source (first) stage of the pipeline.
         :param target_pipeline: The name of the pipeline you want to connect to the webhook.
-        :param target_pipeline_version: The version number of the pipeline to be connected to the trigger request. Required: Yes Type: Integer Update requires: `No interruption <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt>`_
         :param name: The name of the webhook.
         :param register_with_third_party: Configures a connection between the webhook that was created and the external tool with events to be detected.
+        :param target_pipeline_version: The version number of the pipeline to be connected to the trigger request. Required: Yes Type: Integer Update requires: `No interruption <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt>`_
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bf02f564438140d92570cd41d3abeeb991e242929571b6de0035b8a8b4ecff55)
@@ -6495,9 +6495,9 @@ class CfnWebhook(
             filters=filters,
             target_action=target_action,
             target_pipeline=target_pipeline,
-            target_pipeline_version=target_pipeline_version,
             name=name,
             register_with_third_party=register_with_third_party,
+            target_pipeline_version=target_pipeline_version,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -6535,7 +6535,8 @@ class CfnWebhook(
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
-        '''
+        '''logical id of the webhook.
+
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
@@ -6630,19 +6631,6 @@ class CfnWebhook(
         jsii.set(self, "targetPipeline", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="targetPipelineVersion")
-    def target_pipeline_version(self) -> jsii.Number:
-        '''The version number of the pipeline to be connected to the trigger request.'''
-        return typing.cast(jsii.Number, jsii.get(self, "targetPipelineVersion"))
-
-    @target_pipeline_version.setter
-    def target_pipeline_version(self, value: jsii.Number) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b5cd8d4c4d8034c3ab1dd1b987c191aa6f08532707cff99ad05b96198aff585)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "targetPipelineVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the webhook.'''
@@ -6672,6 +6660,19 @@ class CfnWebhook(
             type_hints = typing.get_type_hints(_typecheckingstub__bece180dca3b968274dbd53d569afb60e6d46b7d744e84c8607ca6bebd23d1be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "registerWithThirdParty", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="targetPipelineVersion")
+    def target_pipeline_version(self) -> typing.Optional[jsii.Number]:
+        '''The version number of the pipeline to be connected to the trigger request.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "targetPipelineVersion"))
+
+    @target_pipeline_version.setter
+    def target_pipeline_version(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1b5cd8d4c4d8034c3ab1dd1b987c191aa6f08532707cff99ad05b96198aff585)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetPipelineVersion", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_codepipeline.CfnWebhook.WebhookAuthConfigurationProperty",
@@ -6839,9 +6840,9 @@ class CfnWebhook(
         "filters": "filters",
         "target_action": "targetAction",
         "target_pipeline": "targetPipeline",
-        "target_pipeline_version": "targetPipelineVersion",
         "name": "name",
         "register_with_third_party": "registerWithThirdParty",
+        "target_pipeline_version": "targetPipelineVersion",
     },
 )
 class CfnWebhookProps:
@@ -6853,9 +6854,9 @@ class CfnWebhookProps:
         filters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebhook.WebhookFilterRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
         target_action: builtins.str,
         target_pipeline: builtins.str,
-        target_pipeline_version: jsii.Number,
         name: typing.Optional[builtins.str] = None,
         register_with_third_party: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        target_pipeline_version: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''Properties for defining a ``CfnWebhook``.
 
@@ -6864,9 +6865,9 @@ class CfnWebhookProps:
         :param filters: A list of rules applied to the body/payload sent in the POST request to a webhook URL. All defined rules must pass for the request to be accepted and the pipeline started.
         :param target_action: The name of the action in a pipeline you want to connect to the webhook. The action must be from the source (first) stage of the pipeline.
         :param target_pipeline: The name of the pipeline you want to connect to the webhook.
-        :param target_pipeline_version: The version number of the pipeline to be connected to the trigger request. Required: Yes Type: Integer Update requires: `No interruption <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt>`_
         :param name: The name of the webhook.
         :param register_with_third_party: Configures a connection between the webhook that was created and the external tool with events to be detected.
+        :param target_pipeline_version: The version number of the pipeline to be connected to the trigger request. Required: Yes Type: Integer Update requires: `No interruption <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt>`_
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-webhook.html
         :exampleMetadata: fixture=_generated
@@ -6891,11 +6892,11 @@ class CfnWebhookProps:
                 )],
                 target_action="targetAction",
                 target_pipeline="targetPipeline",
-                target_pipeline_version=123,
             
                 # the properties below are optional
                 name="name",
-                register_with_third_party=False
+                register_with_third_party=False,
+                target_pipeline_version=123
             )
         '''
         if __debug__:
@@ -6905,21 +6906,22 @@ class CfnWebhookProps:
             check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
             check_type(argname="argument target_action", value=target_action, expected_type=type_hints["target_action"])
             check_type(argname="argument target_pipeline", value=target_pipeline, expected_type=type_hints["target_pipeline"])
-            check_type(argname="argument target_pipeline_version", value=target_pipeline_version, expected_type=type_hints["target_pipeline_version"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument register_with_third_party", value=register_with_third_party, expected_type=type_hints["register_with_third_party"])
+            check_type(argname="argument target_pipeline_version", value=target_pipeline_version, expected_type=type_hints["target_pipeline_version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "authentication": authentication,
             "authentication_configuration": authentication_configuration,
             "filters": filters,
             "target_action": target_action,
             "target_pipeline": target_pipeline,
-            "target_pipeline_version": target_pipeline_version,
         }
         if name is not None:
             self._values["name"] = name
         if register_with_third_party is not None:
             self._values["register_with_third_party"] = register_with_third_party
+        if target_pipeline_version is not None:
+            self._values["target_pipeline_version"] = target_pipeline_version
 
     @builtins.property
     def authentication(self) -> builtins.str:
@@ -6990,22 +6992,6 @@ class CfnWebhookProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def target_pipeline_version(self) -> jsii.Number:
-        '''The version number of the pipeline to be connected to the trigger request.
-
-        Required: Yes
-
-        Type: Integer
-
-        Update requires: `No interruption <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-webhook.html#cfn-codepipeline-webhook-targetpipelineversion
-        '''
-        result = self._values.get("target_pipeline_version")
-        assert result is not None, "Required property 'target_pipeline_version' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the webhook.
 
@@ -7024,6 +7010,21 @@ class CfnWebhookProps:
         '''
         result = self._values.get("register_with_third_party")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def target_pipeline_version(self) -> typing.Optional[jsii.Number]:
+        '''The version number of the pipeline to be connected to the trigger request.
+
+        Required: Yes
+
+        Type: Integer
+
+        Update requires: `No interruption <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-update-behaviors.html#update-no-interrupt>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codepipeline-webhook.html#cfn-codepipeline-webhook-targetpipelineversion
+        '''
+        result = self._values.get("target_pipeline_version")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12536,9 +12537,9 @@ def _typecheckingstub__bf02f564438140d92570cd41d3abeeb991e242929571b6de0035b8a8b
     filters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebhook.WebhookFilterRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
     target_action: builtins.str,
     target_pipeline: builtins.str,
-    target_pipeline_version: jsii.Number,
     name: typing.Optional[builtins.str] = None,
     register_with_third_party: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    target_pipeline_version: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12585,12 +12586,6 @@ def _typecheckingstub__7689c33ff229cf9ddb20032bde1e437145c826878f8c3c870467422b2
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1b5cd8d4c4d8034c3ab1dd1b987c191aa6f08532707cff99ad05b96198aff585(
-    value: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__02d5d087cd1b518d8897dbfb653d0edc5b158629e5fb93ddfa71e79b970371d6(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -12599,6 +12594,12 @@ def _typecheckingstub__02d5d087cd1b518d8897dbfb653d0edc5b158629e5fb93ddfa71e79b9
 
 def _typecheckingstub__bece180dca3b968274dbd53d569afb60e6d46b7d744e84c8607ca6bebd23d1be(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b5cd8d4c4d8034c3ab1dd1b987c191aa6f08532707cff99ad05b96198aff585(
+    value: typing.Optional[jsii.Number],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12626,9 +12627,9 @@ def _typecheckingstub__f28117e3c74b6a7a1058236385a59385f8137a16e17eeab89a327270a
     filters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebhook.WebhookFilterRuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
     target_action: builtins.str,
     target_pipeline: builtins.str,
-    target_pipeline_version: jsii.Number,
     name: typing.Optional[builtins.str] = None,
     register_with_third_party: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    target_pipeline_version: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

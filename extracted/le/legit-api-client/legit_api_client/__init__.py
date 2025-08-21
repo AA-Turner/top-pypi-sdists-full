@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.4104"
+__version__ = "1.1.4115"
 
 # Define package exports
 __all__ = [
@@ -47,7 +47,7 @@ __all__ = [
     "ApiAttributeError",
     "ApiException",
     "AddIssueCommentDto",
-    "AiValidationResult",
+    "AiSecretValidationResult",
     "AmazonEcrKeyIntegrationCreateDto",
     "AmazonEcrKeyIntegrationEditDto",
     "AmazonEcrRoleIntegrationCreateDto",
@@ -200,7 +200,7 @@ __all__ = [
     "SdlcAssetMetaType",
     "SdlcAssetType",
     "SecretIssueValidityStatus",
-    "SecretesDataDto",
+    "SecretsDataDto",
     "Severity",
     "SnoozedType",
     "TagDto",
@@ -252,7 +252,7 @@ from legit_api_client.exceptions import ApiException as ApiException
 
 # import models into sdk package
 from legit_api_client.models.add_issue_comment_dto import AddIssueCommentDto as AddIssueCommentDto
-from legit_api_client.models.ai_validation_result import AiValidationResult as AiValidationResult
+from legit_api_client.models.ai_secret_validation_result import AiSecretValidationResult as AiSecretValidationResult
 from legit_api_client.models.amazon_ecr_key_integration_create_dto import AmazonEcrKeyIntegrationCreateDto as AmazonEcrKeyIntegrationCreateDto
 from legit_api_client.models.amazon_ecr_key_integration_edit_dto import AmazonEcrKeyIntegrationEditDto as AmazonEcrKeyIntegrationEditDto
 from legit_api_client.models.amazon_ecr_role_integration_create_dto import AmazonEcrRoleIntegrationCreateDto as AmazonEcrRoleIntegrationCreateDto
@@ -405,7 +405,7 @@ from legit_api_client.models.sdlc_asset_graph_link_dto_evidences import SdlcAsse
 from legit_api_client.models.sdlc_asset_meta_type import SdlcAssetMetaType as SdlcAssetMetaType
 from legit_api_client.models.sdlc_asset_type import SdlcAssetType as SdlcAssetType
 from legit_api_client.models.secret_issue_validity_status import SecretIssueValidityStatus as SecretIssueValidityStatus
-from legit_api_client.models.secretes_data_dto import SecretesDataDto as SecretesDataDto
+from legit_api_client.models.secrets_data_dto import SecretsDataDto as SecretsDataDto
 from legit_api_client.models.severity import Severity as Severity
 from legit_api_client.models.snoozed_type import SnoozedType as SnoozedType
 from legit_api_client.models.tag_dto import TagDto as TagDto

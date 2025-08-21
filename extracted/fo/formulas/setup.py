@@ -81,7 +81,7 @@ if __name__ == '__main__':
             print('LONG DESCRIPTION ERROR:\n %r', ex)
 
     extras = {
-        'excel': ['openpyxl', 'dictdiffer'],
+        'excel': ['openpyxl', 'dictdiffer', 'ezodf', 'lxml'],
         'plot': ['graphviz', 'regex', 'flask', 'Pygments', 'jinja2', 'docutils']
     }
     # noinspection PyTypeChecker
@@ -139,12 +139,16 @@ if __name__ == '__main__':
             "Topic :: Software Development :: Libraries :: Python Modules",
             "Topic :: Utilities",
         ],
+        package_data={
+            'formulas.functions': ['*.json']
+        },
         install_requires=[
             'regex',
             'schedula>=1.4.1',
             'numpy>=1.15',
             'python-dateutil',
-            'numpy-financial'
+            'numpy-financial',
+            'scipy'
         ],
         extras_require=extras,
         tests_require=['ddt', 'dill', 'openpyxl']

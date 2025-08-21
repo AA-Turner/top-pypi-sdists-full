@@ -48,6 +48,7 @@ class TestPaginateddebReleaseFileResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         artifacts = pulpcore.client.pulp_deb.models.artifacts.artifacts(), 
                         codename = '', 
                         suite = '', 
@@ -67,6 +68,7 @@ class TestPaginateddebReleaseFileResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         artifacts = pulpcore.client.pulp_deb.models.artifacts.artifacts(), 
                         codename = '', 
                         suite = '', 

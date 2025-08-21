@@ -664,7 +664,7 @@ mod completion_labels {
 
         test_completion_labels! {
             #[tokio::test]
-            async fn pyproject_project_dynamic_array_with_values(
+            async fn pyproject_project_dynamic_array_in_values_with_last_comma(
                 // Check `unique_items = true` case.
                 r#"
                 [project]
@@ -1467,7 +1467,7 @@ mod completion_labels {
                             .cmp(&b.sort_text.as_ref().unwrap_or(&b.label))
                     })
                     .map(|item| item.label)
-                    .collect::<Vec<_>>();
+                    .collect_vec();
 
                 pretty_assertions::assert_eq!(
                     labels,
@@ -1736,7 +1736,7 @@ mod completion_labels {
                             .cmp(&b.sort_text.as_ref().unwrap_or(&b.label))
                     })
                     .map(|item| item.label)
-                    .collect::<Vec<_>>();
+                    .collect_vec();
 
                 pretty_assertions::assert_eq!(
                     labels,

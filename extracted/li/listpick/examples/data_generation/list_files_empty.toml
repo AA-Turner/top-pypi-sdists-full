@@ -1,0 +1,22 @@
+# 
+# list_files_empty.toml
+# Generate list of files for non-existent files--empty picker.
+# 
+# Author: GrimAndGreedy
+# License: MIT
+
+[environment]
+cwd="~/Videos"
+
+[data]
+files_command = "eza -1 --no-quotes | grep zzz"
+
+commands = [
+  """eza -1 --no-quotes | grep zzz""",
+  """eza -1 /nosuchdirectory""",
+]
+
+header = [
+  "file",
+  "empty column"
+]

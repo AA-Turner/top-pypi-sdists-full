@@ -40,8 +40,24 @@ T = TypeVar("T")
 
 class Beaker:
     """
-    A client for interacting with `Beaker <https://beaker.org>`_. This should be used as a context
-    manager to ensure connections are properly closed on exit.
+    A client for interacting with `Beaker <https://beaker.org>`_.
+
+    .. important::
+        To ensure RPC connections are properly closed on exit, you should either use the client
+        as a context manager or ensure you manually call :meth:`close()` before Python exits.
+
+        Using the client as a context manager:
+
+        >>> with Beaker.from_env() as beaker:
+        ...     # use beaker client...
+
+        Manually closing down the client:
+
+        >>> beaker = Beaker.from_env()
+        >>> try:
+        ...     # use beaker client...
+        ... finally:
+        ...     beaker.close()
 
     .. tip::
         Use :meth:`from_env()` to create a client instance.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-events
-Version: 10.4.0
+Version: 10.5.0
 Summary: Open edX events from the Hooks Extensions Framework
 Home-page: https://github.com/openedx/openedx-events
 Author: edX
@@ -184,6 +184,15 @@ Change Log
 
 Unreleased
 __________
+
+[10.5.0] - 2025-08-19
+---------------------
+
+Added
+~~~~~
+
+* Added new ``COURSE_RERUN_COMPLETED`` event in authoring.
+
 
 [10.4.0] - 2025-07-21
 ---------------------

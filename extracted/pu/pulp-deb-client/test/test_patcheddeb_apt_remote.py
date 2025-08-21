@@ -50,7 +50,7 @@ class TestPatcheddebAptRemote(unittest.TestCase):
                 pulp_labels = {
                     'key' : ''
                     },
-                download_concurrency = 1,
+                download_concurrency = 56,
                 max_retries = 56,
                 policy = 'immediate',
                 total_timeout = 0.0,

@@ -14,6 +14,7 @@ from langchain_core.messages import (
     convert_to_messages,
     message_chunk_to_message,
 )
+from langchain_core.runnables import RunnableConfig
 from langgraph.errors import (
     EmptyChannelError,
     EmptyInputError,
@@ -107,7 +108,7 @@ def _preprocess_debug_checkpoint(
         **payload,
         "checkpoint": runnable_config_to_checkpoint(payload["config"]),
         "parent_checkpoint": runnable_config_to_checkpoint(
-            payload["parent_config"] if "parent_config" in payload else None
+            payload.get("parent_config", None)
         ),
         "tasks": [_preproces_debug_checkpoint_task(t) for t in payload["tasks"]],
     }
@@ -124,7 +125,7 @@ async def astream_state(
     attempt: int,
     done: ValueEvent,
     *,
-    on_checkpoint: Callable[[CheckpointPayload], None] = lambda _: None,
+    on_checkpoint: Callable[[CheckpointPayload | None], None] = lambda _: None,
     on_task_result: Callable[[TaskResultPayload], None] = lambda _: None,
 ) -> AnyStream:
     """Stream messages from the runnable."""
@@ -136,11 +137,12 @@ async def astream_state(
     subgraphs = kwargs.get("subgraphs", False)
     temporary = kwargs.pop("temporary", False)
     context = kwargs.pop("context", None)
-    config = kwargs.pop("config")
+    config = cast(RunnableConfig, kwargs.pop("config"))
+    configurable = config["configurable"]
     stack = AsyncExitStack()
     graph = await stack.enter_async_context(
         get_graph(
-            config["configurable"]["graph_id"],
+            configurable["graph_id"],
             config,
             store=(await api_store.get_store()),
             checkpointer=None if temporary else Checkpointer(),
@@ -171,6 +173,8 @@ async def astream_state(
     if "updates" not in stream_modes_set:
         stream_modes_set.add("updates")
         only_interrupt_updates = True
+    else:
+        only_interrupt_updates = False
     # attach attempt metadata
     config["metadata"]["run_attempt"] = attempt
     # attach langgraph metadata
@@ -182,7 +186,7 @@ async def astream_state(
     # attach node counter
     is_remote_pregel = isinstance(graph, BaseRemotePregel)
     if not is_remote_pregel:
-        config["configurable"]["__pregel_node_finished"] = incr_nodes
+        configurable["__pregel_node_finished"] = incr_nodes
 
     # attach run_id to config
     # for attempts beyond the first, use a fresh, unique run_id
@@ -195,9 +199,9 @@ async def astream_state(
     yield "metadata", {"run_id": run_id, "attempt": attempt}
 
     #  is a langsmith tracing project is specified, additionally pass that in to tracing context
-    if ls_project := config["configurable"].get("__langsmith_project__"):
+    if ls_project := configurable.get("__langsmith_project__"):
         updates = None
-        if example_id := config["configurable"].get("__langsmith_example_id__"):
+        if example_id := configurable.get("__langsmith_example_id__"):
             updates = {"reference_example_id": example_id}
 
         await stack.enter_async_context(
@@ -237,13 +241,18 @@ async def astream_state(
                 event = cast(dict, event)
                 if event.get("tags") and "langsmith:hidden" in event["tags"]:
                     continue
-                if "messages" in stream_mode and isinstance(graph, BaseRemotePregel):
-                    if event["event"] == "on_custom_event" and event["name"] in (
+                if (
+                    "messages" in stream_mode
+                    and isinstance(graph, BaseRemotePregel)
+                    and event["event"] == "on_custom_event"
+                    and event["name"]
+                    in (
                         "messages/complete",
                         "messages/partial",
                         "messages/metadata",
-                    ):
-                        yield event["name"], event["data"]
+                    )
+                ):
+                    yield event["name"], event["data"]
                 # TODO support messages-tuple for js graphs
                 if event["event"] == "on_chain_stream" and event["run_id"] == run_id:
                     if subgraphs:

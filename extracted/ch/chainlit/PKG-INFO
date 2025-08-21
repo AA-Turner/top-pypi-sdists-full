@@ -1,50 +1,78 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: chainlit
-Version: 2.6.9
+Version: 2.7.0
 Summary: Build Conversational AI.
+Project-URL: Homepage, https://chainlit.io/
+Project-URL: Documentation, https://docs.chainlit.io/
+Project-URL: Repository, https://github.com/Chainlit/chainlit
+Author: Willy Douhard, Dan Andre Constantini
 License: Apache-2.0
-Keywords: LLM,Agents,MCP,gen ai,chat ui,chatbot ui,openai,copilot,langchain,conversational ai
-Author: Willy Douhard
-Requires-Python: >=3.10,<4.0.0
+Keywords: Agents,LLM,MCP,chat ui,chatbot ui,conversational ai,copilot,gen ai,langchain,openai
 Classifier: Environment :: Web Environment
 Classifier: Framework :: FastAPI
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: JavaScript
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Communications :: Chat
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: User Interfaces
-Requires-Dist: aiofiles (>=23.1.0,<25.0.0)
-Requires-Dist: asyncer (>=0.0.8,<0.0.9)
-Requires-Dist: audioop-lts (==0.2.1) ; python_version >= "3.13" and python_version < "4.0"
-Requires-Dist: click (>=8.1.3,<9.0.0)
-Requires-Dist: dataclasses_json (>=0.6.7,<0.7.0)
-Requires-Dist: fastapi (>=0.116.1,<0.117)
-Requires-Dist: filetype (>=1.2.0,<2.0.0)
-Requires-Dist: httpx (>=0.23.0)
-Requires-Dist: lazify (>=0.4.0,<0.5.0)
-Requires-Dist: literalai (==0.1.201)
-Requires-Dist: mcp (>=1.11.0,<2.0.0)
-Requires-Dist: nest-asyncio (>=1.6.0,<2.0.0)
-Requires-Dist: packaging (>=23.1)
-Requires-Dist: pydantic (>=2.7.2,<3)
-Requires-Dist: pyjwt (>=2.8.0,<3.0.0)
-Requires-Dist: python-dotenv (>=1.0.0,<2.0.0)
-Requires-Dist: python-multipart (>=0.0.18,<0.0.19)
-Requires-Dist: python-socketio (>=5.11.0,<6.0.0)
-Requires-Dist: starlette (>=0.47.2)
-Requires-Dist: syncer (>=2.0.3,<3.0.0)
-Requires-Dist: tomli (>=2.0.1,<3.0.0)
-Requires-Dist: uvicorn (>=0.35.0)
-Requires-Dist: watchfiles (>=0.20.0,<0.21.0)
-Project-URL: Documentation, https://docs.chainlit.io/
-Project-URL: Homepage, https://chainlit.io/
-Project-URL: Repository, https://github.com/Chainlit/chainlit
+Requires-Python: <4.0.0,>=3.10
+Requires-Dist: aiofiles<25.0.0,>=23.1.0
+Requires-Dist: asyncer<0.1.0,>=0.0.8
+Requires-Dist: audioop-lts<0.3.0,>=0.2.1; python_version >= '3.13'
+Requires-Dist: click<9.0.0,>=8.1.3
+Requires-Dist: dataclasses-json<0.7.0,>=0.6.7
+Requires-Dist: fastapi<0.117,>=0.116.1
+Requires-Dist: filetype<2.0.0,>=1.2.0
+Requires-Dist: httpx>=0.23.0
+Requires-Dist: lazify<0.5.0,>=0.4.0
+Requires-Dist: literalai==0.1.201
+Requires-Dist: mcp<2.0.0,>=1.11.0
+Requires-Dist: nest-asyncio<2.0.0,>=1.6.0
+Requires-Dist: packaging>=23.1
+Requires-Dist: pydantic<3,>=2.7.2
+Requires-Dist: pyjwt<3.0.0,>=2.8.0
+Requires-Dist: python-dotenv<2.0.0,>=1.0.0
+Requires-Dist: python-multipart<1.0.0,>=0.0.18
+Requires-Dist: python-socketio<6.0.0,>=5.11.0
+Requires-Dist: starlette>=0.47.2
+Requires-Dist: syncer<3.0.0,>=2.0.3
+Requires-Dist: tomli<3.0.0,>=2.0.1
+Requires-Dist: uvicorn>=0.35.0
+Requires-Dist: watchfiles<1.0.0,>=0.20.0
+Provides-Extra: custom-data
+Requires-Dist: asyncpg<1.0.0,>=0.30.0; extra == 'custom-data'
+Requires-Dist: azure-identity<2.0.0,>=1.14.1; extra == 'custom-data'
+Requires-Dist: azure-storage-blob<13.0.0,>=12.24.0; extra == 'custom-data'
+Requires-Dist: azure-storage-file-datalake<13.0.0,>=12.14.0; extra == 'custom-data'
+Requires-Dist: boto3<2.0.0,>=1.34.73; extra == 'custom-data'
+Requires-Dist: google-cloud-storage<3.0.0,>=2.19.0; extra == 'custom-data'
+Requires-Dist: sqlalchemy<3.0.0,>=2.0.28; extra == 'custom-data'
+Provides-Extra: dev
+Requires-Dist: ruff<1.0.0,>=0.9.0; extra == 'dev'
+Provides-Extra: mypy
+Requires-Dist: mypy-boto3-dynamodb<2.0.0,>=1.34.113; extra == 'mypy'
+Requires-Dist: mypy<2.0.0,>=1.13; extra == 'mypy'
+Requires-Dist: pandas-stubs<3.0.0,>=2.2.2; (python_version >= '3.9') and extra == 'mypy'
+Requires-Dist: types-aiofiles<24.0.0,>=23.1.0.5; extra == 'mypy'
+Requires-Dist: types-requests<3.0.0,>=2.31.0.2; extra == 'mypy'
+Provides-Extra: tests
+Requires-Dist: aiosqlite<1.0.0,>=0.20.0; extra == 'tests'
+Requires-Dist: botbuilder-core<5.0.0,>=4.15.0; extra == 'tests'
+Requires-Dist: discord<3.0.0,>=2.3.2; extra == 'tests'
+Requires-Dist: langchain<0.3.0,>=0.2.4; extra == 'tests'
+Requires-Dist: llama-index<1.0.0,>=0.13.0; extra == 'tests'
+Requires-Dist: matplotlib<4.0.0,>=3.7.1; extra == 'tests'
+Requires-Dist: moto<6.0.0,>=5.0.14; extra == 'tests'
+Requires-Dist: openai<2.0.0,>=1.11.1; extra == 'tests'
+Requires-Dist: pandas<3.0.0,>=2.2.2; extra == 'tests'
+Requires-Dist: plotly<6.0.0,>=5.18.0; extra == 'tests'
+Requires-Dist: pytest-asyncio<1.0.0,>=0.23.8; extra == 'tests'
+Requires-Dist: pytest-cov<6.0.0,>=5.0.0; extra == 'tests'
+Requires-Dist: pytest<9.0.0,>=8.3.2; extra == 'tests'
+Requires-Dist: semantic-kernel<2.0.0,>=1.24.0; extra == 'tests'
+Requires-Dist: slack-bolt<2.0.0,>=1.18.1; extra == 'tests'
+Requires-Dist: tenacity<9.0.0,>=8.4.1; extra == 'tests'
+Requires-Dist: transformers<5.0,>=4.38; extra == 'tests'
 Description-Content-Type: text/markdown
 
 <h1 align="center">Welcome to Chainlit 👋</h1>
@@ -165,4 +193,3 @@ For detailed information on how to contribute, see [here](/CONTRIBUTING.md).
 ## 📃 License
 
 Chainlit is open-source and licensed under the [Apache 2.0](LICENSE) license.
-

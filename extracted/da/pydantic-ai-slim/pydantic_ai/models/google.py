@@ -13,7 +13,7 @@ from typing_extensions import assert_never
 from .. import UnexpectedModelBehavior, _utils, usage
 from .._output import OutputObjectDefinition
 from .._run_context import RunContext
-from ..builtin_tools import CodeExecutionTool, WebSearchTool
+from ..builtin_tools import CodeExecutionTool, UrlContextTool, WebSearchTool
 from ..exceptions import UserError
 from ..messages import (
     BinaryContent,
@@ -72,6 +72,7 @@ try:
         ToolConfigDict,
         ToolDict,
         ToolListUnionDict,
+        UrlContextDict,
     )
 
     from ..providers.google import GoogleProvider
@@ -218,7 +219,7 @@ class GoogleModel(Model):
         )
         if self._provider.name != 'google-gla':
             # The fields are not supported by the Gemini API per https://github.com/googleapis/python-genai/blob/7e4ec284dc6e521949626f3ed54028163ef9121d/google/genai/models.py#L1195-L1214
-            config.update(
+            config.update(  # pragma: lax no cover
                 system_instruction=generation_config.get('system_instruction'),
                 tools=cast(list[ToolDict], generation_config.get('tools')),
                 # Annoyingly, GenerationConfigDict has fewer fields than GenerateContentConfigDict, and no extra fields are allowed.
@@ -270,6 +271,8 @@ class GoogleModel(Model):
         for tool in model_request_parameters.builtin_tools:
             if isinstance(tool, WebSearchTool):
                 tools.append(ToolDict(google_search=GoogleSearchDict()))
+            elif isinstance(tool, UrlContextTool):
+                tools.append(ToolDict(url_context=UrlContextDict()))
             elif isinstance(tool, CodeExecutionTool):  # pragma: no branch
                 tools.append(ToolDict(code_execution=ToolCodeExecutionDict()))
             else:  # pragma: no cover
@@ -374,17 +377,18 @@ class GoogleModel(Model):
     def _process_response(self, response: GenerateContentResponse) -> ModelResponse:
         if not response.candidates or len(response.candidates) != 1:
             raise UnexpectedModelBehavior('Expected exactly one candidate in Gemini response')  # pragma: no cover
-        if response.candidates[0].content is None or response.candidates[0].content.parts is None:
-            if response.candidates[0].finish_reason == 'SAFETY':
+        candidate = response.candidates[0]
+        if candidate.content is None or candidate.content.parts is None:
+            if candidate.finish_reason == 'SAFETY':
                 raise UnexpectedModelBehavior('Safety settings triggered', str(response))
             else:
                 raise UnexpectedModelBehavior(
                     'Content field missing from Gemini response', str(response)
                 )  # pragma: no cover
-        parts = response.candidates[0].content.parts or []
+        parts = candidate.content.parts or []
         vendor_id = response.response_id or None
         vendor_details: dict[str, Any] | None = None
-        finish_reason = response.candidates[0].finish_reason
+        finish_reason = candidate.finish_reason
         if finish_reason:  # pragma: no branch
             vendor_details = {'finish_reason': finish_reason.value}
         usage = _metadata_as_usage(response)
@@ -526,10 +530,13 @@ class GeminiStreamedResponse(StreamedResponse):
 
             assert chunk.candidates is not None
             candidate = chunk.candidates[0]
-            if candidate.content is None:
-                raise UnexpectedModelBehavior('Streamed response has no content field')  # pragma: no cover
-            assert candidate.content.parts is not None
-            for part in candidate.content.parts:
+            if candidate.content is None or candidate.content.parts is None:
+                if candidate.finish_reason == 'SAFETY':  # pragma: no cover
+                    raise UnexpectedModelBehavior('Safety settings triggered', str(chunk))
+                else:  # pragma: no cover
+                    raise UnexpectedModelBehavior('Content field missing from streaming Gemini response', str(chunk))
+            parts = candidate.content.parts or []
+            for part in parts:
                 if part.text is not None:
                     if part.thought:
                         yield self._parts_manager.handle_thinking_delta(vendor_part_id='thinking', content=part.text)

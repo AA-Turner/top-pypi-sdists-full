@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: infrahouse-core
-Version: 0.17.1
+Version: 0.17.2
 Summary: Lightweight Python library with AWS and other general purpose classes.
 Author-email: "InfraHouse Inc." <aleks@infrahouse.com>
 Maintainer-email: Oleksandr Kuzminskyi <aleks@infrahouse.com>

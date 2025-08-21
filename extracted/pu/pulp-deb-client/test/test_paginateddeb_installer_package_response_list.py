@@ -48,6 +48,7 @@ class TestPaginateddebInstallerPackageResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         artifact = '', 
                         relative_path = '', 
                         md5 = '', 
@@ -99,6 +100,7 @@ class TestPaginateddebInstallerPackageResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         artifact = '', 
                         relative_path = '', 
                         md5 = '', 

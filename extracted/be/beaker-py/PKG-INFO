@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: beaker-py
-Version: 2.4.7
+Version: 2.5.0
 Summary: A Python Beaker client
 Author-email: Allen Institute for Artificial Intelligence <contact@allenai.org>, Pete Walsh <petew@allenai.org>
 Project-URL: Homepage, https://github.com/allenai/beaker
@@ -16,7 +16,7 @@ Requires-Dist: requests
 Requires-Dist: packaging
 Requires-Dist: PyYAML
 Requires-Dist: grpcio>=1.70.0
-Requires-Dist: protobuf<6.0,>=5.0
+Requires-Dist: protobuf<7.0,>=5.0
 Requires-Dist: google-crc32c
 Provides-Extra: docker
 Requires-Dist: docker<8.0,>=5.0; extra == "docker"

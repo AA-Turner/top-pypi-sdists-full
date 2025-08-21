@@ -1,4 +1,4 @@
-from project.core.util import setup_logging
+from project.core.setup_logging import setup_logging
 from project.json_db.json_db import get_cached_json_db
 
 

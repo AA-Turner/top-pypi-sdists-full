@@ -340,6 +340,7 @@ class CfnApplication(
             - Ubuntu 22.04 LTS ( ``Type=UBUNTU, Version=22_04_LTS`` )
             - For Windows applications
             - Microsoft Windows Server 2022 Base ( ``Type=WINDOWS, Version=2022`` )
+            - Proton 9.0-2 ( ``Type=PROTON, Version=20250516`` )
             - Proton 8.0-5 ( ``Type=PROTON, Version=20241007`` )
             - Proton 8.0-2c ( ``Type=PROTON, Version=20230704`` )
 
@@ -598,8 +599,8 @@ class CfnStreamGroup(
 
     There are two types of stream capacity: always-on and on-demand.
 
-    - *Always-on* : The streaming capacity that is allocated and ready to handle stream requests without delay. You pay for this capacity whether it's in use or not. Best for quickest time from streaming request to streaming session.
-    - *On-demand* : The streaming capacity that Amazon GameLift Streams can allocate in response to stream requests, and then de-allocate when the session has terminated. This offers a cost control measure at the expense of a greater startup time (typically under 5 minutes).
+    - *Always-on* : The streaming capacity that is allocated and ready to handle stream requests without delay. You pay for this capacity whether it's in use or not. Best for quickest time from streaming request to streaming session. Default is 1 when creating a stream group or adding a location.
+    - *On-demand* : The streaming capacity that Amazon GameLift Streams can allocate in response to stream requests, and then de-allocate when the session has terminated. This offers a cost control measure at the expense of a greater startup time (typically under 5 minutes). Default is 0 when creating a stream group or adding a location.
 
     .. epigraph::
 
@@ -904,8 +905,8 @@ class CfnStreamGroup(
             When configuring a location for the first time, you must specify a numeric value for at least one of the two capacity types.
 
             :param location_name: A location's name. For example, ``us-east-1`` . For a complete list of locations that Amazon GameLift Streams supports, refer to `Regions, quotas, and limitations <https://docs.aws.amazon.com/gameliftstreams/latest/developerguide/regions-quotas.html>`_ in the *Amazon GameLift Streams Developer Guide* .
-            :param always_on_capacity: The streaming capacity that is allocated and ready to handle stream requests without delay. You pay for this capacity whether it's in use or not. Best for quickest time from streaming request to streaming session.
-            :param on_demand_capacity: The streaming capacity that Amazon GameLift Streams can allocate in response to stream requests, and then de-allocate when the session has terminated. This offers a cost control measure at the expense of a greater startup time (typically under 5 minutes).
+            :param always_on_capacity: The streaming capacity that is allocated and ready to handle stream requests without delay. You pay for this capacity whether it's in use or not. Best for quickest time from streaming request to streaming session. Default is 1 when creating a stream group or adding a location.
+            :param on_demand_capacity: The streaming capacity that Amazon GameLift Streams can allocate in response to stream requests, and then de-allocate when the session has terminated. This offers a cost control measure at the expense of a greater startup time (typically under 5 minutes). Default is 0 when creating a stream group or adding a location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-locationconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -953,7 +954,7 @@ class CfnStreamGroup(
         def always_on_capacity(self) -> typing.Optional[jsii.Number]:
             '''The streaming capacity that is allocated and ready to handle stream requests without delay.
 
-            You pay for this capacity whether it's in use or not. Best for quickest time from streaming request to streaming session.
+            You pay for this capacity whether it's in use or not. Best for quickest time from streaming request to streaming session. Default is 1 when creating a stream group or adding a location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-locationconfiguration.html#cfn-gameliftstreams-streamgroup-locationconfiguration-alwaysoncapacity
             '''
@@ -964,7 +965,7 @@ class CfnStreamGroup(
         def on_demand_capacity(self) -> typing.Optional[jsii.Number]:
             '''The streaming capacity that Amazon GameLift Streams can allocate in response to stream requests, and then de-allocate when the session has terminated.
 
-            This offers a cost control measure at the expense of a greater startup time (typically under 5 minutes).
+            This offers a cost control measure at the expense of a greater startup time (typically under 5 minutes). Default is 0 when creating a stream group or adding a location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gameliftstreams-streamgroup-locationconfiguration.html#cfn-gameliftstreams-streamgroup-locationconfiguration-ondemandcapacity
             '''

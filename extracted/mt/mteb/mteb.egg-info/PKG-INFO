@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 1.38.42
+Version: 1.38.43
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, nouamane@huggingface.co, info@nils-reimers.de
 License:                                  Apache License
@@ -229,7 +229,7 @@ Requires-Dist: typing-extensions>=4.5.0
 Requires-Dist: torch>1.0.0
 Requires-Dist: tqdm>1.0.0
 Requires-Dist: rich>=0.0.0
-Requires-Dist: pytrec-eval-terrier>=0.5.6
+Requires-Dist: pytrec-eval-terrier<0.5.8,>=0.5.6
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: typing_extensions>=0.0.0
 Requires-Dist: eval_type_backport>=0.0.0

@@ -103,7 +103,7 @@ export default function() {
     const expected_length = MODE === 'single' ? 1 : EXPAND + 1;
     const success = check(response, {
       'Run completed successfully': (r) => r.status === 200,
-      'Response contains expected number of messages': (r) => JSON.parse(r.body).messages.length === expected_length,
+      'Response contains expected number of messages': (r) => JSON.parse(r.body)?.messages?.length === expected_length,
     });
 
     if (success) {

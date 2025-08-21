@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 
 import httpx
 from tenacity import (
@@ -65,10 +66,8 @@ class JsonHttpClient:
                 res.raise_for_status()
         finally:
             # We don't need the response body, so we close the response
-            try:
+            with contextlib.suppress(UnboundLocalError):
                 await res.aclose()
-            except UnboundLocalError:
-                pass
 
 
 _http_client: JsonHttpClient
@@ -173,10 +172,7 @@ async def http_request(
 
     content = None
     if body is not None:
-        if isinstance(body, str):
-            content = body.encode("utf-8")
-        else:
-            content = body
+        content = body.encode("utf-8") if isinstance(body, str) else body
     elif json is not None:
         content = json_dumpb(json)
 

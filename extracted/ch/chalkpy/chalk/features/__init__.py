@@ -8,6 +8,7 @@ from chalk.features._encoding.converter import FeatureConverter
 from chalk.features._encoding.missing_value import MissingValueStrategy
 from chalk.features._encoding.primitive import TPrimitive, TPrimitiveArrowScalar
 from chalk.features._encoding.serialized_dtype import deserialize_dtype, serialize_dtype
+from chalk.features._geospatial import LatLon, LatLonRadians
 from chalk.features._vector import Vector
 from chalk.features.dataframe import DataFrame
 from chalk.features.feature_field import CacheStrategy, Feature, FeatureNotFoundException, feature, has_many, has_one
@@ -208,6 +209,8 @@ __all__ = [
     "TimeDelta",
     "Underscore",
     "Vector",
+    "LatLon",
+    "LatLonRadians",
     "after",
     "after_all",
     "before",

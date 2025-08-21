@@ -23,6 +23,7 @@ import json
 import re
 import sys
 import textwrap
+import traceback
 import typing
 from typing import (
     Callable,
@@ -814,7 +815,9 @@ class DataFrame(vendored_pandas_frame.DataFrame):
             except (AttributeError, ValueError, ImportError):
                 # Fallback if anywidget is not available
                 warnings.warn(
-                    "Anywidget mode is not available. Please `pip install anywidget traitlets` or `pip install 'bigframes[anywidget]'` to use interactive tables. Falling back to deferred mode."
+                    "Anywidget mode is not available. "
+                    "Please `pip install anywidget traitlets` or `pip install 'bigframes[anywidget]'` to use interactive tables. "
+                    f"Falling back to deferred mode. Error: {traceback.format_exc()}"
                 )
                 return formatter.repr_query_job(self._compute_dry_run())
 
@@ -2312,9 +2315,39 @@ class DataFrame(vendored_pandas_frame.DataFrame):
 
         return DataFrame(block.with_index_labels(self._block.index.names))
 
-    def reset_index(self, *, drop: bool = False) -> DataFrame:
-        block = self._block.reset_index(drop)
-        return DataFrame(block)
+    @overload  # type: ignore[override]
+    def reset_index(
+        self,
+        level: blocks.LevelsType = ...,
+        drop: bool = ...,
+        inplace: Literal[False] = ...,
+    ) -> DataFrame:
+        ...
+
+    @overload
+    def reset_index(
+        self,
+        level: blocks.LevelsType = ...,
+        drop: bool = ...,
+        inplace: Literal[True] = ...,
+    ) -> None:
+        ...
+
+    @overload
+    def reset_index(
+        self, level: blocks.LevelsType = None, drop: bool = False, inplace: bool = ...
+    ) -> Optional[DataFrame]:
+        ...
+
+    def reset_index(
+        self, level: blocks.LevelsType = None, drop: bool = False, inplace: bool = False
+    ) -> Optional[DataFrame]:
+        block = self._block.reset_index(level, drop)
+        if inplace:
+            self._set_block(block)
+            return None
+        else:
+            return DataFrame(block)
 
     def set_index(
         self,
@@ -2764,10 +2797,17 @@ class DataFrame(vendored_pandas_frame.DataFrame):
             )
 
         # Execute it with the DataFrame when cond or/and other is callable.
+        # It can be either a plain python function or remote/managed function.
         if callable(cond):
-            cond = cond(self)
+            if hasattr(cond, "bigframes_bigquery_function"):
+                cond = self.apply(cond, axis=1)
+            else:
+                cond = cond(self)
         if callable(other):
-            other = other(self)
+            if hasattr(other, "bigframes_bigquery_function"):
+                other = self.apply(other, axis=1)
+            else:
+                other = other(self)
 
         aligned_block, (_, _) = self._block.join(cond._block, how="left")
         # No left join is needed when 'other' is None or constant.
@@ -2780,7 +2820,7 @@ class DataFrame(vendored_pandas_frame.DataFrame):
         labels = aligned_block.column_labels[:self_len]
         self_col = {x: ex.deref(y) for x, y in zip(labels, ids)}
 
-        if isinstance(cond, bigframes.series.Series) and cond.name in self_col:
+        if isinstance(cond, bigframes.series.Series):
             # This is when 'cond' is a valid series.
             y = aligned_block.value_columns[self_len]
             cond_col = {x: ex.deref(y) for x in self_col.keys()}

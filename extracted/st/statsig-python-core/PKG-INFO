@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: statsig_python_core
-Version: 0.7.4
+Version: 0.8.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -39,6 +39,7 @@ Project-URL: changelog, https://github.com/statsig-io/statsig-server-core/releas
 </p>
 
 Statsig helps you move faster with feature gates (feature flags), and/or dynamic configs. It also allows you to run A/B/n tests to validate your new features and understand their impact on your KPIs. If you're new to Statsig, check out our product and create an account at [statsig.com](https://www.statsig.com/?ref=gh_server_core).
+
 
 ## Getting Started
 

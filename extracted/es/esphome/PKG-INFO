@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: esphome
-Version: 2025.7.5
+Version: 2025.8.0
 Summary: ESPHome is a system to configure your microcontrollers by simple yet powerful configuration files and control them remotely through Home Automation systems.
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 License: MIT
 Project-URL: Documentation, https://esphome.io
 Project-URL: Source Code, https://github.com/esphome/esphome
-Project-URL: Bug Tracker, https://github.com/esphome/issues/issues
-Project-URL: Feature Request Tracker, https://github.com/esphome/feature-requests/issues
+Project-URL: Bug Tracker, https://github.com/esphome/esphome/issues
+Project-URL: Feature Request Tracker, https://github.com/orgs/esphome/discussions
 Project-URL: Discord, https://discord.gg/KhAMKrd
 Project-URL: Forum, https://community.home-assistant.io/c/esphome
 Project-URL: Twitter, https://twitter.com/esphome_
@@ -20,25 +20,24 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: C++
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Home Automation
-Requires-Python: >=3.10.0
+Requires-Python: >=3.11.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: async_timeout==5.0.1; python_version <= "3.10"
 Requires-Dist: cryptography==45.0.1
 Requires-Dist: voluptuous==0.15.2
 Requires-Dist: PyYAML==6.0.2
 Requires-Dist: paho-mqtt==1.6.1
 Requires-Dist: colorama==0.4.6
 Requires-Dist: icmplib==3.0.4
-Requires-Dist: tornado==6.5.1
+Requires-Dist: tornado==6.5.2
 Requires-Dist: tzlocal==5.3.1
 Requires-Dist: tzdata>=2021.1
 Requires-Dist: pyserial==3.5
 Requires-Dist: platformio==6.1.18
-Requires-Dist: esptool==4.9.0
+Requires-Dist: esptool==5.0.2
 Requires-Dist: click==8.1.7
-Requires-Dist: esphome-dashboard==20250514.0
-Requires-Dist: aioesphomeapi==34.2.1
+Requires-Dist: esphome-dashboard==20250814.0
+Requires-Dist: aioesphomeapi==39.0.0
 Requires-Dist: zeroconf==0.147.0
 Requires-Dist: puremagic==1.30
 Requires-Dist: ruamel.yaml==0.18.14
@@ -55,16 +54,16 @@ Requires-Dist: clang-format==13.0.1; extra == "dev"
 Requires-Dist: clang-tidy==18.1.8; extra == "dev"
 Requires-Dist: yamllint==1.37.1; extra == "dev"
 Provides-Extra: test
-Requires-Dist: pylint==3.3.7; extra == "test"
+Requires-Dist: pylint==3.3.8; extra == "test"
 Requires-Dist: flake8==7.3.0; extra == "test"
-Requires-Dist: ruff==0.12.2; extra == "test"
+Requires-Dist: ruff==0.12.8; extra == "test"
 Requires-Dist: pyupgrade==3.20.0; extra == "test"
 Requires-Dist: pre-commit; extra == "test"
 Requires-Dist: pytest==8.4.1; extra == "test"
 Requires-Dist: pytest-cov==6.2.1; extra == "test"
 Requires-Dist: pytest-mock==3.14.1; extra == "test"
-Requires-Dist: pytest-asyncio==1.0.0; extra == "test"
-Requires-Dist: pytest-xdist==3.7.0; extra == "test"
+Requires-Dist: pytest-asyncio==1.1.0; extra == "test"
+Requires-Dist: pytest-xdist==3.8.0; extra == "test"
 Requires-Dist: asyncmock==0.4.2; extra == "test"
 Requires-Dist: hypothesis==6.92.1; extra == "test"
 Dynamic: license-file
@@ -80,7 +79,7 @@ Dynamic: license-file
 
 ---
 
-[Documentation](https://esphome.io) -- [Issues](https://github.com/esphome/issues/issues) -- [Feature requests](https://github.com/esphome/feature-requests/issues)
+[Documentation](https://esphome.io) -- [Issues](https://github.com/esphome/esphome/issues) -- [Feature requests](https://github.com/orgs/esphome/discussions)
 
 ---
 

@@ -32,6 +32,7 @@ from jax._src import api_util
 from jax._src import config
 from jax._src import core as jax_core
 from jax._src import dtypes
+from jax._src import frozen_dict
 from jax._src import linear_util as lu
 from jax._src import state
 from jax._src import tree_util
@@ -132,7 +133,17 @@ class CompilerParams(Protocol):
 
 @dataclasses.dataclass(frozen=True)
 class Buffered:
+  """Specifies how a block should be buffered for a pipeline.
+
+  Attributes:
+    buffer_count: The number of buffers to use for multiple buffering.
+    use_lookahead: optional bool, indicates whether to use lookahead on the
+      buffer. Enabling lookahead allows the pipeline to begin fetching the next
+      changed block as soon as a slot is available, no matter how many
+      iterations ahead that block is.
+  """
   buffer_count: int
+  use_lookahead: bool = False
 
 split_list = util.split_list
 
@@ -232,6 +243,10 @@ class MemorySpace(enum.Enum):
 
   def __str__(self) -> str:
     return self.value
+
+  def __call__(self, shape: tuple[int, ...], dtype: jnp.dtype):
+    # A convenience function for constructing MemoryRef types.
+    return MemoryRef(shape, dtype, self)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -431,17 +446,9 @@ class BlockSpec:
   block_shape: Sequence[BlockDim | int | None] | None = None
   index_map: Callable[..., Any] | None = None
   memory_space: Any | None = dataclasses.field(kw_only=True, default=None)
-  indexing_mode: Any | None = None
   pipeline_mode: Buffered | None = None
 
   def __post_init__(self):
-    # TODO(sharadmv): Remove this check.
-    if self.indexing_mode is not None:
-      raise ValueError(
-          "indexing_mode has been removed. Please pass in `pl.Element` for each"
-          " block dimension in `block_shape` instead to enable 'Unblocked'"
-          " indexing."
-      )
     if self.index_map is not None:
       self.index_map = _IndexMapFunc(self.index_map)
 
@@ -454,7 +461,7 @@ class BlockSpec:
       index_map_avals: Sequence[jax_core.AbstractValue],
       index_map_tree: tree_util.PyTreeDef,
       grid: GridMappingGrid,
-      mapped_dims: tuple[int, ...],
+      vmapped_dims: tuple[int, ...],
       debug: bool = False,
   ) -> BlockMapping:
     if self.index_map is None:
@@ -514,7 +521,7 @@ class BlockSpec:
     flat_index_map_fun, index_map_out_tree_thunk = api_util.flatten_fun(
         lu.wrap_init(index_map_func, debug_info=debug_info), index_map_tree
     )
-    with tracing_grid_env(grid, mapped_dims):
+    with tracing_grid_env(grid, vmapped_dims):
       jaxpr, out_avals, consts = pe.trace_to_jaxpr_dynamic(
           flat_index_map_fun, index_map_avals
       )
@@ -818,11 +825,6 @@ class GridMapping:
     return new_self
 
   @property
-  # TODO(necula): deprecate and then remove this property.
-  def mapped_dims(self) -> tuple[int, ...]:
-    return self.vmapped_dims
-
-  @property
   def num_dynamic_grid_bounds(self):
     return sum(b is dynamic_grid_dim for b in self.grid)
 
@@ -952,7 +954,7 @@ def _convert_block_spec_to_block_mapping(
     index_map_avals: Sequence[jax_core.AbstractValue],
     index_map_tree: tree_util.PyTreeDef,
     grid: GridMappingGrid,
-    mapped_dims: tuple[int, ...],
+    vmapped_dims: tuple[int, ...],
     debug: bool = False,
 ) -> BlockMapping:
   if block_spec is no_block_spec:
@@ -963,7 +965,7 @@ def _convert_block_spec_to_block_mapping(
       index_map_avals=index_map_avals,
       index_map_tree=index_map_tree,
       grid=grid,
-      mapped_dims=mapped_dims,
+      vmapped_dims=vmapped_dims,
       debug=debug,
   )
 
@@ -1107,7 +1109,7 @@ def get_grid_mapping(
           index_map_avals=index_map_avals,
           index_map_tree=index_map_tree,
           grid=grid_mapping_grid,  # type: ignore[arg-type]
-          mapped_dims=(),
+          vmapped_dims=(),
           debug=debug,
       ),
       flat_in_specs,
@@ -1130,7 +1132,7 @@ def get_grid_mapping(
           index_map_avals=index_map_avals,
           index_map_tree=index_map_tree,
           grid=grid_mapping_grid,  # type: ignore[arg-type]
-          mapped_dims=(),
+          vmapped_dims=(),
           debug=debug,
       ),
       flat_out_specs,
@@ -1248,6 +1250,7 @@ def core_map(
     debug: bool = False,
     cost_estimate: CostEstimate | None = None,
     name: str | None = None,
+    metadata: dict[str, str] | None = None,
 ):
   """Runs a function on a mesh, mapping it over the devices in the mesh.
 
@@ -1260,6 +1263,8 @@ def core_map(
     interpret: Whether to run the function in interpret mode.
     debug: Whether or not to out helpful debugging information.
     cost_estimate: The cost estimate of the function.
+    metadata: Optional dictionary of information about the kernel that will be
+      serialized as JSON in the HLO. Can be used for debugging and analysis.
   """
   def wrapped(f):
     flat_args, in_tree = tree_util.tree_flatten(((), {}))
@@ -1284,6 +1289,9 @@ def core_map(
         debug=debug,
         cost_estimate=cost_estimate,
         name=name or util.fun_name(f),
+        metadata=frozen_dict.FrozenDict(metadata)
+        if metadata is not None
+        else None,
     )
     if out:
       raise ValueError("core_map-ped functions must not return any outputs.")
@@ -1315,6 +1323,19 @@ def _core_map_abstract_eval(*args, jaxpr, mesh, **kwargs):
     if eff.name not in mesh.shape:
       effs.add(eff)
   return [], effs
+
+
+def core_map_lowering_rule(ctx: mlir.LoweringRuleContext,
+    *args,
+    jaxpr,
+    **kwargs
+  ):
+  del ctx, args, kwargs
+  raise ValueError(
+      "Attempted to lower core_map without discharging. This can happen if "
+      "the core_map body does not modify any Refs or have other observable "
+      f"side-effects.\n Jaxpr of the body: {jaxpr}")
+mlir.register_lowering(core_map_p, core_map_lowering_rule)
 
 
 class Mesh(Protocol):
@@ -1369,9 +1390,11 @@ def default_mesh_discharge_rule(
     cost_estimate,
     name,
     memory_space=MemorySpace.ANY,
+    metadata,
 ):
   """Discharges a ``core_map`` over a mesh to a ``pallas_call``."""
   del out_avals  # Unused.
+  default_memory_space = memory_space
 
   def body(*args):
     # Due to aliasing, ``args`` contains aliased inputs and outputs so we
@@ -1389,45 +1412,41 @@ def default_mesh_discharge_rule(
   in_memory_spaces = [
       memory_space if m is None else m for m in in_memory_spaces
   ]
-  @jax.jit
-  def jitted(*args):
-    args = [
-        with_memory_space_constraint_p.bind(arg, memory_space=memory_space)
-        if memory_space is not None else arg
-        for arg, memory_space in zip(args, in_memory_spaces)
-    ]
-    in_specs = [
-        BlockSpec(memory_space=memory_space) for memory_space in in_memory_spaces
-    ]
-    out_specs = [in_specs[idx] for idx in modified_idxs]
-    out_shapes = [_get_sds(in_avals[idx]) for idx in modified_idxs]
-    from jax._src.pallas import pallas_call  # Avoid circular dependency.
-
-    outs = pallas_call._pallas_call(
-        body,
-        name=name,
-        out_shape=out_shapes,
-        input_output_aliases={
-            in_idx: out_idx for out_idx, in_idx in enumerate(modified_idxs)
-        },
-        grid_spec=GridSpec(
-            grid=tuple(mesh.shape.items()),
-            in_specs=in_specs,
-            out_specs=out_specs,
-        ),
-        mesh=mesh,
-        compiler_params=compiler_params,
-        interpret=interpret,
-        debug=debug,
-        cost_estimate=cost_estimate,
-    )(*args)
+  args = [
+      with_memory_space_constraint_p.bind(arg, memory_space=memory_space)
+      if memory_space is not None and memory_space is not default_memory_space else arg
+      for arg, memory_space in zip(args, in_memory_spaces)
+  ]
+  in_specs = [
+      BlockSpec(memory_space=memory_space) for memory_space in in_memory_spaces
+  ]
+  out_specs = [in_specs[idx] for idx in modified_idxs]
+  out_shapes = [_get_sds(in_avals[idx]) for idx in modified_idxs]
+  from jax._src.pallas import pallas_call  # Avoid circular dependency.
+  outs = pallas_call._pallas_call(
+      body,
+      name=name,
+      out_shape=out_shapes,
+      input_output_aliases={
+          in_idx: out_idx for out_idx, in_idx in enumerate(modified_idxs)
+      },
+      grid_spec=GridSpec(
+          grid=tuple(mesh.shape.items()),
+          in_specs=in_specs,
+          out_specs=out_specs,
+      ),
+      mesh=mesh,
+      compiler_params=compiler_params,
+      interpret=interpret,
+      debug=debug,
+      cost_estimate=cost_estimate,
+      metadata=metadata,
+  )(*args)
   # ``outs`` lacks the unmodified inputs. Add them back in.
-    all_outs = [None] * len(args)
-    for out_idx, in_idx in enumerate(modified_idxs):
-      all_outs[in_idx] = outs[out_idx]
-    return all_outs
-  out = jitted(*args)
-  return out, ()
+  all_outs = [None] * len(args)
+  for out_idx, in_idx in enumerate(modified_idxs):
+    all_outs[in_idx] = outs[out_idx]
+  return all_outs, ()
 
 
 @state_discharge.register_discharge_rule(core_map_p)

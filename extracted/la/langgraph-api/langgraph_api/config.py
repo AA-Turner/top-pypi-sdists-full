@@ -242,9 +242,12 @@ CORS_CONFIG: CorsConfig | None = env("CORS_CONFIG", cast=_parse_json, default=No
     }
 }
 """
-if CORS_CONFIG is not None and CORS_ALLOW_ORIGINS != "*":
-    if CORS_CONFIG.get("allow_origins") is None:
-        CORS_CONFIG["allow_origins"] = CORS_ALLOW_ORIGINS
+if (
+    CORS_CONFIG is not None
+    and CORS_ALLOW_ORIGINS != "*"
+    and CORS_CONFIG.get("allow_origins") is None
+):
+    CORS_CONFIG["allow_origins"] = CORS_ALLOW_ORIGINS
 
 # queue
 
@@ -371,7 +374,7 @@ API_VARIANT = env("LANGSMITH_LANGGRAPH_API_VARIANT", cast=str, default="")
 # UI
 UI_USE_BUNDLER = env("LANGGRAPH_UI_BUNDLER", cast=bool, default=False)
 IS_QUEUE_ENTRYPOINT = False
-
+ref_sha = None
 if not os.getenv("LANGCHAIN_REVISION_ID") and (
     ref_sha := os.getenv("LANGSMITH_LANGGRAPH_GIT_REF_SHA")
 ):

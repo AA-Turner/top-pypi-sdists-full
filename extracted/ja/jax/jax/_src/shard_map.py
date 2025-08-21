@@ -71,10 +71,25 @@ traceback_util.register_exclusion(__file__)
 Specs = Any  # PyTree[PartitionSpec]
 AxisName = Hashable
 
+class InferFromArgs:
+  def __repr__(self):
+    return "jax.sharding.Infer"
 
-def shard_map(f=None, /, *, out_specs: Specs, axis_names: Set[AxisName] = set(),
-              in_specs: Specs | None = None,
-              mesh: Mesh | AbstractMesh | None = None, check_vma: bool = True):
+  def __reduce__(self):
+    return (_get_default_infer, ())
+
+Infer = InferFromArgs()
+
+def _get_default_infer():
+  return Infer
+
+# See https://github.com/jax-ml/jax/pull/30753 to understand why `in_specs`
+# defaults to `Infer`.
+def shard_map(f=None, /, *, out_specs: Specs,
+              in_specs: Specs | None | InferFromArgs = Infer,
+              mesh: Mesh | AbstractMesh | None = None,
+              axis_names: Set[AxisName] = frozenset(),
+              check_vma: bool = True):
   """Map a function over shards of data using a mesh of devices.
 
   See the docs at https://docs.jax.dev/en/latest/notebooks/shard_map.html.
@@ -87,9 +102,9 @@ def shard_map(f=None, /, *, out_specs: Specs, axis_names: Set[AxisName] = set(),
       array of devices over which to shard the data and on which to execute
       instances of ``f``. The names of the ``Mesh`` can be used in collective
       communication operations in ``f``. If mesh is None, it will be inferred
-      from the context which can be set via `jax.sharding.use_mesh` context
+      from the context which can be set via `jax.set_mesh` context
       manager.
-    in_specs: (optional, default None) a pytree with
+    in_specs: (optional, default `Infer`) a pytree with
       ``jax.sharding.PartitionSpec`` instances as leaves, with a tree structure
       that is a tree prefix of the args tuple to be mapped over. Similar to
       ``jax.sharding.NamedSharding``, each ``PartitionSpec`` represents how the
@@ -97,8 +112,10 @@ def shard_map(f=None, /, *, out_specs: Specs, axis_names: Set[AxisName] = set(),
       the named axes of ``mesh``. In each ``PartitionSpec``, mentioning a
       ``mesh`` axis name at a position expresses sharding the corresponding
       argument array axis along that positional axis; not mentioning an axis
-      name expresses replication. If ``None``, all mesh axes must be of type
+      name expresses replication.
+      If ``Infer``, all mesh axes must be of type
       `Explicit`, in which case the in_specs are inferred from the argument types.
+      If ``None``, inputs will be treated as static.
     out_specs: a pytree with ``PartitionSpec`` instances as leaves, with a tree
       structure that is a tree prefix of the output of ``f``. Each
       ``PartitionSpec`` represents how the corresponding output shards should be
@@ -126,23 +143,6 @@ def shard_map(f=None, /, *, out_specs: Specs, axis_names: Set[AxisName] = set(),
     return lambda g: _shard_map(g, **kwargs)
   return _shard_map(f, **kwargs)
 
-def _axes_to_pspec(axis_name, axis):
-  if axis is None:
-    return P()
-  return P(*[None] * axis + [axis_name])
-
-class InferFromArgs:
-
-  def __repr__(self):
-    return "jax.sharding.Infer"
-
-  def __reduce__(self):
-    return (_get_default_infer, ())
-
-Infer = InferFromArgs()
-
-def _get_default_infer():
-  return Infer
 
 def smap(f=None, /, *, in_axes=Infer, out_axes, axis_name: AxisName):
   """Single axis shard_map that maps a function `f` one axis at a time.
@@ -194,7 +194,7 @@ def _smap(f, *, in_axes, out_axes, axis_name: AxisName):
     raise TypeError("smap out_axes must be an int, None, or (nested) container "
                     f"with those types as leaves, but got {out_axes}.")
 
-  in_specs = (None if in_axes is Infer else
+  in_specs = (Infer if in_axes is Infer else
               tree_map(partial(_axes_to_pspec, axis_name), in_axes,
                        is_leaf=lambda x: x is None))
   out_specs = tree_map(partial(_axes_to_pspec, axis_name), out_axes,
@@ -229,10 +229,10 @@ def _shard_map(f: Callable, *, mesh: Mesh | AbstractMesh | None,
       e, *_ = prefix_errors(in_specs, args)
       raise e('shard_map in_specs') from None
 
-    if (in_specs is None and
+    if (in_specs is Infer and
         all(mesh._name_to_type[a] == AxisType.Explicit for a in axis_names)):
       arg_s = [typeof(a).sharding for a in args_flat]
-      assert all(i is None for i in in_specs_flat), in_specs_flat
+      assert all(i is Infer for i in in_specs_flat), in_specs_flat
       in_specs_flat = [_manual_spec(axis_names, s.spec) for s in arg_s]
 
     dyn_argnums, in_specs_flat = unzip2((i, s) for i, s in enumerate(in_specs_flat)
@@ -282,6 +282,12 @@ def _shard_map(f: Callable, *, mesh: Mesh | AbstractMesh | None,
   return wrapped
 
 
+def _axes_to_pspec(axis_name, axis):
+  if axis is None:
+    return P()
+  return P(*[None] * axis + [axis_name])
+
+
 def _shmap_checks(mesh, axis_names, in_specs, out_specs, _skip_mesh_check,
                   _smap):
   if mesh is None:
@@ -289,7 +295,7 @@ def _shmap_checks(mesh, axis_names, in_specs, out_specs, _skip_mesh_check,
     if mesh.empty:
       raise ValueError(
           "The context mesh cannot be empty. Use"
-          " `jax.sharding.use_mesh(mesh)` to enter into a mesh context")
+          " `jax.set_mesh(mesh)` to enter into a mesh context")
   else:
     ctx_mesh = get_abstract_mesh()
     if (not _skip_mesh_check and not ctx_mesh.empty and
@@ -316,7 +322,7 @@ def _shmap_checks(mesh, axis_names, in_specs, out_specs, _skip_mesh_check,
         f"jax.shard_map requires axis_names={axis_names} to be a subset of "
         f"mesh.axis_names={mesh.axis_names}")
 
-  if (in_specs is None and
+  if (in_specs is Infer and
       not all(mesh._name_to_type[a] == AxisType.Explicit for a in axis_names)):
     axis_types = ', '.join(str(mesh._name_to_type[a]) for a in axis_names)
     if _smap:
@@ -328,7 +334,7 @@ def _shmap_checks(mesh, axis_names, in_specs, out_specs, _skip_mesh_check,
              f" {axis_names=} are of type {axis_types}")
     raise TypeError(msg)
 
-  if in_specs is not None:
+  if in_specs is not Infer and in_specs is not None:
     _check_specs(SpecErrorType.input, in_specs, axis_names)
     _check_unreduced(SpecErrorType.input, mesh, axis_names, in_specs)
   if not callable(out_specs):
@@ -790,7 +796,7 @@ def _shardy_shard_map_sharding(
   return sdy_sharding
 
 
-def _shardy_shard_map_token_sharding(
+def _get_token_sharding(
     ctx: mlir.LoweringRuleContext, mesh
   ) -> ir.Attribute:
   ns = _make_scoped_manual_sharding(ctx, mesh, P())
@@ -800,18 +806,19 @@ def _shardy_shard_map_token_sharding(
 def _get_spmdaxis_ctx_mesh(mesh):
   if isinstance(mesh, AbstractMesh):
     concrete_mesh = get_concrete_mesh()
-    return concrete_mesh if concrete_mesh is not None else mesh
+    return concrete_mesh if not concrete_mesh.empty else mesh
   return mesh
 
 
 def _shard_map_lowering_shardy(
-    ctx, in_nodes, jaxpr, mesh, in_specs, out_specs, manual_axes, check_vma):
+    ctx: mlir.LoweringRuleContext, in_nodes,
+    jaxpr: core.Jaxpr, mesh, in_specs, out_specs, manual_axes, check_vma):
   axis_ctx = ctx.module_context.axis_context
   in_avals_ = [v.aval for v in jaxpr.invars]
   if isinstance(axis_ctx, sharding_impls.SPMDAxisContext):
-    # Nested `ManualComputationOp`s cannot refer to axes that are already
-    # manual. So figure out what axes are free thus far.
-    shardy_manual_axes = frozenset(mesh.axis_names) - axis_ctx.manual_axes
+    # Nested `ManualComputationOp`s must only refer to the new manual axes, not
+    # all existing ones. Grab the newly-added manual axes.
+    shardy_manual_axes = manual_axes - axis_ctx.manual_axes
   else:
     shardy_manual_axes = manual_axes
   new_axis_context = sharding_impls.SPMDAxisContext(
@@ -828,48 +835,69 @@ def _shard_map_lowering_shardy(
           sub_ctx, jaxpr, ctx.name_stack,
           mlir.TokenSet(zip(ctx.tokens_in.effects(), tokens)),
           (), *in_nodes,
-          dim_var_values=ctx.dim_var_values)
+          dim_var_values=ctx.dim_var_values,
+          const_lowering=ctx.const_lowering)
       ctx.set_tokens_out(tokens_out)
     return out_nodes
 
   in_shardings = list(
       map(partial(_shardy_shard_map_sharding, ctx, mesh, manual_axes),
           in_specs, ctx.avals_in))
+  const_args = core.jaxpr_const_args(jaxpr)
+  num_const_args = len(const_args)
+  const_arg_values = tuple(
+      mlir.ir_constant(c, ctx.const_lowering, canonicalize_dtype=True)
+      for c in const_args)
+  const_avals = [core.shaped_abstractify(c) for c in const_args]
+  # TODO(necula,yashkatariya): how to construct consts shardy shardings from
+  #  consts that can be ndarray or jax.Array?
+  const_args_shardings = [
+      _shardy_shard_map_sharding(ctx, mesh, manual_axes, P(), core.typeof(c))
+      for c in const_args]
+
   num_dim_vars = len(ctx.dim_var_values)
-  in_shardings = ([_shardy_shard_map_token_sharding(ctx, mesh)]
-                  * (num_tokens + num_dim_vars) + in_shardings)
+  in_shardings = (
+      [_get_token_sharding(ctx, mesh)] * (num_tokens + num_dim_vars) +
+      const_args_shardings + in_shardings)
   in_shardings = sharding_impls.SdyArrayList(in_shardings).build()
 
   out_shardings = list(
       map(partial(_shardy_shard_map_sharding, ctx, mesh, manual_axes),
           out_specs, ctx.avals_out))
   out_shardings = [
-      _shardy_shard_map_token_sharding(ctx, mesh)] * num_tokens + out_shardings
+      _get_token_sharding(ctx, mesh)] * num_tokens + out_shardings
   out_shardings = sharding_impls.SdyArrayList(out_shardings).build()
 
   output_types = ([hlo.TokenType.get()] * num_tokens +
                   list(map(mlir.aval_to_ir_type, ctx.avals_out)))
 
-  args = (*ctx.dim_var_values, *tokens, *in_nodes)
+  args = (*ctx.dim_var_values, *tokens, *const_arg_values, *in_nodes)
   manual_computation_op = sdy.ManualComputationOp(
-      output_types,
-      mlir.flatten_ir_values(args),
-      in_shardings, out_shardings,
+      output_types, mlir.flatten_ir_values(args), in_shardings, out_shardings,
       sdy.ManualAxesAttr.get(
           ir.ArrayAttr.get([ir.StringAttr.get(i) for i in manual_axes])))
+
+  dim_var_types = [mlir.aval_to_ir_type(
+      core.ShapedArray((), dtypes.default_int_dtype()))] * num_dim_vars
+  token_types = [hlo.TokenType.get()] * num_tokens
+  const_arg_types = map(mlir.aval_to_ir_type, const_avals)
+  in_types = map(mlir.aval_to_ir_type, in_avals_)
   block = ir.Block.create_at_start(
       manual_computation_op.body,
-      (*(i if isinstance(i, ir.Type) else i.type for i in ctx.dim_var_values),
-       *([hlo.TokenType.get()] * num_tokens),
-       *map(mlir.aval_to_ir_type, in_avals_)))
+      (*dim_var_types, *token_types, *const_arg_types, *in_types))
+
   with (ir.InsertionPoint(block), _extend_axis_env(mesh, manual_axes),
         config._check_vma(check_vma)):
+    dim_var_values, token_arg_values, const_arg_values, in_args = util.split_list(  # type: ignore
+        block.arguments, [num_dim_vars, num_tokens, num_const_args])
+    block_const_lowering = {
+        id(c): ca for c, ca in zip(const_args, const_arg_values)}
     out_nodes_, tokens_out = mlir.jaxpr_subcomp(
         sub_ctx, jaxpr, ctx.name_stack,
-        mlir.TokenSet(zip(
-            ctx.tokens_in.effects(), block.arguments[:num_tokens])),
-        (), *block.arguments[num_tokens+num_dim_vars:],
-        dim_var_values=ctx.dim_var_values)
+        mlir.TokenSet(zip(ctx.tokens_in.effects(), token_arg_values)),
+        (), *in_args,
+        dim_var_values=dim_var_values,
+        const_lowering=block_const_lowering)
     sdy.ReturnOp([ir.Value(x) for x in (*[v for _, v in tokens_out.items()],
                                         *out_nodes_)])
     num_tokens = len(tokens_out.effects())
@@ -880,7 +908,8 @@ def _shard_map_lowering_shardy(
   return manual_computation_op.results[num_tokens:]
 
 
-def _shard_map_lowering(ctx, *in_nodes, jaxpr, mesh, in_specs, out_specs,
+def _shard_map_lowering(ctx: mlir.LoweringRuleContext, *in_nodes,
+                        jaxpr: core.Jaxpr, mesh, in_specs, out_specs,
                         check_vma, manual_axes):
   if config.use_shardy_partitioner.value:
     return _shard_map_lowering_shardy(
@@ -898,6 +927,7 @@ def _shard_map_lowering(ctx, *in_nodes, jaxpr, mesh, in_specs, out_specs,
         "shmap_body", jaxpr, None, sub_ctx, in_avals_,
         out_avals_, ctx.tokens_in, *in_nodes_,
         dim_var_values=ctx.dim_var_values,
+        const_lowering=ctx.const_lowering,
         arg_names=map(_pspec_mhlo_attrs, in_specs, in_avals_),
         result_names=map(_pspec_mhlo_attrs, out_specs, out_avals_))
   ctx.set_tokens_out(tokens_out)
@@ -991,7 +1021,7 @@ def _shard_map_impl(trace, prim, fun, args, *, mesh, in_specs, out_specs_thunk,
   del prim
   if isinstance(mesh, AbstractMesh):
     concrete_mesh = get_concrete_mesh()
-    mesh = concrete_mesh if concrete_mesh is not None else mesh
+    mesh = concrete_mesh if not concrete_mesh.empty else mesh
     mesh = get_mesh_from_args(args, mesh)
   cur_mesh = get_abstract_mesh()
   args = map(partial(_unmatch_spec, mesh, check_vma, cur_mesh), in_specs, args)
@@ -1856,6 +1886,8 @@ def pmap(f, axis_name=None, *, in_axes=0, out_axes=0,
   devices = tuple(devices) if devices is not None else devices
   axis_name, static_broadcasted_tuple, donate_tuple = _shared_code_pmap(
       f, axis_name, static_broadcasted_argnums, donate_argnums, in_axes, out_axes)
+  if isinstance(axis_name, core._TempAxisName):
+    axis_name = repr(axis_name)
 
   def infer_params(*args, **kwargs):
     p = _prepare_pmap(f, in_axes, out_axes, static_broadcasted_tuple,

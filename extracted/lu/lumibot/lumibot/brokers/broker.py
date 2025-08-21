@@ -114,6 +114,18 @@ class Broker(ABC):
         # 24/7 or should follow an exchange calendar.  Derive it from config or
         # env, else default to "NASDAQ" which is compatible with pandas-market-calendars.
         self.market = (config.get("MARKET") if config else None) or os.environ.get("MARKET") or "NASDAQ"
+        # Auto-adjust market for certain known non-equity data sources when still at generic default.
+        try:
+            if self.market in ("NASDAQ", "NYSE", "stock") and self.data_source is not None:
+                ds_name = self.data_source.__class__.__name__
+                if ds_name in ("ProjectXData", "TradovateData"):
+                    self.market = "us_futures"
+                    logger.debug(f"Auto-set broker.market to 'us_futures' for data source {ds_name}")
+                elif ds_name in ("CcxtData", "CcxtBacktestingData", "CCXTData"):
+                    self.market = "24/7"
+                    logger.debug(f"Auto-set broker.market to '24/7' for data source {ds_name}")
+        except Exception as _auto_mkt_exc:
+            logger.debug(f"Auto market inference skipped: {_auto_mkt_exc}")
 
         if self.data_source is None:
             raise ValueError("Broker must have a data source")
@@ -129,6 +141,27 @@ class Broker(ABC):
             self.stream = self._get_stream_object()
             if self.stream is not None:
                 self._launch_stream()
+
+        # Trading calendar placeholder; StrategyExecutor will initialize.
+        self._trading_days = None
+
+    # --- Trading calendar initialization ---
+    def initialize_market_calendars(self, trading_days_df):
+        """Initialize broker trading calendar from a DataFrame.
+
+        Sorts by market_close and sets index for fast lookups; stores
+        DataFrame on the broker as `_trading_days`.
+        """
+        if trading_days_df is None:
+            self._trading_days = None
+            return
+        try:
+            df = trading_days_df.sort_values('market_close').copy()
+            df.set_index('market_close', inplace=True)
+            self._trading_days = df
+        except Exception:
+            # If trading_days_df is already indexed/sorted, accept as-is
+            self._trading_days = trading_days_df
 
     def _update_attributes_from_config(self, config):
         value_dict = config
@@ -977,8 +1010,8 @@ class Broker(ABC):
                 return True
                 
             # Get market calendar
-            import pandas_market_calendars as mcal
             import pandas as pd
+            import pandas_market_calendars as mcal
             cal = mcal.get_calendar(market_name)
             
             # Test with a recent Monday (typical trading day)

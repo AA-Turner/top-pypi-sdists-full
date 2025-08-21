@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from jax._src.interpreters.xla import (
-  canonicalize_dtype as _deprecated_canonicalize_dtype,
-  canonicalize_dtype_handlers as canonicalize_dtype_handlers,
+from jax._src.dtypes import (
+  canonicalize_value as _deprecated_canonicalize_dtype,
+  canonicalize_value_handlers as _canonicalize_value_handlers,
 )
+
+canonicalize_dtype_handlers = _canonicalize_value_handlers
 
 from jax._src.dispatch import (
   apply_primitive as apply_primitive,

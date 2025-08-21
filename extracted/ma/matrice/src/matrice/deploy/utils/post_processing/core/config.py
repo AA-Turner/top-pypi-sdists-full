@@ -632,6 +632,7 @@ class ConfigManager:
             'plaque_segmentation_img': None,
             'cardiomegaly_classification': None,
             'histopathological_cancer_detection' : None,
+            'cell_microscopy_segmentation': None,
         }
 
     def register_config_class(self, usecase: str, config_class: type) -> None:
@@ -1108,6 +1109,14 @@ class ConfigManager:
         try:
             from ..usecases.Histopathological_Cancer_Detection_img import HistopathologicalCancerDetectionConfig
             return HistopathologicalCancerDetectionConfig
+        except ImportError:
+            return None
+        
+    def cell_microscopy_segmentation_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.cell_microscopy_segmentation import CellMicroscopyConfig
+            return CellMicroscopyConfig
         except ImportError:
             return None
 
@@ -2213,6 +2222,21 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+        elif usecase == "cell_microscopy_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.cell_microscopy_segmentation import CellMicroscopyConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = CellMicroscopyConfig(
+                category=category or "healthcare",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
             
         else:
             raise ConfigValidationError(f"Unknown use case: {usecase}")
@@ -2639,6 +2663,11 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.Histopathological_Cancer_Detection_img import HistopathologicalCancerDetectionConfig
             default_config = HistopathologicalCancerDetectionConfig()
+            return default_config.to_dict()
+        elif usecase == "cell_microscopy_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.cell_microscopy_segmentation import CellMicroscopyConfig
+            default_config = CellMicroscopyConfig()
             return default_config.to_dict()
 
         elif usecase not in self._config_classes:

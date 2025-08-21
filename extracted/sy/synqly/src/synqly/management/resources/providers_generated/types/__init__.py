@@ -22,6 +22,8 @@ from .assets_service_now import AssetsServiceNow
 from .assets_service_now_dataset import AssetsServiceNowDataset
 from .assets_service_now_mock import AssetsServiceNowMock
 from .assets_sevco import AssetsSevco
+from .assets_sevco_dataset import AssetsSevcoDataset
+from .assets_sevco_mock import AssetsSevcoMock
 from .assets_tanium_cloud import AssetsTaniumCloud
 from .assets_tanium_cloud_dataset import AssetsTaniumCloudDataset
 from .assets_tanium_cloud_mock import AssetsTaniumCloudMock
@@ -35,6 +37,7 @@ from .autotask_secret_credential import (
     AutotaskSecretCredential_Secret,
     AutotaskSecretCredential_SecretId,
 )
+from .aws_provider_credential import AwsProviderCredential, AwsProviderCredential_Aws, AwsProviderCredential_AwsId
 from .aws_region import AwsRegion
 from .aws_s_3_credential import AwsS3Credential, AwsS3Credential_Aws, AwsS3Credential_AwsId
 from .aws_security_lake_credential import (
@@ -50,6 +53,7 @@ from .azure_monitor_logs_credential import (
     AzureMonitorLogsCredential_Token,
     AzureMonitorLogsCredential_TokenId,
 )
+from .cloud_security_aws import CloudSecurityAws
 from .cloud_security_crowd_strike import CloudSecurityCrowdStrike
 from .cloud_security_defender import CloudSecurityDefender
 from .crowd_strike_credential import (
@@ -159,8 +163,10 @@ from .provider_config import (
     ProviderConfig_AssetsServicenow,
     ProviderConfig_AssetsServicenowMock,
     ProviderConfig_AssetsSevco,
+    ProviderConfig_AssetsSevcoMock,
     ProviderConfig_AssetsTaniumCloud,
     ProviderConfig_AssetsTaniumCloudMock,
+    ProviderConfig_CloudsecurityAws,
     ProviderConfig_CloudsecurityCrowdstrike,
     ProviderConfig_CloudsecurityDefender,
     ProviderConfig_EdrCrowdstrike,
@@ -357,6 +363,8 @@ __all__ = [
     "AssetsServiceNowDataset",
     "AssetsServiceNowMock",
     "AssetsSevco",
+    "AssetsSevcoDataset",
+    "AssetsSevcoMock",
     "AssetsTaniumCloud",
     "AssetsTaniumCloudDataset",
     "AssetsTaniumCloudMock",
@@ -366,6 +374,9 @@ __all__ = [
     "AutotaskSecretCredential",
     "AutotaskSecretCredential_Secret",
     "AutotaskSecretCredential_SecretId",
+    "AwsProviderCredential",
+    "AwsProviderCredential_Aws",
+    "AwsProviderCredential_AwsId",
     "AwsRegion",
     "AwsS3Credential",
     "AwsS3Credential_Aws",
@@ -385,6 +396,7 @@ __all__ = [
     "AzureMonitorLogsCredential",
     "AzureMonitorLogsCredential_Token",
     "AzureMonitorLogsCredential_TokenId",
+    "CloudSecurityAws",
     "CloudSecurityCrowdStrike",
     "CloudSecurityDefender",
     "CrowdStrikeCredential",
@@ -492,8 +504,10 @@ __all__ = [
     "ProviderConfig_AssetsServicenow",
     "ProviderConfig_AssetsServicenowMock",
     "ProviderConfig_AssetsSevco",
+    "ProviderConfig_AssetsSevcoMock",
     "ProviderConfig_AssetsTaniumCloud",
     "ProviderConfig_AssetsTaniumCloudMock",
+    "ProviderConfig_CloudsecurityAws",
     "ProviderConfig_CloudsecurityCrowdstrike",
     "ProviderConfig_CloudsecurityDefender",
     "ProviderConfig_EdrCrowdstrike",

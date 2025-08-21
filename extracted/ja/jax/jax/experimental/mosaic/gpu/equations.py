@@ -16,7 +16,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import dataclasses
+import math
 from typing import assert_never, Any, Callable
 
 from . import fragmented_array as fa
@@ -63,7 +65,29 @@ class Reduce:
   axes: tuple[int, ...]
 
 
-Expression = Variable | Constant | LeastReplicated | MostReplicated | Reduce
+@dataclasses.dataclass(frozen=True)
+class BroadcastInDim:
+  expression: Expression
+  axes: tuple[int, ...]
+  shape: tuple[int, ...]
+
+
+@dataclasses.dataclass(frozen=True)
+class Reshape:
+  expression: Expression
+  source_shape: tuple[int, ...]
+  target_shape: tuple[int, ...]
+
+
+Expression = (
+    Variable
+    | Constant
+    | LeastReplicated
+    | MostReplicated
+    | Reduce
+    | BroadcastInDim
+    | Reshape
+)
 
 
 def reduce_replicated_expression(
@@ -113,6 +137,83 @@ def reduce_replicated_expression(
   return constructor(tuple(unknowns))
 
 
+def reduce_broadcast_expression(
+    broadcast: BroadcastInDim, assignments: dict[Variable, Constant]
+) -> Expression | Unsatisfiable:
+  def _check_shape_broadcast(shape: tuple[int, ...]) -> bool:
+    for axis, s in zip(broadcast.axes, shape, strict=True):
+      if broadcast.shape[axis] != s:
+        return False
+    return True
+
+  reduced_expr = reduce_expression(broadcast.expression, assignments)
+  match reduced_expr:
+    case Unsatisfiable():
+      return Unsatisfiable()
+    case Constant(value=layout):
+      match layout:
+        case fa.WGSplatFragLayout(shape=shape):
+          if not _check_shape_broadcast(shape):
+            return Unsatisfiable()
+          return Constant(fa.WGSplatFragLayout(shape=broadcast.shape))
+        case _:
+          return BroadcastInDim(
+              expression=reduced_expr,
+              axes=broadcast.axes,
+              shape=broadcast.shape,
+          )
+    case _:
+      return BroadcastInDim(
+          expression=reduced_expr, axes=broadcast.axes, shape=broadcast.shape
+      )
+
+
+def reduce_reshape_expression(
+    reshape: Reshape, assignments: dict[Variable, Constant]
+) -> Expression | Unsatisfiable:
+  reduced_expr = reduce_expression(reshape.expression, assignments)
+  match reduced_expr:
+    case Unsatisfiable():
+      return Unsatisfiable()
+    case Constant(value=layout):
+      match layout:
+        case fa.WGSplatFragLayout(shape=shape):
+          assert math.prod(shape) == math.prod(reshape.target_shape)
+          return Constant(fa.WGSplatFragLayout(shape=reshape.target_shape))
+        case fa.WGStridedFragLayout(shape=shape, vec_size=vec_size):
+          assert math.prod(shape) == math.prod(reshape.target_shape)
+          return Constant(fa.WGStridedFragLayout(shape=reshape.target_shape, vec_size=vec_size))
+        case fa.TiledLayout() as tiled_layout:
+          tile_shape = tiled_layout.base_tile_shape
+          if len(reshape.target_shape) < len(tile_shape):
+            return dataclasses.replace(reshape, expression=reduced_expr)
+          # Even if the new shape is not perfectly tilable, it is possible that
+          # we may be able to reshape the tiling itself in a way that is
+          # compatible with the new shape. We do not handle this case at the
+          # moment.
+          for ts, s in zip(tile_shape, reshape.source_shape[-len(tile_shape):], strict=True):
+            if s % ts != 0:
+              return dataclasses.replace(reshape, expression=reduced_expr)
+
+          # If minor tiled dimensions are modified, then reshaping is likely to
+          # not be a no-op since the strides between tiles will change,
+          # potentially mapping different elements to lanes and warps. We don't
+          # attempt to handle this case at the moment.
+          num_minor_tiled_dims = len(tile_shape) - 1
+          source_minor_tiled_dims = reshape.source_shape[-num_minor_tiled_dims:]
+          target_minor_tiled_dims = reshape.target_shape[-num_minor_tiled_dims:]
+          major_tiled_dim = tile_shape[0]
+          if (source_minor_tiled_dims != target_minor_tiled_dims or
+              reshape.target_shape[-len(tile_shape)] % major_tiled_dim != 0):
+            return dataclasses.replace(reshape, expression=reduced_expr)
+          # At this point, we now that only non-tiled dimensions and/or the
+          # majormost tiled dimensions may have changed. We also know that the
+          # majormost tiled dimension is still tilable in the new shape.
+          # Therefore, we can return the tiled layout as is.
+          return Constant(tiled_layout)
+  return dataclasses.replace(reshape, expression=reduced_expr)
+
+
 def reduce_expression(
     expr: Expression, assignments: dict[Variable, Constant]
 ) -> Expression | Unsatisfiable:
@@ -146,6 +247,10 @@ def reduce_expression(
           )
         case _:
           return Reduce(expression=reduced_expr, axes=axes)
+    case BroadcastInDim():
+      return reduce_broadcast_expression(expr, assignments)
+    case Reshape():
+      return reduce_reshape_expression(expr, assignments)
     case _:
       assert_never(expr)
 
@@ -312,7 +417,7 @@ class EquationSystem:
       default_factory=dict
   )
   equations: list[Equation] = dataclasses.field(default_factory=list)
-  constraints: list[Constraint] = dataclasses.field(default_factory=list)
+  constraints: Sequence[Constraint] = dataclasses.field(default_factory=list)
 
   def unknowns(self) -> list[Variable]:
     """Returns the list of free variables in the system."""
@@ -333,6 +438,10 @@ class EquationSystem:
           for e in expressions:
             extract_variables(e)
         case Reduce(expression=e):
+          extract_variables(e)
+        case BroadcastInDim(expression=e):
+          extract_variables(e)
+        case Reshape(expression=e):
           extract_variables(e)
         case _:
           assert_never(expr)
@@ -358,7 +467,7 @@ class EquationSystem:
     return EquationSystem(
         assignments=self.assignments | other.assignments,
         equations=self.equations + other.equations,
-        constraints=self.constraints + other.constraints,
+        constraints=[*self.constraints, *other.constraints],
     )
 
 

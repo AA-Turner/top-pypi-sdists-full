@@ -397,6 +397,9 @@ impl ConfigFile {
 
     pub fn default_project_excludes() -> Globs {
         Globs::new(vec![
+            // Align with https://code.visualstudio.com/docs/python/settings-reference#_pylance-language-server
+            "**/node_modules".to_owned(),
+            "**/__pycache__".to_owned(),
             // match any `.venv` or `venv` directory
             "**/*venv/**".to_owned(),
             // Note: dot files are now excluded at the Glob::files() level
@@ -515,6 +518,14 @@ impl ConfigFile {
                  self.root.ignore_errors_in_generated_code.unwrap())
     }
 
+    pub fn infer_with_first_use(&self, path: &Path) -> bool {
+        self.get_from_sub_configs(ConfigBase::get_infer_with_first_use, path)
+            .unwrap_or_else(||
+                 // we can use unwrap here, because the value in the root config must
+                 // be set in `ConfigFile::configure()`.
+                 self.root.infer_with_first_use.unwrap())
+    }
+
     pub fn permissive_ignores(&self, path: &Path) -> bool {
         self.get_from_sub_configs(|x| x.permissive_ignores, path)
             .unwrap_or_else(||
@@ -589,6 +600,10 @@ impl ConfigFile {
 
         if self.root.ignore_errors_in_generated_code.is_none() {
             self.root.ignore_errors_in_generated_code = Some(Default::default());
+        }
+
+        if self.root.infer_with_first_use.is_none() {
+            self.root.infer_with_first_use = Some(true);
         }
 
         if self.root.permissive_ignores.is_none() {
@@ -832,6 +847,7 @@ mod tests {
              replace-imports-with-any = []
              ignore-missing-imports = []
              ignore-errors-in-generated-code = false
+             infer-with-first-use = false
              [sub-config.errors]
              assert-type = false
              invalid-yield = false
@@ -876,6 +892,7 @@ mod tests {
                         (ErrorKind::AssertType, Severity::Error),
                     ]))),
                     ignore_errors_in_generated_code: Some(true),
+                    infer_with_first_use: None,
                     replace_imports_with_any: Some(vec![ModuleWildcard::new("fibonacci").unwrap()]),
                     ignore_missing_imports: Some(vec![ModuleWildcard::new("sprout").unwrap()]),
                     untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnType),
@@ -891,6 +908,7 @@ mod tests {
                             (ErrorKind::AssertType, Severity::Ignore),
                         ]))),
                         ignore_errors_in_generated_code: Some(false),
+                        infer_with_first_use: Some(false),
                         replace_imports_with_any: Some(Vec::new()),
                         ignore_missing_imports: Some(Vec::new()),
                         untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnAny),
@@ -1248,6 +1266,7 @@ mod tests {
                 ignore_missing_imports: None,
                 untyped_def_behavior: Some(UntypedDefBehavior::CheckAndInferReturnType),
                 ignore_errors_in_generated_code: Some(false),
+                infer_with_first_use: Some(true),
                 extras: Default::default(),
                 permissive_ignores: Some(false),
             },
@@ -1434,10 +1453,14 @@ mod tests {
             FilteredGlobs::new(
                 config.project_includes.clone(),
                 Globs::new(
-                    vec!["**/*venv/**".to_owned()]
-                        .into_iter()
-                        .chain(site_package_path.clone())
-                        .collect::<Vec<_>>()
+                    vec![
+                        "**/node_modules".to_owned(),
+                        "**/__pycache__".to_owned(),
+                        "**/*venv/**".to_owned()
+                    ]
+                    .into_iter()
+                    .chain(site_package_path.clone())
+                    .collect::<Vec<_>>()
                 )
                 .unwrap(),
                 None,

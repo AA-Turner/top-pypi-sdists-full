@@ -8,26 +8,31 @@ __all__ = [
     "UseAdditionalFields",
     "UseCursorEncoding",
     "UseExcludedFields",
+    "UseFieldTypeAnnotations",
     "UseFieldsAliases",
     "UseIncludeTotal",
     "UseModelConfig",
     "UseModule",
     "UseName",
+    "UseOptionalFields",
     "UseOptionalParams",
     "UseParams",
     "UseParamsFields",
     "UseQuotedCursor",
+    "UseRequiredFields",
     "UseStrCursor",
     "get_page_bases",
     "new_page_cls",
 ]
 
 from abc import abstractmethod
+from collections.abc import Sequence
 from copy import copy
 from dataclasses import dataclass
 from types import new_class
 from typing import (
     TYPE_CHECKING,
+    Annotated,
     Any,
     ClassVar,
     Generic,
@@ -48,6 +53,7 @@ from typing_extensions import TypeAlias, Unpack
 from .bases import AbstractPage, AbstractParams, BaseRawParams
 from .cursor import CursorDecoder, CursorEncoder
 from .types import Cursor
+from .typing_utils import remove_optional_from_tp
 from .utils import IS_PYDANTIC_V2, get_caller
 
 ClsNamespace: TypeAlias = dict[str, Any]
@@ -164,8 +170,69 @@ class UseModule(PageCustomizer):
 
 
 @dataclass
+class _UseOptionalRequiredFields(PageCustomizer):
+    required: bool
+    fields: Sequence[str] = (
+        "total",
+        "page",
+        "size",
+        "pages",
+        "limit",
+        "offset",
+    )
+
+    def customize_page_ns(self, page_cls: PageCls, ns: ClsNamespace) -> None:
+        fields = _get_model_fields(page_cls)
+        fields_to_update = {name: field for name, field in fields.items() if name in self.fields}
+
+        if not fields_to_update:
+            return
+
+        # wtf is going on here? :(((
+        customizer: PageCustomizer
+        if self.required:
+            fields_to_update = {k: _make_field_required(v) for k, v in fields_to_update.items()}
+
+            if IS_PYDANTIC_V2:
+                # to make field required in pydantic v2 we just need to update its type annotation
+                customizer = UseFieldTypeAnnotations(**{k: _get_field_tp(v) for k, v in fields_to_update.items()})
+            else:
+                customizer = UseAdditionalFields(**{k: (_get_field_tp(v), ...) for k, v in fields_to_update.items()})
+        else:  # noqa: PLR5501
+            if IS_PYDANTIC_V2:
+                fields_to_update = {k: _make_field_optional(v) or v for k, v in fields_to_update.items()}
+                customizer = UseAdditionalFields(**{k: (_get_field_tp(v), v) for k, v in fields_to_update.items()})
+            else:
+                customizer = UseAdditionalFields(
+                    **{k: (Optional[_get_field_tp(v)], None) for k, v in fields_to_update.items()},
+                )
+
+        customizer.customize_page_ns(page_cls, ns)
+
+
+@dataclass
+class UseOptionalFields(_UseOptionalRequiredFields):
+    required: bool = False
+
+
+@dataclass
+class UseRequiredFields(_UseOptionalRequiredFields):
+    required: bool = True
+
+
+@dataclass
 class UseIncludeTotal(PageCustomizer):
     include_total: bool
+
+    update_annotations: bool = True
+    affected_fields: Sequence[str] = (
+        "total",
+        "page",
+        "size",
+        "pages",
+        "limit",
+        "offset",
+    )
 
     def customize_page_ns(self, page_cls: PageCls, ns: ClsNamespace) -> None:
         include_total = self.include_total
@@ -183,6 +250,13 @@ class UseIncludeTotal(PageCustomizer):
                 return raw_params
 
         ns["__params_type__"] = CustomizedParams
+
+        if self.update_annotations:
+            customizer = _UseOptionalRequiredFields(
+                required=self.include_total,
+                fields=self.affected_fields,
+            )
+            customizer.customize_page_ns(page_cls, ns)
 
 
 @dataclass
@@ -278,11 +352,30 @@ if IS_PYDANTIC_V2:
 
         field = copy(field)
 
-        field.annotation = Optional[field.annotation]  # type: ignore[assignment]
+        field.annotation = Optional[field.annotation]
         field.default = None
         field.default_factory = None
 
         return field
+
+    def _make_field_required(field: Any) -> Any:
+        assert isinstance(field, _PydanticField)
+
+        field = copy(field)
+
+        field.annotation = remove_optional_from_tp(field.annotation)
+        field.default = ...
+        field.default_factory = None
+
+        return field
+
+    def _get_field_tp(field: Any) -> Any:
+        assert isinstance(field, _PydanticField)
+
+        if field.metadata:
+            return Annotated[(field.annotation, *field.metadata)]
+
+        return field.annotation
 
 else:
     from pydantic.fields import ModelField as _PydanticField  # type: ignore[no-redef,attr-defined]
@@ -291,6 +384,21 @@ else:
         assert isinstance(field, _PydanticField)
 
         return None
+
+    def _make_field_required(field: Any) -> Any:
+        assert isinstance(field, _PydanticField)
+
+        field = copy(field)
+        field.required = True
+        field.default = ...
+        field.default_factory = None
+
+        return field
+
+    def _get_field_tp(field: Any) -> Any:
+        assert isinstance(field, _PydanticField)
+
+        return field.type_  # type: ignore[attr-defined]
 
 
 def _update_params_fields(cls: type[AbstractParams], fields: ClsNamespace) -> ClsNamespace:
@@ -346,6 +454,9 @@ class UseOptionalParams(PageCustomizer):
 
         customizer = UseParamsFields(**new_fields)
         customizer.customize_page_ns(page_cls, ns)
+
+        optional_customizer = UseOptionalFields()
+        optional_customizer.customize_page_ns(page_cls, ns)
 
 
 class UseModelConfig(PageCustomizer):
@@ -414,3 +525,12 @@ class UseAdditionalFields(PageCustomizer):
                 anns[name], ns[name] = field
             else:
                 anns[name] = field
+
+
+class UseFieldTypeAnnotations(PageCustomizer):
+    def __init__(self, **anns: Any) -> None:
+        self.anns = anns
+
+    def customize_page_ns(self, page_cls: PageCls, ns: ClsNamespace) -> None:
+        anns = ns.setdefault("__annotations__", {})
+        anns.update(self.anns)

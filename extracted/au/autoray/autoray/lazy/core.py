@@ -1,5 +1,5 @@
-"""Core lazy array functionality.
-"""
+"""Core lazy array functionality."""
+
 import operator
 import threading
 import functools
@@ -497,7 +497,7 @@ class LazyArray:
             itertools.chain(
                 (stringify(x, params) for x in self._args),
                 (
-                    f"{k}: {stringify(v, params)}"
+                    f"{k}={stringify(v, params)}"
                     for k, v in self._kwargs.items()
                 ),
             )
@@ -774,15 +774,8 @@ class LazyArray:
         return self.shape[0]
 
     def __iter__(self):
-        import warnings
-
-        warnings.warn(
-            "Iterating over LazyArray to get the computational graph nodes is "
-            "deprecated - use `LazyArray.descend()` instead. Eventually "
-            "`iter(lz)` will iterate over first axis slices."
-        )
-
-        return self.descend()
+        for ax in range(self.shape[0]):
+            yield self[ax]
 
     @property
     def ndim(self):
@@ -805,9 +798,11 @@ class LazyArray:
 
     @property
     def depth(self):
-        """The maximum distance to any input array in the computational graph.
-        """
+        """The maximum distance to any input array in the computational graph."""
         return self._depth
+
+    def __hash__(self):
+        return id(self)
 
     def __getitem__(self, key):
         return getitem(self, key)
@@ -845,6 +840,9 @@ class LazyArray:
     def __rtruediv__(self, other):
         return truedivide(other, self)
 
+    def __mod__(self, other):
+        return mod(self, other)
+
     def __pow__(self, other):
         return pow_(self, other)
 
@@ -862,6 +860,9 @@ class LazyArray:
 
     def __neg__(self):
         return self.to(operator.neg)
+
+    def __eq__(self, other):
+        return eq(self, other)
 
     def __ne__(self, other):
         return ne(self, other)
@@ -886,8 +887,8 @@ class LazyArray:
     def H(self):
         return conj(transpose(self))
 
-    def reshape(self, shape):
-        return reshape(self, shape)
+    def reshape(self, shape, **kwargs):
+        return reshape(self, shape, **kwargs)
 
     def astype(self, dtype_name):
         return lazy_astype(self, dtype_name)
@@ -903,6 +904,12 @@ class LazyArray:
     @property
     def imag(self):
         return imag(self)
+
+    def __array_namespace__(self, api_version=None):
+        """Support array api namespace - https://data-apis.org/array-api/."""
+        from autoray import lazy as lazy_api
+
+        return lazy_api
 
     def __repr__(self):
         return (
@@ -1092,6 +1099,8 @@ def shared_intermediates(cache=None):
 def maybe_id(x):
     if hasattr(x, "shape"):
         return id(x)
+    if isinstance(x, list):
+        return tuple(x)
     return x
 
 
@@ -1234,8 +1243,11 @@ def transpose(a, axes=None):
     return a.to(fn_transpose, (a, axes), shape=newshape)
 
 
+permute_dims = transpose
+
+
 @lazy_cache("reshape")
-def _reshape_tuple(a, newshape):
+def _reshape_tuple(a, newshape, **kwargs):
     a = ensure_lazy(a)
     fn_reshape = get_lib_fn(a.backend, "reshape")
 
@@ -1245,7 +1257,7 @@ def _reshape_tuple(a, newshape):
         if isinstance(b, LazyArray):
             a = b
 
-    return a.to(fn_reshape, (a, newshape), shape=newshape)
+    return a.to(fn_reshape, (a, newshape), shape=newshape, kwargs=kwargs)
 
 
 @functools.lru_cache(2**14)
@@ -1262,7 +1274,7 @@ def find_full_reshape(newshape, size):
         return newshape
 
 
-def reshape(a, newshape):
+def reshape(a, newshape, **kwargs):
     newshape = (newshape,) if isinstance(newshape, int) else tuple(newshape)
     newshape = find_full_reshape(newshape, a.size)
 
@@ -1270,14 +1282,49 @@ def reshape(a, newshape):
         # no reshape required
         return a
 
-    return _reshape_tuple(a, newshape)
+    return _reshape_tuple(a, newshape, **kwargs)
+
+
+@lazy_cache("expand_dims")
+def expand_dims(a, axis):
+    a = ensure_lazy(a)
+    fn_expand_dims = get_lib_fn(a.backend, "expand_dims")
+
+    if axis < 0:
+        axis += a.ndim + 1
+
+    new_shape = (
+        *a.shape[:axis],
+        1,
+        *a.shape[axis:],
+    )
+    return a.to(fn_expand_dims, (a, axis), shape=new_shape)
+
+
+@lazy_cache("broadcast_to")
+def broadcast_to(array, shape):
+    array = ensure_lazy(array)
+    shape = tuple(shape)
+    fn_broadcast_to = get_lib_fn(array.backend, "broadcast_to")
+
+    if array.shape == shape:
+        # no broadcasting required
+        return array
+
+    return array.to(fn_broadcast_to, (array, shape), shape=shape)
 
 
 def getitem_hasher(_, a, key):
     if not isinstance(key, tuple):
         key = (key,)
     hkey = tuple(
-        str(k) if isinstance(k, slice) else id(k) if hasattr(k, "shape") else k
+        str(k)
+        if isinstance(k, slice)
+        else id(k)
+        if hasattr(k, "shape")
+        else tuple(k)
+        if isinstance(k, list)
+        else k
         for k in key
     )
     return f"getitem-{hash((id(a), hkey))}"
@@ -1484,6 +1531,26 @@ def diag(a, k=0):
     )
 
 
+@lazy_cache("diagonal")
+def diagonal(a, offset=0, axis1=0, axis2=1):
+    a = ensure_lazy(a)
+    fn_diagonal = get_lib_fn(a.backend, "diagonal")
+
+    if axis1 < 0:
+        axis1 += a.ndim
+    if axis2 < 0:
+        axis2 += a.ndim
+
+    newshape = [d for ax, d in enumerate(a.shape) if ax not in (axis1, axis2)]
+    newshape.append(max(min(a.shape[axis1], a.shape[axis2]) - abs(offset), 0))
+
+    return a.to(
+        fn=fn_diagonal,
+        args=(a, offset, axis1, axis2),
+        shape=tuple(newshape),
+    )
+
+
 @lazy_cache("matmul")
 def matmul(x1, x2):
     backend = find_common_backend(x1, x2)
@@ -1578,11 +1645,12 @@ def sort(a, axis=-1):
 
 
 @lazy_cache("argsort")
-def argsort(a, axis=-1):
+def argsort(a, axis=-1, **kwargs):
     a = ensure_lazy(a)
     return a.to(
         fn=get_lib_fn(a.backend, "argsort"),
         args=(a, axis),
+        kwargs=kwargs,
     )
 
 
@@ -1681,6 +1749,34 @@ def take(x, indices):
     )
 
 
+@lazy_cache("take_along_axis")
+def take_along_axis(arr, indices, axis=-1):
+    arr = ensure_lazy(arr)
+    indices = ensure_lazy(indices)
+
+    if axis < 0:
+        axis += arr.ndim
+
+    fn = get_lib_fn(arr.backend, "take_along_axis")
+    new_shape = tuple(
+        # target axis gets length from indices
+        db
+        if ax == axis
+        # other axes are broadcast
+        else max(da, db)
+        for ax, (da, db) in enumerate(zip(arr.shape, indices.shape))
+    )
+
+    return LazyArray(
+        backend=arr.backend,
+        fn=fn,
+        args=(arr, indices, axis),
+        kwargs=None,
+        shape=new_shape,
+        deps=(arr, indices),
+    )
+
+
 def make_binary_func(name, fn):
     @lazy_cache(name)
     def binary_func(x1, x2):
@@ -1699,17 +1795,20 @@ def make_binary_func(name, fn):
     return binary_func
 
 
-multiply = make_binary_func("multiply", operator.mul)
 add = make_binary_func("add", operator.add)
-sub = make_binary_func("sub", operator.sub)
+eq = make_binary_func("eq", operator.eq)
+equal = make_binary_func("equal", operator.eq)
 floordivide = make_binary_func("floordivide", operator.floordiv)
-truedivide = make_binary_func("truedivide", operator.truediv)
-pow_ = make_binary_func("pow", operator.pow)
-gt = make_binary_func("gt", operator.gt)
-ne = make_binary_func("ne", operator.ne)
-lt = make_binary_func("lt", operator.lt)
 ge = make_binary_func("ge", operator.ge)
+gt = make_binary_func("gt", operator.gt)
 le = make_binary_func("le", operator.le)
+lt = make_binary_func("lt", operator.lt)
+mod = make_binary_func("mod", operator.mod)
+multiply = make_binary_func("multiply", operator.mul)
+ne = make_binary_func("ne", operator.ne)
+pow_ = make_binary_func("pow", operator.pow)
+sub = make_binary_func("sub", operator.sub)
+truedivide = make_binary_func("truedivide", operator.truediv)
 
 
 def complex_(re, im):
@@ -1801,8 +1900,7 @@ max_ = make_reduction_func("max")
 
 
 def empty(shape, *, backend="numpy", **kwargs):
-    """Lazy creation of an empty array with a given shape.
-    """
+    """Lazy creation of an empty array with a given shape."""
     return LazyArray(
         backend=backend,
         fn=get_lib_fn(backend, "empty"),
@@ -1814,8 +1912,7 @@ def empty(shape, *, backend="numpy", **kwargs):
 
 
 def zeros(shape, *, backend="numpy", **kwargs):
-    """Lazy creation of an array filled with zeros with a given shape.
-    """
+    """Lazy creation of an array filled with zeros with a given shape."""
     return LazyArray(
         backend=backend,
         fn=get_lib_fn(backend, "zeros"),
@@ -1827,8 +1924,7 @@ def zeros(shape, *, backend="numpy", **kwargs):
 
 
 def ones(shape, *, backend="numpy", **kwargs):
-    """Lazy creation of an array filled with ones with a given shape.
-    """
+    """Lazy creation of an array filled with ones with a given shape."""
     return LazyArray(
         backend=backend,
         fn=get_lib_fn(backend, "ones"),
@@ -1840,8 +1936,7 @@ def ones(shape, *, backend="numpy", **kwargs):
 
 
 def eye(N, *, backend="numpy", **kwargs):
-    """Lazy creation of the identity matrix of size N.
-    """
+    """Lazy creation of the identity matrix of size N."""
     return LazyArray(
         backend=backend,
         fn=get_lib_fn(backend, "eye"),
@@ -1853,8 +1948,7 @@ def eye(N, *, backend="numpy", **kwargs):
 
 
 def identity(n, *, backend="numpy", **kwargs):
-    """Lazy creation of the identity matrix of size n.
-    """
+    """Lazy creation of the identity matrix of size n."""
     return LazyArray(
         backend=backend,
         fn=get_lib_fn(backend, "identity"),

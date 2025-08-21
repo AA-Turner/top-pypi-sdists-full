@@ -1148,3 +1148,68 @@ class TD3(TypedDict, closed=True, extra_items=str):  # E: `closed` and `extra_it
     pass
     "#,
 );
+
+testcase!(
+    test_extra_items_requiredness,
+    r#"
+from typing import NotRequired, Required, TypedDict
+class TD1(TypedDict, extra_items=NotRequired[int]):  # E: not allowed in this context
+    pass
+class TD2(TypedDict, extra_items=Required[int]):  # E: not allowed in this context
+    pass
+    "#,
+);
+
+testcase!(
+    test_extra_items_readonly,
+    r#"
+from typing import ReadOnly, TypedDict
+class TD(TypedDict, extra_items=ReadOnly[int]):
+    pass
+    "#,
+);
+
+testcase!(
+    test_bad_extra_items,
+    r#"
+from typing import TypedDict
+class TD(TypedDict, extra_items=False):  # E: Expected `extra_items` to be a type form, got instance of `Literal[False]`
+    pass
+    "#,
+);
+
+testcase!(
+    test_construct_with_extra_items,
+    r#"
+from typing import TypedDict
+class Movie(TypedDict, extra_items=int):
+    name: str
+good_movie: Movie = {'name': 'Toy Story', 'year': 1995}
+bad_movie: Movie = {'name': 'Toy Story', 'studio': 'Pixar'}  # E: `Literal['Pixar']` is not assignable to TypedDict `extra_items` type `int`
+    "#,
+);
+
+testcase!(
+    test_kwargs_with_extra_items,
+    r#"
+from typing import TypedDict
+class Movie(TypedDict, extra_items=int):
+    name: str
+good_movie = Movie(name='Toy Story', year=1995)
+bad_movie = Movie(name='Toy Story', studio='Pixar')  # E: `Literal['Pixar']` is not assignable to kwargs type `int`
+    "#,
+);
+
+testcase!(
+    test_validate_bool_keyword,
+    r#"
+from typing import TypedDict
+class Ok(TypedDict, total=True, closed=False):
+    pass
+def f() -> bool: ...
+class Bad1(TypedDict, total=f()):  # E: Expected literal True or False for keyword `total`, got instance of `bool`
+    pass
+class Bad2(TypedDict, closed=f()):  # E: Expected literal True or False
+    pass
+    "#,
+);

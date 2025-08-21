@@ -36,6 +36,7 @@ __all__ = (
     "RecommendationSourceType",
     "RecommendationStatusType",
     "RecommendationTypeType",
+    "RegionName",
     "ResourceServiceName",
     "ResourceStatusType",
     "ServiceName",
@@ -536,4 +537,7 @@ PaginatorName = Literal[
     "list_organization_recommendations",
     "list_recommendation_resources",
     "list_recommendations",
+]
+RegionName = Literal[
+    "ap-northeast-2", "ap-southeast-2", "eu-west-1", "us-east-1", "us-east-2", "us-west-2"
 ]

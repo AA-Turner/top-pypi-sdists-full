@@ -1,4 +1,3 @@
-# sage_setup: distribution = sagemath-database-jones-numfield
 r"""
 John Jones's tables of number fields
 

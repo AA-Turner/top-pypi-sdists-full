@@ -42,9 +42,12 @@ from jax._src.pallas.mosaic_gpu.core import WarpMesh as WarpMesh
 from jax._src.pallas.mosaic_gpu.core import WGMMAAccumulatorRef as ACC  # noqa: F401
 from jax._src.pallas.mosaic_gpu.core import WGMMAAccumulatorRef as WGMMAAccumulatorRef
 from jax._src.pallas.mosaic_gpu.helpers import nd_loop as nd_loop
+from jax._src.pallas.mosaic_gpu.helpers import find_swizzle as find_swizzle
+from jax._src.pallas.mosaic_gpu.helpers import format_tcgen05_sparse_metadata as format_tcgen05_sparse_metadata
 from jax._src.pallas.mosaic_gpu.pipeline import emit_pipeline as emit_pipeline
 from jax._src.pallas.mosaic_gpu.pipeline import emit_pipeline_warp_specialized as emit_pipeline_warp_specialized
 from jax._src.pallas.mosaic_gpu.primitives import async_copy_scales_to_tmem as async_copy_scales_to_tmem
+from jax._src.pallas.mosaic_gpu.primitives import async_copy_sparse_metadata_to_tmem as async_copy_sparse_metadata_to_tmem
 from jax._src.pallas.mosaic_gpu.primitives import async_load_tmem as async_load_tmem
 from jax._src.pallas.mosaic_gpu.primitives import async_store_tmem as async_store_tmem
 from jax._src.pallas.mosaic_gpu.primitives import barrier_arrive as barrier_arrive
@@ -59,6 +62,8 @@ from jax._src.pallas.mosaic_gpu.primitives import inline_mgpu as inline_mgpu
 from jax._src.pallas.mosaic_gpu.primitives import load as load
 from jax._src.pallas.mosaic_gpu.primitives import print_layout as print_layout
 from jax._src.pallas.mosaic_gpu.primitives import RefType as RefType
+from jax._src.pallas.mosaic_gpu.primitives import semaphore_signal_parallel as semaphore_signal_parallel
+from jax._src.pallas.mosaic_gpu.primitives import SemaphoreSignal as SemaphoreSignal
 from jax._src.pallas.mosaic_gpu.primitives import set_max_registers as set_max_registers
 from jax._src.pallas.mosaic_gpu.primitives import wait_load_tmem as wait_load_tmem
 from jax._src.pallas.mosaic_gpu.primitives import wait_smem_to_gmem as wait_smem_to_gmem

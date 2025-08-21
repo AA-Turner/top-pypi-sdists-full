@@ -1,7 +1,7 @@
 r'''
 # `datadog_csm_threats_policy`
 
-Refer to the Terraform Registry for docs: [`datadog_csm_threats_policy`](https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy).
+Refer to the Terraform Registry for docs: [`datadog_csm_threats_policy`](https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CsmThreatsPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.csmThreatsPolicy.CsmThreatsPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy datadog_csm_threats_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy datadog_csm_threats_policy}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class CsmThreatsPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy datadog_csm_threats_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy datadog_csm_threats_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#name CsmThreatsPolicy#name}
-        :param description: A description for the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#description CsmThreatsPolicy#description}
-        :param enabled: Indicates whether the policy is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#enabled CsmThreatsPolicy#enabled}
-        :param host_tags_lists: Host tags that define where the policy is deployed. Inner values are ANDed, outer arrays are ORed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#host_tags_lists CsmThreatsPolicy#host_tags_lists}
-        :param tags: Host tags that define where the policy is deployed. Deprecated, use host_tags_lists instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#tags CsmThreatsPolicy#tags}
+        :param name: The name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#name CsmThreatsPolicy#name}
+        :param description: A description for the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#description CsmThreatsPolicy#description}
+        :param enabled: Indicates whether the policy is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#enabled CsmThreatsPolicy#enabled}
+        :param host_tags_lists: Host tags that define where the policy is deployed. Inner values are ANDed, outer arrays are ORed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#host_tags_lists CsmThreatsPolicy#host_tags_lists}
+        :param tags: Host tags that define where the policy is deployed. Deprecated, use host_tags_lists instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#tags CsmThreatsPolicy#tags}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class CsmThreatsPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CsmThreatsPolicy to import.
-        :param import_from_id: The id of the existing CsmThreatsPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CsmThreatsPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CsmThreatsPolicy to import is found.
         '''
         if __debug__:
@@ -301,11 +301,11 @@ class CsmThreatsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#name CsmThreatsPolicy#name}
-        :param description: A description for the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#description CsmThreatsPolicy#description}
-        :param enabled: Indicates whether the policy is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#enabled CsmThreatsPolicy#enabled}
-        :param host_tags_lists: Host tags that define where the policy is deployed. Inner values are ANDed, outer arrays are ORed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#host_tags_lists CsmThreatsPolicy#host_tags_lists}
-        :param tags: Host tags that define where the policy is deployed. Deprecated, use host_tags_lists instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#tags CsmThreatsPolicy#tags}
+        :param name: The name of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#name CsmThreatsPolicy#name}
+        :param description: A description for the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#description CsmThreatsPolicy#description}
+        :param enabled: Indicates whether the policy is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#enabled CsmThreatsPolicy#enabled}
+        :param host_tags_lists: Host tags that define where the policy is deployed. Inner values are ANDed, outer arrays are ORed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#host_tags_lists CsmThreatsPolicy#host_tags_lists}
+        :param tags: Host tags that define where the policy is deployed. Deprecated, use host_tags_lists instead. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#tags CsmThreatsPolicy#tags}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -417,7 +417,7 @@ class CsmThreatsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#name CsmThreatsPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#name CsmThreatsPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -427,7 +427,7 @@ class CsmThreatsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A description for the policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#description CsmThreatsPolicy#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#description CsmThreatsPolicy#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -438,7 +438,7 @@ class CsmThreatsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the policy is enabled. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#enabled CsmThreatsPolicy#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#enabled CsmThreatsPolicy#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -449,7 +449,7 @@ class CsmThreatsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[typing.List[builtins.str]]]]:
         '''Host tags that define where the policy is deployed. Inner values are ANDed, outer arrays are ORed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#host_tags_lists CsmThreatsPolicy#host_tags_lists}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#host_tags_lists CsmThreatsPolicy#host_tags_lists}
         '''
         result = self._values.get("host_tags_lists")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[typing.List[builtins.str]]]], result)
@@ -458,7 +458,7 @@ class CsmThreatsPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Host tags that define where the policy is deployed. Deprecated, use host_tags_lists instead.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.71.0/docs/resources/csm_threats_policy#tags CsmThreatsPolicy#tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.72.0/docs/resources/csm_threats_policy#tags CsmThreatsPolicy#tags}
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

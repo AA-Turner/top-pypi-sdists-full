@@ -1,13 +1,17 @@
 Metadata-Version: 2.4
 Name: flashinfer-python
-Version: 0.2.12
+Version: 0.2.13
 Summary: FlashInfer: Kernel Library for LLM Serving
 Author: FlashInfer team
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/flashinfer-ai/flashinfer
 Requires-Python: <4.0,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-License-File: NOTICE
+License-File: licenses/LICENSE.cutlass.txt
+License-File: licenses/LICENSE.flashattention3.txt
+License-File: licenses/LICENSE.fmt.txt
+License-File: licenses/LICENSE.spdlog.txt
 Requires-Dist: numpy
 Requires-Dist: torch
 Requires-Dist: ninja

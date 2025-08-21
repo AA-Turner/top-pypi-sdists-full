@@ -31,6 +31,7 @@ from .config_constants import (
     GET_OR_ADD_RUN_RETRY_TOTAL,
     HTTP_SESSION_RETRY_BACKOFF_FACTOR_DEFAULT,
     HTTP_SESSION_RETRY_TOTAL_DEFAULT,
+    MAXIMAL_SVG_FIGURE_SIZE,
     MESSAGE_BATCH_METRIC_INTERVAL_SECONDS,
     MESSAGE_BATCH_METRIC_MAX_BATCH_SIZE,
     MESSAGE_BATCH_PARAMETERS_INTERVAL_SECONDS,
@@ -180,6 +181,10 @@ CONFIG_MAP = {
         "default": "https://55e8a7aaa6bfdbaead68218e43b8615c@o168229.ingest.us.sentry.io/4505505645330432",
     },
     "comet.internal.sentry_debug": {"type": bool, "default": False},
+    "comet.internal.max_svg_figure_size": {
+        "type": int,
+        "default": MAXIMAL_SVG_FIGURE_SIZE,
+    },
     "comet.include.custom_ca_bundle": {"type": str, "default": None},
     # Deprecated:
     "comet.display_summary": {"type": bool, "default": None},

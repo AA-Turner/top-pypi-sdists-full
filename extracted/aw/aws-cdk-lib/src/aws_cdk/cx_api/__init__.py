@@ -765,6 +765,28 @@ When this feature flag is disabled, EgressOnlyGateway resource is created for al
   }
 }
 ```
+
+* `@aws-cdk/aws-signer:signingProfileNamePassedToCfn`
+
+When this feature flag is enabled, the `signingProfileName` property is passed to the L1 `CfnSigningProfile` construct,
+which ensures that the AWS Signer profile is created with the specified name.
+
+When this feature flag is disabled, the `signingProfileName` is not passed to CloudFormation, maintaining backward
+compatibility with existing deployments where CloudFormation auto-generated profile names.
+
+This feature flag is needed because enabling it can cause existing signing profiles to be
+replaced during deployment if a `signingProfileName` was specified but not previously used
+in the CloudFormation template.
+
+*cdk.json*
+
+```json
+{
+  "context": {
+    "@aws-cdk/aws-signer:signingProfileNamePassedToCfn": true
+  }
+}
+```
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)

@@ -1037,6 +1037,8 @@ API_EXPERIMENT_GET_ARTIFACT_LINEAGE_WRONG_DIRECTION = (
     "Unsupported direction value: %r. Please use one of the following: %r."
 )
 
+API_EXPERIMENT_GET_ASSET_BY_NAME_DEPRECATION_WARNING = "Deprecated: please use get_assets_by_name() to get list of experiment assets with specific asset name."
+
 API_UPDATE_CACHE_DEPRECATED_WARNING = (
     "API.update_cache() has been deprecated; please use API.clear_cache() instead."
 )

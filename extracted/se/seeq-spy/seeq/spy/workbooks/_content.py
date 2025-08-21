@@ -651,12 +651,14 @@ class AssetSelection(Item):
     def _create_asset_selection_input(self, item_map):
         self._validate_fields_before_push()
 
-        asset_id = (item_map[_common.get(self.definition, 'Asset ID')]
-                    if _common.present(self.definition, 'Asset ID') else None)
+        asset_id = _common.get(self.definition, 'Asset ID')
+        if asset_id not in item_map:
+            raise SPyDependencyNotFound(f'Asset {asset_id} not found in item_map.')
+        map_asset_id = (item_map[asset_id] if asset_id else None)
 
         return AssetSelectionInputV1(name=self.definition['Name'],
                                      selection_id=self.definition['ID'],
-                                     asset_id=asset_id,
+                                     asset_id=map_asset_id,
                                      asset_path_depth=self.definition['Path Levels'],
                                      report_id=item_map[self.report.id],
                                      archived=_common.get(self.definition, 'Archived', False))

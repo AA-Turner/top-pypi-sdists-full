@@ -43,6 +43,7 @@ class TestDebPackageReleaseComponentResponse(unittest.TestCase):
                 pulp_labels = {
                     'key' : ''
                     },
+                vuln_report = '',
                 package = '',
                 release_component = ''
             )

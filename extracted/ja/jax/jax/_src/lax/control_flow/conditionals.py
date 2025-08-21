@@ -38,12 +38,12 @@ from jax._src import source_info_util
 from jax._src import util
 from jax._src.state.discharge import register_partial_discharge_rule, discharge_state
 from jax._src.state.types import AbstractRef, RefEffect
-from jax._src.core import replace_jaxpr_effects
+from jax._src.core import replace_jaxpr_effects, typeof, cur_qdd
 from jax._src.interpreters import ad
 from jax._src.interpreters import batching
 from jax._src.interpreters import mlir
 from jax._src.interpreters import partial_eval as pe
-from jax._src.interpreters import xla
+from jax._src.interpreters import pxla
 from jax._src.lax import lax
 from jax._src.traceback_util import api_boundary
 from jax._src.typing import ArrayLike
@@ -542,6 +542,46 @@ def _cond_batching_rule(axis_data, args, dims, *, branches, **params):
                       **params)
     return out, out_dims
 
+def _cond_linearize(nzs, *primals_in, branches, **params):
+  idx_nz, *nzs = nzs
+  assert not idx_nz
+  nzs_out = [ad.linearize_jaxpr(jaxpr, nzs, allow_fwds=False)[2]
+             for jaxpr in branches]
+  nzs_out = map(any, zip(*nzs_out))
+  primal_jaxprs, tangent_jaxprs, branch_res_avals = [], [], []
+  for jaxpr in branches:
+    primal_jaxpr, num_res_out, _, _, tangent_jaxpr = \
+        ad.linearize_jaxpr(jaxpr, nzs, instantiate=nzs_out, allow_fwds=False)
+    res_avals = primal_jaxpr.out_avals[len(primal_jaxpr.out_avals)-num_res_out:]
+    primal_jaxprs.append(primal_jaxpr)
+    tangent_jaxprs.append(tangent_jaxpr)
+    branch_res_avals.append(res_avals)
+
+  all_res_avals, res_avals_per_branch = _merge_branch_residuals(branch_res_avals)
+  num_res = len(all_res_avals)
+  primal_jaxprs = _join_cond_outputs(
+      primal_jaxprs, all_res_avals, res_avals_per_branch, len(nzs_out))
+  tangent_jaxprs = _join_cond_pe_staged_jaxpr_inputs(
+      tangent_jaxprs, all_res_avals, res_avals_per_branch)
+  tangent_avals_out = [a.to_tangent_aval() for a in jaxpr.out_avals]
+
+  primals_res_out = cond_p.bind(*primals_in, branches=primal_jaxprs, **params)
+  primals, res = split_list(primals_res_out, [len(nzs_out)])
+
+  def tangent_fun(res, *tangents_in):
+    nz_tangents_in = [t for t in tangents_in if not isinstance(t, ad.Zero)]
+    nz_tangents_out = cond_p.bind(*res, *nz_tangents_in,
+                                  branches=tangent_jaxprs, **params)
+    nz_tangents_out_ = iter(nz_tangents_out)
+    tangents_out = [next(nz_tangents_out_) if nz else ad.Zero(aval)
+                   for (aval, nz) in zip(tangent_avals_out, nzs_out)]
+    assert next(nz_tangents_out_, None) is None
+    return tangents_out
+
+  idx, *_ = primals_in
+  return primals, nzs_out, [idx, *res], tangent_fun
+
+
 def _cond_jvp(primals, tangents, *, branches, **params):
   nonzeros = [type(t) is not ad_util.Zero for t in tangents]
 
@@ -563,7 +603,8 @@ def _cond_jvp(primals, tangents, *, branches, **params):
                     **params)
   out_primals, out_tangents = split_list(out, [len(out_nz)])
   out_tangents_iter = iter(out_tangents)
-  out_tangents = [next(out_tangents_iter) if nz else ad_util.Zero.from_primal_value(p)
+  out_tangents = [next(out_tangents_iter) if nz else
+                  ad_util.Zero.from_primal_value(p)
                   for p, nz in zip(out_primals, out_nz)]
   return out_primals, out_tangents
 
@@ -850,8 +891,7 @@ def _cond_transpose(cts, *args, branches, **params):
       branch.jaxpr.effects):
     raise NotImplementedError("State effect not supported in cond transpose.")
 
-  branches_trans = tuple(
-      _transpose_cond_jaxpr(jaxpr, num_res) for jaxpr in branches)
+  branches_trans = [_transpose_cond_jaxpr(jaxpr, num_res) for jaxpr in branches]
   lin_in_avals = [a.strip_weak_type() for a, l in zip(in_avals, linear) if l]
   assert all(core.typematch(out_aval, lin_in_aval)
              for jaxpr in branches_trans
@@ -860,14 +900,50 @@ def _cond_transpose(cts, *args, branches, **params):
   res = ops[:num_res]
   cts = map(ad.instantiate_zeros, cts)
 
-  out = cond_p.bind(index, *res, *cts, branches=branches_trans,
-                    **params)
+  out = cond_p.bind(index, *res, *cts, branches=tuple(branches_trans), **params)
   assert all(map(core.typecheck, lin_in_avals, out))
 
   out_iter = iter(out)
   out = [next(out_iter) if l else None for l in linear]
   assert next(out_iter, None) is None
   return [None] + out
+
+def _cond_transpose_fancy(cts_in, index, *args, branches, **params):
+  assert not isinstance(index, ad.GradAccum)
+  primals_ctrefs, specs = ad.project_accums(args)
+  in_flat, in_tree = tree_flatten((primals_ctrefs, cts_in))
+  in_avals = tuple(core.AvalQDD(a, cur_qdd(x)) if (a := typeof(x)).has_qdd  # type: ignore
+                   else a for x in in_flat)
+  trans_branches, out_trees = unzip2(
+      _transpose_jaxpr_fancy(j, in_tree, in_avals, specs) for j in branches)
+  out_nzs = [[not isinstance(x, ad.Zero) for x in tree_unflatten(t, j.out_avals)]
+             for t, j in zip(out_trees, trans_branches)]
+  out_nz = tuple(map(partial(functools.reduce, operator.or_), zip(*out_nzs)))
+  trans_branches, out_trees = unzip2(
+      _transpose_jaxpr_fancy(j, in_tree, in_avals, specs, out_nz) for j in branches)
+  out_tree, = set(out_trees)
+  cts_out = cond_p.bind(index, *in_flat, branches=(*trans_branches,), **params)
+  for x, ct in zip(args, tree_unflatten(out_tree, cts_out)):
+    if isinstance(x, ad.ValAccum): x.accum(ct)
+
+@util.weakref_lru_cache
+def _transpose_jaxpr_fancy(jaxpr, in_tree, in_avals, specs, inst_out=None):
+  cell = lambda: None
+  inst_out = inst_out or [False] * len(in_avals)
+  maybe_inst = lambda x, inst: ad.instantiate_zeros(x) if inst else x
+  def transposed(*in_flat):
+    primals_ctrefs, cts_in = tree_unflatten(in_tree, in_flat)
+    args = ad.unproject_accums(specs, primals_ctrefs)
+    ad.backward_pass3(jaxpr.jaxpr, False, jaxpr.consts, args, cts_in)
+    cts_out = [maybe_inst(x.freeze(), inst) if isinstance(x, ad.ValAccum)
+               else None for x, inst in zip(args, inst_out)]
+    cts_out, cell.out_tree = tree_flatten(cts_out)  # type: ignore
+    return cts_out
+  dbg = jaxpr.jaxpr.debug_info._replace(arg_names=(), result_paths=())
+  trans_jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(
+      lu.wrap_init(transposed, debug_info=dbg), in_avals)
+  return core.ClosedJaxpr(trans_jaxpr, consts), cell.out_tree  # type: ignore
+
 
 def _cond_typecheck(bind_time, *in_atoms, branches, **params):
   del params
@@ -941,9 +1017,11 @@ cond_p.def_impl(partial(dispatch.apply_primitive, cond_p))
 cond_p.def_effectful_abstract_eval(_cond_abstract_eval)
 ad.primitive_jvps[cond_p] = _cond_jvp
 ad.primitive_transposes[cond_p] = _cond_transpose
+ad.primitive_linearizations[cond_p] = _cond_linearize
+ad.fancy_transposes[cond_p] = _cond_transpose_fancy
 pe.custom_partial_eval_rules[cond_p] = _cond_partial_eval
 batching.fancy_primitive_batchers[cond_p] = _cond_batching_rule
-xla.register_initial_style_primitive(cond_p)
+pxla.register_initial_style_primitive(cond_p)
 core.custom_typechecks[cond_p] = partial(_cond_typecheck, False)
 pe.partial_eval_jaxpr_custom_rules[cond_p] = _cond_partial_eval_custom
 pe.dce_rules[cond_p] = _cond_dce_rule
@@ -1000,11 +1078,11 @@ def _cond_lowering(ctx, index, *args, branches,
   for i, jaxpr in enumerate(branches):
     branch = case_op.regions[i].blocks.append()
     with ir.InsertionPoint(branch):
-      consts = [mlir.ir_constant(xla.canonicalize_dtype(x)) for x in jaxpr.consts]
+      consts = [mlir.ir_constant(dtypes.canonicalize_value(x)) for x in jaxpr.consts]
       out_vals, tokens_out = mlir.jaxpr_subcomp(
           ctx.module_context, jaxpr.jaxpr, name_stack.extend(f'branch_{i}_fun'),
           tokens_in, consts, *args,
-          dim_var_values=ctx.dim_var_values)
+          dim_var_values=ctx.dim_var_values, const_lowering=ctx.const_lowering)
       out_tokens = [tokens_out.get(eff) for eff in ordered_effects]
       out_vals = [*out_tokens, *out_vals]
       hlo.return_(mlir.flatten_ir_values(out_vals))

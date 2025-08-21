@@ -38,10 +38,10 @@ import numpy as np
 
 from jax._src.lib import mosaic_gpu_dialect as dialect  # noqa: F401
 
-# mypy: ignore-errors
 
 WARP_SIZE: int = 32
 WARPGROUP_SIZE: int = 128
+WARPS_IN_WARPGROUP: int = WARPGROUP_SIZE // WARP_SIZE
 DYNAMIC = -9223372036854775808
 DYNAMIC32 = -2147483648
 MBARRIER_BYTES = 8
@@ -158,7 +158,11 @@ def debug_print(fmt, *args, uniform=True, scope=None):
       if len(vec_ty.shape) > 1:
         raise NotImplementedError(vec_ty)
       vec_args = [
-          vector.extractelement(arg, position=c(i, index))
+          vector.extract(
+              arg,
+              dynamic_position=[],
+              static_position=ir.DenseI64ArrayAttr.get([i]),
+          )
           for i in range(vec_ty.shape[0])
       ]
       ty_formats, args = zip(*map(_debug_scalar_ty_format,vec_args))
@@ -949,11 +953,8 @@ class DialectBarrierRef:
   def as_barrier_memref(self) -> ir.Value:
     num_barriers = self.barrier_ref.num_barriers
     shape = () if num_barriers == 1 else (num_barriers,)
-    return ptr_as_memref(
-        self.get_ptr(),
-        ir.MemRefType.get(shape, ir.Type.parse("!mosaic_gpu.barrier")),
-        ptr_memory_space=WORKGROUP_NVPTX_ADDRESS_SPACE,
-    )
+    memref_type = ir.MemRefType.get(shape, ir.Type.parse("!mosaic_gpu.barrier"))
+    return builtin.unrealized_conversion_cast([memref_type], [self.get_ptr()])
 
   @classmethod
   def from_barrier_memref(cls, barrier: ir.Value):
@@ -967,16 +968,17 @@ class DialectBarrierRef:
           f"!mosaic_gpu.barrier, but got {barrier.type}"
       )
 
+    ptr_type = ir.Type.parse(f"!llvm.ptr<{WORKGROUP_NVPTX_ADDRESS_SPACE}>")
+    addr = builtin.unrealized_conversion_cast([ptr_type], [barrier])
     return cls(
         barrier_ref=BarrierRef(
-            base_address=memref_ptr(
-                barrier, memory_space=WORKGROUP_NVPTX_ADDRESS_SPACE
-            ),
+            base_address=addr,
             offset=c(0, ir.IntegerType.get_signless(64)),
             phases=None,
             num_barriers=(1 if memref_type.rank == 0 else memref_type.shape[0]),
         )
     )
+
 
 @dataclasses.dataclass(frozen=True)
 class CollectiveBarrierRef:
@@ -1080,7 +1082,12 @@ class CollectiveBarrierRef:
 class SemaphoreRef:
   ptr: ir.Value
 
-  def signal(self, value: ir.Value | int, predicate: ir.Value | None = None):
+  def signal(
+      self,
+      value: ir.Value | int,
+      predicate: ir.Value | None = None,
+      relaxed: bool = False,
+  ):
     i32 = ir.IntegerType.get_signless(32)
     if not isinstance(value, ir.Value):
       value = c(value, i32)
@@ -1088,10 +1095,11 @@ class SemaphoreRef:
       raise ValueError(f"Expected a i32 value, got {value.type}")
     if predicate is None:
       predicate = single_thread_predicate(ThreadSubset.WARPGROUP)
+    semantics = "relaxed" if relaxed else "release"
     llvm.inline_asm(
       i32,
       [self.ptr, value, predicate],
-      "@$3 atom.add.release.sys.global.u32 $0, [$1], $2;",
+      f"@$3 atom.add.{semantics}.sys.global.u32 $0, [$1], $2;",
       "=r,l,r,b",
       has_side_effects=True,
     )
@@ -1137,6 +1145,12 @@ class SemaphoreRef:
       raise ValueError(f"Unsupported scope: {scope}")
 
 
+def fence_release_sys():
+  llvm.inline_asm(
+      ir.Type.parse("!llvm.void"), [], "fence.release.sys;", "", has_side_effects=True,
+  )
+
+
 class Partition:
   source_bounds: tuple[int, ...]
   target_bounds: tuple[int, ...]
@@ -1164,6 +1178,7 @@ class Partition:
     if num_chunks is not None:
       self.source_bounds = num_chunks
     else:
+      assert chunk_size is not None
       if len(chunk_size) != len(self.target_bounds):
         raise ValueError
       source_bounds = []
@@ -1231,6 +1246,7 @@ class Partition1D:
     if num_chunks is not None:
       self.partition = Partition(num_chunks=(num_chunks,), **common_kwargs)
     else:
+      assert chunk_size is not None
       self.partition = Partition(chunk_size=(chunk_size,), **common_kwargs)
 
   @property
@@ -1414,11 +1430,34 @@ def shfl_bfly(x: ir.Value, distance: int | ir.Value):
     distance = c(distance, i32)
   if (result_type := x.type) != i32:
     if (x_bitwidth := bitwidth(x.type)) < 32:  # Pad to 32-bits if necessary.
+      assert 32 % x_bitwidth == 0
       x = bitcast(x, ir.IntegerType.get_signless(x_bitwidth))
       empty32 = llvm.mlir_undef(ir.VectorType.get((32 // x_bitwidth,), x.type))
-      x = vector.insertelement(x, empty32, position=c(0, index))
-    elif x_bitwidth != 32:
-      raise ValueError(f"Unsupported bitwidth {x_bitwidth}")
+      x = vector.insert(
+          x,
+          empty32,
+          dynamic_position=[],
+          static_position=ir.DenseI64ArrayAttr.get([0]),
+      )
+    elif x_bitwidth > 32:
+      assert x_bitwidth % 32 == 0
+      num_words = x_bitwidth // 32
+      xs_vec = bitcast(x, ir.VectorType.get((num_words,), i32))
+      y = llvm.mlir_undef(xs_vec.type)
+      for i in range(num_words):
+        x_elem = vector.extract(
+            xs_vec,
+            dynamic_position=[],
+            static_position=ir.DenseI64ArrayAttr.get([i]),
+        )
+        y_elem = shfl_bfly(x_elem, distance)
+        y = vector.insert(
+            y_elem,
+            y,
+            dynamic_position=[],
+            static_position=ir.DenseI64ArrayAttr.get([i]),
+        )
+      return bitcast(y, result_type)
     x = bitcast(x, i32)
   y = nvvm.shfl_sync(
       i32, c(0xFFFFFFFF, i32), x, distance, c(0x1F, i32), nvvm.ShflKind.bfly,
@@ -1426,7 +1465,11 @@ def shfl_bfly(x: ir.Value, distance: int | ir.Value):
   if (x_bitwidth := bitwidth(result_type)) < 32:
     bits_ty = ir.IntegerType.get_signless(x_bitwidth)
     y_vec = bitcast(y, ir.VectorType.get((32 // x_bitwidth,), bits_ty))
-    y = vector.extractelement(y_vec, position=c(0, index))
+    y = vector.extract(
+        y_vec,
+        dynamic_position=[],
+        static_position=ir.DenseI64ArrayAttr.get([0]),
+    )
   return bitcast(y, result_type)
 
 
@@ -1458,9 +1501,10 @@ def bitcast(x: ir.Value, new_type: ir.Type):
     new_type = ir.IntegerType(new_type)
     x_ty = ir.VectorType(x.type)
     assert new_type.width == bitwidth(x_ty.element_type) * math.prod(x_ty.shape)
-    i0 = arith.ConstantOp.create_index(0)
-    return vector.extractelement(
-        vector.bitcast(ir.VectorType.get((1,), new_type), x), position=i0
+    return vector.extract(
+        vector.bitcast(ir.VectorType.get((1,), new_type), x),
+        dynamic_position=[],
+        static_position=ir.DenseI64ArrayAttr.get([0]),
     )
   if ir.IntegerType.isinstance(x.type) and ir.VectorType.isinstance(new_type):
     new_type = ir.VectorType(new_type)
@@ -1516,8 +1560,15 @@ def vector_concat(vectors: Sequence[ir.Value]) -> ir.Value:
   offset = 0
   for v in vectors:
     for i in range(vty.shape[0]):
-      elem = vector.extractelement(v, position=c(i, index))
-      result = vector.insertelement(elem, result, position=c(offset + i, index))
+      elem = vector.extract(
+          v, dynamic_position=[], static_position=ir.DenseI64ArrayAttr.get([i])
+      )
+      result = vector.insert(
+          elem,
+          result,
+          dynamic_position=[],
+          static_position=ir.DenseI64ArrayAttr.get([offset + i]),
+      )
     offset += vty.shape[0]
   return result
 

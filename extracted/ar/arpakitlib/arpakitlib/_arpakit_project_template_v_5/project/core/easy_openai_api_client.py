@@ -4,7 +4,6 @@ from functools import lru_cache
 import httpx
 from openai import OpenAI, AsyncOpenAI
 
-from arpakitlib.ar_logging_util import setup_normal_logging
 from arpakitlib.ar_openai_api_client_util import EasyOpenAIAPIClient
 from project.core.settings import get_cached_settings
 
@@ -38,7 +37,7 @@ def get_cached_easy_openai_api_client() -> EasyOpenAIAPIClient | None:
 
 
 async def __async_example():
-    setup_normal_logging()
+    pass
 
 
 if __name__ == '__main__':

@@ -349,7 +349,7 @@ class BaseProcessor(ABC):
             "bounding_box": bounding_box
         }
         if plate_text:
-            detection["plate_text"] = plate_text
+            detection["category"] = plate_text
         
         if segmentation is not None:
             detection["segmentation"] = segmentation

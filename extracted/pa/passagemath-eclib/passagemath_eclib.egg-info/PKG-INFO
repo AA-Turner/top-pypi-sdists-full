@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-eclib
-Version: 10.6.5
+Version: 10.6.6
 Summary: passagemath: Elliptic curves over the rationals with eclib/mwrank
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -28,9 +28,9 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/x-rst
-Requires-Dist: passagemath-linbox~=10.6.5.0
-Requires-Dist: passagemath-modules~=10.6.5.0
-Requires-Dist: passagemath-ntl~=10.6.5.0
+Requires-Dist: passagemath-linbox~=10.6.6.0
+Requires-Dist: passagemath-modules~=10.6.6.0
+Requires-Dist: passagemath-ntl~=10.6.6.0
 Requires-Dist: memory_allocator
 Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2

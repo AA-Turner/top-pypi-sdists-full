@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from project.core.settings import get_cached_settings
-from project.core.util import setup_logging
+from project.core.setup_logging import setup_logging
 from project.sqladmin_.add_admin_in_app import add_sqladmin_in_app
 from project.sqladmin_.event import get_sqladmin_startup_events, get_sqladmin_shutdown_events
 

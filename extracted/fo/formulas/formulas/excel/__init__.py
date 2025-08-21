@@ -30,7 +30,8 @@ from ..ranges import Ranges
 from ..errors import InvalidRangeName
 from ..cell import Cell, RangesAssembler, Ref, CellWrapper, InvRangesAssembler
 from ..tokens.operand import XlError, _re_sheet_id, _re_build_id
-from ..functions.text import HexValue
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+from openpyxl.utils.exceptions import IllegalCharacterError
 
 log = logging.getLogger(__name__)
 BOOK = sh.Token('Book')
@@ -78,12 +79,69 @@ def _res2books(res):
     return {k.upper(): _book2dict(v[BOOK]) for k, v in res.items()}
 
 
-def _file2books(*fpaths):
+def _file2books(*fpaths, _raw_data=False):
     from .xlreader import load_workbook
     d = osp.dirname(fpaths[0])
     return {osp.relpath(fp, d).upper().replace('\\', '/'): _book2dict(
-        load_workbook(fp, data_only=True)
+        load_workbook(fp, data_only=True, _raw_data=_raw_data)
     ) for fp in fpaths}
+
+
+def _convert_complex(results):
+    from ..functions import is_complex, str2complex
+    res = {}
+    it = sorted(sh.stack_nested_keys(results, depth=3))
+    for k, v in it:
+        if isinstance(v, str) and is_complex(v):
+            v = str2complex(v)
+            if v.imag:
+                v = {'imag': v.imag, 'real': v.real}
+            else:
+                v = v.real
+        sh.get_nested_dicts(res, *k, default=lambda: v)
+    return res
+
+
+def escape_char(m):
+    return f"_x{ord(m.group(0)):04X}_"
+
+
+def _path(*keys):
+    p = ''
+    n = len(keys)
+    if n > 0:
+        p = f'[{keys[0]}]'
+    if n > 1:
+        p += f'{keys[1]}'
+    if n > 2:
+        p += f'!{".".join(keys[2:])}'
+    return p
+
+
+def _f_value(value, maxlen=120):
+    if isinstance(value, str) and not isinstance(value, sh.Token):
+        value = f'"{value}"'
+    value = str(value)
+    return value if len(value) <= maxlen else value[:maxlen - 3] + "..."
+
+
+def _format_errors(errors):
+    for error_type, parent, diff in sorted(
+            errors, key=lambda x: tuple(x[1]) + (x[0],)
+    ):
+        if error_type == 'change':
+            old, new = diff
+            msg = f'Change {_path(*parent)}: {_f_value(old)} -> {_f_value(new)}'
+            if isinstance(old, float) and isinstance(new, float):
+                msg = f'{msg} (diff: {new - old})'
+            yield msg
+        elif error_type in ('add', 'remove'):
+            msg = 'Addition' if error_type == 'add' else 'Deletion'
+            for k, value in diff:
+                if value != '':
+                    yield f'{msg} {_path(*parent, k)} -> {_f_value(value)}'
+        else:
+            raise ValueError(f'Unknown error type: {error_type}')
 
 
 class ExcelModel:
@@ -101,14 +159,30 @@ class ExcelModel:
     def calculate(self, *args, **kwargs):
         return self.dsp.dispatch(*args, **kwargs)
 
-    def compare(self, *fpaths, solution=None, tolerance=.000001, **kwargs):
-        if solution is None:
-            solution = self.dsp.dispatch()
+    def compare(
+            self, *fpaths, target=None, actual=None, solution=None,
+            books=None, dirpath=None, tolerance=0, absolute_tolerance=.000001,
+            dot_notation=False, formatted=True, **kwargs):
         from dictdiffer import diff
-        target = _file2books(*fpaths)
-        return list(diff(target, sh.selector(
-            target, _res2books(self.write(solution=solution))
-        ), tolerance=0, absolute_tolerance=tolerance, **kwargs))
+        if target is None:
+            target = _convert_complex(_file2books(*fpaths))
+        if actual is None:
+            if solution is None:
+                solution = self.dsp.dispatch()
+            actual = _convert_complex(_res2books(self.write(
+                books=books, dirpath=dirpath, solution=solution
+            )))
+        err = diff(
+            target, actual, tolerance=tolerance, dot_notation=dot_notation,
+            absolute_tolerance=absolute_tolerance, **kwargs
+        )
+        if formatted:
+            err = tuple(_format_errors(err))
+            if len(err) == 0:
+                return 'No differences.'
+            return '\n\nErrors({}):\n{}\n'.format(len(err), '\n'.join(err))
+
+        return err
 
     def __getstate__(self):
         return {'dsp': self.dsp, 'cells': {}, 'books': {}}
@@ -305,6 +379,65 @@ class ExcelModel:
             self.cells[cell.output] = cell
             return cell
 
+    def add_anchor(self, rng, data_nodes=None, context=None, set_ref=True):
+        if rng.get('anchor'):
+            n_id = rng['name']
+            name = n_id[:-1] + ':'
+            ref = None
+            if context:
+                ref = self.formula_references(context).get(n_id)
+
+            if ref is None and data_nodes:
+                for k in data_nodes:
+                    if k.startswith(name):
+                        for fn in self.dsp.dmap.pred.get(k):
+                            if not isinstance(
+                                    self.dsp.nodes[fn]['function'],
+                                    RangesAssembler
+                            ):
+                                ref = k
+                                break
+                        break
+                if ref is None:
+                    k = name[:-1]
+                    if data_nodes.get(k):
+                        for fn in self.dsp.dmap.pred.get(k):
+                            if not isinstance(
+                                    self.dsp.nodes[fn]['function'],
+                                    RangesAssembler
+                            ):
+                                ref = k
+                                break
+            if ref:
+                if ref in self.cells:
+                    ref = self.cells[ref].range.ranges[0]['name']
+                else:
+                    ref = Ranges.get_range(ref)['name']
+                self.dsp.add_function(
+                    function_id=f'={ref}',
+                    function=sh.bypass,
+                    inputs=[ref],
+                    outputs=[n_id]
+                )
+            elif set_ref:
+                Cell(n_id, '=#REF!').compile().add(self.dsp)
+            return True
+        return False
+
+    def anchors(self, stack=None):
+        done = set(self.cells)
+        data_nodes = self.dsp.data_nodes
+        if stack is None:
+            pred = self.dsp.dmap.pred
+            stack = {
+                k for k in data_nodes if not pred.get(k) and k.endswith('#')
+            }
+            stack = stack.difference(done)
+
+        for n_id in sorted(stack):
+            rng = Ranges.get_range(n_id, raise_anchor=False)
+            self.add_anchor(rng, data_nodes)
+
     def complete(self, stack=None):
         done = set(self.cells)
         if stack is None:
@@ -339,22 +472,10 @@ class ExcelModel:
                 Cell(n_id, '=#REF!').compile().add(self.dsp)
                 self.books.pop(book, None)
                 continue
-            formula_references = self.formula_references(context)
-            if rng.get('anchor'):
-                ref = formula_references.get(f"{rng['c1']}{rng['r1']}")
-                if ref:
-                    ref = Ranges.get_range(ref, context)['name']
-                    self.dsp.add_function(
-                        function_id=f'={ref}',
-                        function=sh.bypass,
-                        inputs=[ref],
-                        outputs=[n_id]
-                    )
-                    stack.append(ref)
-                else:
-                    Cell(n_id, '=#REF!').compile().add(self.dsp)
+            if self.add_anchor(rng, set_ref=False, context=context):
                 continue
             references = self.references
+            formula_references = self.formula_references(context)
             formula_ranges = self.formula_ranges(context)
             external_links = self.external_links(context)
 
@@ -418,6 +539,8 @@ class ExcelModel:
             if isinstance(c, Ref):
                 continue
             rng = c.range.ranges[0]
+            if rng.get('anchor'):
+                continue
             indices = RangesAssembler._range_indices(c.range)
             if len(indices) == 1:
                 get(cells, 'cell', rng['sheet_id'])[list(indices)[0]] = c.output
@@ -450,9 +573,12 @@ class ExcelModel:
                                 d, 'filters', default=list
                             ).extend(nodes[out]['filters'])
 
-    def finish(self, complete=True, circular=False, assemble=True):
+    def finish(self, complete=True, circular=False, assemble=True,
+               anchors=True):
         if complete:
             self.complete()
+        if anchors:
+            self.anchors()
         if assemble:
             self.assemble()
         if circular:
@@ -475,9 +601,7 @@ class ExcelModel:
             for k, v in nodes.items()
         }
         nodes = {
-            k: {
-                'type': 'HexValue', 'value': v
-            } if isinstance(v, HexValue) else v
+            k: v
             for k, v in nodes.items()
         }
         for d in self.dsp.function_nodes.values():
@@ -489,9 +613,6 @@ class ExcelModel:
     def from_dict(self, adict, context=None, assemble=True, ref=True):
         refs, cells, nodes, get = {}, {}, set(), sh.get_nested_dicts
         for k, v in adict.items():
-            if isinstance(v, dict):
-                if v['type'] == 'HexValue':
-                    v = HexValue(v['value'])
             if isinstance(v, str) and v.upper() == '#EMPTY':
                 v = [[sh.EMPTY]]
             try:
@@ -563,7 +684,12 @@ class ExcelModel:
                         v = v.item()
                     elif isinstance(v, XlError):
                         v = str(v)
-                    c.value = v
+                    if isinstance(v, str):
+                        v = v.replace('\r', '_x000D_')
+                    try:
+                        c.value = v
+                    except IllegalCharacterError:
+                        c.value = ILLEGAL_CHARACTERS_RE.sub(escape_char, v)
                     if c.data_type == 'f':
                         c.data_type = 's'
                 except AttributeError:

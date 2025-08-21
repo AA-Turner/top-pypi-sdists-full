@@ -647,6 +647,14 @@ class CfnFleet(
         return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrStatusMessage")
+    def attr_status_message(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: StatusMessage
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatusMessage"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrWorkerCount")
     def attr_worker_count(self) -> jsii.Number:
         '''The number of workers in the fleet summary.
@@ -2217,7 +2225,7 @@ class CfnFleet(
             :param instance_capabilities: The Amazon EC2 instance capabilities.
             :param instance_market_options: The Amazon EC2 market type.
             :param storage_profile_id: The storage profile ID.
-            :param vpc_configuration: 
+            :param vpc_configuration: The VPC configuration details for a service managed Amazon EC2 fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2fleetconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2344,7 +2352,8 @@ class CfnFleet(
         def vpc_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFleet.VpcConfigurationProperty"]]:
-            '''
+            '''The VPC configuration details for a service managed Amazon EC2 fleet.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2fleetconfiguration.html#cfn-deadline-fleet-servicemanagedec2fleetconfiguration-vpcconfiguration
             '''
             result = self._values.get("vpc_configuration")
@@ -2751,8 +2760,9 @@ class CfnFleet(
             *,
             resource_configuration_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''
-            :param resource_configuration_arns: 
+            '''The configuration options for a service managed fleet's VPC.
+
+            :param resource_configuration_arns: The ARNs of the VPC Lattice resource configurations attached to the fleet.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-vpcconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2778,7 +2788,8 @@ class CfnFleet(
         def resource_configuration_arns(
             self,
         ) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''The ARNs of the VPC Lattice resource configurations attached to the fleet.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-vpcconfiguration.html#cfn-deadline-fleet-vpcconfiguration-resourceconfigurationarns
             '''
             result = self._values.get("resource_configuration_arns")

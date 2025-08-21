@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -7,7 +8,6 @@ import shutil
 import ssl
 from collections import deque
 from collections.abc import AsyncIterator, Callable
-from contextlib import AbstractContextManager
 from typing import Any, Literal, Self, cast
 
 import certifi
@@ -57,11 +57,10 @@ GRAPH_PORT = 5556
 GRAPH_HTTP_PORT = 5557
 SSL = ssl.create_default_context(cafile=certifi.where())
 
-if port := int(os.getenv("PORT", "8080")):
-    if port in (GRAPH_PORT, REMOTE_PORT):
-        raise ValueError(
-            f"PORT={port} is a reserved port for the JS worker. Please choose a different port."
-        )
+if (port := int(os.getenv("PORT", "8080"))) and port in (GRAPH_PORT, REMOTE_PORT):
+    raise ValueError(
+        f"PORT={port} is a reserved port for the JS worker. Please choose a different port."
+    )
 
 _client = httpx.AsyncClient(
     base_url=f"http://localhost:{GRAPH_PORT}",
@@ -379,6 +378,7 @@ async def run_js_process(paths_str: str | None, watch: bool = False):
             if False
             else ("tsx", "--import", client_preload_file, client_file)
         )
+        process = None
         try:
             process = await asyncio.create_subprocess_exec(
                 *args,
@@ -395,11 +395,10 @@ async def run_js_process(paths_str: str | None, watch: bool = False):
             raise Exception(f"JS process exited with code {code}")
         except asyncio.CancelledError:
             logger.info("Terminating JS graphs process")
-            try:
-                process.terminate()
-                await process.wait()
-            except (UnboundLocalError, ProcessLookupError):
-                pass
+            if process is not None:
+                with contextlib.suppress(ProcessLookupError):
+                    process.terminate()
+                    await process.wait()
             raise
         except Exception:
             if attempt >= 3:
@@ -424,6 +423,7 @@ async def run_js_http_process(
         client_file = os.path.join(os.path.dirname(__file__), "client.http.mts")
         args = ("tsx", "watch", client_file) if watch else ("tsx", client_file)
         pid = None
+        process = None
         try:
             process = await asyncio.create_subprocess_exec(
                 *args,
@@ -445,11 +445,10 @@ async def run_js_http_process(
 
         except asyncio.CancelledError:
             logger.info("Shutting down JS HTTP process [%d]", pid or -1)
-            try:
-                process.terminate()
-                await process.wait()
-            except (UnboundLocalError, ProcessLookupError):
-                pass
+            if process is not None:
+                with contextlib.suppress(ProcessLookupError):
+                    process.terminate()
+                    await process.wait()
             raise
         except Exception:
             if attempt >= 3:
@@ -766,7 +765,7 @@ async def run_remote_checkpointer():
     await server.serve()
 
 
-class DisableHttpxLoggingContextManager(AbstractContextManager):
+class DisableHttpxLoggingContextManager(contextlib.AbstractContextManager):
     """
     Disable HTTP/1.1 200 OK logs spamming stdout.
     """
@@ -891,11 +890,10 @@ class CustomJsAuthBackend(AuthenticationBackend):
         cache_key = None
         if self.cache_keys:
             cache_key = tuple((k, headers[k]) for k in self.cache_keys if k in headers)
-            if cache_key:
-                if self.ttl_cache is not None:
-                    cached = self.ttl_cache.get(cache_key)
-                    if cached:
-                        return cached
+            if cache_key and self.ttl_cache is not None:
+                cached = self.ttl_cache.get(cache_key)
+                if cached:
+                    return cached
 
         res = await _client.post("/auth/authenticate", headers=headers)
         data = res.json()
@@ -961,11 +959,14 @@ async def handle_js_auth_event(
     # mutate metadata in value if applicable
     # we need to preserve the identity of the object, so cannot create a new
     # dictionary, otherwise the changes will not persist
-    if isinstance(value, dict) and (updated_value := response.get("value")):
-        if isinstance(value.get("metadata"), dict) and (
-            metadata := updated_value.get("metadata")
-        ):
-            value["metadata"].update(metadata)
+    metadata = None
+    if (
+        isinstance(value, dict)
+        and (updated_value := response.get("value"))
+        and isinstance(value.get("metadata"), dict)
+        and (metadata := updated_value.get("metadata"))
+    ):
+        value["metadata"].update(metadata)
 
     return filters
 

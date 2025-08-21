@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.8"]
+requires = ["uv_build>=0.8.12,<0.9.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -9,7 +9,7 @@ source-include = [".mypyignore"] # for scipy-stubs-feedstock
 
 [project]
 name = "scipy-stubs"
-version = "1.16.1.0"
+version = "1.16.1.1"
 description = "Type annotations for SciPy"
 readme = "README.md"
 authors = [
@@ -36,7 +36,7 @@ classifiers = [
   "Typing :: Stubs Only",
 ]
 requires-python = ">=3.11"
-dependencies = ["optype[numpy]>=0.13.1,<0.14"]
+dependencies = ["optype[numpy]>=0.13.4,<0.14"]
 
 [project.optional-dependencies]
 scipy = ["scipy>=1.16.1,<1.17"]
@@ -53,16 +53,15 @@ ci = ["packaging>=25.0"]
 lint = [
   { include-group = "extras" },
   "dprint-py>=0.50.1.4",
-  "ruff>=0.12.7",
+  "ruff>=0.12.9",
   "sp-repo-review[cli]>=2025.5.2",
 ]
 type = [
   { include-group = "extras" },
   { include-group = "ci" },
   "array-api-compat==1.12.0", # bundled as `scipy._lib.array_api_compat`
-  "basedpyright>=1.31.0",
-  "mypy>=1.17.1",
-  "orjson>=3.11.1; python_version<'3.14'", # used by mypy
+  "basedpyright>=1.31.2, !=1.31.3", # see https://github.com/microsoft/pyright/issues/10832
+  "mypy[faster-cache]>=1.17.1",
 ]
 dev = [
   { include-group = "lint" },
@@ -95,17 +94,9 @@ extend-ignore-identifiers-re = ['ND|Nd']
 
 [tool.mypy]
 strict = true
-strict_bytes = true
-
-enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
-warn_unreachable = false
-warn_unused_ignores = true
-disallow_any_decorated = false
-disallow_any_explicit = false
-disallow_any_expr = false
 disallow_subclassing_any = false
-# optype.numpy compat
-always_true = ["NP125", "NP126", "NP20", "NP21", "NP22", "NP23"]
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+warn_unreachable = false # required by repo-review
 
 [tool.pyright]
 exclude = [
@@ -152,15 +143,6 @@ root = "tests"
 reportInvalidStubStatement = false
 reportUnusedCallResult = false
 reportUnusedExpression = false
-
-[tool.pyright.defineConstant]
-# optype.numpy compat
-NP125 = true
-NP126 = true
-NP20 = true
-NP21 = true
-NP22 = true
-NP23 = true
 
 [tool.repo-review]
 ignore = [

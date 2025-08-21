@@ -6,6 +6,10 @@ default-features = false
 path = "src/common/display"
 default-features = false
 
+[dependencies.common-file]
+path = "src/common/file"
+default-features = false
+
 [dependencies.common-file-formats]
 path = "src/common/file-formats"
 default-features = false
@@ -88,6 +92,10 @@ default-features = false
 
 [dependencies.daft-dsl]
 path = "src/daft-dsl"
+default-features = false
+
+[dependencies.daft-file]
+path = "src/daft-file"
 default-features = false
 
 [dependencies.daft-functions]
@@ -236,7 +244,7 @@ optional = true
 workspace = true
 
 [features]
-python = ["dep:pyo3", "dep:pyo3-log", "common-daft-config/python", "common-display/python", "common-partitioning/python", "common-resource-request/python", "common-file-formats/python", "common-scan-info/python", "common-system-info/python", "daft-catalog/python", "daft-cli/python", "daft-connect/python", "daft-context/python", "daft-core/python", "daft-csv/python", "daft-dashboard/python", "daft-distributed/python", "daft-dsl/python", "daft-functions-binary/python", "daft-functions-json/python", "daft-functions-list/python", "daft-functions-utf8/python", "daft-functions/python", "daft-image/python", "daft-io/python", "daft-ir/python", "daft-json/python", "daft-local-execution/python", "daft-local-plan/python", "daft-logical-plan/python", "daft-micropartition/python", "daft-parquet/python", "daft-physical-plan/python", "daft-scan/python", "daft-scheduler/python", "daft-sql/python", "daft-session/python", "daft-shuffles/python", "daft-stats/python", "daft-recordbatch/python", "daft-writers/python"]
+python = ["dep:pyo3", "dep:pyo3-log", "common-daft-config/python", "common-display/python", "common-partitioning/python", "common-resource-request/python", "common-file/python", "common-file-formats/python", "common-scan-info/python", "common-system-info/python", "daft-catalog/python", "daft-cli/python", "daft-connect/python", "daft-context/python", "daft-core/python", "daft-csv/python", "daft-dashboard/python", "daft-distributed/python", "daft-dsl/python", "daft-file/python", "daft-functions-binary/python", "daft-functions-json/python", "daft-functions-list/python", "daft-functions-utf8/python", "daft-functions/python", "daft-image/python", "daft-io/python", "daft-ir/python", "daft-json/python", "daft-local-execution/python", "daft-local-plan/python", "daft-logical-plan/python", "daft-micropartition/python", "daft-parquet/python", "daft-physical-plan/python", "daft-scan/python", "daft-scheduler/python", "daft-sql/python", "daft-session/python", "daft-shuffles/python", "daft-stats/python", "daft-recordbatch/python", "daft-writers/python"]
 
 [lib]
 crate-type = ["cdylib"]
@@ -246,7 +254,7 @@ name = "daft"
 edition = "2021"
 name = "daft"
 publish = false
-version = "0.5.19"
+version = "0.5.20"
 
 [package.metadata.cargo-machete]
 ignored = ["lzma-sys"]
@@ -318,9 +326,11 @@ itertools = "0.14"
 jaq-core = "2.2.0"
 jaq-std = "2.1.1"
 mur3 = "0.1.0"
+ndarray = "0.16.1"
 num-derive = "0.4.2"
 num-format = "0.4.4"
 num-traits = "0.2"
+numpy = "0.25.0"
 opentelemetry_sdk = "0.29"
 parking_lot = "0.12.3"
 path_macro = "1.0.0"
@@ -364,6 +374,9 @@ default-features = false
 path = "src/common/error"
 default-features = false
 
+[workspace.dependencies.common-file]
+path = "src/common/file"
+
 [workspace.dependencies.common-file-formats]
 path = "src/common/file-formats"
 
@@ -372,6 +385,9 @@ path = "src/common/image"
 
 [workspace.dependencies.common-metrics]
 path = "src/common/metrics"
+
+[workspace.dependencies.common-ndarray]
+path = "src/common/ndarray"
 
 [workspace.dependencies.common-runtime]
 path = "src/common/runtime"
@@ -388,6 +404,9 @@ path = "src/daft-core"
 
 [workspace.dependencies.daft-dsl]
 path = "src/daft-dsl"
+
+[workspace.dependencies.daft-file]
+path = "src/daft-file"
 
 [workspace.dependencies.daft-functions]
 path = "src/daft-functions"
@@ -524,7 +543,7 @@ features = ["async"]
 path = "src/parquet2"
 
 [workspace.dependencies.pyo3]
-features = ["extension-module", "multiple-pymethods", "abi3-py39", "indexmap", "chrono"]
+features = ["extension-module", "multiple-pymethods", "abi3-py39", "indexmap", "chrono", "chrono-tz"]
 version = "0.25.1"
 
 [workspace.dependencies.pyo3-async-runtimes]
@@ -624,4 +643,4 @@ priority = 1
 
 [workspace.package]
 edition = "2021"
-version = "0.5.19"
+version = "0.5.20"

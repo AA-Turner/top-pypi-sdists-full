@@ -7,8 +7,12 @@ from warnings import warn
 
 from deprecated import deprecated
 from requests import HTTPError, Response
-from typing_extensions import Literal
+import sys
 
+if sys.version_info >= (3, 8):
+    from typing import Literal  # Python 3.8+
+else:
+    from typing_extensions import Literal  # Python <=3.7
 from .errors import ApiNotFoundError, ApiPermissionError
 from .rest_client import AtlassianRestAPI
 from .typehints import T_id, T_resp_json
@@ -2058,6 +2062,16 @@ class Jira(AtlassianRestAPI):
         url = f"{base_url}/{issue_key}/transitions"
         return self.post(url, data={"transition": {"id": transition_id}})
 
+    def set_issue_status_by_transition_name(self, issue_key: str, transition_name: str):
+        """
+        Setting status by transition_name
+        :param issue_key: str
+        :param transition_name: str
+        """
+        base_url = self.resource_url("issue")
+        url = f"{base_url}/{issue_key}/transitions"
+        return self.post(url, data={"transition": {"name": transition_name}})
+
     def get_issue_status(self, issue_key: str):
         base_url = self.resource_url("issue")
         url = f"{base_url}/{issue_key}?fields=status"
@@ -3545,7 +3559,10 @@ class Jira(AtlassianRestAPI):
             params["expand"] = expand
         if validate_query is not None:
             params["validateQuery"] = validate_query
-        url = self.resource_url("search")
+        if self.cloud:
+            url = self.resource_url("search")
+        else:
+            url = self.resource_url("search/jql")
         return self.get(url, params=params)
 
     def enhanced_jql(
@@ -3605,6 +3622,39 @@ class Jira(AtlassianRestAPI):
         url = self.resource_url("search/approximate-count")
         return self.post(url, data)
 
+    def match_jql(self, issue_ids: List[int], jqls: List[str]) -> Optional[dict[Any, Any]]:
+        """
+        Checks which issues match a list of JQL queries.
+
+        This method corresponds to the /rest/api/3/jql/match endpoint.
+        It helps you verify if a set of issues would be returned by given JQL queries.
+
+        :param issue_ids: A list of issue IDs to be checked against the JQLs.
+        :param jqls: A list of JQL query strings to match.
+        :return: A dictionary containing the matching results from the API.
+                 For example:
+                 {
+                     "errors": [],
+                     "results": [
+                         {
+                             "matchedIssues": [10001],
+                             "errors": [],
+                             "jql": "project = FOO"
+                         },
+                         {
+                             "matchedIssues": ,
+                             "errors": [],
+                             "jql": "issuetype = Bug"
+                         }
+                     ]
+                 }
+        """
+        if not self.cloud:
+            raise ValueError("``approximate_issue_count`` method is only available for Jira Cloud platform")
+        payload = {"issueIds": issue_ids, "jqls": jqls}
+        url = self.resource_url("jql/match")
+        return self.post(url, data=payload)
+
     def jql_get_list_of_tickets(
         self,
         jql: str,
@@ -3651,7 +3701,10 @@ class Jira(AtlassianRestAPI):
             params["expand"] = expand
         if validate_query is not None:
             params["validateQuery"] = validate_query
-        url = self.resource_url("search")
+        if self.cloud:
+            url = self.resource_url("search")
+        else:
+            url = self.resource_url("search/jql")
 
         results: List[object] = []
         while True:
@@ -5791,4 +5844,19 @@ api-group-workflows/#api-rest-api-2-workflow-search-get)
         :return:
         """
         response = self.get("rest/api/2/user/duplicated/count")
+        return response
+
+    def dark_feature_management(self, key: str, enable: bool = True) -> T_resp_json:
+        """
+        Dark Feature Management
+        https://confluence.atlassian.com/jirakb/dark-feature-management-1063554355.html
+        https://confluence.atlassian.com/jirakb/how-to-manage-dark-features-in-jira-server-and-data-center-959286331.html
+        i.e. sd.sla.improved.rendering.enabled
+        :return:
+        """
+        if enable:
+            data = {"enabled": "true"}
+        else:
+            data = {"enabled": "false"}
+        response = self.put(f"/rest/internal/1.0/darkFeatures/{key}", data=data)
         return response

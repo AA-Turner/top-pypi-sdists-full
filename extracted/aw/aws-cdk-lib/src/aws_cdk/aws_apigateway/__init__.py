@@ -6343,6 +6343,8 @@ class CfnDeployment(
         ) -> None:
             '''The ``MethodSetting`` property type configures settings for all methods in a stage.
 
+            If you modify this property type, you must create a new deployment for your API.
+
             The ``MethodSettings`` property of the `Amazon API Gateway Deployment StageDescription <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-deployment-stagedescription.html>`_ property type contains a list of ``MethodSetting`` property types.
 
             :param cache_data_encrypted: Specifies whether the cached responses are encrypted.

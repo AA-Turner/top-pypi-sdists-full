@@ -14,11 +14,12 @@
 
 from __future__ import annotations
 
-import bigframes_vendored.constants as constants
+import bigframes_vendored.constants as bf_constants
 import sqlglot.expressions as sge
 
 from bigframes import dtypes
 from bigframes import operations as ops
+import bigframes.core.compile.sqlglot.expressions.constants as constants
 from bigframes.core.compile.sqlglot.expressions.op_registration import OpRegistration
 from bigframes.core.compile.sqlglot.expressions.typed_expr import TypedExpr
 
@@ -69,8 +70,90 @@ def _(op, left: TypedExpr, right: TypedExpr) -> sge.Expression:
         return sge.Add(this=left.expr, expression=right.expr)
 
     raise TypeError(
-        f"Cannot add type {left.dtype} and {right.dtype}. {constants.FEEDBACK_LINK}"
+        f"Cannot add type {left.dtype} and {right.dtype}. {bf_constants.FEEDBACK_LINK}"
     )
+
+
+@BINARY_OP_REGISTRATION.register(ops.div_op)
+def _(op, left: TypedExpr, right: TypedExpr) -> sge.Expression:
+    left_expr = left.expr
+    if left.dtype == dtypes.BOOL_DTYPE:
+        left_expr = sge.Cast(this=left_expr, to="INT64")
+    right_expr = right.expr
+    if right.dtype == dtypes.BOOL_DTYPE:
+        right_expr = sge.Cast(this=right_expr, to="INT64")
+
+    result = sge.func("IEEE_DIVIDE", left_expr, right_expr)
+    if left.dtype == dtypes.TIMEDELTA_DTYPE and dtypes.is_numeric(right.dtype):
+        return sge.Cast(this=sge.Floor(this=result), to="INT64")
+    else:
+        return result
+
+
+@BINARY_OP_REGISTRATION.register(ops.floordiv_op)
+def _(op, left: TypedExpr, right: TypedExpr) -> sge.Expression:
+    left_expr = left.expr
+    if left.dtype == dtypes.BOOL_DTYPE:
+        left_expr = sge.Cast(this=left_expr, to="INT64")
+    right_expr = right.expr
+    if right.dtype == dtypes.BOOL_DTYPE:
+        right_expr = sge.Cast(this=right_expr, to="INT64")
+
+    result: sge.Expression = sge.Cast(
+        this=sge.Floor(this=sge.func("IEEE_DIVIDE", left_expr, right_expr)), to="INT64"
+    )
+
+    # DIV(N, 0) will error in bigquery, but needs to return `0` for int, and
+    # `inf`` for float in BQ so we short-circuit in this case.
+    # Multiplying left by zero propogates nulls.
+    zero_result = (
+        constants._INF
+        if (left.dtype == dtypes.FLOAT_DTYPE or right.dtype == dtypes.FLOAT_DTYPE)
+        else constants._ZERO
+    )
+    result = sge.Case(
+        ifs=[
+            sge.If(
+                this=sge.EQ(this=right_expr, expression=constants._ZERO),
+                true=zero_result * left_expr,
+            )
+        ],
+        default=result,
+    )
+
+    if dtypes.is_numeric(right.dtype) and left.dtype == dtypes.TIMEDELTA_DTYPE:
+        result = sge.Cast(this=sge.Floor(this=result), to="INT64")
+
+    return result
+
+
+@BINARY_OP_REGISTRATION.register(ops.ge_op)
+def _(op, left: TypedExpr, right: TypedExpr) -> sge.Expression:
+    return sge.GTE(this=left.expr, expression=right.expr)
+
+
+@BINARY_OP_REGISTRATION.register(ops.JSONSet)
+def _(op, left: TypedExpr, right: TypedExpr) -> sge.Expression:
+    return sge.func("JSON_SET", left.expr, sge.convert(op.json_path), right.expr)
+
+
+@BINARY_OP_REGISTRATION.register(ops.mul_op)
+def _(op, left: TypedExpr, right: TypedExpr) -> sge.Expression:
+    left_expr = left.expr
+    if left.dtype == dtypes.BOOL_DTYPE:
+        left_expr = sge.Cast(this=left_expr, to="INT64")
+    right_expr = right.expr
+    if right.dtype == dtypes.BOOL_DTYPE:
+        right_expr = sge.Cast(this=right_expr, to="INT64")
+
+    result = sge.Mul(this=left_expr, expression=right_expr)
+
+    if (dtypes.is_numeric(left.dtype) and right.dtype == dtypes.TIMEDELTA_DTYPE) or (
+        left.dtype == dtypes.TIMEDELTA_DTYPE and dtypes.is_numeric(right.dtype)
+    ):
+        return sge.Cast(this=sge.Floor(this=result), to="INT64")
+    else:
+        return result
 
 
 @BINARY_OP_REGISTRATION.register(ops.sub_op)
@@ -111,15 +194,10 @@ def _(op, left: TypedExpr, right: TypedExpr) -> sge.Expression:
         return sge.Sub(this=left.expr, expression=right.expr)
 
     raise TypeError(
-        f"Cannot subtract type {left.dtype} and {right.dtype}. {constants.FEEDBACK_LINK}"
+        f"Cannot subtract type {left.dtype} and {right.dtype}. {bf_constants.FEEDBACK_LINK}"
     )
 
 
-@BINARY_OP_REGISTRATION.register(ops.ge_op)
+@BINARY_OP_REGISTRATION.register(ops.obj_make_ref_op)
 def _(op, left: TypedExpr, right: TypedExpr) -> sge.Expression:
-    return sge.GTE(this=left.expr, expression=right.expr)
-
-
-@BINARY_OP_REGISTRATION.register(ops.JSONSet)
-def _(op, left: TypedExpr, right: TypedExpr) -> sge.Expression:
-    return sge.func("JSON_SET", left.expr, sge.convert(op.json_path), right.expr)
+    return sge.func("OBJ.MAKE_REF", left.expr, right.expr)

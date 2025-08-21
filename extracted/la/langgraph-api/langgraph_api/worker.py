@@ -118,8 +118,10 @@ async def worker(
         resumable=resumable,
     )
 
-    def on_checkpoint(checkpoint_arg: CheckpointPayload):
+    def on_checkpoint(checkpoint_arg: CheckpointPayload | None):
         nonlocal checkpoint
+        if checkpoint_arg is None:
+            logger.warning("Null checkpoint received")
         checkpoint = checkpoint_arg
 
     def on_task_result(task_result: TaskResultPayload):
@@ -140,9 +142,8 @@ async def worker(
             await consume(stream, run_id, resumable, stream_modes)
         except Exception as e:
             if not isinstance(e, UserRollback | UserInterrupt):
-                logger.error(
+                logger.exception(
                     f"Run encountered an error in graph: {type(e)}({e})",
-                    exc_info=e,
                 )
             # TimeoutError is a special case where we rely on asyncio.wait_for to timeout runs
             # Convert user TimeoutErrors to a custom class so we can distinguish and later convert back

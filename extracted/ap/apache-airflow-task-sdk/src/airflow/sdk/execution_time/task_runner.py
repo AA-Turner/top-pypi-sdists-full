@@ -44,6 +44,7 @@ from airflow.exceptions import AirflowInactiveAssetInInletOrOutletException
 from airflow.listeners.listener import get_listener_manager
 from airflow.sdk.api.datamodels._generated import (
     AssetProfile,
+    DagRun,
     TaskInstance,
     TaskInstanceState,
     TIRunContext,
@@ -65,10 +66,12 @@ from airflow.sdk.execution_time.comms import (
     ErrorResponse,
     GetDagRunState,
     GetDRCount,
+    GetPreviousDagRun,
     GetTaskRescheduleStartDate,
     GetTaskStates,
     GetTICount,
     InactiveAssetsResult,
+    PreviousDagRunResult,
     RescheduleTask,
     ResendLoggingFD,
     RetryTask,
@@ -358,6 +361,7 @@ class RuntimeTaskInstance(TaskInstance):
                     key=key,
                     task_id=t_id,
                     dag_id=dag_id,
+                    include_prior_dates=include_prior_dates,
                 )
 
                 if values is None:
@@ -437,6 +441,30 @@ class RuntimeTaskInstance(TaskInstance):
             assert isinstance(response, TaskRescheduleStartDate)
 
         return response.start_date
+
+    def get_previous_dagrun(self, state: str | None = None) -> DagRun | None:
+        """Return the previous DAG run before the given logical date, optionally filtered by state."""
+        context = self.get_template_context()
+        dag_run = context.get("dag_run")
+
+        log = structlog.get_logger(logger_name="task")
+
+        log.debug("Getting previous DAG run", dag_run=dag_run)
+
+        if dag_run is None:
+            return None
+
+        if dag_run.logical_date is None:
+            return None
+
+        response = SUPERVISOR_COMMS.send(
+            msg=GetPreviousDagRun(dag_id=self.dag_id, logical_date=dag_run.logical_date, state=state)
+        )
+
+        if TYPE_CHECKING:
+            assert isinstance(response, PreviousDagRunResult)
+
+        return response.dag_run
 
     @staticmethod
     def get_ti_count(
@@ -929,9 +957,10 @@ def run(
         # If AirflowFailException is raised, task should not retry.
         # If a sensor in reschedule mode reaches timeout, task should not retry.
         log.exception("Task failed with exception")
+        ti.end_date = datetime.now(tz=timezone.utc)
         msg = TaskState(
             state=TaskInstanceState.FAILED,
-            end_date=datetime.now(tz=timezone.utc),
+            end_date=ti.end_date,
             rendered_map_index=ti.rendered_map_index,
         )
         state = TaskInstanceState.FAILED
@@ -946,9 +975,10 @@ def run(
         # updated already be another UI API. So, these exceptions should ideally never be thrown.
         # If these are thrown, we should mark the TI state as failed.
         log.exception("Task failed with exception")
+        ti.end_date = datetime.now(tz=timezone.utc)
         msg = TaskState(
             state=TaskInstanceState.FAILED,
-            end_date=datetime.now(tz=timezone.utc),
+            end_date=ti.end_date,
             rendered_map_index=ti.rendered_map_index,
         )
         state = TaskInstanceState.FAILED
@@ -975,10 +1005,12 @@ def _handle_current_task_success(
     context: Context,
     ti: RuntimeTaskInstance,
 ) -> tuple[SucceedTask, TaskInstanceState]:
+    end_date = datetime.now(tz=timezone.utc)
+    ti.end_date = end_date
     task_outlets = list(_build_asset_profiles(ti.task.outlets))
     outlet_events = list(_serialize_outlet_events(context["outlet_events"]))
     msg = SucceedTask(
-        end_date=datetime.now(tz=timezone.utc),
+        end_date=end_date,
         task_outlets=task_outlets,
         outlet_events=outlet_events,
         rendered_map_index=ti.rendered_map_index,
@@ -990,11 +1022,15 @@ def _handle_current_task_failed(
     ti: RuntimeTaskInstance,
 ) -> tuple[RetryTask, TaskInstanceState] | tuple[TaskState, TaskInstanceState]:
     end_date = datetime.now(tz=timezone.utc)
+    ti.end_date = end_date
     if ti._ti_context_from_server and ti._ti_context_from_server.should_retry:
         return RetryTask(end_date=end_date), TaskInstanceState.UP_FOR_RETRY
-    return TaskState(
-        state=TaskInstanceState.FAILED, end_date=end_date, rendered_map_index=ti.rendered_map_index
-    ), TaskInstanceState.FAILED
+    return (
+        TaskState(
+            state=TaskInstanceState.FAILED, end_date=end_date, rendered_map_index=ti.rendered_map_index
+        ),
+        TaskInstanceState.FAILED,
+    )
 
 
 def _handle_trigger_dag_run(

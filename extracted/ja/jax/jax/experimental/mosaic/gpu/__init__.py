@@ -27,10 +27,12 @@ from .core import (
     TMEM as TMEM,
     Union as Union,
     as_gpu_kernel as as_gpu_kernel,
+    as_torch_gpu_kernel as as_torch_gpu_kernel,
     supports_cross_device_collectives as supports_cross_device_collectives,
 )
 
 from .launch_context import (
+    AsyncCopyImplementation as AsyncCopyImplementation,
     LaunchContext as LaunchContext,
     MemRefTransform as MemRefTransform,
     ReductionOp as ReductionOp,
@@ -71,8 +73,12 @@ from .fragmented_array import (
     WGMMA_ROW_LAYOUT as WGMMA_ROW_LAYOUT,
     WGMMA_COL_LAYOUT as WGMMA_COL_LAYOUT,
     WGMMA_TRANSPOSED_LAYOUT as WGMMA_TRANSPOSED_LAYOUT,
+    TMEM_NATIVE_LAYOUT as TMEM_NATIVE_LAYOUT,
+    TMA_GATHER_INDICES_LAYOUT as TMA_GATHER_INDICES_LAYOUT,
+    tmem_native_layout as tmem_native_layout,
     WGSplatFragLayout as WGSplatFragLayout,
     WGStridedFragLayout as WGStridedFragLayout,
+    copy_tiled as copy_tiled,
     optimization_barrier as optimization_barrier,
 )
 from .utils import (

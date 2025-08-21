@@ -1,9 +1,0 @@
-Metadata-Version: 2.1
-Name: slurm-usage
-Version: 2.0.0
-Summary: Command to list the current cluster usage per user.
-Home-page: https://github.com/basnijholt/slurm-usage
-Author: Bas Nijholt
-License: MIT
-License-File: LICENSE
-Requires-Dist: rich

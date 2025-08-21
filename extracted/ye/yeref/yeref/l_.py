@@ -3075,6 +3075,39 @@ l_bot_business_settings = {
     "zh": "ᯅ 发布",
     "ar": "ᯅ منشور",
 }
+l_bot_req_gen_photo = {
+    "ru": "👩🏽‍💻 <b>Запрос</b> на генерацию фото",
+    "en": "ᯅ Publication",
+    "es": "ᯅ Publicación",
+    "fr": "ᯅ Publication",
+    "zh": "ᯅ 发布",
+    "ar": "ᯅ منشور",
+}
+l_bot_req_gen_voice = {
+    "ru": "👩🏽‍💻 <b>Запрос</b> на запись голосового",
+    "en": "ᯅ Publication",
+    "es": "ᯅ Publicación",
+    "fr": "ᯅ Publication",
+    "zh": "ᯅ 发布",
+    "ar": "ᯅ منشور",
+}
+l_bot_req_gen_photo_prepare = {
+    "ru": "👩🏽‍💻 <b>Отправка</b> фото..\n<blockquote>#длительность 1мин</blockquote>",
+    "en": "ᯅ Publication",
+    "es": "ᯅ Publicación",
+    "fr": "ᯅ Publication",
+    "zh": "ᯅ 发布",
+    "ar": "ᯅ منشور",
+}
+l_bot_req_gen_voice_prepare = {
+    "ru": "👩🏽‍💻 <b>Запись</b> голосового..\n<blockquote>#длительность 1мин</blockquote>",
+    "en": "ᯅ Publication",
+    "es": "ᯅ Publicación",
+    "fr": "ᯅ Publication",
+    "zh": "ᯅ 发布",
+    "ar": "ᯅ منشور",
+}
+
 
 # region bot
 l_bot_config = {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: mistralai
-Version: 1.9.6
+Version: 1.9.7
 Summary: Python Client SDK for the Mistral AI API.
 Author: Mistral
 Requires-Python: >=3.9

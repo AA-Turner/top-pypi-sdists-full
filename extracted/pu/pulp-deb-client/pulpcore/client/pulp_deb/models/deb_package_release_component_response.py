@@ -24,6 +24,14 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class DebPackageReleaseComponentResponse(BaseModel):
     """
     A Serializer for PackageReleaseComponent.
@@ -33,9 +41,10 @@ class DebPackageReleaseComponentResponse(BaseModel):
     pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
     pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")
+    vuln_report: Optional[StrictStr] = None
     package: StrictStr = Field(description="Package that is contained in release_comonent.")
     release_component: StrictStr = Field(description="ReleaseComponent this package is contained in.")
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "package", "release_component"]
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "vuln_report", "package", "release_component"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -71,12 +80,14 @@ class DebPackageReleaseComponentResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
+        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
             "prn",
             "pulp_created",
             "pulp_last_updated",
+            "vuln_report",
         ])
 
         _dict = self.model_dump(
@@ -101,6 +112,7 @@ class DebPackageReleaseComponentResponse(BaseModel):
             "pulp_created": obj.get("pulp_created"),
             "pulp_last_updated": obj.get("pulp_last_updated"),
             "pulp_labels": obj.get("pulp_labels"),
+            "vuln_report": obj.get("vuln_report"),
             "package": obj.get("package"),
             "release_component": obj.get("release_component")
         })

@@ -1,5 +1,6 @@
 import os
 import re
+import subprocess
 import typing
 
 CIProviderT = typing.Literal[
@@ -34,15 +35,32 @@ def get_ci_provider() -> typing.Optional[CIProviderT]:
     return None
 
 
-def get_repository_name_from_env_url(env: str) -> typing.Optional[str]:
-    repository_url = os.getenv(env)
-    if repository_url and (
-        match := re.match(
-            r"(https?://[\w.-]+/)?(?P<full_name>[\w.-]+/[\w.-]+)/?$",
-            repository_url,
-        )
+def get_repository_name_from_url(repository_url: str) -> typing.Optional[str]:
+    # Handle SSH Git URLs like git@github.com:owner/repo.git
+    if match := re.match(
+        r"git@[\w.-]+:(?P<full_name>[\w.-]+/[\w.-]+)(?:\.git)?/?$",
+        repository_url,
+    ):
+        full_name = match.group("full_name")
+        # Remove .git suffix if present
+        if full_name.endswith(".git"):
+            full_name = full_name[:-4]
+        return full_name
+
+    # Handle HTTPS/HTTP URLs like https://github.com/owner/repo (with optional port)
+    if match := re.match(
+        r"(https?://[\w.-]+(?::\d+)?/)?(?P<full_name>[\w.-]+/[\w.-]+)/?$",
+        repository_url,
     ):
         return match.group("full_name")
+
+    return None
+
+
+def get_repository_name_from_env_url(env: str) -> typing.Optional[str]:
+    repository_url = os.getenv(env)
+    if repository_url:
+        return get_repository_name_from_url(repository_url)
 
     return None
 
@@ -61,6 +79,10 @@ def get_repository_name() -> typing.Optional[str]:
 
     if provider == "pytest_mergify_suite":
         return "Mergifyio/pytest-mergify"
+
+    repository_url = git("config", "--get", "remote.origin.url")
+    if repository_url:
+        return get_repository_name_from_url(repository_url)
 
     return None
 
@@ -97,3 +119,14 @@ def get_attributes(
         if value is not None:
             attributes[attr] = cast(value)
     return attributes
+
+
+def git(*args: str) -> typing.Optional[str]:
+    try:
+        return subprocess.check_output(
+            ["git", *args],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except subprocess.CalledProcessError:
+        return None

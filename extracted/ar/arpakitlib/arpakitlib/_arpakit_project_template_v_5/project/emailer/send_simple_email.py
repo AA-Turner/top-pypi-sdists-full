@@ -1,7 +1,7 @@
 import asyncio
 
 from project.core.jinja2_templates import get_cached_jinja2_templates
-from project.core.util import setup_logging
+from project.core.setup_logging import setup_logging
 from project.emailer.send_email import async_send_email
 
 

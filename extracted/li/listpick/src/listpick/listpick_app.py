@@ -573,10 +573,6 @@ class Picker:
         # If a sort is passed
         if len(self.indexed_items) > 0:
             sort_items(self.indexed_items, sort_method=self.columns_sort_method[self.sort_column], sort_column=self.sort_column, sort_reverse=self.sort_reverse[self.sort_column])  # Re-sort self.items based on new column
-        # if len(self.items[0]) == 1:
-        #     self.number_columns = False
-
-
 
         h, w = self.stdscr.getmaxyx()
 
@@ -677,7 +673,14 @@ class Picker:
         # Update current column index
         self.selected_column = new_index
 
-    def test_screen_size(self):
+    def test_screen_size(self) -> bool:
+        """ 
+        Determine if the terminal is large enough to display the picker. 
+        If the terminal is too small then display a message saying so.
+
+        Returns: True if terminal is large enough to display the Picker.
+
+        """
         self.logger.debug("function: test_screen_size()")
         h, w = self.stdscr.getmaxyx()
         ## Terminal too small to display Picker
@@ -689,9 +692,10 @@ class Picker:
             return False
         return True
 
-    def splash_screen(self, message=""):
-        self.logger.info(f"function: splash_screen({message})")
+    def splash_screen(self, message="") -> None:
         """ Display a splash screen with a message. Useful when loading a large data set. """
+
+        self.logger.info(f"function: splash_screen({message})")
         h, w =self.stdscr.getmaxyx()
         self.stdscr.bkgd(' ', curses.color_pair(2))
         try:
@@ -716,6 +720,9 @@ class Picker:
             self.stdscr.erase()
 
         h, w = self.stdscr.getmaxyx()
+        # The height of the footer may need to be adjusted if the file changes.
+        self.footer.adjust_sizes(h,w)
+        self.calculate_section_sizes()
 
         # Test if the terminal is of a sufficient size to display the picker
         if not self.test_screen_size(): return None
@@ -742,7 +749,7 @@ class Picker:
         visible_columns_total_width = sum(visible_column_widths) + len(self.separator)*(len(visible_column_widths)-1)
 
         # Determine the number of items_per_page, top_size and bottom_size
-        self.calculate_section_sizes()
+        # self.calculate_section_sizes()
         
         # top_space = self.top_gap
 
@@ -851,14 +858,6 @@ class Picker:
             except:
                 pass
 
-        # Draw:
-        #    1. standard row
-        #    2. highlights l0
-        #    3. selected
-        #    4. above-selected highlights l1
-        #    5. cursor
-        #    6. top-level highlights l2
-        ## Display rows and highlights
 
         def sort_highlights(highlights):
             """ 
@@ -917,6 +916,15 @@ class Picker:
                     self.stdscr.addstr(y, max(self.startx, self.startx+highlight_start), row_str[max(highlight_start,0):min(w-self.startx, highlight_end)], curses.color_pair(self.colours_start+highlight["color"]) | curses.A_BOLD)
                 except:
                     pass
+
+        # Draw:
+        #    1. standard row
+        #    2. highlights l0
+        #    3. selected
+        #    4. above-selected highlights l1
+        #    5. cursor
+        #    6. top-level highlights l2
+        ## Display rows and highlights
 
         l0_highlights, l1_highlights, l2_highlights = sort_highlights(self.highlights)
 
@@ -1225,6 +1233,9 @@ class Picker:
             "top_gap",
             "unicode_char_width",
             "show_row_header",
+            "centre_in_terminal_vertical",
+            "centre_in_cols",
+            "centre_in_terminal",
         ]
 
         for var in variables:
@@ -1430,20 +1441,26 @@ class Picker:
                         self.auto_refresh = not self.auto_refresh
                     elif setting[1] == "h":
                         self.highlights_hide = not self.highlights_hide
+                elif setting.isnumeric():
+                    self.cursor_pos = max(0, min(int(setting), len(self.indexed_items)-1))
+                elif setting.startswith("col") and setting[3:].isnumeric():
+                    col = int(setting[3:])
+                    if 0 <= col < len(self.column_widths):
+                        self.selected_column = col
 
                 elif setting in ["nhl", "nohl", "nohighlights"]:
                     # highlights = [highlight for highlight in highlights if "type" not in highlight or highlight["type"] != "search" ]
                     
                     self.highlights_hide = not self.highlights_hide
-                # elif setting[0] == "s":
-                #     if 0 <= int(setting[1:]) < len(self.items[0]):
-                #         self.sort_column = int(setting[1:])
-                #         if len(self.indexed_items):
-                #             current_pos = self.indexed_items[self.cursor_pos][0]
-                #         sort_items(self.indexed_items, sort_method=self.columns_sort_method[self.sort_column], sort_column=self.sort_column, sort_reverse=self.sort_reverse[self.sort_column])  # Re-sort items based on new column
-                #         if len(self.indexed_items):
-                #             new_pos = [row[0] for row in self.indexed_items].index(current_pos)
-                #             self.cursor_pos = new_pos
+                elif setting.startswith("s") and setting[1:].isnumeric():
+                    if 0 <= int(setting[1:]) < len(self.items[0]):
+                        self.sort_column = int(setting[1:])
+                        if len(self.indexed_items):
+                            current_pos = self.indexed_items[self.cursor_pos][0]
+                        sort_items(self.indexed_items, sort_method=self.columns_sort_method[self.sort_column], sort_column=self.sort_column, sort_reverse=self.sort_reverse[self.sort_column])  # Re-sort items based on new column
+                        if len(self.indexed_items):
+                            new_pos = [row[0] for row in self.indexed_items].index(current_pos)
+                            self.cursor_pos = new_pos
                 elif setting == "ct":
                     self.centre_in_terminal = not self.centre_in_terminal
                 elif setting == "cc":
@@ -1489,50 +1506,23 @@ class Picker:
                 elif setting == "unicode":
                     self.unicode_char_width = not self.unicode_char_width
                 elif setting == "file_next":
-                    if len(self.loaded_files) > 1:
-                        self.command_stack.append(Command("setting", self.user_settings))
-                        # Cache file state
-                        self.loaded_file_states[self.loaded_file_index] = self.get_function_data()
-
-                        self.loaded_file_index = (self.loaded_file_index + 1) % len(self.loaded_files)
-                        self.loaded_file = self.loaded_files[self.loaded_file_index]
-
-                        # If we already have a loaded state for this file
-                        if self.loaded_file_states[self.loaded_file_index]:
-                            self.set_function_data(self.loaded_file_states[self.loaded_file_index])
-                        else:
-                            self.set_function_data({}, reset_absent_variables=True)
-                            self.load_file(self.loaded_file)
+                    self.command_stack.append(Command("setting", self.user_settings))
+                    self.switch_file(increment=1)
+                elif setting == "file_prev":
+                    self.command_stack.append(Command("setting", self.user_settings))
+                    self.switch_file(increment=-1)
+                    # self.draw_screen(self.indexed_items, self.highlights)
+                    # self.stdscr.refresh()
 
                 elif setting == "sheet_next":
-                    if not os.path.exists(self.loaded_file):
-                        self.notification(self.stdscr, message=f"File {repr(self.loaded_file)} not found.")
-                        return None
-                    if len(self.sheets) > 1:
-                        self.command_stack.append(Command("setting", self.user_settings))
-
-                        # Cache sheet state
-                        self.sheet_states[self.sheet_index] = self.get_function_data()
-                        self.sheet_index = (self.sheet_index + 1) % len(self.sheets)
-                        self.sheet_name = self.sheets[self.sheet_index]
-
-                        # If we already have a loaded state for this file
-                        if self.sheet_states[self.sheet_index]:
-                            self.set_function_data(self.sheet_states[self.sheet_index])
-                        else:
-                            function_data = {
-                                "sheet_index": self.sheet_index,
-                                "sheet_name":  self.sheet_name,
-                                "sheet_states":self.sheet_states,
-                                "sheets":       self.sheets,
-                            }
-                            self.set_function_data(function_data, reset_absent_variables=True)
-                            self.load_sheet(self.loaded_file, sheet_number=self.sheet_index)
-
+                    self.command_stack.append(Command("setting", self.user_settings))
+                    self.switch_sheet(increment=1)
+                elif setting == "sheet_prev":
+                    self.command_stack.append(Command("setting", self.user_settings))
+                    self.switch_sheet(increment=-1)
 
                 elif setting.startswith("ft"):
                     if len(setting) > 2 and setting[2:].isnumeric():
-                        
                         num = int(setting[2:])
                         self.footer_style = max(len(self.footer_options)-1, num)
                         self.footer = self.footer_options[self.footer_style]
@@ -2099,7 +2089,50 @@ class Picker:
 
             self.initialise_variables()
 
+    def switch_file(self, increment=1) -> None:
+        """ Go to the next file. """
+        if len(self.loaded_files) <= 1:
+            return None
 
+        # Cache file state
+        self.loaded_file_states[self.loaded_file_index] = self.get_function_data()
+
+        self.loaded_file_index = (self.loaded_file_index + increment) % len(self.loaded_files)
+        self.loaded_file = self.loaded_files[self.loaded_file_index]
+
+        # If we already have a loaded state for this file
+        if self.loaded_file_states[self.loaded_file_index]:
+            self.set_function_data(self.loaded_file_states[self.loaded_file_index])
+        else:
+            self.set_function_data({}, reset_absent_variables=True)
+            self.load_file(self.loaded_file)
+
+
+    def switch_sheet(self, increment=1) -> None:
+        if not os.path.exists(self.loaded_file):
+            self.notification(self.stdscr, message=f"File {repr(self.loaded_file)} not found.")
+            return None
+        if len(self.sheets) <= 1:
+            return None
+
+        # Cache sheet state
+        self.sheet_states[self.sheet_index] = self.get_function_data()
+
+        self.sheet_index = (self.sheet_index + increment) % len(self.sheets)
+        self.sheet_name = self.sheets[self.sheet_index]
+
+        # If we already have a loaded state for this file
+        if self.sheet_states[self.sheet_index]:
+            self.set_function_data(self.sheet_states[self.sheet_index])
+        else:
+            function_data = {
+                "sheet_index": self.sheet_index,
+                "sheet_name":  self.sheet_name,
+                "sheet_states":self.sheet_states,
+                "sheets":       self.sheets,
+            }
+            self.set_function_data(function_data, reset_absent_variables=True)
+            self.load_sheet(self.loaded_file, sheet_number=self.sheet_index)
 
 
 
@@ -2239,12 +2272,12 @@ class Picker:
                 version = metadata.version('listpick')
 
                 info_items = [
-                    ["    Listpick info:", "-*"*30],
+                    ["  Listpick info", "-*"*30],
                     ["",""],
                     ["listpick version", f"{version}"],
 
                     ["",""],
-                    ["    Global:", "-*"*30],
+                    ["  Global", "-*"*30],
                     ["",""],
                     ["current_file", self.loaded_file],
                     ["loaded_files", repr(self.loaded_files)],
@@ -2257,11 +2290,12 @@ class Picker:
                     ["debug level", f"{repr(self.debug_level)}"],
 
                     ["",""],
-                    ["    Current File:", "-*"*30],
+                    ["  Current File", "-*"*30],
                     ["",""],
-                    ["row/row count", f"{self.cursor_pos}/{len(self.indexed_items)}"],
-                    ["total rows", f"{len(self.items)}"],
-                    ["selections", f"{self.selected_cells_by_row}"],
+                    # ["row/row count", f"{self.cursor_pos}/{len(self.indexed_items)}"],
+                    ["Current row", f"{self.cursor_pos}/{len(self.indexed_items)}"],
+                    ["Total rows", f"{len(self.items)}"],
+                    ["Selection count", f"{self.selected_cells_by_row}"],
                     ["current_sheet", self.sheet_name],
                     ["sheets", repr(self.sheets)],
                     ["current column/column_count", f"{self.selected_column}/{len(self.column_widths)}"],
@@ -2272,7 +2306,7 @@ class Picker:
                     ["id_column", f"{self.id_column}"],
 
                     ["",""],
-                    ["    Display options:", "-*"*30],
+                    ["  Display options", "-*"*30],
                     ["",""],
                     ["show_header", str(self.show_header)],
                     ["show_footer", repr(self.show_footer)],
@@ -2293,20 +2327,29 @@ class Picker:
                 ]
                 
                 data = self.get_function_data()
-                del data["indexed_items"]
-                del data["selections"]
-                del data["selected_cells_by_row"]
-                del data["cell_selections"]
-                del data["items"]
-                del data["require_option"]
-                del data["option_functions"]
+                data["indexed_items"] = f"[...] length = {len(data['indexed_items'])}"
+                data["selections"] = f"[...] length = {len(data['selections'])}"
+                data["selected_cells_by_row"] = f"[...] length = {len(data['selected_cells_by_row'])}"
+                data["cell_selections"] = f"[...] length = {len(data['cell_selections'])}"
+                data["items"] = f"[...] length = {len(data['items'])}"
+                data["require_option"] = f"[...] length = {len(data['require_option'])}"
+                data["option_functions"] = f"[...] length = {len(data['option_functions'])}"
+                data["loaded_file_states"] = f"[...] length = {len(data['loaded_file_states'])}"
+                data["sheet_states"] = f"[...] length = {len(data['sheet_states'])}"
                 info_items += [
                     ["",""],
-                    ["    get_function_data():", "-*"*30],
+                    ["  get_function_data()", "-*"*30],
                     ["",""],
                     ["show_header", str(self.show_header)],
                 ]
                 info_items += [[key, repr(value)] for key, value in data.items()]
+
+
+                for row in info_items:
+                    if row[1] == "-*"*30:
+                        continue
+                    row[0] = "      " + row[0]
+
                 info_header = ["Option", "Value"]
                 info_data = {
                     "items": info_items,
@@ -2405,13 +2448,18 @@ class Picker:
                     options += [["rh", "Toggle row header"]]
                     options += [["modes", "Toggle modes"]]
                     options += [["ft", "Cycle through footer styles (accepts ft#)"]]
+                    options += [["file_next", "Go to the next open file."]]
+                    options += [["file_prev", "Go to the previous open file."]]
+                    options += [["sheet_next", "Go to the next sheet."]]
+                    options += [["sheet_prev", "Go to the previous sheet."]]
                     options += [["unicode", "Toggle b/w using len and wcwidth to calculate char width."]]
-                    options += [[f"s{i}", f"Select col. {i}"] for i in range(len(self.items[0]))]
-                    options += [[f"!{i}", f"Toggle col. {i}"] for i in range(len(self.items[0]))]
                     options += [["ara", "Add empty row after cursor."]]
                     options += [["arb", "Add empty row before the cursor."]]
                     options += [["aca", "Add empty column after the selected column."]]
                     options += [["acb", "Add empty column before the selected column."]]
+                    options += [[f"col{i}", f"Select column {i}"] for i in range(len(self.items[0]))]
+                    options += [[f"s{i}", f"Sort by column {i}"] for i in range(len(self.items[0]))]
+                    options += [[f"!{i}", f"Toggle visibility of column {i}"] for i in range(len(self.items[0]))]
 
 
                 settings_options_header = ["Key", "Setting"]
@@ -3031,14 +3079,10 @@ class Picker:
                             # Re-sort self.items after applying filter
                             sort_items(self.indexed_items, sort_method=self.columns_sort_method[self.sort_column], sort_column=self.sort_column, sort_reverse=self.sort_reverse[self.sort_column])  # Re-sort self.items based on new column
             elif self.check_key("file_next", key, self.keys_dict):
-                if len(self.loaded_files):
-                    self.loaded_file_index = (self.loaded_file_index + 1) % len(self.loaded_files)
-                    self.loaded_file = self.loaded_files[self.loaded_file_index]
+                self.switch_file(increment=1)
 
             elif self.check_key("file_prev", key, self.keys_dict):
-                if len(self.loaded_files):
-                    self.loaded_file_index = (self.loaded_file_index - 1) % len(self.loaded_files)
-                    self.loaded_file = self.loaded_files[self.loaded_file_index]
+                self.switch_file(increment=-1)
 
             elif self.check_key("pipe_input", key, self.keys_dict):
                 self.logger.info(f"key_function pipe_input")

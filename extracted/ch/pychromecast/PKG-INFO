@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyChromecast
-Version: 14.0.7
+Version: 14.0.9
 Summary: Python module to talk to Google Chromecast.
 Author-email: Paulus Schoutsen <paulus@paulusschoutsen.nl>
 License: MIT

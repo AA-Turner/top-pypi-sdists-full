@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import os
 import shutil
 import sys
@@ -56,6 +57,7 @@ async def _start_ui_bundler_process():
         os.mkdir(UI_ROOT_DIR)
 
     pid = None
+    process = None
     try:
         process = await asyncio.create_subprocess_exec(
             npx_path,
@@ -74,11 +76,10 @@ async def _start_ui_bundler_process():
 
     except asyncio.CancelledError:
         logger.info("Shutting down UI bundler process [%d]", pid or -1)
-        try:
-            process.terminate()
-            await process.wait()
-        except (UnboundLocalError, ProcessLookupError):
-            pass
+        if process is not None:
+            with contextlib.suppress(ProcessLookupError):
+                process.terminate()
+                await process.wait()
         raise
 
 

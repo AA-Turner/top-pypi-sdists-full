@@ -18,6 +18,7 @@ from collections.abc import Sequence
 import logging
 import os
 from typing import Any
+import warnings
 
 from jax._src import clusters
 from jax._src import config
@@ -35,6 +36,15 @@ _CHECK_PROXY_ENVS = config.bool_flag(
 )
 
 
+_ENABLE_RECOVERABILITY = config.bool_state(
+    name="jax_enable_recoverability",
+    default=False,
+    help=(
+        "Allows a multi-controller JAX job to continue running, even after some"
+        " tasks have failed."
+    ),
+)
+
 class State:
   process_id: int = 0
   num_processes: int = 1
@@ -42,7 +52,7 @@ class State:
   client: _jax.DistributedRuntimeClient | Any | None = None
   preemption_sync_manager: Any | None = None
   coordinator_address: str | None = None
-  slice_index: int | None = None
+  partition_index: int | None = None
 
   def initialize(self,
                  coordinator_address: str | None = None,
@@ -53,7 +63,7 @@ class State:
                  initialization_timeout: int = 300,
                  coordinator_bind_address: str | None = None,
                  heartbeat_timeout_seconds: int = 100,
-                 slice_index: int | None = None):
+                 partition_index: int | None = None):
     coordinator_address = (coordinator_address or
                            os.environ.get('JAX_COORDINATOR_ADDRESS'))
     if isinstance(local_device_ids, int):
@@ -124,15 +134,10 @@ class State:
       )
       logger.warning(warning)
 
-
-    heartbeat_kwargs = {}
-    if jaxlib_extension_version >= 361:
-      # In jaxlib version 361, the heartbeat_timeout argument replaced the old
-      # heartbeat_interval and max_missing_heartbeats arguments.
-      heartbeat_kwargs['heartbeat_timeout'] = heartbeat_timeout_seconds
-    else:
-      heartbeat_kwargs['heartbeat_interval'] = heartbeat_timeout_seconds
-      heartbeat_kwargs['max_missing_heartbeats'] = 1
+    recoverable_kwargs = {}
+    if jaxlib_extension_version >= 368:
+      # In jaxlib version 368, the recoverable argument was added.
+      recoverable_kwargs['recoverable'] = _ENABLE_RECOVERABILITY.value
 
     if process_id == 0:
       if self.service is not None:
@@ -141,7 +146,8 @@ class State:
           'Starting JAX distributed service on %s', coordinator_bind_address
       )
       self.service = _jax.get_distributed_runtime_service(
-          coordinator_bind_address, num_processes, **heartbeat_kwargs) # type: ignore
+          coordinator_bind_address, num_processes,
+          heartbeat_timeout=heartbeat_timeout_seconds)
 
     self.num_processes = num_processes
 
@@ -150,15 +156,27 @@ class State:
 
     self.client = _jax.get_distributed_runtime_client(
         coordinator_address, process_id, init_timeout=initialization_timeout,
-        use_compression=True, **heartbeat_kwargs) # type: ignore
+        use_compression=True, heartbeat_timeout=heartbeat_timeout_seconds,
+        **recoverable_kwargs)  # type: ignore
     logger.info('Connecting to JAX distributed service on %s', coordinator_address)
     self.client.connect()
 
     self.initialize_preemption_sync_manager()
 
-    if slice_index is None and 'JAX_SLICE_INDEX' in os.environ:
-      slice_index = int(os.environ.get('JAX_SLICE_INDEX'))  # type: ignore
-    self.slice_index = slice_index
+    if partition_index is None:
+      jax_partition_index = os.environ.get('JAX_PARTITION_INDEX')
+      jax_slice_index = os.environ.get('JAX_SLICE_INDEX')
+      if jax_partition_index is not None:
+        partition_index = int(jax_partition_index)  # type: ignore
+      elif jax_slice_index is not None:
+        # Deprecation added 2025-08-05. Should be removed after 3 months.
+        warnings.warn(
+            'JAX_SLICE_INDEX has been deprecated. Please use'
+            ' JAX_PARTITION_INDEX instead.',
+            DeprecationWarning,
+        )
+        partition_index = int(jax_slice_index)  # type: ignore
+    self.partition_index = partition_index
 
   def shutdown(self):
     if self.preemption_sync_manager:
@@ -193,7 +211,8 @@ def initialize(coordinator_address: str | None = None,
                initialization_timeout: int = 300,
                heartbeat_timeout_seconds: int = 100,
                coordinator_bind_address: str | None = None,
-               slice_index: int | None = None):
+               slice_index: int | None = None,
+               partition_index: int | None = None):
   """Initializes the JAX distributed system.
 
   Calling :func:`~jax.distributed.initialize` prepares JAX for execution on
@@ -257,8 +276,9 @@ def initialize(coordinator_address: str | None = None,
       all available addresses on the same port as ``coordinator_address``. On systems
       that have multiple network interfaces per node it may be insufficient to only
       have the coordinator service listen on one address/interface.
-    slice_index: The slice index assigned to this process' local devices. If any process sets ``slice_index``,
-      then all processes must do so. If ``None`` the slice indices will be chosen automatically.
+    slice_index: DEPRECATED: Use ``partition_index`` instead.
+    partition_index: The partition index assigned to this process' local devices. If any process sets ``partition_index``,
+      then all processes must do so. If ``None`` the partition indices will be chosen automatically.
 
   Raises:
     RuntimeError: If :func:`~jax.distributed.initialize` is called more than once
@@ -282,11 +302,19 @@ def initialize(coordinator_address: str | None = None,
     raise RuntimeError("jax.distributed.initialize() must be called before "
                         "any JAX calls that might initialise the XLA backend. "
                         "This includes any computation, but also calls to jax.devices, jax.device_put, and others.")
+  if partition_index is None:
+    if slice_index is not None:
+      # Deprecation added 2025-08-05. Should be removed after 3 months.
+      warnings.warn(
+          '`slice_index` has been deprecated. Please use `partition_index` instead.',
+          DeprecationWarning,
+      )
+    partition_index = slice_index
   global_state.initialize(coordinator_address, num_processes, process_id,
                           local_device_ids, cluster_detection_method,
                           initialization_timeout, coordinator_bind_address,
                           heartbeat_timeout_seconds=heartbeat_timeout_seconds,
-                          slice_index=slice_index)
+                          partition_index=partition_index)
 
 
 def is_initialized() -> bool:

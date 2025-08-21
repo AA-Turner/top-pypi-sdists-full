@@ -832,8 +832,8 @@ class MaterializedFeatureViewSpec(FeatureViewSpec):
                 proto.materialized_feature_view_args.max_backfill_interval
             ),
             tecton_materialization_runtime=proto.materialized_feature_view_args.tecton_materialization_runtime,
-            cache_config=utils.get_field_or_none(proto, "cache_config"),
             environment=proto.materialized_feature_view_args.environment,
+            cache_config=utils.get_field_or_none(proto, "cache_config"),
             secrets=MappingProxyType(proto.secrets),
             resource_providers=MappingProxyType(proto.resource_providers),
             # Only populated from data proto for now because local dev flow is not supported yet.
@@ -1000,6 +1000,7 @@ class FeatureTableSpec(FeatureViewSpec):
 
     alert_email: str
     tecton_materialization_runtime: Optional[str]
+    environment: Optional[str]
     attribute_features: Tuple[Attribute, ...]
 
     @classmethod
@@ -1037,6 +1038,7 @@ class FeatureTableSpec(FeatureViewSpec):
             prevent_destroy=proto.validation_args.args.prevent_destroy,
             alert_email=proto.monitoring_params.alert_email,
             tecton_materialization_runtime=proto.materialization_params.tecton_materialization_runtime,
+            environment=proto.materialization_params.environment,
             attribute_features=tuple(
                 Attribute.from_data_proto(attribute_data_proto)
                 for attribute_data_proto in proto.feature_table.attributes
@@ -1078,6 +1080,7 @@ class FeatureTableSpec(FeatureViewSpec):
             prevent_destroy=proto.prevent_destroy,
             alert_email=proto.feature_table_args.monitoring.alert_email,
             tecton_materialization_runtime=proto.feature_table_args.tecton_materialization_runtime,
+            environment=proto.feature_table_args.environment,
             attribute_features=tuple(
                 Attribute.from_args_proto(attribute_args_proto)
                 for attribute_args_proto in proto.feature_table_args.attributes

@@ -7012,7 +7012,7 @@ class CfnCapacityProvider(
 
             :param instance_warmup_period: The period of time, in seconds, after a newly launched Amazon EC2 instance can contribute to CloudWatch metrics for Auto Scaling group. If this parameter is omitted, the default value of ``300`` seconds is used.
             :param maximum_scaling_step_size: The maximum number of Amazon EC2 instances that Amazon ECS will scale out at one time. If this parameter is omitted, the default value of ``10000`` is used.
-            :param minimum_scaling_step_size: The minimum number of Amazon EC2 instances that Amazon ECS will scale out at one time. The scale in process is not affected by this parameter If this parameter is omitted, the default value of ``1`` is used. When additional capacity is required, Amazon ECS will scale up the minimum scaling step size even if the actual demand is less than the minimum scaling step size. If you use a capacity provider with an Auto Scaling group configured with more than one Amazon EC2 instance type or Availability Zone, Amazon ECS will scale up by the exact minimum scaling step size value and will ignore both the maximum scaling step size as well as the capacity demand.
+            :param minimum_scaling_step_size: The minimum number of Amazon EC2 instances that Amazon ECS will scale out at one time. The scale in process is not affected by this parameter If this parameter is omitted, the default value of ``1`` is used. When additional capacity is required, Amazon ECS will scale up the minimum scaling step size even if the actual demand is less than the minimum scaling step size.
             :param status: Determines whether to use managed scaling for the capacity provider.
             :param target_capacity: The target capacity utilization as a percentage for the capacity provider. The specified value must be greater than ``0`` and less than or equal to ``100`` . For example, if you want the capacity provider to maintain 10% spare capacity, then that means the utilization is 90%, so use a ``targetCapacity`` of ``90`` . The default value of ``100`` percent results in the Amazon EC2 instances in your Auto Scaling group being completely used.
 
@@ -7081,8 +7081,6 @@ class CfnCapacityProvider(
             The scale in process is not affected by this parameter If this parameter is omitted, the default value of ``1`` is used.
 
             When additional capacity is required, Amazon ECS will scale up the minimum scaling step size even if the actual demand is less than the minimum scaling step size.
-
-            If you use a capacity provider with an Auto Scaling group configured with more than one Amazon EC2 instance type or Availability Zone, Amazon ECS will scale up by the exact minimum scaling step size value and will ignore both the maximum scaling step size as well as the capacity demand.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-managedscaling.html#cfn-ecs-capacityprovider-managedscaling-minimumscalingstepsize
             '''
@@ -25910,7 +25908,7 @@ class Ec2ServiceProps(BaseServiceOptions):
         :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attched to ECS tasks. Default: - undefined
         :param task_definition: The task definition to use for tasks in the service. [disable-awslint:ref-via-interface]
         :param assign_public_ip: Specifies whether the task's elastic network interface receives a public IP address. If true, each task will receive a public IP address. This property is only used for tasks that use the awsvpc network mode. Default: false
-        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled: ``maxHealthyPercent`` must be greater than 100; ``daemon`` must be false; if there are any ``placementStrategies``, the first must be "spread across Availability Zones"; there must be no ``placementConstraints`` using ``attribute:ecs.availability-zone``, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.ENABLED
+        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled: ``maxHealthyPercent`` must be greater than 100; ``daemon`` must be false; if there are any ``placementStrategies``, the first must be "spread across Availability Zones"; there must be no ``placementConstraints`` using ``attribute:ecs.availability-zone``, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.DISABLED
         :param daemon: Specifies whether the service will use the daemon scheduling strategy. If true, the service scheduler deploys exactly one task on each container instance in your cluster. When you are using this strategy, do not specify a desired number of tasks or any task placement strategies. Default: false
         :param placement_constraints: The placement constraints to use for tasks in the service. For more information, see `Amazon ECS Task Placement Constraints <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-placement-constraints.html>`_. Default: - No constraints.
         :param placement_strategies: The placement strategies to use for tasks in the service. For more information, see `Amazon ECS Task Placement Strategies <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-placement-strategies.html>`_. Default: - No strategies.
@@ -26284,7 +26282,7 @@ class Ec2ServiceProps(BaseServiceOptions):
         must be no ``placementConstraints`` using ``attribute:ecs.availability-zone``, and the
         service must not be a target of a Classic Load Balancer.
 
-        :default: AvailabilityZoneRebalancing.ENABLED
+        :default: AvailabilityZoneRebalancing.DISABLED
 
         :see: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html
         '''
@@ -28865,7 +28863,7 @@ class FargateServiceProps(BaseServiceOptions):
         :param volume_configurations: Configuration details for a volume used by the service. This allows you to specify details about the EBS volume that can be attched to ECS tasks. Default: - undefined
         :param task_definition: The task definition to use for tasks in the service. [disable-awslint:ref-via-interface]
         :param assign_public_ip: Specifies whether the task's elastic network interface receives a public IP address. If true, each task will receive a public IP address. Default: false
-        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled, ``maxHealthyPercent`` must be greater than 100, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.ENABLED
+        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled, ``maxHealthyPercent`` must be greater than 100, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.DISABLED
         :param platform_version: The platform version on which to run your service. If one is not specified, the LATEST platform version is used by default. For more information, see `AWS Fargate Platform Versions <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/platform_versions.html>`_ in the Amazon Elastic Container Service Developer Guide. Default: Latest
         :param security_groups: The security groups to associate with the service. If you do not specify a security group, a new security group is created. Default: - A new security group is created.
         :param vpc_subnets: The subnets to associate with the service. Default: - Public subnets if ``assignPublicIp`` is set, otherwise the first available one of Private, Isolated, Public, in that order.
@@ -29236,7 +29234,7 @@ class FargateServiceProps(BaseServiceOptions):
         If enabled, ``maxHealthyPercent`` must be greater than 100, and the service must not be a target
         of a Classic Load Balancer.
 
-        :default: AvailabilityZoneRebalancing.ENABLED
+        :default: AvailabilityZoneRebalancing.DISABLED
 
         :see: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-rebalancing.html
         '''
@@ -43933,7 +43931,7 @@ class Ec2Service(
         :param id: -
         :param task_definition: The task definition to use for tasks in the service. [disable-awslint:ref-via-interface]
         :param assign_public_ip: Specifies whether the task's elastic network interface receives a public IP address. If true, each task will receive a public IP address. This property is only used for tasks that use the awsvpc network mode. Default: false
-        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled: ``maxHealthyPercent`` must be greater than 100; ``daemon`` must be false; if there are any ``placementStrategies``, the first must be "spread across Availability Zones"; there must be no ``placementConstraints`` using ``attribute:ecs.availability-zone``, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.ENABLED
+        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled: ``maxHealthyPercent`` must be greater than 100; ``daemon`` must be false; if there are any ``placementStrategies``, the first must be "spread across Availability Zones"; there must be no ``placementConstraints`` using ``attribute:ecs.availability-zone``, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.DISABLED
         :param daemon: Specifies whether the service will use the daemon scheduling strategy. If true, the service scheduler deploys exactly one task on each container instance in your cluster. When you are using this strategy, do not specify a desired number of tasks or any task placement strategies. Default: false
         :param placement_constraints: The placement constraints to use for tasks in the service. For more information, see `Amazon ECS Task Placement Constraints <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-placement-constraints.html>`_. Default: - No constraints.
         :param placement_strategies: The placement strategies to use for tasks in the service. For more information, see `Amazon ECS Task Placement Strategies <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-placement-strategies.html>`_. Default: - No strategies.
@@ -44926,7 +44924,7 @@ class FargateService(
         :param id: -
         :param task_definition: The task definition to use for tasks in the service. [disable-awslint:ref-via-interface]
         :param assign_public_ip: Specifies whether the task's elastic network interface receives a public IP address. If true, each task will receive a public IP address. Default: false
-        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled, ``maxHealthyPercent`` must be greater than 100, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.ENABLED
+        :param availability_zone_rebalancing: Whether to use Availability Zone rebalancing for the service. If enabled, ``maxHealthyPercent`` must be greater than 100, and the service must not be a target of a Classic Load Balancer. Default: AvailabilityZoneRebalancing.DISABLED
         :param platform_version: The platform version on which to run your service. If one is not specified, the LATEST platform version is used by default. For more information, see `AWS Fargate Platform Versions <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/platform_versions.html>`_ in the Amazon Elastic Container Service Developer Guide. Default: Latest
         :param security_groups: The security groups to associate with the service. If you do not specify a security group, a new security group is created. Default: - A new security group is created.
         :param vpc_subnets: The subnets to associate with the service. Default: - Public subnets if ``assignPublicIp`` is set, otherwise the first available one of Private, Isolated, Public, in that order.

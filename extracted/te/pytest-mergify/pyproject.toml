@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pytest-mergify"
-version = "2025.8.5.1"
+version = "2025.8.20.1"
 description = "Pytest plugin for Mergify"
 authors = ["Julien Danjou <jd@mergify.com>"]
 license = "GPL-3.0-only"

@@ -130,10 +130,14 @@ from jax._src.api import vjp as vjp
 from jax._src.api import vmap as vmap
 from jax._src.sharding_impls import NamedSharding as NamedSharding
 from jax._src.sharding_impls import make_mesh as make_mesh
+from jax._src.sharding_impls import set_mesh as set_mesh
 from jax._src.partition_spec import P as P
 
 from jax._src.shard_map import shard_map as shard_map
 from jax._src.shard_map import smap as smap
+
+from jax.ref import array_ref as array_ref
+from jax.ref import ArrayRef as ArrayRef
 
 # Force import, allowing jax.interpreters.* to be used after import jax.
 from jax.interpreters import ad, batching, mlir, partial_eval, pxla, xla
@@ -167,6 +171,7 @@ from jax import profiler as profiler
 from jax import random as random
 from jax import scipy as scipy
 from jax import sharding as sharding
+from jax import memory as memory
 from jax import stages as stages
 from jax import tree_util as tree_util
 from jax import util as _deprecated_util

@@ -27,7 +27,7 @@ from legit_api_client.models.issue_closing_location_dto import IssueClosingLocat
 from legit_api_client.models.issue_status import IssueStatus
 from legit_api_client.models.issue_type import IssueType
 from legit_api_client.models.origin_type import OriginType
-from legit_api_client.models.secretes_data_dto import SecretesDataDto
+from legit_api_client.models.secrets_data_dto import SecretsDataDto
 from legit_api_client.models.severity import Severity
 from legit_api_client.models.snoozed_type import SnoozedType
 from typing import Optional, Set
@@ -52,7 +52,7 @@ class CustomerFacingIssueDto(BaseModel):
     snoozed_type: Optional[SnoozedType] = Field(default=None, description="Type of snooze applied to the issue (if applicable)", alias="snoozedType")
     snoozed_until: Optional[datetime] = Field(default=None, description="Date and time until which the issue is snoozed (if applicable), in ISO 8601 format", alias="snoozedUntil")
     score: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Risk score of the issue (0-100)")
-    secretes_data_dto: Optional[SecretesDataDto] = Field(default=None, description="Data specific to issues of type secret. Will be null for other issue types", alias="secretesDataDto")
+    secrets_data_dto: Optional[SecretsDataDto] = Field(default=None, description="Data specific to issues of type secret. Will be null for other issue types", alias="secretsDataDto")
     dependency_vulnerability_data_dto: Optional[DependencyVulnerabilityDataDto] = Field(default=None, description="Data specific to issues of type SCA or ContainerScanning. Will be null for other issue types", alias="dependencyVulnerabilityDataDto")
     dast_data_dto: Optional[DastDataDto] = Field(default=None, description="Data specific to issues of type DAST. Will be null for other issue types", alias="dastDataDto")
     origin_id: Optional[StrictStr] = Field(default=None, description="Identifier of the asset where the issue was found", alias="originId")
@@ -61,7 +61,7 @@ class CustomerFacingIssueDto(BaseModel):
     action_id: Optional[StrictStr] = Field(default=None, description="Unique identifier for the action the issue belongs to", alias="actionId")
     policy_name: Optional[StrictStr] = Field(default=None, description="Name of the policy that detected this issue", alias="policyName")
     assigned_user_id: Optional[StrictStr] = Field(default=None, description="ID of the user assigned to handle this issue (if applicable)", alias="assignedUserId")
-    __properties: ClassVar[List[str]] = ["id", "title", "detectedAt", "lastClosedAt", "lastActionTime", "status", "issueType", "severity", "policySeverity", "closingReason", "closingLocation", "statusChangedNote", "snoozedType", "snoozedUntil", "score", "secretesDataDto", "dependencyVulnerabilityDataDto", "dastDataDto", "originId", "originType", "originLink", "actionId", "policyName", "assignedUserId"]
+    __properties: ClassVar[List[str]] = ["id", "title", "detectedAt", "lastClosedAt", "lastActionTime", "status", "issueType", "severity", "policySeverity", "closingReason", "closingLocation", "statusChangedNote", "snoozedType", "snoozedUntil", "score", "secretsDataDto", "dependencyVulnerabilityDataDto", "dastDataDto", "originId", "originType", "originLink", "actionId", "policyName", "assignedUserId"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -102,9 +102,9 @@ class CustomerFacingIssueDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of secretes_data_dto
-        if self.secretes_data_dto:
-            _dict['secretesDataDto'] = self.secretes_data_dto.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of secrets_data_dto
+        if self.secrets_data_dto:
+            _dict['secretsDataDto'] = self.secrets_data_dto.to_dict()
         # override the default output from pydantic by calling `to_dict()` of dependency_vulnerability_data_dto
         if self.dependency_vulnerability_data_dto:
             _dict['dependencyVulnerabilityDataDto'] = self.dependency_vulnerability_data_dto.to_dict()
@@ -161,10 +161,10 @@ class CustomerFacingIssueDto(BaseModel):
         if self.score is None and "score" in self.model_fields_set:
             _dict['score'] = None
 
-        # set to None if secretes_data_dto (nullable) is None
+        # set to None if secrets_data_dto (nullable) is None
         # and model_fields_set contains the field
-        if self.secretes_data_dto is None and "secretes_data_dto" in self.model_fields_set:
-            _dict['secretesDataDto'] = None
+        if self.secrets_data_dto is None and "secrets_data_dto" in self.model_fields_set:
+            _dict['secretsDataDto'] = None
 
         # set to None if dependency_vulnerability_data_dto (nullable) is None
         # and model_fields_set contains the field
@@ -228,7 +228,7 @@ class CustomerFacingIssueDto(BaseModel):
             "snoozedType": obj.get("snoozedType"),
             "snoozedUntil": obj.get("snoozedUntil"),
             "score": obj.get("score"),
-            "secretesDataDto": SecretesDataDto.from_dict(obj["secretesDataDto"]) if obj.get("secretesDataDto") is not None else None,
+            "secretsDataDto": SecretsDataDto.from_dict(obj["secretsDataDto"]) if obj.get("secretsDataDto") is not None else None,
             "dependencyVulnerabilityDataDto": DependencyVulnerabilityDataDto.from_dict(obj["dependencyVulnerabilityDataDto"]) if obj.get("dependencyVulnerabilityDataDto") is not None else None,
             "dastDataDto": DastDataDto.from_dict(obj["dastDataDto"]) if obj.get("dastDataDto") is not None else None,
             "originId": obj.get("originId"),

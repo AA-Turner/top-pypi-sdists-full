@@ -37,7 +37,7 @@ use crate::test::util::init_test;
 #[derive(Default)]
 pub struct InitializeSettings {
     pub workspace_folders: Option<Vec<(String, Url)>>,
-    pub configuration: bool,
+    pub configuration: Option<serde_json::Value>,
     pub file_watch: bool,
 }
 
@@ -166,8 +166,54 @@ impl TestServer {
         }));
     }
 
-    pub fn get_initialize_params(&self, settings: InitializeSettings) -> Value {
-        let mut params = serde_json::json!({
+    pub fn did_change_configuration(&self) {
+        self.send_message(Message::Notification(Notification {
+            method: lsp_types::notification::DidChangeConfiguration::METHOD.to_owned(),
+            params: serde_json::json!({"settings": {}}),
+        }));
+    }
+
+    pub fn diagnostic(&mut self, file: &'static str) {
+        let path = self.get_root_or_panic().join(file);
+        let id = self.next_request_id();
+        self.send_message(Message::Request(Request {
+            id,
+            method: "textDocument/diagnostic".to_owned(),
+            params: serde_json::json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&path).unwrap().to_string()
+            }}),
+        }));
+    }
+
+    pub fn hover(&mut self, file: &'static str, line: u32, col: u32) {
+        let path = self.get_root_or_panic().join(file);
+        let id = self.next_request_id();
+        self.send_message(Message::Request(Request {
+            id,
+            method: "textDocument/hover".to_owned(),
+            params: serde_json::json!({
+                "textDocument": {
+                    "uri": Url::from_file_path(&path).unwrap().to_string()
+                },
+                "position": {
+                    "line": line,
+                    "character": col
+                }
+            }),
+        }));
+    }
+
+    pub fn send_configuration_response(&self, id: i32, result: serde_json::Value) {
+        self.send_message(Message::Response(Response {
+            id: RequestId::from(id),
+            result: Some(result),
+            error: None,
+        }));
+    }
+
+    pub fn get_initialize_params(&self, settings: &InitializeSettings) -> Value {
+        let mut params: Value = serde_json::json!({
             "rootPath": "/",
             "processId": std::process::id(),
             "trace": "verbose",
@@ -187,7 +233,7 @@ impl TestServer {
             },
         });
 
-        if let Some(folders) = settings.workspace_folders {
+        if let Some(folders) = &settings.workspace_folders {
             params["capabilities"]["workspace"]["workspaceFolders"] = serde_json::json!(true);
             params["workspaceFolders"] = serde_json::json!(
                 folders
@@ -200,7 +246,7 @@ impl TestServer {
             params["capabilities"]["workspace"]["didChangeWatchedFiles"] =
                 serde_json::json!({"dynamicRegistration": true});
         }
-        if settings.configuration {
+        if settings.configuration.is_some() {
             params["capabilities"]["workspace"]["configuration"] = serde_json::json!(true);
         }
 
@@ -240,60 +286,43 @@ impl TestClient {
         }
     }
 
-    pub fn expect_message_helper(
-        &self,
-        message: Result<Message, RecvTimeoutError>,
-        expected_message: Message,
-    ) {
-        match message {
-            Ok(msg) => {
-                eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
+    pub fn expect_message_helper<F>(&self, expected_message: Message, should_skip: F)
+    where
+        F: Fn(&Message) -> bool,
+    {
+        loop {
+            match self.receiver.recv_timeout(self.timeout) {
+                Ok(msg) => {
+                    eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
 
-                let assert_match = |expected: &str, actual: &str| {
-                    assert_eq!(actual, expected, "Response mismatch");
-                };
+                    if should_skip(&msg) {
+                        continue;
+                    }
 
-                let expected_str = serde_json::to_string(&expected_message).unwrap();
-                let actual_str = serde_json::to_string(&msg).unwrap();
+                    let expected_str = serde_json::to_string(&expected_message).unwrap();
+                    let actual_str = serde_json::to_string(&msg).unwrap();
 
-                assert_match(&expected_str, &actual_str);
-            }
-            Err(RecvTimeoutError::Timeout) => {
-                panic!("Timeout waiting for response. Expected: {expected_message:?}");
-            }
-            Err(RecvTimeoutError::Disconnected) => {
-                panic!("Channel disconnected. Expected: {expected_message:?}");
+                    assert_eq!(&expected_str, &actual_str, "Response mismatch");
+                    return;
+                }
+                Err(RecvTimeoutError::Timeout) => {
+                    panic!("Timeout waiting for response. Expected: {expected_message:?}");
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    panic!("Channel disconnected. Expected: {expected_message:?}");
+                }
             }
         }
     }
 
     pub fn expect_message(&self, expected_message: Message) {
-        self.expect_message_helper(self.receiver.recv_timeout(self.timeout), expected_message);
+        self.expect_message_helper(expected_message, |_| false);
     }
 
     pub fn expect_response(&self, expected_response: Response) {
-        loop {
-            match self.receiver.recv_timeout(self.timeout) {
-                Ok(Message::Notification(notification)) => {
-                    eprintln!("received notification, expecting response");
-                    eprintln!(
-                        "client<---server {}",
-                        serde_json::to_string(&notification).unwrap()
-                    );
-                }
-                Ok(Message::Request(request)) => {
-                    eprintln!("received request, expecting response");
-                    eprintln!(
-                        "client<---server {}",
-                        serde_json::to_string(&request).unwrap()
-                    );
-                }
-                result => {
-                    self.expect_message_helper(result, Message::Response(expected_response));
-                    return;
-                }
-            }
-        }
+        self.expect_message_helper(Message::Response(expected_response), |msg| {
+            matches!(msg, Message::Notification(_) | Message::Request(_))
+        });
     }
 
     pub fn expect_definition_response_absolute(
@@ -346,30 +375,22 @@ impl TestClient {
     {
         loop {
             match self.receiver.recv_timeout(self.timeout) {
-                Ok(Message::Notification(notification)) => {
-                    eprintln!("received notification, expecting response");
-                    eprintln!(
-                        "client<---server {}",
-                        serde_json::to_string(&notification).unwrap()
-                    );
-                }
-                Ok(Message::Request(request)) => {
-                    eprintln!("received request, expecting response");
-                    eprintln!(
-                        "client<---server {}",
-                        serde_json::to_string(&request).unwrap()
-                    );
-                }
-                Ok(Message::Response(response)) => {
-                    eprintln!(
-                        "client<---server {}",
-                        serde_json::to_string(&response).unwrap()
-                    );
+                Ok(msg) => {
+                    eprintln!("client<---server {}", serde_json::to_string(&msg).unwrap());
 
-                    if validator(&response) {
-                        return;
-                    } else {
-                        panic!("Response validation failed: {description}. Response: {response:?}");
+                    match &msg {
+                        Message::Notification(_) | Message::Request(_) => {
+                            continue;
+                        }
+                        Message::Response(response) => {
+                            if validator(response) {
+                                return;
+                            } else {
+                                panic!(
+                                    "Response validation failed: {description}. Response: {response:?}"
+                                );
+                            }
+                        }
                     }
                 }
                 Err(RecvTimeoutError::Timeout) => {
@@ -394,6 +415,39 @@ impl TestClient {
                 panic!("Channel disconnected");
             }
         }
+    }
+
+    pub fn expect_configuration_request(&self, id: i32, scope_uri: Option<&Url>) {
+        use lsp_types::ConfigurationItem;
+        use lsp_types::ConfigurationParams;
+        use lsp_types::request::WorkspaceConfiguration;
+
+        let items = if let Some(uri) = scope_uri {
+            Vec::from([
+                ConfigurationItem {
+                    scope_uri: Some(uri.clone()),
+                    section: Some("python".to_owned()),
+                },
+                ConfigurationItem {
+                    scope_uri: None,
+                    section: Some("python".to_owned()),
+                },
+            ])
+        } else {
+            Vec::from([ConfigurationItem {
+                scope_uri: None,
+                section: Some("python".to_owned()),
+            }])
+        };
+
+        self.expect_message_helper(
+            Message::Request(Request {
+                id: RequestId::from(id),
+                method: WorkspaceConfiguration::METHOD.to_owned(),
+                params: serde_json::json!(ConfigurationParams { items }),
+            }),
+            |msg| matches!(msg, Message::Notification(_)),
+        );
     }
 
     fn get_root_or_panic(&self) -> PathBuf {
@@ -446,9 +500,17 @@ impl LspInteraction {
 
     pub fn initialize(&mut self, settings: InitializeSettings) {
         self.server
-            .send_initialize(self.server.get_initialize_params(settings));
+            .send_initialize(self.server.get_initialize_params(&settings));
         self.client.expect_any_message();
         self.server.send_initialized();
+        if let Some(settings) = settings.configuration {
+            self.client.expect_any_message();
+            self.server.send_message(Message::Response(Response {
+                id: RequestId::from(1),
+                result: Some(settings),
+                error: None,
+            }));
+        }
     }
 
     pub fn shutdown(&self) {

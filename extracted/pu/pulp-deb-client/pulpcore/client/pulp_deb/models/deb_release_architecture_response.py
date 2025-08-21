@@ -24,6 +24,14 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class DebReleaseArchitectureResponse(BaseModel):
     """
     A Serializer for ReleaseArchitecture.
@@ -33,9 +41,10 @@ class DebReleaseArchitectureResponse(BaseModel):
     pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
     pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")
+    vuln_report: Optional[StrictStr] = None
     architecture: StrictStr = Field(description="Name of the architecture.")
     distribution: StrictStr = Field(description="Name of the distribution.")
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "architecture", "distribution"]
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "vuln_report", "architecture", "distribution"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -71,12 +80,14 @@ class DebReleaseArchitectureResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
+        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
             "prn",
             "pulp_created",
             "pulp_last_updated",
+            "vuln_report",
         ])
 
         _dict = self.model_dump(
@@ -101,6 +112,7 @@ class DebReleaseArchitectureResponse(BaseModel):
             "pulp_created": obj.get("pulp_created"),
             "pulp_last_updated": obj.get("pulp_last_updated"),
             "pulp_labels": obj.get("pulp_labels"),
+            "vuln_report": obj.get("vuln_report"),
             "architecture": obj.get("architecture"),
             "distribution": obj.get("distribution")
         })

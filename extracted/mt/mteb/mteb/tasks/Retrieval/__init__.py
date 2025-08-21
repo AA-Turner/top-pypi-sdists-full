@@ -12,9 +12,11 @@ from .code.CodeTransOceanContestRetrieval import *
 from .code.CodeTransOceanDLRetrieval import *
 from .code.COIRCodeSearchNetRetrieval import *
 from .code.CosQARetrieval import *
+from .code.MBPPRetrieval import *
 from .code.HumanEvalRetrieval import *
 from .code.StackOverflowQARetrieval import *
 from .code.SyntheticText2SqlRetrieval import *
+from .code.WikiSQLRetrieval import *
 from .dan.DanFeverRetrieval import *
 from .dan.TV2Nordretrieval import *
 from .dan.TwitterHjerneRetrieval import *

@@ -168,7 +168,7 @@ if polars_installed:
 
         @compile_op.register(gen_ops.InvertOp)
         def _(self, op: ops.ScalarOp, input: pl.Expr) -> pl.Expr:
-            return ~input
+            return input.not_()
 
         @compile_op.register(num_ops.AbsOp)
         def _(self, op: ops.ScalarOp, input: pl.Expr) -> pl.Expr:
@@ -197,6 +197,10 @@ if polars_installed:
         @compile_op.register(bool_ops.OrOp)
         def _(self, op: ops.ScalarOp, l_input: pl.Expr, r_input: pl.Expr) -> pl.Expr:
             return l_input | r_input
+
+        @compile_op.register(bool_ops.XorOp)
+        def _(self, op: ops.ScalarOp, l_input: pl.Expr, r_input: pl.Expr) -> pl.Expr:
+            return l_input ^ r_input
 
         @compile_op.register(num_ops.AddOp)
         def _(self, op: ops.ScalarOp, l_input: pl.Expr, r_input: pl.Expr) -> pl.Expr:

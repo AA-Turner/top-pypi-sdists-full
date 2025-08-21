@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-datadog",
-    "version": "12.5.0",
+    "version": "12.6.0",
     "description": "Prebuilt datadog Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-datadog.git",
@@ -60,6 +60,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_datadog.data_datadog_incident_type",
         "cdktf_cdktf_provider_datadog.data_datadog_integration_aws_available_logs_services",
         "cdktf_cdktf_provider_datadog.data_datadog_integration_aws_available_namespaces",
+        "cdktf_cdktf_provider_datadog.data_datadog_integration_aws_iam_permissions",
         "cdktf_cdktf_provider_datadog.data_datadog_integration_aws_logs_services",
         "cdktf_cdktf_provider_datadog.data_datadog_integration_aws_namespace_rules",
         "cdktf_cdktf_provider_datadog.data_datadog_ip_ranges",
@@ -98,6 +99,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_datadog.data_datadog_user",
         "cdktf_cdktf_provider_datadog.data_datadog_users",
         "cdktf_cdktf_provider_datadog.data_datadog_workflow_automation",
+        "cdktf_cdktf_provider_datadog.dataset",
         "cdktf_cdktf_provider_datadog.domain_allowlist",
         "cdktf_cdktf_provider_datadog.downtime",
         "cdktf_cdktf_provider_datadog.downtime_schedule",
@@ -185,7 +187,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_datadog._jsii": [
-            "provider-datadog@12.5.0.jsii.tgz"
+            "provider-datadog@12.6.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_datadog": [
             "py.typed"

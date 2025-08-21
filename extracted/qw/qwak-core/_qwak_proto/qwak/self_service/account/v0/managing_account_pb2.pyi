@@ -115,6 +115,7 @@ class CreateAccountOptions(google.protobuf.message.Message):
     CLOUD_PROVIDER_FIELD_NUMBER: builtins.int
     CLOUD_PROVIDER_SPEC_FIELD_NUMBER: builtins.int
     JFROG_TENANT_SPEC_FIELD_NUMBER: builtins.int
+    CLUSTER_IDENTIFIER_FIELD_NUMBER: builtins.int
     account_name: builtins.str
     """Account name"""
     cloud_provider: global___CloudProvider.ValueType
@@ -125,6 +126,9 @@ class CreateAccountOptions(google.protobuf.message.Message):
     @property
     def jfrog_tenant_spec(self) -> global___SelfServiceJFrogTenantSpec:
         """JFrog tenant spec"""
+    @property
+    def cluster_identifier(self) -> global___ClusterIdentifier:
+        """Cluster identifier"""
     def __init__(
         self,
         *,
@@ -132,11 +136,43 @@ class CreateAccountOptions(google.protobuf.message.Message):
         cloud_provider: global___CloudProvider.ValueType = ...,
         cloud_provider_spec: global___CloudProviderSpec | None = ...,
         jfrog_tenant_spec: global___SelfServiceJFrogTenantSpec | None = ...,
+        cluster_identifier: global___ClusterIdentifier | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["cloud_provider_spec", b"cloud_provider_spec", "jfrog_tenant_spec", b"jfrog_tenant_spec"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["account_name", b"account_name", "cloud_provider", b"cloud_provider", "cloud_provider_spec", b"cloud_provider_spec", "jfrog_tenant_spec", b"jfrog_tenant_spec"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["cloud_provider_spec", b"cloud_provider_spec", "cluster_identifier", b"cluster_identifier", "jfrog_tenant_spec", b"jfrog_tenant_spec"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["account_name", b"account_name", "cloud_provider", b"cloud_provider", "cloud_provider_spec", b"cloud_provider_spec", "cluster_identifier", b"cluster_identifier", "jfrog_tenant_spec", b"jfrog_tenant_spec"]) -> None: ...
 
 global___CreateAccountOptions = CreateAccountOptions
+
+class ClusterIdentifier(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CLUSTER_ID_FIELD_NUMBER: builtins.int
+    @property
+    def cluster_id(self) -> global___ClusterIdIdentifier: ...
+    def __init__(
+        self,
+        *,
+        cluster_id: global___ClusterIdIdentifier | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["cluster_id", b"cluster_id", "type", b"type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["cluster_id", b"cluster_id", "type", b"type"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["cluster_id"] | None: ...
+
+global___ClusterIdentifier = ClusterIdentifier
+
+class ClusterIdIdentifier(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CLUSTER_ID_FIELD_NUMBER: builtins.int
+    cluster_id: builtins.str
+    def __init__(
+        self,
+        *,
+        cluster_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["cluster_id", b"cluster_id"]) -> None: ...
+
+global___ClusterIdIdentifier = ClusterIdIdentifier
 
 class CreateAccountRequestDescription(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

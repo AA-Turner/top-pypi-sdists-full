@@ -2367,21 +2367,24 @@ class CometExperiment(CommonExperiment):
         overwrite: bool = False,
         step: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        format: str = "auto",
     ) -> Optional[Dict[str, Optional[str]]]:
         """
         Log a visual representation of the provided figure to Comet in SVG format.
 
         Args:
-            figure_name (str): A descriptive name for the figure.
-            figure (Any): The figure to be logged. Accepts Plotly Figures, Matplotlib Figures,
+            figure_name: A descriptive name for the figure.
+            figure: The figure to be logged. Accepts Plotly Figures, Matplotlib Figures
                 or Seaborn simple plots. If not provided, the function will log the current global
                 Matplotlib Pyplot figure.
-            overwrite (bool): Determines whether to overwrite an existing figure with the same name.
-            step (int): Associates the figure asset with a specific step in the Comet experiment.
-            metadata (dict): Additional metadata.
+            overwrite: Determines whether to overwrite an existing figure with the same name.
+            step: Associates the figure asset with a specific step in the Comet experiment.
+            metadata: Additional metadata.
+            format: The format of the figure to be logged. Accepts "auto" (default), "png" or "svg".
+                If "auto" is selected, the format will be inferred from the resulting figure size.
 
         Note:
-            Kaleido is required to be installed in order to log plotly figures.
+            Kaleido is required to be installed to log plotly figures.
         """
         return self._log_figure(
             figure_name=figure_name,
@@ -2389,6 +2392,7 @@ class CometExperiment(CommonExperiment):
             overwrite=overwrite,
             step=step,
             metadata=metadata,
+            format=format,
         )
 
     def _log_figure(
@@ -2400,6 +2404,7 @@ class CometExperiment(CommonExperiment):
         figure_type: Optional[str] = None,
         framework: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        format: str = "svg",
     ) -> Optional[Dict[str, Optional[str]]]:
         try:
             if hasattr(figure, "to_plotly_json"):
@@ -2437,7 +2442,11 @@ class CometExperiment(CommonExperiment):
             error_message_identifier=figure_number,
             tmp_dir=self.tmpdir,
             upload_type=figure_type,
+            format=format,
             critical=False,
+            svg_size_limit=self.config.get_int(
+                None, "comet.internal.max_svg_figure_size"
+            ),
         )
         upload_message = processor.process()
 
@@ -2451,6 +2460,96 @@ class CometExperiment(CommonExperiment):
         self.figure_counter += 1
 
         return self._get_uploaded_figure_url(figure_id)
+
+    def log_tensorboard_folder(
+        self, folder: str, metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """
+        Logs a TensorBoard folder for monitoring and visualization.
+
+        This method is used to log a folder containing TensorBoard data. If metadata
+        is provided, it is associated with the logged folder. The data in the folder
+        is assumed to be prepared for TensorFlow visualization.
+
+        Args:
+            folder: The path to the folder containing TensorBoard data files.
+            metadata: Additional metadata to associate with the logged folder.
+
+        Note:
+            Use [comet_ml.APIExperiment.download_tensorflow_folder][] to get the contents
+            There is currently no separate download method for TensorBoard data. Use
+            [comet_ml.APIExperiment.download_tensorflow_folder][] to get the contents
+            of a previously logged TensorBoard folder.
+
+        Example:
+            ```python linenums="1"
+            import comet_ml
+            import torch
+            import torch.nn as nn
+            import torch.optim as optim
+            from torch.profiler import profile, record_function, ProfilerActivity
+            from torch.utils.tensorboard import SummaryWriter
+
+            # Initialize Comet.ml
+            comet_ml.init(project_name="comet-docs")
+            exp = comet_ml.start()
+
+            # Simple model
+            class SimpleNet(nn.Module):
+                def __init__(self):
+                    super(SimpleNet, self).__init__()
+                    self.fc1 = nn.Linear(784, 256)
+                    self.fc2 = nn.Linear(256, 10)
+
+                def forward(self, x):
+                    x = torch.relu(self.fc1(x))
+                    return self.fc2(x)
+
+            # Dummy dataset
+            data = torch.randn(64, 784)
+            target = torch.randint(0, 10, (64, ))
+
+            # Model, loss, optimizer
+            model = SimpleNet()
+            criterion = nn.CrossEntropyLoss()
+            optimizer = optim.SGD(model.parameters(), lr=0.01)
+
+            # TensorBoard writer
+            tb_log_dir="runs/profiler_example"
+            writer = SummaryWriter(log_dir=tb_log_dir)
+
+            # Profiler setup
+            with profile(
+                activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                schedule=torch.profiler.schedule(wait=1, warmup=1, active=2, repeat=1),
+                on_trace_ready=torch.profiler.tensorboard_trace_handler(tb_log_dir),
+                record_shapes=True,
+                profile_memory=True,
+                with_stack=True
+            ) as prof:
+                for step in range(8):
+                    # Forward + backward + optimize
+                    optimizer.zero_grad()
+                    with record_function("forward_pass"):
+                        outputs = model(data)
+                        loss = criterion(outputs, target)
+
+                    with record_function("backward_pass"):
+                        loss.backward()
+
+                    optimizer.step()
+
+                    # Step profiler
+                    prof.step()
+
+            # Log TensorBoard logs folder to Comet
+            exp.log_tensorboard_folder(tb_log_dir)
+
+            # End the experiment
+            exp.end()
+            ```
+        """
+        self.log_tensorflow_folder(folder, metadata=metadata)
 
     def log_tensorflow_folder(
         self, folder: str, metadata: Optional[Dict[str, Any]] = None

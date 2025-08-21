@@ -20,7 +20,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
-from legit_api_client.models.ai_validation_result import AiValidationResult
+from legit_api_client.models.ai_secret_validation_result import AiSecretValidationResult
 from legit_api_client.models.dast_confidence_level import DastConfidenceLevel
 from legit_api_client.models.dependency_fix_type import DependencyFixType
 from legit_api_client.models.integration_dto import IntegrationDto
@@ -71,7 +71,7 @@ class IssueDto(BaseModel):
     remediation_steps: Optional[List[StrictStr]] = Field(default=None, alias="remediationSteps")
     snoozed_type: Optional[SnoozedType] = Field(default=None, alias="snoozedType")
     snoozed_until: Optional[datetime] = Field(default=None, alias="snoozedUntil")
-    ai_validation_result: Optional[AiValidationResult] = Field(default=None, alias="aiValidationResult")
+    ai_validation_result: Optional[AiSecretValidationResult] = Field(default=None, alias="aiValidationResult")
     dast_confidence_level: Optional[DastConfidenceLevel] = Field(default=None, alias="dastConfidenceLevel")
     validity_status: Optional[SecretIssueValidityStatus] = Field(default=None, alias="validityStatus")
     verified_validation_url: Optional[StrictStr] = Field(default=None, alias="verifiedValidationUrl")

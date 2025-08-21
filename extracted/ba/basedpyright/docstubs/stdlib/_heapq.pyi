@@ -30,13 +30,12 @@ maintains the heap invariant!
 """
 
 import sys
-from typing import Any, Final, TypeVar
-
-_T = TypeVar("_T")  # list items must be comparable
+from _typeshed import SupportsRichComparisonT as _T  # All type variable use in this module requires comparability.
+from typing import Final
 
 __about__: Final[str]
 
-def heapify(heap: list[Any], /) -> None:
+def heapify(heap: list[_T], /) -> None:
     """Transform list into a heap, in-place, in O(len(heap)) time."""
     ...
 def heappop(heap: list[_T], /) -> _T:
@@ -68,7 +67,7 @@ def heapreplace(heap: list[_T], item: _T, /) -> _T:
     ...
 
 if sys.version_info >= (3, 14):
-    def heapify_max(heap: list[Any], /) -> None: ...  # list items must be comparable
+    def heapify_max(heap: list[_T], /) -> None: ...
     def heappop_max(heap: list[_T], /) -> _T: ...
     def heappush_max(heap: list[_T], item: _T, /) -> None: ...
     def heappushpop_max(heap: list[_T], item: _T, /) -> _T: ...

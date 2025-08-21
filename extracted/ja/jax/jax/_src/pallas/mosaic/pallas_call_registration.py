@@ -93,6 +93,8 @@ def _get_memory_space_from_aval(
       return tpu_custom_call.MemorySpace.SMEM
     case tpu_core.MemorySpace.SEMAPHORE:
       return tpu_custom_call.MemorySpace.SEMAPHORE_MEM
+    case tpu_core.MemorySpace.HOST:
+      return tpu_custom_call.MemorySpace.HOST
   return None
 
 
@@ -270,6 +272,7 @@ def pallas_call_tpu_lowering_rule(
       disable_bounds_checks=mosaic_params.disable_bounds_checks,
       input_memory_spaces=input_memory_spaces,
       metadata=dict(metadata) if metadata is not None else None,
+      skip_device_barrier=mosaic_params.skip_device_barrier,
   )
   _maybe_cast_to_bool = lambda x, aval: x.astype(
       jax.numpy.bool_) if aval.dtype == jax.numpy.bool_ else x

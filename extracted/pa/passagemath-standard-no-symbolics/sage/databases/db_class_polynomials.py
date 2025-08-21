@@ -1,4 +1,3 @@
-# sage_setup: distribution = sagemath-database-kohel
 """
 Database of Hilbert polynomials
 

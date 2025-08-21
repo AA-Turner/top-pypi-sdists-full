@@ -8,6 +8,7 @@
 use std::sync::Arc;
 
 use pyrefly_python::dunder;
+use pyrefly_types::typed_dict::ExtraItems;
 use ruff_python_ast::DictItem;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -68,6 +69,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         item_errors: &ErrorCollector,
     ) {
         let fields = self.typed_dict_fields(typed_dict);
+        let extra_items = self.typed_dict_extra_items(typed_dict.class_object());
         let mut has_expansion = false;
         let mut keys: SmallSet<Name> = SmallSet::new();
         dict_items.iter().for_each(|x| match &x.key {
@@ -91,6 +93,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
                                         key_name.clone(),
                                     ))
+                                })),
+                                item_errors,
+                            );
+                        }
+                        None if let Some(ExtraItems::Extra(extra)) = &extra_items => {
+                            self.expr_with_separate_check_errors(
+                                &x.value,
+                                Some((&extra.ty, check_errors, &|| {
+                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictExtra)
                                 })),
                                 item_errors,
                             );
@@ -149,6 +160,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
         }
+    }
+
+    fn typed_dict_extra_items(&self, cls: &Class) -> Option<ExtraItems> {
+        self.get_metadata_for_class(cls)
+            .typed_dict_metadata()
+            .map(|m| m.extra_items.clone())
     }
 
     fn class_field_to_typed_dict_field(
@@ -234,6 +251,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Required::Optional(None)
                 },
             ));
+        }
+        if let Some(ExtraItems::Extra(extra)) = self.typed_dict_extra_items(cls) {
+            params.push(Param::Kwargs(None, extra.ty));
         }
         let ty = Type::Function(Box::new(Function {
             signature: Callable::list(ParamList::new(params), Type::None),

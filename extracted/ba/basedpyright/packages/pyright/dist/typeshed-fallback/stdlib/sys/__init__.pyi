@@ -588,6 +588,7 @@ def settrace(function: TraceFunction | None, /) -> None:
 if sys.platform == "win32":
     # A tuple of length 5, even though it has more than 5 attributes.
     @final
+    @type_check_only
     class _WinVersion(_UninstantiableStructseq, tuple[int, int, int, int, str]):
         @property
         def major(self) -> int: ...
@@ -741,7 +742,14 @@ def set_asyncgen_hooks(firstiter: _AsyncgenHook = ..., finalizer: _AsyncgenHook 
     ...
 
 if sys.platform == "win32":
-    def _enablelegacywindowsfsencoding() -> None: ...
+    if sys.version_info >= (3, 13):
+        @deprecated(
+            "Deprecated since Python 3.13; will be removed in Python 3.16. "
+            "Use the `PYTHONLEGACYWINDOWSFSENCODING` environment variable instead."
+        )
+        def _enablelegacywindowsfsencoding() -> None: ...
+    else:
+        def _enablelegacywindowsfsencoding() -> None: ...
 
 def get_coroutine_origin_tracking_depth() -> int:
     """Check status of origin tracking for coroutine objects in this thread."""

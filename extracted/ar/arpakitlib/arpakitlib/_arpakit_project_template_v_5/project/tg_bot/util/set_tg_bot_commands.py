@@ -5,7 +5,7 @@ from aiogram.types import BotCommand, BotCommandScopeChat
 
 from arpakitlib.ar_str_util import return_str_if_none
 from project.core.settings import get_cached_settings
-from project.core.util import setup_logging
+from project.core.setup_logging import setup_logging
 from project.sqlalchemy_db_.sqlalchemy_db import get_cached_sqlalchemy_db
 from project.sqlalchemy_db_.sqlalchemy_model import UserDBM
 from project.tg_bot.blank.client import get_cached_rus_client_tg_bot_blank

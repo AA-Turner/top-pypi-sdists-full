@@ -84,11 +84,10 @@ def default(obj):
         return obj.total_seconds()
     elif isinstance(obj, Decimal):
         return decimal_encoder(obj)
-    elif isinstance(obj, uuid.UUID):
-        return str(obj)
     elif isinstance(  # noqa: UP038
         obj,
         (
+            uuid.UUID,
             IPv4Address,
             IPv4Interface,
             IPv4Network,

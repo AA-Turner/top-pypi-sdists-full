@@ -69,6 +69,7 @@ async def _yield_store(value: Any):
 
 async def collect_store_from_env() -> None:
     global CUSTOM_STORE
+    store_path = None
     if not config.STORE_CONFIG or not (store_path := config.STORE_CONFIG.get("path")):
         return
     await logger.ainfo(

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ptflops"
-version = "0.7.4"
+version = "0.7.5"
 dependencies = [
   "torch>=2.0",
 ]
@@ -26,7 +26,7 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = [
-  "flake8==3.8.1",
+  "flake8==5.0.1",
   "flake8-import-order==0.18.1",
   "isort==4.3.21",
   "torchvision>=0.5.0",

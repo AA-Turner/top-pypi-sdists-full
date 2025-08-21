@@ -24,6 +24,7 @@ import os
 import sys
 from typing import Any, Generic, NoReturn, Optional, Protocol, TypeVar, cast
 
+from jax._src import deprecations
 from jax._src.lib import guard_lib
 from jax._src.lib import jax_jit
 from jax._src.lib import xla_client
@@ -456,6 +457,7 @@ def enum_state(
     update_global_hook: Callable[[str], None] | None = None,
     update_thread_local_hook: Callable[[str | None], None] | None = None,
     include_in_jit_key: bool = False,
+    extra_validator: Callable[[str], None] | None = None,
 ) -> State[str]:
   """Set up thread-local state and return a contextmanager for managing it.
 
@@ -487,6 +489,8 @@ def enum_state(
     if type(new_val) is not str or new_val not in enum_values:
       raise ValueError(f"new enum value must be in {enum_values}, "
                        f"got {new_val} of type {type(new_val)}.")
+    if extra_validator is not None:
+      extra_validator(new_val)
 
   s = State[str](
       name,
@@ -1062,6 +1066,15 @@ random_seed_offset = int_state(
     include_in_jit_key=True,
 )
 
+# TODO(jakevdp): remove this flag.
+safer_randint = bool_state(
+    name='jax_safer_randint',
+    default=False,  # TODO(jakevdp): flip default to True.
+    help='Use a safer randint algorithm for 8-bit and 16-bit dtypes.',
+    include_in_jit_key=True,
+    upgrade=True
+)
+
 legacy_prng_key = enum_state(
     name='jax_legacy_prng_key',
     enum_values=['allow', 'warn', 'error'],
@@ -1315,13 +1328,27 @@ remove_custom_partitioning_ptr_from_cache_key = bool_state(
           'what they are trying to achieve should set it.'),
 )
 
+def _default_dtype_bits_deprecation(new_val):
+  if new_val != '64':
+    deprecations.warn(
+      'default-dtype-bits-config',
+      (
+        'The jax_default_dtype_bits configuration is deprecated in JAX v0.7.1'
+        ' and will be remove in JAX v0.9.0.'
+      ),
+      stacklevel=3
+    )
+
+
 default_dtype_bits = enum_state(
     name='jax_default_dtype_bits',
     enum_values=['32', '64'],
     default='64',
-    help=('Specify bit width of default dtypes, either 32-bit or 64-bit. '
-          'This is a temporary flag that will be used during the process '
-          'of deprecating the ``jax_enable_x64`` flag.'))
+    help=('[deprecated]. This flag was an experiment in allowing users to specify the'
+          ' default bit width. It was never fully supported or tested. It will '
+          ' have no effect after JAX v0.9.0, and be removed entirely in JAX v0.10.0.'),
+    extra_validator=_default_dtype_bits_deprecation)
+
 
 numpy_dtype_promotion = enum_state(
     name='jax_numpy_dtype_promotion',
@@ -1852,15 +1879,6 @@ cpu_collectives_implementation = optional_enum_state(
     help=(
         "Cross-process collective implementation used on CPU. Must be one of "
         '("gloo", "mpi")'),
-)
-
-enable_empty_arrays = bool_state(
-    name='jax_enable_empty_arrays',
-    default=False,
-    help=(
-        "Enable the creation of an Array from an empty list of single-device "
-        "arrays. This is to support MPMD/pipeline parallelism in McJAX (WIP)."
-    )
 )
 
 use_high_dynamic_range_gumbel = bool_state(

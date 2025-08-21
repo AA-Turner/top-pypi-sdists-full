@@ -29,6 +29,7 @@ __all__ = (
     "CodeContentTypeType",
     "ConfigurationTypeType",
     "InputStartingPositionType",
+    "KeyTypeType",
     "KinesisAnalyticsV2ServiceName",
     "ListApplicationOperationsPaginatorName",
     "ListApplicationSnapshotsPaginatorName",
@@ -68,6 +69,7 @@ ArtifactTypeType = Literal["DEPENDENCY_JAR", "UDF"]
 CodeContentTypeType = Literal["PLAINTEXT", "ZIPFILE"]
 ConfigurationTypeType = Literal["CUSTOM", "DEFAULT"]
 InputStartingPositionType = Literal["LAST_STOPPED_POINT", "NOW", "TRIM_HORIZON"]
+KeyTypeType = Literal["AWS_OWNED_KEY", "CUSTOMER_MANAGED_KEY"]
 ListApplicationOperationsPaginatorName = Literal["list_application_operations"]
 ListApplicationSnapshotsPaginatorName = Literal["list_application_snapshots"]
 ListApplicationVersionsPaginatorName = Literal["list_application_versions"]
@@ -120,6 +122,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -131,8 +134,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",

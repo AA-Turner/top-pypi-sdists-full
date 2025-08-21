@@ -7,7 +7,7 @@ import starlette.responses
 from openpyxl import Workbook
 from sqladmin import ModelView
 
-from project.core.util import now_local_dt
+from arpakitlib.ar_datetime_util import now_utc_dt
 
 
 class SimpleMV(ModelView):
@@ -21,6 +21,7 @@ class SimpleMV(ModelView):
     save_as = True
     save_as_continue = True
     export_types = ["xlsx"]
+    form_include_pk = True
 
     async def export_data(
             self,
@@ -47,7 +48,7 @@ class SimpleMV(ModelView):
         wb.save(output)
         output.seek(0)
 
-        filename = f"{self.model.__name__}_export_{now_local_dt().strftime("%d.%m.%YT%H-%M-%S-%Z%z")}.xlsx"
+        filename = f"{self.model.__name__}_export_{now_utc_dt().strftime("%d.%m.%YT%H-%M-%S-%Z%z")}.xlsx"
 
         return starlette.responses.StreamingResponse(
             output,

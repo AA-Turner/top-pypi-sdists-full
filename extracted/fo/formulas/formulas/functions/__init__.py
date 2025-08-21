@@ -216,6 +216,22 @@ def clean_values(values):
     return values[values != np.array(sh.EMPTY, dtype=object)]
 
 
+def str2complex(string):
+    return complex(string.replace(" ", "").lower().replace("i", "j"))
+
+
+def is_complex(value):
+    if isinstance(value, complex):
+        return True
+    if isinstance(value, str):
+        try:
+            str2complex(value)
+            return True
+        except ValueError:
+            pass
+    return False
+
+
 def is_number(number, xl_return=True, bool_return=False):
     if isinstance(number, (bool, np.bool_)):
         return bool_return
@@ -309,11 +325,7 @@ def __xfilter(test_range, condition):
                     tuple(map(lambda v: '.%s' % v, it)) + ('',)
                 ), ()))).match
                 f = lambda v: isinstance(v, str) and bool(match(v))
-                b = np.vectorize(f, otypes=[bool])(test_range['raw'])
-                try:
-                    return b
-                except FoundError as ex:
-                    return ex.err
+                return np.vectorize(f, otypes=[bool])(test_range['raw'])
             elif any(v in condition for v in ('~?', '~*')):
                 condition = condition.replace('~?', '?').replace('~*', '*')
         from ..tokens.operand import Number, Error
@@ -347,10 +359,7 @@ def __xfilter(test_range, condition):
         b = np.vectorize(check, otypes=[bool])(test_range['num'])
     else:
         b = np.vectorize(check, otypes=[bool])(test_range['raw'])
-    try:
-        return b
-    except FoundError as ex:
-        return ex.err
+    return b
 
 
 def _xfilter(accumulator, operating_range, test_ranges, *conditions):
@@ -408,12 +417,6 @@ def flatten(v, check=is_number, drop_empty=False):
             yield from flatten(el, check, drop_empty)
     elif not check or check(v):
         yield v
-
-
-# noinspection PyUnusedLocal
-def value_return(res, *args):
-    res._collapse_value = Error.errors['#VALUE!']
-    return res
 
 
 def convert_nan(value, default=Error.errors['#NUM!']):

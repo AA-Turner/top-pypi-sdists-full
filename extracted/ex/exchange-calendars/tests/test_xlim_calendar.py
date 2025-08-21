@@ -17,6 +17,10 @@ class TestXLIMCalendar(ExchangeCalendarTestBase):
     @pytest.fixture
     def regular_holidays_sample(self):
         yield [
+            "2025-06-07",  # Battle of Arica and Flag Day
+            "2025-07-23",  # Peruvian Air Force Day
+            "2025-08-06",  # Battle of Junín
+            "2025-12-09",  # Battle of Ayacucho
             "2019-01-01",  # New Year's Day
             "2019-04-18",  # Maundy Thursday
             "2019-04-19",  # Good Friday

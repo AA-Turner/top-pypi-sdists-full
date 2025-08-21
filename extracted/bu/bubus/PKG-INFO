@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bubus
-Version: 1.5.4
+Version: 1.5.5
 Summary: Advanced Pydantic-powered event bus with async support
 Project-URL: Repository, https://github.com/browser-use/bubus
 Author: Nick Sweeting

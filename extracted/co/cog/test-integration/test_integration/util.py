@@ -93,7 +93,7 @@ def assert_versions_match(semver_version: str, pep440_version: str):
         if semver_pre.startswith("dev"):
             assert pep440_groups["dev_l"] == "dev", "Dev build status does not match"
 
-    assert semver_groups["buildmetadata"] == pep440_groups["local"], (
+    assert pep440_groups["local"].startswith(semver_groups["buildmetadata"]), (
         f"Local/build metadata component does not match: {semver_groups['buildmetadata']} != {pep440_groups['local']}"
     )
 

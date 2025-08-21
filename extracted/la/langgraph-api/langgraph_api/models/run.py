@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import time
 import urllib.parse
 import uuid
@@ -381,19 +382,18 @@ async def create_valid_run(
                 else None
             ),
             run_put_ms=int((time.time() - put_time_start) * 1_000),
+            checkpoint_id=str(checkpoint_id),
         )
         # inserted, proceed
         if multitask_strategy in ("interrupt", "rollback") and inflight_runs:
-            try:
+            with contextlib.suppress(HTTPException):
+                # if we can't find the inflight runs again, we can proceeed
                 await Runs.cancel(
                     conn,
                     [run["run_id"] for run in inflight_runs],
                     thread_id=thread_id_,
                     action=multitask_strategy,
                 )
-            except HTTPException:
-                # if we can't find the inflight runs again, we can proceeed
-                pass
         return first
     elif multitask_strategy == "reject":
         raise HTTPException(

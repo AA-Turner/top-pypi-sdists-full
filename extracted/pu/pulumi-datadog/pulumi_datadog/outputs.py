@@ -446,6 +446,7 @@ __all__ = [
     'DashboardWidgetTreemapDefinitionRequestQueryProcessQuery',
     'DashboardWidgetTreemapDefinitionRequestQuerySloQuery',
     'DashboardWidgetWidgetLayout',
+    'DatasetProductFilter',
     'DowntimeRecurrence',
     'DowntimeScheduleMonitorIdentifier',
     'DowntimeScheduleOneTimeSchedule',
@@ -544,7 +545,15 @@ __all__ = [
     'ObservabilityPipelineConfigDestinations',
     'ObservabilityPipelineConfigDestinationsAmazonOpensearch',
     'ObservabilityPipelineConfigDestinationsAmazonOpensearchAuth',
+    'ObservabilityPipelineConfigDestinationsAmazonS3',
+    'ObservabilityPipelineConfigDestinationsAmazonS3Auth',
+    'ObservabilityPipelineConfigDestinationsAmazonSecurityLake',
+    'ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth',
+    'ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls',
     'ObservabilityPipelineConfigDestinationsAzureStorage',
+    'ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiem',
+    'ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemCompression',
+    'ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls',
     'ObservabilityPipelineConfigDestinationsDatadogLog',
     'ObservabilityPipelineConfigDestinationsElasticsearch',
     'ObservabilityPipelineConfigDestinationsGoogleChronicle',
@@ -558,6 +567,10 @@ __all__ = [
     'ObservabilityPipelineConfigDestinationsRsyslog',
     'ObservabilityPipelineConfigDestinationsRsyslogTls',
     'ObservabilityPipelineConfigDestinationsSentinelOne',
+    'ObservabilityPipelineConfigDestinationsSocket',
+    'ObservabilityPipelineConfigDestinationsSocketFraming',
+    'ObservabilityPipelineConfigDestinationsSocketFramingCharacterDelimited',
+    'ObservabilityPipelineConfigDestinationsSocketTls',
     'ObservabilityPipelineConfigDestinationsSplunkHec',
     'ObservabilityPipelineConfigDestinationsSumoLogic',
     'ObservabilityPipelineConfigDestinationsSumoLogicHeaderCustomField',
@@ -568,6 +581,9 @@ __all__ = [
     'ObservabilityPipelineConfigProcessorsAddEnvVarVariable',
     'ObservabilityPipelineConfigProcessorsAddField',
     'ObservabilityPipelineConfigProcessorsAddFieldField',
+    'ObservabilityPipelineConfigProcessorsCustomProcessor',
+    'ObservabilityPipelineConfigProcessorsCustomProcessorRemap',
+    'ObservabilityPipelineConfigProcessorsDatadogTag',
     'ObservabilityPipelineConfigProcessorsDedupe',
     'ObservabilityPipelineConfigProcessorsEnrichmentTable',
     'ObservabilityPipelineConfigProcessorsEnrichmentTableFile',
@@ -639,6 +655,10 @@ __all__ = [
     'ObservabilityPipelineConfigSourcesLogstashTls',
     'ObservabilityPipelineConfigSourcesRsyslog',
     'ObservabilityPipelineConfigSourcesRsyslogTls',
+    'ObservabilityPipelineConfigSourcesSocket',
+    'ObservabilityPipelineConfigSourcesSocketFraming',
+    'ObservabilityPipelineConfigSourcesSocketFramingCharacterDelimited',
+    'ObservabilityPipelineConfigSourcesSocketTls',
     'ObservabilityPipelineConfigSourcesSplunkHec',
     'ObservabilityPipelineConfigSourcesSplunkHecTls',
     'ObservabilityPipelineConfigSourcesSplunkTcp',
@@ -34498,6 +34518,35 @@ class DashboardWidgetWidgetLayout(dict):
 
 
 @pulumi.output_type
+class DatasetProductFilter(dict):
+    def __init__(__self__, *,
+                 filters: Sequence[_builtins.str],
+                 product: _builtins.str):
+        """
+        :param Sequence[_builtins.str] filters: A list of tag-based filters used to restrict access to the product type. Each filter is formatted as `@tag.key:value`.
+        :param _builtins.str product: The product type of the dataset. Supported types: `apm`, `rum`, `synthetics`, `metrics`, `logs`, `sd_repoinfo`, `error_tracking`, `cloud_cost`, and `ml_obs`.
+        """
+        pulumi.set(__self__, "filters", filters)
+        pulumi.set(__self__, "product", product)
+
+    @_builtins.property
+    @pulumi.getter
+    def filters(self) -> Sequence[_builtins.str]:
+        """
+        A list of tag-based filters used to restrict access to the product type. Each filter is formatted as `@tag.key:value`.
+        """
+        return pulumi.get(self, "filters")
+
+    @_builtins.property
+    @pulumi.getter
+    def product(self) -> _builtins.str:
+        """
+        The product type of the dataset. Supported types: `apm`, `rum`, `synthetics`, `metrics`, `logs`, `sd_repoinfo`, `error_tracking`, `cloud_cost`, and `ml_obs`.
+        """
+        return pulumi.get(self, "product")
+
+
+@pulumi.output_type
 class DowntimeRecurrence(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -40569,8 +40618,14 @@ class ObservabilityPipelineConfigDestinations(dict):
         suggest = None
         if key == "amazonOpensearches":
             suggest = "amazon_opensearches"
+        elif key == "amazonS3s":
+            suggest = "amazon_s3s"
+        elif key == "amazonSecurityLakes":
+            suggest = "amazon_security_lakes"
         elif key == "azureStorages":
             suggest = "azure_storages"
+        elif key == "crowdstrikeNextGenSiems":
+            suggest = "crowdstrike_next_gen_siems"
         elif key == "datadogLogs":
             suggest = "datadog_logs"
         elif key == "googleChronicles":
@@ -40603,7 +40658,10 @@ class ObservabilityPipelineConfigDestinations(dict):
 
     def __init__(__self__, *,
                  amazon_opensearches: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAmazonOpensearch']] = None,
+                 amazon_s3s: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAmazonS3']] = None,
+                 amazon_security_lakes: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAmazonSecurityLake']] = None,
                  azure_storages: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAzureStorage']] = None,
+                 crowdstrike_next_gen_siems: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiem']] = None,
                  datadog_logs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsDatadogLog']] = None,
                  elasticsearches: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsElasticsearch']] = None,
                  google_chronicles: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsGoogleChronicle']] = None,
@@ -40613,12 +40671,16 @@ class ObservabilityPipelineConfigDestinations(dict):
                  opensearches: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsOpensearch']] = None,
                  rsyslogs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsRsyslog']] = None,
                  sentinel_ones: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSentinelOne']] = None,
+                 sockets: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSocket']] = None,
                  splunk_hecs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSplunkHec']] = None,
                  sumo_logics: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSumoLogic']] = None,
                  syslog_ngs: Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSyslogNg']] = None):
         """
         :param Sequence['ObservabilityPipelineConfigDestinationsAmazonOpensearchArgs'] amazon_opensearches: The `amazon_opensearch` destination writes logs to Amazon OpenSearch.
+        :param Sequence['ObservabilityPipelineConfigDestinationsAmazonS3Args'] amazon_s3s: The `amazon_s3` destination sends your logs in Datadog-rehydratable format to an Amazon S3 bucket for archiving.
+        :param Sequence['ObservabilityPipelineConfigDestinationsAmazonSecurityLakeArgs'] amazon_security_lakes: The `amazon_security_lake` destination sends your logs to Amazon Security Lake.
         :param Sequence['ObservabilityPipelineConfigDestinationsAzureStorageArgs'] azure_storages: The `azure_storage` destination forwards logs to an Azure Blob Storage container.
+        :param Sequence['ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemArgs'] crowdstrike_next_gen_siems: The `crowdstrike_next_gen_siem` destination forwards logs to CrowdStrike Next Gen SIEM.
         :param Sequence['ObservabilityPipelineConfigDestinationsDatadogLogArgs'] datadog_logs: The `datadog_logs` destination forwards logs to Datadog Log Management.
         :param Sequence['ObservabilityPipelineConfigDestinationsElasticsearchArgs'] elasticsearches: The `elasticsearch` destination writes logs to an Elasticsearch cluster.
         :param Sequence['ObservabilityPipelineConfigDestinationsGoogleChronicleArgs'] google_chronicles: The `google_chronicle` destination sends logs to Google Chronicle.
@@ -40628,14 +40690,21 @@ class ObservabilityPipelineConfigDestinations(dict):
         :param Sequence['ObservabilityPipelineConfigDestinationsOpensearchArgs'] opensearches: The `opensearch` destination writes logs to an OpenSearch cluster.
         :param Sequence['ObservabilityPipelineConfigDestinationsRsyslogArgs'] rsyslogs: The `rsyslog` destination forwards logs to an external `rsyslog` server over TCP or UDP using the syslog protocol.
         :param Sequence['ObservabilityPipelineConfigDestinationsSentinelOneArgs'] sentinel_ones: The `sentinel_one` destination sends logs to SentinelOne.
+        :param Sequence['ObservabilityPipelineConfigDestinationsSocketArgs'] sockets: The `socket` destination sends logs over TCP or UDP to a remote server.
         :param Sequence['ObservabilityPipelineConfigDestinationsSplunkHecArgs'] splunk_hecs: The `splunk_hec` destination forwards logs to Splunk using the HTTP Event Collector (HEC).
         :param Sequence['ObservabilityPipelineConfigDestinationsSumoLogicArgs'] sumo_logics: The `sumo_logic` destination forwards logs to Sumo Logic.
         :param Sequence['ObservabilityPipelineConfigDestinationsSyslogNgArgs'] syslog_ngs: The `syslog_ng` destination forwards logs to an external `syslog-ng` server over TCP or UDP using the syslog protocol.
         """
         if amazon_opensearches is not None:
             pulumi.set(__self__, "amazon_opensearches", amazon_opensearches)
+        if amazon_s3s is not None:
+            pulumi.set(__self__, "amazon_s3s", amazon_s3s)
+        if amazon_security_lakes is not None:
+            pulumi.set(__self__, "amazon_security_lakes", amazon_security_lakes)
         if azure_storages is not None:
             pulumi.set(__self__, "azure_storages", azure_storages)
+        if crowdstrike_next_gen_siems is not None:
+            pulumi.set(__self__, "crowdstrike_next_gen_siems", crowdstrike_next_gen_siems)
         if datadog_logs is not None:
             pulumi.set(__self__, "datadog_logs", datadog_logs)
         if elasticsearches is not None:
@@ -40654,6 +40723,8 @@ class ObservabilityPipelineConfigDestinations(dict):
             pulumi.set(__self__, "rsyslogs", rsyslogs)
         if sentinel_ones is not None:
             pulumi.set(__self__, "sentinel_ones", sentinel_ones)
+        if sockets is not None:
+            pulumi.set(__self__, "sockets", sockets)
         if splunk_hecs is not None:
             pulumi.set(__self__, "splunk_hecs", splunk_hecs)
         if sumo_logics is not None:
@@ -40670,12 +40741,36 @@ class ObservabilityPipelineConfigDestinations(dict):
         return pulumi.get(self, "amazon_opensearches")
 
     @_builtins.property
+    @pulumi.getter(name="amazonS3s")
+    def amazon_s3s(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAmazonS3']]:
+        """
+        The `amazon_s3` destination sends your logs in Datadog-rehydratable format to an Amazon S3 bucket for archiving.
+        """
+        return pulumi.get(self, "amazon_s3s")
+
+    @_builtins.property
+    @pulumi.getter(name="amazonSecurityLakes")
+    def amazon_security_lakes(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAmazonSecurityLake']]:
+        """
+        The `amazon_security_lake` destination sends your logs to Amazon Security Lake.
+        """
+        return pulumi.get(self, "amazon_security_lakes")
+
+    @_builtins.property
     @pulumi.getter(name="azureStorages")
     def azure_storages(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsAzureStorage']]:
         """
         The `azure_storage` destination forwards logs to an Azure Blob Storage container.
         """
         return pulumi.get(self, "azure_storages")
+
+    @_builtins.property
+    @pulumi.getter(name="crowdstrikeNextGenSiems")
+    def crowdstrike_next_gen_siems(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiem']]:
+        """
+        The `crowdstrike_next_gen_siem` destination forwards logs to CrowdStrike Next Gen SIEM.
+        """
+        return pulumi.get(self, "crowdstrike_next_gen_siems")
 
     @_builtins.property
     @pulumi.getter(name="datadogLogs")
@@ -40748,6 +40843,14 @@ class ObservabilityPipelineConfigDestinations(dict):
         The `sentinel_one` destination sends logs to SentinelOne.
         """
         return pulumi.get(self, "sentinel_ones")
+
+    @_builtins.property
+    @pulumi.getter
+    def sockets(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigDestinationsSocket']]:
+        """
+        The `socket` destination sends logs over TCP or UDP to a remote server.
+        """
+        return pulumi.get(self, "sockets")
 
     @_builtins.property
     @pulumi.getter(name="splunkHecs")
@@ -40930,6 +41033,405 @@ class ObservabilityPipelineConfigDestinationsAmazonOpensearchAuth(dict):
 
 
 @pulumi.output_type
+class ObservabilityPipelineConfigDestinationsAmazonS3(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "keyPrefix":
+            suggest = "key_prefix"
+        elif key == "storageClass":
+            suggest = "storage_class"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsAmazonS3. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationsAmazonS3.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationsAmazonS3.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 bucket: _builtins.str,
+                 id: _builtins.str,
+                 inputs: Sequence[_builtins.str],
+                 key_prefix: _builtins.str,
+                 region: _builtins.str,
+                 storage_class: _builtins.str,
+                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonS3Auth'] = None):
+        """
+        :param _builtins.str bucket: S3 bucket name.
+        :param _builtins.str id: Unique identifier for the destination component.
+        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
+        :param _builtins.str key_prefix: Prefix for object keys.
+        :param _builtins.str region: AWS region of the S3 bucket.
+        :param _builtins.str storage_class: S3 storage class. Valid values are `STANDARD`, `REDUCED_REDUNDANCY`, `INTELLIGENT_TIERING`, `STANDARD_IA`, `EXPRESS_ONEZONE`, `ONEZONE_IA`, `GLACIER`, `GLACIER_IR`, `DEEP_ARCHIVE`.
+        :param 'ObservabilityPipelineConfigDestinationsAmazonS3AuthArgs' auth: AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        """
+        pulumi.set(__self__, "bucket", bucket)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "inputs", inputs)
+        pulumi.set(__self__, "key_prefix", key_prefix)
+        pulumi.set(__self__, "region", region)
+        pulumi.set(__self__, "storage_class", storage_class)
+        if auth is not None:
+            pulumi.set(__self__, "auth", auth)
+
+    @_builtins.property
+    @pulumi.getter
+    def bucket(self) -> _builtins.str:
+        """
+        S3 bucket name.
+        """
+        return pulumi.get(self, "bucket")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        Unique identifier for the destination component.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def inputs(self) -> Sequence[_builtins.str]:
+        """
+        A list of component IDs whose output is used as the `input` for this component.
+        """
+        return pulumi.get(self, "inputs")
+
+    @_builtins.property
+    @pulumi.getter(name="keyPrefix")
+    def key_prefix(self) -> _builtins.str:
+        """
+        Prefix for object keys.
+        """
+        return pulumi.get(self, "key_prefix")
+
+    @_builtins.property
+    @pulumi.getter
+    def region(self) -> _builtins.str:
+        """
+        AWS region of the S3 bucket.
+        """
+        return pulumi.get(self, "region")
+
+    @_builtins.property
+    @pulumi.getter(name="storageClass")
+    def storage_class(self) -> _builtins.str:
+        """
+        S3 storage class. Valid values are `STANDARD`, `REDUCED_REDUNDANCY`, `INTELLIGENT_TIERING`, `STANDARD_IA`, `EXPRESS_ONEZONE`, `ONEZONE_IA`, `GLACIER`, `GLACIER_IR`, `DEEP_ARCHIVE`.
+        """
+        return pulumi.get(self, "storage_class")
+
+    @_builtins.property
+    @pulumi.getter
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonS3Auth']:
+        """
+        AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        """
+        return pulumi.get(self, "auth")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationsAmazonS3Auth(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "assumeRole":
+            suggest = "assume_role"
+        elif key == "externalId":
+            suggest = "external_id"
+        elif key == "sessionName":
+            suggest = "session_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsAmazonS3Auth. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationsAmazonS3Auth.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationsAmazonS3Auth.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 assume_role: Optional[_builtins.str] = None,
+                 external_id: Optional[_builtins.str] = None,
+                 session_name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str assume_role: The Amazon Resource Name (ARN) of the role to assume.
+        :param _builtins.str external_id: A unique identifier for cross-account role assumption.
+        :param _builtins.str session_name: A session identifier used for logging and tracing the assumed role session.
+        """
+        if assume_role is not None:
+            pulumi.set(__self__, "assume_role", assume_role)
+        if external_id is not None:
+            pulumi.set(__self__, "external_id", external_id)
+        if session_name is not None:
+            pulumi.set(__self__, "session_name", session_name)
+
+    @_builtins.property
+    @pulumi.getter(name="assumeRole")
+    def assume_role(self) -> Optional[_builtins.str]:
+        """
+        The Amazon Resource Name (ARN) of the role to assume.
+        """
+        return pulumi.get(self, "assume_role")
+
+    @_builtins.property
+    @pulumi.getter(name="externalId")
+    def external_id(self) -> Optional[_builtins.str]:
+        """
+        A unique identifier for cross-account role assumption.
+        """
+        return pulumi.get(self, "external_id")
+
+    @_builtins.property
+    @pulumi.getter(name="sessionName")
+    def session_name(self) -> Optional[_builtins.str]:
+        """
+        A session identifier used for logging and tracing the assumed role session.
+        """
+        return pulumi.get(self, "session_name")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationsAmazonSecurityLake(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "customSourceName":
+            suggest = "custom_source_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsAmazonSecurityLake. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationsAmazonSecurityLake.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationsAmazonSecurityLake.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 bucket: _builtins.str,
+                 custom_source_name: _builtins.str,
+                 id: _builtins.str,
+                 inputs: Sequence[_builtins.str],
+                 region: _builtins.str,
+                 auth: Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth'] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls'] = None):
+        """
+        :param _builtins.str bucket: Name of the Amazon S3 bucket in Security Lake (3-63 characters).
+        :param _builtins.str custom_source_name: Custom source name for the logs in Security Lake.
+        :param _builtins.str id: Unique identifier for the destination component.
+        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
+        :param _builtins.str region: AWS region of the Security Lake bucket.
+        :param 'ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuthArgs' auth: AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        :param 'ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        pulumi.set(__self__, "bucket", bucket)
+        pulumi.set(__self__, "custom_source_name", custom_source_name)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "inputs", inputs)
+        pulumi.set(__self__, "region", region)
+        if auth is not None:
+            pulumi.set(__self__, "auth", auth)
+        if tls is not None:
+            pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter
+    def bucket(self) -> _builtins.str:
+        """
+        Name of the Amazon S3 bucket in Security Lake (3-63 characters).
+        """
+        return pulumi.get(self, "bucket")
+
+    @_builtins.property
+    @pulumi.getter(name="customSourceName")
+    def custom_source_name(self) -> _builtins.str:
+        """
+        Custom source name for the logs in Security Lake.
+        """
+        return pulumi.get(self, "custom_source_name")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        Unique identifier for the destination component.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def inputs(self) -> Sequence[_builtins.str]:
+        """
+        A list of component IDs whose output is used as the `input` for this component.
+        """
+        return pulumi.get(self, "inputs")
+
+    @_builtins.property
+    @pulumi.getter
+    def region(self) -> _builtins.str:
+        """
+        AWS region of the Security Lake bucket.
+        """
+        return pulumi.get(self, "region")
+
+    @_builtins.property
+    @pulumi.getter
+    def auth(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth']:
+        """
+        AWS authentication credentials used for accessing AWS services. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
+        """
+        return pulumi.get(self, "auth")
+
+    @_builtins.property
+    @pulumi.getter
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls']:
+        """
+        Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        return pulumi.get(self, "tls")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "assumeRole":
+            suggest = "assume_role"
+        elif key == "externalId":
+            suggest = "external_id"
+        elif key == "sessionName":
+            suggest = "session_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationsAmazonSecurityLakeAuth.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 assume_role: Optional[_builtins.str] = None,
+                 external_id: Optional[_builtins.str] = None,
+                 session_name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str assume_role: The Amazon Resource Name (ARN) of the role to assume.
+        :param _builtins.str external_id: A unique identifier for cross-account role assumption.
+        :param _builtins.str session_name: A session identifier used for logging and tracing the assumed role session.
+        """
+        if assume_role is not None:
+            pulumi.set(__self__, "assume_role", assume_role)
+        if external_id is not None:
+            pulumi.set(__self__, "external_id", external_id)
+        if session_name is not None:
+            pulumi.set(__self__, "session_name", session_name)
+
+    @_builtins.property
+    @pulumi.getter(name="assumeRole")
+    def assume_role(self) -> Optional[_builtins.str]:
+        """
+        The Amazon Resource Name (ARN) of the role to assume.
+        """
+        return pulumi.get(self, "assume_role")
+
+    @_builtins.property
+    @pulumi.getter(name="externalId")
+    def external_id(self) -> Optional[_builtins.str]:
+        """
+        A unique identifier for cross-account role assumption.
+        """
+        return pulumi.get(self, "external_id")
+
+    @_builtins.property
+    @pulumi.getter(name="sessionName")
+    def session_name(self) -> Optional[_builtins.str]:
+        """
+        A session identifier used for logging and tracing the assumed role session.
+        """
+        return pulumi.get(self, "session_name")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "caFile":
+            suggest = "ca_file"
+        elif key == "crtFile":
+            suggest = "crt_file"
+        elif key == "keyFile":
+            suggest = "key_file"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationsAmazonSecurityLakeTls.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ca_file: Optional[_builtins.str] = None,
+                 crt_file: Optional[_builtins.str] = None,
+                 key_file: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        if ca_file is not None:
+            pulumi.set(__self__, "ca_file", ca_file)
+        if crt_file is not None:
+            pulumi.set(__self__, "crt_file", crt_file)
+        if key_file is not None:
+            pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="caFile")
+    def ca_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        """
+        return pulumi.get(self, "ca_file")
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
+
+    @_builtins.property
+    @pulumi.getter(name="keyFile")
+    def key_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        return pulumi.get(self, "key_file")
+
+
+@pulumi.output_type
 class ObservabilityPipelineConfigDestinationsAzureStorage(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -40998,6 +41500,165 @@ class ObservabilityPipelineConfigDestinationsAzureStorage(dict):
         Optional prefix for blobs written to the container.
         """
         return pulumi.get(self, "blob_prefix")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiem(dict):
+    def __init__(__self__, *,
+                 encoding: _builtins.str,
+                 id: _builtins.str,
+                 inputs: Sequence[_builtins.str],
+                 compression: Optional['outputs.ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemCompression'] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls'] = None):
+        """
+        :param _builtins.str encoding: Encoding format for log events. Valid values are `json`, `raw_message`.
+        :param _builtins.str id: Unique identifier for the destination component.
+        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this component.
+        :param 'ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemCompressionArgs' compression: Compression configuration for log events.
+        :param 'ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        pulumi.set(__self__, "encoding", encoding)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "inputs", inputs)
+        if compression is not None:
+            pulumi.set(__self__, "compression", compression)
+        if tls is not None:
+            pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter
+    def encoding(self) -> _builtins.str:
+        """
+        Encoding format for log events. Valid values are `json`, `raw_message`.
+        """
+        return pulumi.get(self, "encoding")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        Unique identifier for the destination component.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def inputs(self) -> Sequence[_builtins.str]:
+        """
+        A list of component IDs whose output is used as the `input` for this component.
+        """
+        return pulumi.get(self, "inputs")
+
+    @_builtins.property
+    @pulumi.getter
+    def compression(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemCompression']:
+        """
+        Compression configuration for log events.
+        """
+        return pulumi.get(self, "compression")
+
+    @_builtins.property
+    @pulumi.getter
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls']:
+        """
+        Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        return pulumi.get(self, "tls")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemCompression(dict):
+    def __init__(__self__, *,
+                 algorithm: Optional[_builtins.str] = None,
+                 level: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str algorithm: Compression algorithm for log events.
+        :param _builtins.int level: Compression level.
+        """
+        if algorithm is not None:
+            pulumi.set(__self__, "algorithm", algorithm)
+        if level is not None:
+            pulumi.set(__self__, "level", level)
+
+    @_builtins.property
+    @pulumi.getter
+    def algorithm(self) -> Optional[_builtins.str]:
+        """
+        Compression algorithm for log events.
+        """
+        return pulumi.get(self, "algorithm")
+
+    @_builtins.property
+    @pulumi.getter
+    def level(self) -> Optional[_builtins.int]:
+        """
+        Compression level.
+        """
+        return pulumi.get(self, "level")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "caFile":
+            suggest = "ca_file"
+        elif key == "crtFile":
+            suggest = "crt_file"
+        elif key == "keyFile":
+            suggest = "key_file"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationsCrowdstrikeNextGenSiemTls.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ca_file: Optional[_builtins.str] = None,
+                 crt_file: Optional[_builtins.str] = None,
+                 key_file: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        if ca_file is not None:
+            pulumi.set(__self__, "ca_file", ca_file)
+        if crt_file is not None:
+            pulumi.set(__self__, "crt_file", crt_file)
+        if key_file is not None:
+            pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="caFile")
+    def ca_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        """
+        return pulumi.get(self, "ca_file")
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
+
+    @_builtins.property
+    @pulumi.getter(name="keyFile")
+    def key_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        return pulumi.get(self, "key_file")
 
 
 @pulumi.output_type
@@ -41687,7 +42348,7 @@ class ObservabilityPipelineConfigDestinationsRsyslogTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -41702,7 +42363,7 @@ class ObservabilityPipelineConfigDestinationsRsyslogTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -41761,6 +42422,211 @@ class ObservabilityPipelineConfigDestinationsSentinelOne(dict):
         The SentinelOne region to send logs to.
         """
         return pulumi.get(self, "region")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationsSocket(dict):
+    def __init__(__self__, *,
+                 encoding: _builtins.str,
+                 id: _builtins.str,
+                 inputs: Sequence[_builtins.str],
+                 mode: _builtins.str,
+                 framing: Optional['outputs.ObservabilityPipelineConfigDestinationsSocketFraming'] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigDestinationsSocketTls'] = None):
+        """
+        :param _builtins.str encoding: Encoding format for log events. Valid values are `json`, `raw_message`.
+        :param _builtins.str id: The unique identifier for this destination.
+        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the `input` for this destination.
+        :param _builtins.str mode: The protocol used to send logs. Valid values are `tcp`, `udp`.
+        :param 'ObservabilityPipelineConfigDestinationsSocketFramingArgs' framing: Defines the framing method for outgoing messages.
+        :param 'ObservabilityPipelineConfigDestinationsSocketTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        pulumi.set(__self__, "encoding", encoding)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "inputs", inputs)
+        pulumi.set(__self__, "mode", mode)
+        if framing is not None:
+            pulumi.set(__self__, "framing", framing)
+        if tls is not None:
+            pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter
+    def encoding(self) -> _builtins.str:
+        """
+        Encoding format for log events. Valid values are `json`, `raw_message`.
+        """
+        return pulumi.get(self, "encoding")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The unique identifier for this destination.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def inputs(self) -> Sequence[_builtins.str]:
+        """
+        A list of component IDs whose output is used as the `input` for this destination.
+        """
+        return pulumi.get(self, "inputs")
+
+    @_builtins.property
+    @pulumi.getter
+    def mode(self) -> _builtins.str:
+        """
+        The protocol used to send logs. Valid values are `tcp`, `udp`.
+        """
+        return pulumi.get(self, "mode")
+
+    @_builtins.property
+    @pulumi.getter
+    def framing(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsSocketFraming']:
+        """
+        Defines the framing method for outgoing messages.
+        """
+        return pulumi.get(self, "framing")
+
+    @_builtins.property
+    @pulumi.getter
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsSocketTls']:
+        """
+        Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        return pulumi.get(self, "tls")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationsSocketFraming(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "characterDelimited":
+            suggest = "character_delimited"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsSocketFraming. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationsSocketFraming.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationsSocketFraming.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 method: _builtins.str,
+                 character_delimited: Optional['outputs.ObservabilityPipelineConfigDestinationsSocketFramingCharacterDelimited'] = None):
+        """
+        :param _builtins.str method: The framing method. Valid values are `newline_delimited`, `bytes`, `character_delimited`.
+        :param 'ObservabilityPipelineConfigDestinationsSocketFramingCharacterDelimitedArgs' character_delimited: Used when `method` is `character_delimited`. Specifies the delimiter character.
+        """
+        pulumi.set(__self__, "method", method)
+        if character_delimited is not None:
+            pulumi.set(__self__, "character_delimited", character_delimited)
+
+    @_builtins.property
+    @pulumi.getter
+    def method(self) -> _builtins.str:
+        """
+        The framing method. Valid values are `newline_delimited`, `bytes`, `character_delimited`.
+        """
+        return pulumi.get(self, "method")
+
+    @_builtins.property
+    @pulumi.getter(name="characterDelimited")
+    def character_delimited(self) -> Optional['outputs.ObservabilityPipelineConfigDestinationsSocketFramingCharacterDelimited']:
+        """
+        Used when `method` is `character_delimited`. Specifies the delimiter character.
+        """
+        return pulumi.get(self, "character_delimited")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationsSocketFramingCharacterDelimited(dict):
+    def __init__(__self__, *,
+                 delimiter: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str delimiter: A single ASCII character used as a delimiter.
+        """
+        if delimiter is not None:
+            pulumi.set(__self__, "delimiter", delimiter)
+
+    @_builtins.property
+    @pulumi.getter
+    def delimiter(self) -> Optional[_builtins.str]:
+        """
+        A single ASCII character used as a delimiter.
+        """
+        return pulumi.get(self, "delimiter")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigDestinationsSocketTls(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "caFile":
+            suggest = "ca_file"
+        elif key == "crtFile":
+            suggest = "crt_file"
+        elif key == "keyFile":
+            suggest = "key_file"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigDestinationsSocketTls. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigDestinationsSocketTls.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigDestinationsSocketTls.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ca_file: Optional[_builtins.str] = None,
+                 crt_file: Optional[_builtins.str] = None,
+                 key_file: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        if ca_file is not None:
+            pulumi.set(__self__, "ca_file", ca_file)
+        if crt_file is not None:
+            pulumi.set(__self__, "crt_file", crt_file)
+        if key_file is not None:
+            pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="caFile")
+    def ca_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        """
+        return pulumi.get(self, "ca_file")
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
+
+    @_builtins.property
+    @pulumi.getter(name="keyFile")
+    def key_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        return pulumi.get(self, "key_file")
 
 
 @pulumi.output_type
@@ -42081,7 +42947,7 @@ class ObservabilityPipelineConfigDestinationsSyslogNgTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -42096,7 +42962,7 @@ class ObservabilityPipelineConfigDestinationsSyslogNgTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -42126,6 +42992,10 @@ class ObservabilityPipelineConfigProcessors(dict):
             suggest = "add_env_vars"
         elif key == "addFields":
             suggest = "add_fields"
+        elif key == "customProcessors":
+            suggest = "custom_processors"
+        elif key == "datadogTags":
+            suggest = "datadog_tags"
         elif key == "enrichmentTables":
             suggest = "enrichment_tables"
         elif key == "generateDatadogMetrics":
@@ -42157,6 +43027,8 @@ class ObservabilityPipelineConfigProcessors(dict):
     def __init__(__self__, *,
                  add_env_vars: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsAddEnvVar']] = None,
                  add_fields: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsAddField']] = None,
+                 custom_processors: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsCustomProcessor']] = None,
+                 datadog_tags: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsDatadogTag']] = None,
                  dedupes: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsDedupe']] = None,
                  enrichment_tables: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsEnrichmentTable']] = None,
                  filters: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsFilter']] = None,
@@ -42174,6 +43046,7 @@ class ObservabilityPipelineConfigProcessors(dict):
         """
         :param Sequence['ObservabilityPipelineConfigProcessorsAddEnvVarArgs'] add_env_vars: The `add_env_vars` processor adds environment variable values to log events.
         :param Sequence['ObservabilityPipelineConfigProcessorsAddFieldArgs'] add_fields: The `add_fields` processor adds static key-value fields to logs.
+        :param Sequence['ObservabilityPipelineConfigProcessorsCustomProcessorArgs'] custom_processors: The `custom_processor` processor transforms events using Vector Remap Language (VRL) scripts with advanced filtering capabilities.
         :param Sequence['ObservabilityPipelineConfigProcessorsDedupeArgs'] dedupes: The `dedupe` processor removes duplicate fields in log events.
         :param Sequence['ObservabilityPipelineConfigProcessorsEnrichmentTableArgs'] enrichment_tables: The `enrichment_table` processor enriches logs using a static CSV file or GeoIP database.
         :param Sequence['ObservabilityPipelineConfigProcessorsFilterArgs'] filters: The `filter` processor allows conditional processing of logs based on a Datadog search query. Logs that match the `include` query are passed through; others are discarded.
@@ -42193,6 +43066,10 @@ class ObservabilityPipelineConfigProcessors(dict):
             pulumi.set(__self__, "add_env_vars", add_env_vars)
         if add_fields is not None:
             pulumi.set(__self__, "add_fields", add_fields)
+        if custom_processors is not None:
+            pulumi.set(__self__, "custom_processors", custom_processors)
+        if datadog_tags is not None:
+            pulumi.set(__self__, "datadog_tags", datadog_tags)
         if dedupes is not None:
             pulumi.set(__self__, "dedupes", dedupes)
         if enrichment_tables is not None:
@@ -42237,6 +43114,19 @@ class ObservabilityPipelineConfigProcessors(dict):
         The `add_fields` processor adds static key-value fields to logs.
         """
         return pulumi.get(self, "add_fields")
+
+    @_builtins.property
+    @pulumi.getter(name="customProcessors")
+    def custom_processors(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsCustomProcessor']]:
+        """
+        The `custom_processor` processor transforms events using Vector Remap Language (VRL) scripts with advanced filtering capabilities.
+        """
+        return pulumi.get(self, "custom_processors")
+
+    @_builtins.property
+    @pulumi.getter(name="datadogTags")
+    def datadog_tags(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsDatadogTag']]:
+        return pulumi.get(self, "datadog_tags")
 
     @_builtins.property
     @pulumi.getter
@@ -42511,6 +43401,183 @@ class ObservabilityPipelineConfigProcessorsAddFieldField(dict):
         The value to assign to the field.
         """
         return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorsCustomProcessor(dict):
+    def __init__(__self__, *,
+                 id: _builtins.str,
+                 inputs: Sequence[_builtins.str],
+                 remaps: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsCustomProcessorRemap']] = None):
+        """
+        :param _builtins.str id: The unique identifier for this processor.
+        :param Sequence[_builtins.str] inputs: A list of component IDs whose output is used as the input for this processor.
+        :param Sequence['ObservabilityPipelineConfigProcessorsCustomProcessorRemapArgs'] remaps: Array of VRL remap configurations. Each remap defines a transformation rule with its own filter and VRL script.
+        """
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "inputs", inputs)
+        if remaps is not None:
+            pulumi.set(__self__, "remaps", remaps)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The unique identifier for this processor.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def inputs(self) -> Sequence[_builtins.str]:
+        """
+        A list of component IDs whose output is used as the input for this processor.
+        """
+        return pulumi.get(self, "inputs")
+
+    @_builtins.property
+    @pulumi.getter
+    def remaps(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorsCustomProcessorRemap']]:
+        """
+        Array of VRL remap configurations. Each remap defines a transformation rule with its own filter and VRL script.
+        """
+        return pulumi.get(self, "remaps")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorsCustomProcessorRemap(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "dropOnError":
+            suggest = "drop_on_error"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigProcessorsCustomProcessorRemap. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigProcessorsCustomProcessorRemap.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigProcessorsCustomProcessorRemap.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 drop_on_error: _builtins.bool,
+                 enabled: _builtins.bool,
+                 include: _builtins.str,
+                 name: _builtins.str,
+                 source: _builtins.str):
+        """
+        :param _builtins.bool drop_on_error: Whether to drop events that cause errors during transformation.
+        :param _builtins.bool enabled: Whether this remap rule is enabled.
+        :param _builtins.str include: A Datadog search query used to filter events for this specific remap rule.
+        :param _builtins.str name: A descriptive name for this remap rule.
+        :param _builtins.str source: The VRL script source code that defines the transformation logic.
+        """
+        pulumi.set(__self__, "drop_on_error", drop_on_error)
+        pulumi.set(__self__, "enabled", enabled)
+        pulumi.set(__self__, "include", include)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "source", source)
+
+    @_builtins.property
+    @pulumi.getter(name="dropOnError")
+    def drop_on_error(self) -> _builtins.bool:
+        """
+        Whether to drop events that cause errors during transformation.
+        """
+        return pulumi.get(self, "drop_on_error")
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        """
+        Whether this remap rule is enabled.
+        """
+        return pulumi.get(self, "enabled")
+
+    @_builtins.property
+    @pulumi.getter
+    def include(self) -> _builtins.str:
+        """
+        A Datadog search query used to filter events for this specific remap rule.
+        """
+        return pulumi.get(self, "include")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        A descriptive name for this remap rule.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def source(self) -> _builtins.str:
+        """
+        The VRL script source code that defines the transformation logic.
+        """
+        return pulumi.get(self, "source")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigProcessorsDatadogTag(dict):
+    def __init__(__self__, *,
+                 action: _builtins.str,
+                 id: _builtins.str,
+                 include: _builtins.str,
+                 inputs: Sequence[_builtins.str],
+                 keys: Sequence[_builtins.str],
+                 mode: _builtins.str):
+        """
+        :param _builtins.str action: Valid values are `include`, `exclude`.
+        :param _builtins.str mode: Valid values are `filter`.
+        """
+        pulumi.set(__self__, "action", action)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "include", include)
+        pulumi.set(__self__, "inputs", inputs)
+        pulumi.set(__self__, "keys", keys)
+        pulumi.set(__self__, "mode", mode)
+
+    @_builtins.property
+    @pulumi.getter
+    def action(self) -> _builtins.str:
+        """
+        Valid values are `include`, `exclude`.
+        """
+        return pulumi.get(self, "action")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def include(self) -> _builtins.str:
+        return pulumi.get(self, "include")
+
+    @_builtins.property
+    @pulumi.getter
+    def inputs(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "inputs")
+
+    @_builtins.property
+    @pulumi.getter
+    def keys(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "keys")
+
+    @_builtins.property
+    @pulumi.getter
+    def mode(self) -> _builtins.str:
+        """
+        Valid values are `filter`.
+        """
+        return pulumi.get(self, "mode")
 
 
 @pulumi.output_type
@@ -44657,6 +45724,7 @@ class ObservabilityPipelineConfigSources(dict):
                  kafkas: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesKafka']] = None,
                  logstashes: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesLogstash']] = None,
                  rsyslogs: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesRsyslog']] = None,
+                 sockets: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSocket']] = None,
                  splunk_hecs: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSplunkHec']] = None,
                  splunk_tcps: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSplunkTcp']] = None,
                  sumo_logics: Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSumoLogic']] = None,
@@ -44673,6 +45741,7 @@ class ObservabilityPipelineConfigSources(dict):
         :param Sequence['ObservabilityPipelineConfigSourcesKafkaArgs'] kafkas: The `kafka` source ingests data from Apache Kafka topics.
         :param Sequence['ObservabilityPipelineConfigSourcesLogstashArgs'] logstashes: The `logstash` source ingests logs from a Logstash forwarder.
         :param Sequence['ObservabilityPipelineConfigSourcesRsyslogArgs'] rsyslogs: The `rsyslog` source listens for logs over TCP or UDP from an `rsyslog` server using the syslog protocol.
+        :param Sequence['ObservabilityPipelineConfigSourcesSocketArgs'] sockets: The `socket` source ingests logs over TCP or UDP.
         :param Sequence['ObservabilityPipelineConfigSourcesSplunkHecArgs'] splunk_hecs: The `splunk_hec` source implements the Splunk HTTP Event Collector (HEC) API.
         :param Sequence['ObservabilityPipelineConfigSourcesSplunkTcpArgs'] splunk_tcps: The `splunk_tcp` source receives logs from a Splunk Universal Forwarder over TCP. TLS is supported for secure transmission.
         :param Sequence['ObservabilityPipelineConfigSourcesSumoLogicArgs'] sumo_logics: The `sumo_logic` source receives logs from Sumo Logic collectors.
@@ -44700,6 +45769,8 @@ class ObservabilityPipelineConfigSources(dict):
             pulumi.set(__self__, "logstashes", logstashes)
         if rsyslogs is not None:
             pulumi.set(__self__, "rsyslogs", rsyslogs)
+        if sockets is not None:
+            pulumi.set(__self__, "sockets", sockets)
         if splunk_hecs is not None:
             pulumi.set(__self__, "splunk_hecs", splunk_hecs)
         if splunk_tcps is not None:
@@ -44798,6 +45869,14 @@ class ObservabilityPipelineConfigSources(dict):
         return pulumi.get(self, "rsyslogs")
 
     @_builtins.property
+    @pulumi.getter
+    def sockets(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSocket']]:
+        """
+        The `socket` source ingests logs over TCP or UDP.
+        """
+        return pulumi.get(self, "sockets")
+
+    @_builtins.property
     @pulumi.getter(name="splunkHecs")
     def splunk_hecs(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigSourcesSplunkHec']]:
         """
@@ -44838,7 +45917,7 @@ class ObservabilityPipelineConfigSourcesAmazonDataFirehose(dict):
                  tls: Optional['outputs.ObservabilityPipelineConfigSourcesAmazonDataFirehoseTls'] = None):
         """
         :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
-        :param 'ObservabilityPipelineConfigSourcesAmazonDataFirehoseAuthArgs' auth: AWS authentication credentials used for accessing AWS services such as S3. If omitted, the system’s default credentials are used (for example, the IAM role and environment variables).
+        :param 'ObservabilityPipelineConfigSourcesAmazonDataFirehoseAuthArgs' auth: AWS authentication credentials used for accessing AWS services such as S3. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
         :param 'ObservabilityPipelineConfigSourcesAmazonDataFirehoseTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "id", id)
@@ -44859,7 +45938,7 @@ class ObservabilityPipelineConfigSourcesAmazonDataFirehose(dict):
     @pulumi.getter
     def auth(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesAmazonDataFirehoseAuth']:
         """
-        AWS authentication credentials used for accessing AWS services such as S3. If omitted, the system’s default credentials are used (for example, the IAM role and environment variables).
+        AWS authentication credentials used for accessing AWS services such as S3. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
         """
         return pulumi.get(self, "auth")
 
@@ -44964,7 +46043,7 @@ class ObservabilityPipelineConfigSourcesAmazonDataFirehoseTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -44979,7 +46058,7 @@ class ObservabilityPipelineConfigSourcesAmazonDataFirehoseTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -45010,7 +46089,7 @@ class ObservabilityPipelineConfigSourcesAmazonS3(dict):
         """
         :param _builtins.str id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (e.g., as input to downstream components).
         :param _builtins.str region: AWS region where the S3 bucket resides.
-        :param 'ObservabilityPipelineConfigSourcesAmazonS3AuthArgs' auth: AWS authentication credentials used for accessing AWS services such as S3. If omitted, the system’s default credentials are used (for example, the IAM role and environment variables).
+        :param 'ObservabilityPipelineConfigSourcesAmazonS3AuthArgs' auth: AWS authentication credentials used for accessing AWS services such as S3. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
         :param 'ObservabilityPipelineConfigSourcesAmazonS3TlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
         pulumi.set(__self__, "id", id)
@@ -45040,7 +46119,7 @@ class ObservabilityPipelineConfigSourcesAmazonS3(dict):
     @pulumi.getter
     def auth(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesAmazonS3Auth']:
         """
-        AWS authentication credentials used for accessing AWS services such as S3. If omitted, the system’s default credentials are used (for example, the IAM role and environment variables).
+        AWS authentication credentials used for accessing AWS services such as S3. If omitted, the system's default credentials are used (for example, the IAM role and environment variables).
         """
         return pulumi.get(self, "auth")
 
@@ -45145,7 +46224,7 @@ class ObservabilityPipelineConfigSourcesAmazonS3Tls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -45160,7 +46239,7 @@ class ObservabilityPipelineConfigSourcesAmazonS3Tls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -45239,7 +46318,7 @@ class ObservabilityPipelineConfigSourcesDatadogAgentTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -45254,7 +46333,7 @@ class ObservabilityPipelineConfigSourcesDatadogAgentTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -45333,7 +46412,7 @@ class ObservabilityPipelineConfigSourcesFluentBitTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -45348,7 +46427,7 @@ class ObservabilityPipelineConfigSourcesFluentBitTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -45427,7 +46506,7 @@ class ObservabilityPipelineConfigSourcesFluentdTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -45442,7 +46521,7 @@ class ObservabilityPipelineConfigSourcesFluentdTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -45601,7 +46680,7 @@ class ObservabilityPipelineConfigSourcesGooglePubsubTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -45616,7 +46695,7 @@ class ObservabilityPipelineConfigSourcesGooglePubsubTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -45763,7 +46842,7 @@ class ObservabilityPipelineConfigSourcesHttpClientTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -45778,7 +46857,7 @@ class ObservabilityPipelineConfigSourcesHttpClientTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -45896,7 +46975,7 @@ class ObservabilityPipelineConfigSourcesHttpServerTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -45911,7 +46990,7 @@ class ObservabilityPipelineConfigSourcesHttpServerTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -46103,7 +47182,7 @@ class ObservabilityPipelineConfigSourcesKafkaTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -46118,7 +47197,7 @@ class ObservabilityPipelineConfigSourcesKafkaTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -46197,7 +47276,7 @@ class ObservabilityPipelineConfigSourcesLogstashTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -46212,7 +47291,7 @@ class ObservabilityPipelineConfigSourcesLogstashTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -46303,7 +47382,7 @@ class ObservabilityPipelineConfigSourcesRsyslogTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -46318,7 +47397,191 @@ class ObservabilityPipelineConfigSourcesRsyslogTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        """
+        return pulumi.get(self, "ca_file")
+
+    @_builtins.property
+    @pulumi.getter(name="crtFile")
+    def crt_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        """
+        return pulumi.get(self, "crt_file")
+
+    @_builtins.property
+    @pulumi.getter(name="keyFile")
+    def key_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        return pulumi.get(self, "key_file")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigSourcesSocket(dict):
+    def __init__(__self__, *,
+                 id: _builtins.str,
+                 mode: _builtins.str,
+                 framing: Optional['outputs.ObservabilityPipelineConfigSourcesSocketFraming'] = None,
+                 tls: Optional['outputs.ObservabilityPipelineConfigSourcesSocketTls'] = None):
+        """
+        :param _builtins.str id: The unique identifier for this component.
+        :param _builtins.str mode: The protocol used to receive logs. Valid values are `tcp`, `udp`.
+        :param 'ObservabilityPipelineConfigSourcesSocketFramingArgs' framing: Defines the framing method for incoming messages.
+        :param 'ObservabilityPipelineConfigSourcesSocketTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "mode", mode)
+        if framing is not None:
+            pulumi.set(__self__, "framing", framing)
+        if tls is not None:
+            pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The unique identifier for this component.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def mode(self) -> _builtins.str:
+        """
+        The protocol used to receive logs. Valid values are `tcp`, `udp`.
+        """
+        return pulumi.get(self, "mode")
+
+    @_builtins.property
+    @pulumi.getter
+    def framing(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesSocketFraming']:
+        """
+        Defines the framing method for incoming messages.
+        """
+        return pulumi.get(self, "framing")
+
+    @_builtins.property
+    @pulumi.getter
+    def tls(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesSocketTls']:
+        """
+        Configuration for enabling TLS encryption between the pipeline component and external services.
+        """
+        return pulumi.get(self, "tls")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigSourcesSocketFraming(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "characterDelimited":
+            suggest = "character_delimited"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesSocketFraming. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourcesSocketFraming.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourcesSocketFraming.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 character_delimited: Optional['outputs.ObservabilityPipelineConfigSourcesSocketFramingCharacterDelimited'] = None,
+                 method: Optional[_builtins.str] = None):
+        """
+        :param 'ObservabilityPipelineConfigSourcesSocketFramingCharacterDelimitedArgs' character_delimited: Used when `method` is `character_delimited`. Specifies the delimiter character.
+        :param _builtins.str method: The framing method. Valid values are `newline_delimited`, `bytes`, `character_delimited`, `octet_counting`, `chunked_gelf`.
+        """
+        if character_delimited is not None:
+            pulumi.set(__self__, "character_delimited", character_delimited)
+        if method is not None:
+            pulumi.set(__self__, "method", method)
+
+    @_builtins.property
+    @pulumi.getter(name="characterDelimited")
+    def character_delimited(self) -> Optional['outputs.ObservabilityPipelineConfigSourcesSocketFramingCharacterDelimited']:
+        """
+        Used when `method` is `character_delimited`. Specifies the delimiter character.
+        """
+        return pulumi.get(self, "character_delimited")
+
+    @_builtins.property
+    @pulumi.getter
+    def method(self) -> Optional[_builtins.str]:
+        """
+        The framing method. Valid values are `newline_delimited`, `bytes`, `character_delimited`, `octet_counting`, `chunked_gelf`.
+        """
+        return pulumi.get(self, "method")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigSourcesSocketFramingCharacterDelimited(dict):
+    def __init__(__self__, *,
+                 delimiter: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str delimiter: A single ASCII character used as a delimiter.
+        """
+        if delimiter is not None:
+            pulumi.set(__self__, "delimiter", delimiter)
+
+    @_builtins.property
+    @pulumi.getter
+    def delimiter(self) -> Optional[_builtins.str]:
+        """
+        A single ASCII character used as a delimiter.
+        """
+        return pulumi.get(self, "delimiter")
+
+
+@pulumi.output_type
+class ObservabilityPipelineConfigSourcesSocketTls(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "caFile":
+            suggest = "ca_file"
+        elif key == "crtFile":
+            suggest = "crt_file"
+        elif key == "keyFile":
+            suggest = "key_file"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ObservabilityPipelineConfigSourcesSocketTls. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ObservabilityPipelineConfigSourcesSocketTls.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ObservabilityPipelineConfigSourcesSocketTls.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 ca_file: Optional[_builtins.str] = None,
+                 crt_file: Optional[_builtins.str] = None,
+                 key_file: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
+        :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
+        :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
+        """
+        if ca_file is not None:
+            pulumi.set(__self__, "ca_file", ca_file)
+        if crt_file is not None:
+            pulumi.set(__self__, "crt_file", crt_file)
+        if key_file is not None:
+            pulumi.set(__self__, "key_file", key_file)
+
+    @_builtins.property
+    @pulumi.getter(name="caFile")
+    def ca_file(self) -> Optional[_builtins.str]:
+        """
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -46397,7 +47660,7 @@ class ObservabilityPipelineConfigSourcesSplunkHecTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -46412,7 +47675,7 @@ class ObservabilityPipelineConfigSourcesSplunkHecTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -46491,7 +47754,7 @@ class ObservabilityPipelineConfigSourcesSplunkTcpTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -46506,7 +47769,7 @@ class ObservabilityPipelineConfigSourcesSplunkTcpTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 
@@ -46615,7 +47878,7 @@ class ObservabilityPipelineConfigSourcesSyslogNgTls(dict):
                  crt_file: Optional[_builtins.str] = None,
                  key_file: Optional[_builtins.str] = None):
         """
-        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        :param _builtins.str ca_file: Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         :param _builtins.str crt_file: Path to the TLS client certificate file used to authenticate the pipeline component with upstream or downstream services.
         :param _builtins.str key_file: Path to the private key file associated with the TLS client certificate. Used for mutual TLS authentication.
         """
@@ -46630,7 +47893,7 @@ class ObservabilityPipelineConfigSourcesSyslogNgTls(dict):
     @pulumi.getter(name="caFile")
     def ca_file(self) -> Optional[_builtins.str]:
         """
-        Path to the Certificate Authority (CA) file used to validate the server’s TLS certificate.
+        Path to the Certificate Authority (CA) file used to validate the server's TLS certificate.
         """
         return pulumi.get(self, "ca_file")
 

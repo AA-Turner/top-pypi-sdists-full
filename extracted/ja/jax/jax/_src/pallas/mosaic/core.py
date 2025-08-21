@@ -19,7 +19,6 @@ import collections
 from collections.abc import Sequence
 import dataclasses
 import enum
-import functools
 from typing import Any, ClassVar, Literal
 from collections.abc import Mapping
 
@@ -36,18 +35,8 @@ import numpy as np
 map, unsafe_map = util.safe_map, map
 zip, unsafe_zip = util.safe_zip, zip
 
-partial = functools.partial
-Grid = pallas_core.Grid
-TupleGrid = pallas_core.TupleGrid
-BlockSpec = pallas_core.BlockSpec
-BlockSpecTree = pallas_core.BlockSpecTree
-GridMapping = pallas_core.GridMapping
-NoBlockSpec = pallas_core.NoBlockSpec
-ScratchShapeTree = pallas_core.ScratchShapeTree
 no_block_spec = pallas_core.no_block_spec
-_convert_block_spec_to_block_mapping = pallas_core._convert_block_spec_to_block_mapping
 _out_shape_to_aval_mapping = pallas_core._out_shape_to_aval_mapping
-split_list = util.split_list
 
 
 class KernelType(enum.Enum):
@@ -107,6 +96,7 @@ class CompilerParams(pallas_core.CompilerParams):
   serialization_format: int = 1
   kernel_type: KernelType = KernelType.TC
   disable_bounds_checks: bool = False
+  skip_device_barrier: bool = False
 
   def __init__(
       self,
@@ -120,6 +110,7 @@ class CompilerParams(pallas_core.CompilerParams):
       serialization_format: int = 1,
       kernel_type: KernelType = KernelType.TC,
       disable_bounds_checks: bool = False,
+      skip_device_barrier: bool = False,
   ):
     object.__setattr__(
         self,
@@ -143,6 +134,7 @@ class CompilerParams(pallas_core.CompilerParams):
     object.__setattr__(self, "serialization_format", serialization_format)
     object.__setattr__(self, "kernel_type", kernel_type)
     object.__setattr__(self, "disable_bounds_checks", disable_bounds_checks)
+    object.__setattr__(self, "skip_device_barrier",skip_device_barrier)
 
   # Replace is a method, not a field.
   replace = dataclasses.replace
@@ -150,6 +142,7 @@ class CompilerParams(pallas_core.CompilerParams):
 class MemorySpace(enum.Enum):
   ANY = "any"  # TODO(b/368401328): Remove this and just use pl.ANY.
   VMEM = "vmem"
+  VMEM_SHARED = "vmem_shared"
   SMEM = "smem"
   CMEM = "cmem"
   SEMAPHORE = "semaphore_mem"
@@ -202,10 +195,10 @@ class PrefetchScalarGridSpec(pallas_core.GridSpec):
   def __init__(
       self,
       num_scalar_prefetch: int,
-      grid: Grid = (),
-      in_specs: BlockSpecTree = no_block_spec,
-      out_specs: BlockSpecTree = no_block_spec,
-      scratch_shapes: ScratchShapeTree = ()
+      grid: pallas_core.Grid = (),
+      in_specs: pallas_core.BlockSpecTree = no_block_spec,
+      out_specs: pallas_core.BlockSpecTree = no_block_spec,
+      scratch_shapes: pallas_core.ScratchShapeTree = ()
   ):
     super().__init__(grid, in_specs, out_specs, scratch_shapes)
     self.num_scalar_prefetch = num_scalar_prefetch
@@ -279,6 +272,7 @@ def _tensorcore_mesh_discharge_rule(
     debug: bool,
     cost_estimate: pallas_core.CostEstimate | None,
     name: str,
+    metadata: FrozenDict[str, str] | None,
 ):
   assert isinstance(mesh, TensorCoreMesh)
   if compiler_params and not isinstance(compiler_params, CompilerParams):
@@ -316,6 +310,7 @@ def _tensorcore_mesh_discharge_rule(
       interpret=interpret,
       cost_estimate=cost_estimate,
       name=name,
+      metadata=metadata,
   )
 
 pallas_core._core_map_mesh_rules[TensorCoreMesh] = (

@@ -76,6 +76,8 @@ class AccumEffect(RefEffect):
   name: str = "Accum"
 
 effects.control_flow_allowed_effects.add_type(RefEffect)
+effects.custom_derivatives_allowed_effects.add_type(RefEffect)
+effects.custom_derivatives_allowed_effects.add_type(core.InternalMutableArrayEffect)
 effects.partial_eval_kept_effects.add_type(RefEffect)
 
 StateEffect = Union[ReadEffect, WriteEffect, AccumEffect]
@@ -324,6 +326,12 @@ class TransformedRef:
 
 # We need an aval for `Ref`s so we can represent `get` and `swap` in Jaxprs.
 class AbstractRef(core.AbstractValue):
+  """Abstract mutable array reference.
+
+  Refer to the `ArrayRef guide`_ for more information.
+
+  .. _ArrayRef guide: https://docs.jax.dev/en/latest/array_refs.html
+  """
   __slots__ = ["inner_aval", "memory_space"]
 
   def __init__(self, inner_aval: core.AbstractValue, memory_space: Any = None):
@@ -419,6 +427,12 @@ class AbstractRef(core.AbstractValue):
     from jax._src.state.primitives import ref_set  # pytype: disable=import-error
     return ref_set(tracer, idx, value)
 
+  @core.aval_method
+  @staticmethod
+  def addupdate(tracer, value, idx=()):
+    from jax._src.state.primitives import ref_addupdate  # pytype: disable=import-error
+    ref_addupdate(tracer, idx, value)
+
   def _getitem(self, tracer, idx) -> Array:
     from jax._src.state.primitives import ref_get  # pytype: disable=import-error
     return ref_get(tracer, idx)
@@ -427,10 +441,22 @@ class AbstractRef(core.AbstractValue):
     from jax._src.state.primitives import ref_set  # pytype: disable=import-error
     return ref_set(tracer, idx, value)
 
-  def __repr__(self) -> str:
+  def _addupdate(self, tracer, idx, value):
+    from jax._src.state.primitives import ref_addupdate  # pytype: disable=import-error
+    ref_addupdate(tracer, idx, value)
+
+  def str_short(self, short_dtypes=False, mesh_axis_types=False) -> str:
+    inner_aval_str = self.inner_aval.str_short(
+        short_dtypes=short_dtypes,
+        mesh_axis_types=mesh_axis_types,
+    )
     if self.memory_space is not None:
-      return f'Ref<{self.memory_space}>{{{self.inner_aval.str_short()}}}'
-    return f'Ref{{{self.inner_aval.str_short()}}}'
+      return f'Ref<{self.memory_space}>{{{inner_aval_str}}}'
+    return f'Ref{{{inner_aval_str}}}'
+
+  def __repr__(self) -> str:
+    return self.str_short()
+  __str__ = __repr__
 
   def to_tangent_aval(self):
     return AbstractRef(self.inner_aval.to_tangent_aval(), self.memory_space)

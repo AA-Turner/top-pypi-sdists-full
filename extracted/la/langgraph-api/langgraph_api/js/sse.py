@@ -1,5 +1,6 @@
 """Adapted from httpx_sse to split lines on \n, \r, \r\n per the SSE spec."""
 
+import contextlib
 from collections.abc import AsyncIterator
 
 import httpx
@@ -119,10 +120,8 @@ class SSEDecoder:
             else:
                 self._last_event_id = value.decode()
         elif fieldname == b"retry":
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 self._retry = int(value)
-            except (TypeError, ValueError):
-                pass
         else:
             pass  # Field is ignored.
 

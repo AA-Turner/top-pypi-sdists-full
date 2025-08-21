@@ -155,6 +155,76 @@ MyStack(app, "MyStack",
 For more information on bootstrapping accounts and customizing synthesis,
 see [Bootstrapping in the CDK Developer Guide](https://docs.aws.amazon.com/cdk/latest/guide/bootstrapping.html).
 
+### STS Role Options
+
+You can configure STS options that instruct the CDK CLI on which configuration should it use when assuming
+the various roles that are involved in a deployment operation.
+
+Refer to [the bootstrapping guide](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping-env.html#bootstrapping-env-roles) for further context.
+
+These options are available via the `DefaultStackSynthesizer` properties:
+
+```python
+class MyStack(Stack):
+    def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None, propertyInjectors=None):
+        super().__init__(scope, id,
+            (SpreadAssignment ...props
+              description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation, propertyInjectors=propertyInjectors),
+            synthesizer=DefaultStackSynthesizer(
+                deploy_role_external_id="",
+                deploy_role_additional_options={},
+                file_asset_publishing_external_id="",
+                file_asset_publishing_role_additional_options={},
+                image_asset_publishing_external_id="",
+                image_asset_publishing_role_additional_options={},
+                lookup_role_external_id="",
+                lookup_role_additional_options={}
+            )
+        )
+```
+
+> Note that the `*additionalOptions` property does not allow passing `ExternalId` or `RoleArn`, as these options
+> have dedicated properties that configure them.
+
+#### Session Tags
+
+STS session tags are used to implement [Attribute-Based Access Control](https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction_attribute-based-access-control.html) (ABAC).
+
+See [IAM tutorial: Define permissions to access AWS resources based on tags](https://docs.aws.amazon.com/IAM/latest/UserGuide/tutorial_attribute-based-access-control.html).
+
+You can pass session tags for each [role created during bootstrap](https://docs.aws.amazon.com/cdk/v2/guide/bootstrapping-env.html#bootstrapping-env-roles) via the `*additionalOptions` property:
+
+```python
+class MyStack(Stack):
+    def __init__(self, parent, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None, propertyInjectors=None):
+        super().__init__(parent, id,
+            (SpreadAssignment ...props
+              description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation, propertyInjectors=propertyInjectors),
+            synthesizer=DefaultStackSynthesizer(
+                deploy_role_additional_options={
+                    "Tags": [{"Key": "Department", "Value": "Engineering"}]
+                },
+                file_asset_publishing_role_additional_options={
+                    "Tags": [{"Key": "Department", "Value": "Engineering"}]
+                },
+                image_asset_publishing_role_additional_options={
+                    "Tags": [{"Key": "Department", "Value": "Engineering"}]
+                },
+                lookup_role_additional_options={
+                    "Tags": [{"Key": "Department", "Value": "Engineering"}]
+                }
+            )
+        )
+```
+
+This will cause the CDK CLI to include session tags when assuming each of these roles during deployment.
+Note that the trust policy of the role must contain permissions for the `sts:TagSession` action.
+
+Refer to the [IAM user guide on session tags](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_session-tags.html#id_session-tags_permissions-required).
+
+* If you are using a custom bootstrap template, make sure the template includes these permissions.
+* If you are using the default bootstrap template from a CDK version lower than XXXX, you will need to rebootstrap your enviroment (once).
+
 ## Nested Stacks
 
 [Nested stacks](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-nested-stacks.html) are stacks created as part of other stacks. You create a nested stack within another stack by using the `NestedStack` construct.
@@ -521,6 +591,8 @@ CustomResource(self, "MyMagicalResource",
     resource_type="Custom::MyCustomResource",  # must start with 'Custom::'
 
     # the resource properties
+    # properties like serviceToken or serviceTimeout are ported into properties automatically
+    # try not to use key names similar to these or there will be a risk of overwriting those values
     properties={
         "Property1": "foo",
         "Property2": "bar"
@@ -529,7 +601,10 @@ CustomResource(self, "MyMagicalResource",
     # the ARN of the provider (SNS/Lambda) which handles
     # CREATE, UPDATE or DELETE events for this resource type
     # see next section for details
-    service_token="ARN"
+    service_token="ARN",
+
+    # the maximum time, in seconds, that can elapse before a custom resource operation times out.
+    service_timeout=Duration.seconds(60)
 )
 ```
 
@@ -559,7 +634,7 @@ Legend:
 * **Language**: which programming languages can be used to implement handlers.
 * **Footprint**: how many resources are used by the provider framework itself.
 
-**A NOTE ABOUT SINGLETONS**
+#### A note about singletons
 
 When defining resources for a custom resource provider, you will likely want to
 define them as a *stack singleton* so that only a single instance of the
@@ -821,6 +896,18 @@ CfnOutput(self, "OutputName",
     value=my_bucket.bucket_name,
     description="The name of an S3 bucket",  # Optional
     export_name="TheAwesomeBucket"
+)
+```
+
+You can also use the `exportValue` method to export values as stack outputs:
+
+```python
+# stack: Stack
+
+
+stack.export_value(my_bucket.bucket_name,
+    name="TheAwesomeBucket",
+    description="The name of an S3 bucket"
 )
 ```
 
@@ -1105,6 +1192,74 @@ references is done using the `CfnDynamicReference` class:
 CfnDynamicReference(CfnDynamicReferenceService.SECRETS_MANAGER, "secret-id:secret-string:json-key:version-stage:version-id")
 ```
 
+## RemovalPolicies
+
+The `RemovalPolicies` class provides a convenient way to manage removal policies for AWS CDK resources within a construct scope. It allows you to apply removal policies to multiple resources at once, with options to include or exclude specific resource types.
+
+```python
+# scope: Construct
+# parent: Construct
+# bucket: s3.CfnBucket
+
+
+# Apply DESTROY policy to all resources in a scope
+RemovalPolicies.of(scope).destroy()
+
+# Apply RETAIN policy to all resources in a scope
+RemovalPolicies.of(scope).retain()
+
+# Apply SNAPSHOT policy to all resources in a scope
+RemovalPolicies.of(scope).snapshot()
+
+# Apply RETAIN_ON_UPDATE_OR_DELETE policy to all resources in a scope
+RemovalPolicies.of(scope).retain_on_update_or_delete()
+
+# Apply RETAIN policy only to specific resource types
+RemovalPolicies.of(parent).retain(
+    apply_to_resource_types=["AWS::DynamoDB::Table", bucket.cfn_resource_type, rds.CfnDBInstance.CFN_RESOURCE_TYPE_NAME
+    ]
+)
+
+# Apply SNAPSHOT policy excluding specific resource types
+RemovalPolicies.of(scope).snapshot(
+    exclude_resource_types=["AWS::Test::Resource"]
+)
+```
+
+### RemovalPolicies vs MissingRemovalPolicies
+
+CDK provides two different classes for managing removal policies:
+
+* RemovalPolicies: Always applies the specified removal policy, overriding any existing policies.
+* MissingRemovalPolicies: Applies the removal policy only to resources that don't already have a policy set.
+
+```python
+# Override any existing policies
+RemovalPolicies.of(scope).retain()
+
+# Only apply to resources without existing policies
+MissingRemovalPolicies.of(scope).retain()
+```
+
+### Aspect Priority
+
+Both RemovalPolicies and MissingRemovalPolicies are implemented as [Aspects](#aspects). You can control the order in which they're applied using the priority parameter:
+
+```python
+# stack: Stack
+
+
+# Apply in a specific order based on priority
+RemovalPolicies.of(stack).retain(priority=100)
+RemovalPolicies.of(stack).destroy(priority=200)
+```
+
+For RemovalPolicies, the policies are applied in order of aspect execution, with the last applied policy overriding previous ones. The priority only affects the order in which aspects are applied during synthesis.
+
+#### Note
+
+When using MissingRemovalPolicies with priority, a warning will be issued as this can lead to unexpected behavior. This is because MissingRemovalPolicies only applies to resources without existing policies, making priority less relevant.
+
 ### Template Options & Transform
 
 CloudFormation templates support a number of options, including which Macros or
@@ -1193,6 +1348,27 @@ stack = Stack(app, "StackName",
     description="This is a description."
 )
 ```
+
+### Receiving CloudFormation Stack Events
+
+You can add one or more SNS Topic ARNs to any Stack:
+
+```python
+stack = Stack(app, "StackName",
+    notification_arns=["arn:aws:sns:us-east-1:123456789012:Topic"]
+)
+```
+
+Stack events will be sent to any SNS Topics in this list. These ARNs are added to those specified using
+the `--notification-arns` command line option.
+
+Note that in order to do delete notification ARNs entirely, you must pass an empty array ([]) instead of omitting it.
+If you omit the property, no action on existing ARNs will take place.
+
+> [!NOTE]
+> Adding the `notificationArns` property (or using the `--notification-arns` CLI options) will **override**
+> any existing ARNs configured on the stack. If you have an external system managing notification ARNs,
+> either migrate to use this mechanism, or avoid specfying notification ARNs with the CDK.
 
 ### CfnJson
 
@@ -1296,7 +1472,7 @@ App(
 cdk synth --context @aws-cdk/core:newStyleStackSynthesis=true
 ```
 
-*cdk.json*
+#### `cdk.json`
 
 ```json
 {
@@ -1306,7 +1482,7 @@ cdk synth --context @aws-cdk/core:newStyleStackSynthesis=true
 }
 ```
 
-*cdk.context.json*
+#### `cdk.context.json`
 
 ```json
 {
@@ -1314,7 +1490,7 @@ cdk synth --context @aws-cdk/core:newStyleStackSynthesis=true
 }
 ```
 
-*~/.cdk.json*
+#### `~/.cdk.json`
 
 ```json
 {
@@ -1353,7 +1529,7 @@ generated CloudFormation templates against your policies immediately after
 synthesis. If there are any violations, the synthesis will fail and a report
 will be printed to the console or to a file (see below).
 
-> **Note**
+> [!NOTE]
 > This feature is considered experimental, and both the plugin API and the
 > format of the validation report are subject to change in the future.
 
@@ -1391,7 +1567,7 @@ validation.
 > etc. It's your responsibility as the consumer of a plugin to verify that it is
 > secure to use.
 
-By default, the report will be printed in a human readable format. If you want a
+By default, the report will be printed in a human-readable format. If you want a
 report in JSON format, enable it using the `@aws-cdk/core:validationReportJson`
 context passing it directly to the application:
 
@@ -1404,6 +1580,18 @@ app = App(
 Alternatively, you can set this context key-value pair using the `cdk.json` or
 `cdk.context.json` files in your project directory (see
 [Runtime context](https://docs.aws.amazon.com/cdk/v2/guide/context.html)).
+
+It is also possible to enable both JSON and human-readable formats by setting
+`@aws-cdk/core:validationReportPrettyPrint` context key explicitly:
+
+```python
+app = App(
+    context={
+        "@aws-cdk/core:validationReportJson": True,
+        "@aws-cdk/core:validationReportPrettyPrint": True
+    }
+)
+```
 
 If you choose the JSON format, the CDK will print the policy validation report
 to a file called `policy-validation-report.json` in the cloud assembly
@@ -1497,6 +1685,138 @@ warning by the `id`.
 
 ```python
 Annotations.of(self).acknowledge_warning("IAM:Group:MaxPoliciesExceeded", "Account has quota increased to 20")
+```
+
+### Acknowledging Infos
+
+Informational messages can also be emitted and acknowledged. Use `addInfoV2()`
+to add an info message that can later be suppressed with `acknowledgeInfo()`.
+Unlike warnings, info messages are not affected by the `--strict` mode and will never cause synthesis to fail.
+
+```python
+Annotations.of(self).add_info_v2("my-lib:Construct.someInfo", "Some message explaining the info")
+Annotations.of(self).acknowledge_info("my-lib:Construct.someInfo", "This info can be ignored")
+```
+
+## Aspects
+
+[Aspects](https://docs.aws.amazon.com/cdk/v2/guide/aspects.html) is a feature in CDK that allows you to apply operations or transformations across all
+constructs in a construct tree. Common use cases include tagging resources, enforcing encryption on S3 Buckets, or applying specific security or
+compliance rules to all resources in a stack.
+
+Conceptually, there are two types of Aspects:
+
+* **Read-only aspects** scan the construct tree but do not make changes to the tree. Common use cases of read-only aspects include performing validations
+  (for example, enforcing that all S3 Buckets have versioning enabled) and logging (for example, collecting information about all deployed resources for
+  audits or compliance).
+* **Mutating aspects** either (1.) add new nodes or (2.) mutate existing nodes of the tree in-place. One commonly used mutating Aspect is adding Tags to
+  resources. An example of an Aspect that adds a node is one that automatically adds a security group to every EC2 instance in the construct tree if
+  no default is specified.
+
+Here is a simple example of creating and applying an Aspect on a Stack to enable versioning on all S3 Buckets:
+
+```python
+@jsii.implements(IAspect)
+class EnableBucketVersioning:
+    def visit(self, node):
+        if node instanceof s3.CfnBucket:
+            node.versioning_configuration = s3.CfnBucket.VersioningConfigurationProperty(
+                status="Enabled"
+            )
+
+app = App()
+stack = MyStack(app, "MyStack")
+
+# Apply the aspect to enable versioning on all S3 Buckets
+Aspects.of(stack).add(EnableBucketVersioning())
+```
+
+### Aspect Stabilization
+
+The modern behavior is that Aspects automatically run on newly added nodes to the construct tree. This is controlled by the
+flag `@aws-cdk/core:aspectStabilization`, which is default for new projects (since version 2.172.0).
+
+The old behavior of Aspects (without stabilization) was that Aspect invocation runs once on the entire construct
+tree. This meant that nested Aspects (Aspects that create new Aspects) are not invoked and nodes created by Aspects at a higher level of the construct tree are not visited.
+
+To enable the stabilization behavior for older versions, use this feature by putting the following into your `cdk.context.json`:
+
+```json
+{
+  "@aws-cdk/core:aspectStabilization": true
+}
+```
+
+### Aspect Priorities
+
+Users can specify the order in which Aspects are applied on a construct by using the optional priority parameter when applying an Aspect. Priority
+values must be non-negative integers, where a higher number means the Aspect will be applied later, and a lower number means it will be applied sooner.
+
+By default, newly created nodes always inherit aspects. Priorities are mainly for ordering between mutating aspects on the construct tree.
+
+CDK provides standard priority values for mutating and readonly aspects to help ensure consistency across different construct libraries.
+Note that Aspects that have same priority value are not guaranteed to be executed
+in a consistent order.
+
+```python
+#
+# Default Priority values for Aspects.
+#
+class AspectPriority:
+```
+
+If no priority is provided, the default value will be 500. This ensures that aspects without a specified priority run after mutating aspects but before
+any readonly aspects.
+
+Correctly applying Aspects with priority values ensures that mutating aspects (such as adding tags or resources) run before validation aspects. This allows users to avoid misconfigurations and ensure that the final
+construct tree is fully validated before being synthesized.
+
+### Applying Aspects with Priority
+
+```python
+@jsii.implements(IAspect)
+class MutatingAspect:
+    def visit(self, node):
+        pass
+
+@jsii.implements(IAspect)
+class ValidationAspect:
+    def visit(self, node):
+        pass
+
+stack = Stack()
+
+Aspects.of(stack).add(MutatingAspect(), priority=AspectPriority.MUTATING) # Run first (mutating aspects)
+Aspects.of(stack).add(ValidationAspect(), priority=AspectPriority.READONLY)
+```
+
+### Inspecting applied aspects and changing priorities
+
+We also give customers the ability to view all of their applied aspects and override the priority on these aspects.
+The `AspectApplication` class represents an Aspect that is applied to a node of the construct tree with a priority.
+
+Users can access AspectApplications on a node by calling `applied` from the Aspects class as follows:
+
+```python
+# root: Construct
+
+app = App()
+stack = MyStack(app, "MyStack")
+
+Aspects.of(stack).add(MyAspect())
+
+aspect_applications = Aspects.of(root).applied
+
+for aspect_application in aspect_applications:
+    # The aspect we are applying
+    print(aspect_application.aspect)
+    # The construct we are applying the aspect to
+    print(aspect_application.construct)
+    # The priority it was applied with
+    print(aspect_application.priority)
+
+    # Change the priority
+    aspect_application.priority = 700
 ```
 
 ## Blueprint Property Injection
@@ -2597,17 +2917,24 @@ class AspectOptions:
 
         :param priority: The priority value to apply on an Aspect. Priority must be a non-negative integer. Aspects that have same priority value are not guaranteed to be executed in a consistent order. Default: AspectPriority.DEFAULT
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
+            @jsii.implements(IAspect)
+            class MutatingAspect:
+                def visit(self, node):
+                    pass
             
-            aspect_options = cdk.AspectOptions(
-                priority=123
-            )
+            @jsii.implements(IAspect)
+            class ValidationAspect:
+                def visit(self, node):
+                    pass
+            
+            stack = Stack()
+            
+            Aspects.of(stack).add(MutatingAspect(), priority=AspectPriority.MUTATING) # Run first (mutating aspects)
+            Aspects.of(stack).add(ValidationAspect(), priority=AspectPriority.READONLY)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1761263abda35b4b2f599d4ff5122c0e7ad15a95af4498d9c6e04e78bc4a4b76)
@@ -11727,9 +12054,16 @@ class DefaultStackSynthesizerProps:
 
         Example::
 
-            MyStack(app, "MyStack",
+            # app: App
+            
+            
+            prod_stage = Stage(app, "ProdStage",
+                permissions_boundary=PermissionsBoundary.from_name("cdk-${Qualifier}-PermissionsBoundary-${AWS::AccountId}-${AWS::Region}")
+            )
+            
+            Stack(prod_stage, "ProdStack",
                 synthesizer=DefaultStackSynthesizer(
-                    file_assets_bucket_name="amzn-s3-demo-bucket"
+                    qualifier="custom"
                 )
             )
         '''
@@ -13926,17 +14260,16 @@ class ExportValueOptions:
         :param description: The description of the outputs. Default: - No description
         :param name: The name of the export to create. Default: - A name is automatically chosen
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
+            # stack: Stack
             
-            export_value_options = cdk.ExportValueOptions(
-                description="description",
-                name="name"
+            
+            stack.export_value(my_bucket.bucket_name,
+                name="TheAwesomeBucket",
+                description="The name of an S3 bucket"
             )
         '''
         if __debug__:
@@ -20194,18 +20527,36 @@ class RemovalPolicyProps:
         :param exclude_resource_types: Exclude specific resource types from the removal policy. Can be a CloudFormation resource type string (e.g., 'AWS::S3::Bucket'). Default: - no exclusions
         :param priority: The priority to use when applying this policy. The priority affects only the order in which aspects are applied during synthesis. For RemovalPolicies, the last applied policy will override previous ones. NOTE: Priority does NOT determine which policy "wins" when there are conflicts. The order of application determines the final policy, with later policies overriding earlier ones. Default: - AspectPriority.MUTATING
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
+            # scope: Construct
+            # parent: Construct
+            # bucket: s3.CfnBucket
             
-            removal_policy_props = cdk.RemovalPolicyProps(
-                apply_to_resource_types=["applyToResourceTypes"],
-                exclude_resource_types=["excludeResourceTypes"],
-                priority=123
+            
+            # Apply DESTROY policy to all resources in a scope
+            RemovalPolicies.of(scope).destroy()
+            
+            # Apply RETAIN policy to all resources in a scope
+            RemovalPolicies.of(scope).retain()
+            
+            # Apply SNAPSHOT policy to all resources in a scope
+            RemovalPolicies.of(scope).snapshot()
+            
+            # Apply RETAIN_ON_UPDATE_OR_DELETE policy to all resources in a scope
+            RemovalPolicies.of(scope).retain_on_update_or_delete()
+            
+            # Apply RETAIN policy only to specific resource types
+            RemovalPolicies.of(parent).retain(
+                apply_to_resource_types=["AWS::DynamoDB::Table", bucket.cfn_resource_type, rds.CfnDBInstance.CFN_RESOURCE_TYPE_NAME
+                ]
+            )
+            
+            # Apply SNAPSHOT policy excluding specific resource types
+            RemovalPolicies.of(scope).snapshot(
+                exclude_resource_types=["AWS::Test::Resource"]
             )
         '''
         if __debug__:
@@ -37060,18 +37411,22 @@ class DefaultStackSynthesizer(
 
     Example::
 
-        # app: App
-        
-        
-        prod_stage = Stage(app, "ProdStage",
-            permissions_boundary=PermissionsBoundary.from_name("cdk-${Qualifier}-PermissionsBoundary-${AWS::AccountId}-${AWS::Region}")
-        )
-        
-        Stack(prod_stage, "ProdStack",
-            synthesizer=DefaultStackSynthesizer(
-                qualifier="custom"
-            )
-        )
+        class MyStack(Stack):
+            def __init__(self, scope, id, *, description=None, env=None, stackName=None, tags=None, notificationArns=None, synthesizer=None, terminationProtection=None, analyticsReporting=None, crossRegionReferences=None, permissionsBoundary=None, suppressTemplateIndentation=None, propertyInjectors=None):
+                super().__init__(scope, id,
+                    (SpreadAssignment ...props
+                      description=description, env=env, stackName=stackName, tags=tags, notificationArns=notificationArns, synthesizer=synthesizer, terminationProtection=terminationProtection, analyticsReporting=analyticsReporting, crossRegionReferences=crossRegionReferences, permissionsBoundary=permissionsBoundary, suppressTemplateIndentation=suppressTemplateIndentation, propertyInjectors=propertyInjectors),
+                    synthesizer=DefaultStackSynthesizer(
+                        deploy_role_external_id="",
+                        deploy_role_additional_options={},
+                        file_asset_publishing_external_id="",
+                        file_asset_publishing_role_additional_options={},
+                        image_asset_publishing_external_id="",
+                        image_asset_publishing_role_additional_options={},
+                        lookup_role_external_id="",
+                        lookup_role_additional_options={}
+                    )
+                )
     '''
 
     def __init__(

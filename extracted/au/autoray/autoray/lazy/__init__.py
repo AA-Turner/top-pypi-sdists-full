@@ -1,6 +1,8 @@
 from . import linalg
-
 from .core import (
+    Function,
+    LazyArray,
+    Variable,
     add,
     angle,
     arccos,
@@ -12,6 +14,7 @@ from .core import (
     argsort,
     array,
     ascend,
+    broadcast_to,
     clip,
     compute,
     concatenate,
@@ -20,24 +23,26 @@ from .core import (
     cosh,
     descend,
     diag,
+    diagonal,
     einsum,
     empty,
+    equal,
     exp,
+    expand_dims,
     eye,
     flip,
     floordivide,
-    Function,
     get_source,
     identity,
     imag,
     kron,
-    LazyArray,
     log,
-    log10,
     log2,
+    log10,
     matmul,
     multiply,
     ones,
+    permute_dims,
     prod,
     real,
     reshape,
@@ -50,21 +55,21 @@ from .core import (
     sqrt,
     stack,
     take,
+    take_along_axis,
     tan,
     tanh,
     tensordot,
     trace,
     transpose,
     truedivide,
-    Variable,
     where,
     zeros,
 )
 from .core import abs_ as abs
-from .core import sum_ as sum
-from .core import min_ as min
-from .core import max_ as max
 from .core import complex_ as complex
+from .core import max_ as max
+from .core import min_ as min
+from .core import sum_ as sum
 
 __all__ = (
     "abs",
@@ -79,6 +84,7 @@ __all__ = (
     "argsort",
     "array",
     "ascend",
+    "broadcast_to",
     "clip",
     "complex",
     "compute",
@@ -89,9 +95,12 @@ __all__ = (
     "cosh",
     "descend",
     "diag",
+    "diagonal",
     "einsum",
     "empty",
+    "equal",
     "exp",
+    "expand_dims",
     "eye",
     "flip",
     "floordivide",
@@ -110,6 +119,7 @@ __all__ = (
     "min",
     "multiply",
     "ones",
+    "permute_dims",
     "prod",
     "real",
     "reshape",
@@ -123,6 +133,7 @@ __all__ = (
     "stack",
     "sum",
     "take",
+    "take_along_axis",
     "tan",
     "tanh",
     "tensordot",

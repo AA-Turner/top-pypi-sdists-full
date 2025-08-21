@@ -48,6 +48,7 @@ class TestPaginateddebReleaseResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         codename = '', 
                         suite = '', 
                         distribution = '', 
@@ -75,6 +76,7 @@ class TestPaginateddebReleaseResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         codename = '', 
                         suite = '', 
                         distribution = '', 

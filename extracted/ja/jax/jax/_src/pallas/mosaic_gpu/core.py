@@ -28,17 +28,19 @@ from typing import Any, ClassVar, Literal, Union
 
 import jax
 from jax._src import core as jax_core
+from jax._src import custom_batching
 from jax._src import dtypes
 from jax._src import effects
 from jax._src import frozen_dict
-from jax._src import state
+from jax._src import lax
 from jax._src import pretty_printer as pp
+from jax._src import state
 from jax._src import tree_util
+from jax._src import util
 from jax._src.lib.mlir.dialects import arith as arith_dialect
 from jax._src.pallas import core as pallas_core
 from jax._src.pallas import helpers as pallas_helpers
 from jax._src.pallas import primitives as pallas_primitives
-import jax._src.pallas.utils as pallas_utils
 from jax._src.state import discharge as state_discharge
 from jax._src.state import indexing
 from jax._src.state import types as state_types
@@ -223,6 +225,8 @@ def kernel(
 ):
   if unwrap_out := not isinstance(out_shape, (tuple, list)):
     out_shape = (out_shape,)
+
+  @custom_batching.custom_vmap
   def wrapper(*operands):
     def stateful(operand_and_out_refs):
       operand_refs, out_refs = operand_and_out_refs
@@ -239,14 +243,41 @@ def kernel(
       else:
         # The body function name is used to set the name of the kernel as a
         # fallback if the kernel name is not set explicitly.
-        cmap_body.__name__ = getattr(body, '__name__', 'anonymous')
-      pallas_core.core_map(
-          mesh, compiler_params=compiler_params
-      )(cmap_body)
+        cmap_body.__name__ = getattr(body, "__name__", "anonymous")
+      pallas_core.core_map(mesh, compiler_params=compiler_params)(cmap_body)
     _, outs = state_discharge.run_state(stateful)(
         (operands, pallas_helpers.empty_like(out_shape, backend="mosaic_gpu"))
     )
     return outs[0] if unwrap_out else outs
+
+  @wrapper.def_vmap
+  def _vmap_rule(axis_size, in_batched, *args):
+    axis_name = object()
+
+    def batched_body(*refs):
+      idx = lax.axis_index(axis_name)
+      lens = (len(args), len(out_shape))
+      operand_refs, out_refs, scratch_refs = util.split_list(refs, lens)
+      slice_ref = lambda r, b=True: (r.at[idx] if b else r)
+      operand_refs = tree_util.tree_map(slice_ref, operand_refs, in_batched)
+      out_refs = tree_util.tree_map(slice_ref, out_refs)
+      return body(*operand_refs, *out_refs, *scratch_refs)
+
+    out_shape_ = out_shape[0] if unwrap_out else tuple(out_shape)
+    add_batch_dim = lambda x: x.update(shape=(axis_size, *x.shape))
+    mesh_kwargs_ = dict(mesh_kwargs)
+    out = kernel(
+        batched_body,
+        out_shape=tree_util.tree_map(add_batch_dim, out_shape_),
+        scratch_shapes=scratch_shapes,
+        compiler_params=compiler_params,
+        grid=(axis_size, *mesh_kwargs_.pop("grid", ())),
+        grid_names=(axis_name, *mesh_kwargs_.pop("grid_names", ())),
+        **mesh_kwargs_,
+    )(*args)
+    out_batched = tree_util.tree_map(lambda _: True, out_shape_)
+    return out, out_batched
+
   return wrapper
 
 
@@ -432,7 +463,6 @@ class AbstractRefUnion(state.AbstractRef):
     first_ref = ref_leaves[0]
     assert all(ref.collective == first_ref.collective for ref in ref_leaves)
     return first_ref.collective
-
 
 
 @dataclasses.dataclass(init=False, frozen=True)
@@ -841,7 +871,7 @@ class SwizzleTransform(MemoryRefTransform):
     raise NotImplementedError
 
   def __call__(self, aval: jax_core.ShapedArray) -> jax_core.ShapedArray:
-    swizzle_elems = (self.swizzle * 8) // pallas_utils.dtype_bitwidth(aval.dtype)
+    swizzle_elems = (self.swizzle * 8) // dtypes.bit_width(aval.dtype)
     if swizzle_elems != aval.shape[-1]:
       raise ValueError(
           f"Swizzle {self.swizzle} requires the trailing dimension to be of"
@@ -916,7 +946,7 @@ class BlockSpec(pallas_core.BlockSpec):
       index_map_avals: Sequence[jax_core.AbstractValue],
       index_map_tree: tree_util.PyTreeDef,
       grid: pallas_core.GridMappingGrid,
-      mapped_dims: tuple[int, ...],
+      vmapped_dims: tuple[int, ...],
       debug: bool = False,
   ) -> pallas_core.BlockMapping:
     bm = super().to_block_mapping(
@@ -925,7 +955,7 @@ class BlockSpec(pallas_core.BlockSpec):
         index_map_avals=index_map_avals,
         index_map_tree=index_map_tree,
         grid=grid,
-        mapped_dims=mapped_dims,
+        vmapped_dims=vmapped_dims,
         debug=debug,
     )
     block_inner_aval = bm.block_aval.inner_aval
@@ -1179,6 +1209,7 @@ def _gpu_mesh_discharge_rule(
     debug,
     cost_estimate,
     name,
+    metadata,
 ):
   if not isinstance(mesh, Mesh):
     raise TypeError(f"Mesh must be a `plgpu.Mesh`, got {type(mesh)}")
@@ -1201,6 +1232,7 @@ def _gpu_mesh_discharge_rule(
       cost_estimate=cost_estimate,
       name=name,
       memory_space=GMEM,
+      metadata=metadata,
   )
 
 
@@ -1289,6 +1321,12 @@ class Layout(SomeLayout, enum.Enum):
   TCGEN05_M64_COLLECTIVE = enum.auto()
   TCGEN05_TMEM_NATIVE = enum.auto()
 
+  SMEM_GMEM_COPY = enum.auto()
+  TMA_GATHER_INDICES = enum.auto()
+
+  # TODO(b/435159109): Remove this once LLVM regression is addressed.
+  _WGMMA_ACC_32BIT = enum.auto()  # Temporarily exposed to work around LLVM bugs
+
   def __call__(self, *args, **kwargs) -> ParameterizedLayout:
     return ParameterizedLayout(self, args, kwargs)
 
@@ -1304,6 +1342,9 @@ class Layout(SomeLayout, enum.Enum):
       case Layout.WGMMA:
         check_no_args()
         return mgpu.WGMMA_LAYOUT
+      case Layout._WGMMA_ACC_32BIT:
+        check_no_args()
+        return mgpu.fragmented_array.WGMMA_LAYOUT_ACC_32BIT
       case Layout.WG_SPLAT:
         return mgpu.WGSplatFragLayout(*args, **kwargs)  # pytype: disable=missing-parameter
       case Layout.WG_STRIDED:
@@ -1315,10 +1356,22 @@ class Layout(SomeLayout, enum.Enum):
         check_no_args()
         return mgpu.TCGEN05_TRANSPOSED_LAYOUT
       case Layout.TCGEN05_TMEM_NATIVE:
-        check_no_args()
-        return tcgen05.TMEM_NATIVE_LAYOUT
+        if args or kwargs:
+          return mgpu.tmem_native_layout(*args, **kwargs)
+        return mgpu.TMEM_NATIVE_LAYOUT
       case Layout.TCGEN05_M64_COLLECTIVE:
         return tcgen05.fa_m64_collective_layout(*args, **kwargs)  # pytype: disable=missing-parameter
+      case Layout.SMEM_GMEM_COPY:
+        normalize_args = lambda shape, dtype, swizzle: (shape, dtype, swizzle)
+        shape, dtype, swizzle = normalize_args(*args, **kwargs)
+        bitwidth = dtypes.bit_width(dtype)
+        tiling = (8, 8 * swizzle // bitwidth)
+        row_tiles, col_tiles = mgpu.tile_shape(shape, tiling)[-4:-2]
+        return mgpu.fragmented_array.tiled_copy_smem_gmem_layout(
+            row_tiles, col_tiles, swizzle, bitwidth
+        )
+      case Layout.TMA_GATHER_INDICES:
+        return mgpu.TMA_GATHER_INDICES_LAYOUT
 
 
 # TODO(apaszke): Adjust the users and remove these backfills.
@@ -1332,8 +1385,11 @@ Layout.TCGEN05_TMEM_NATIVE_ROW = Layout.TCGEN05_TMEM_NATIVE.reduce(1)
 class TMEMLayout(enum.Enum):
   """Layout for TMEM references."""
   SCALES_LAYOUT = enum.auto()
+  SPARSE_METADATA_LAYOUT = enum.auto()
 
   def to_mgpu(self) -> tcgen05.TMEMLayout:
     match self:
       case TMEMLayout.SCALES_LAYOUT:
         return tcgen05.scales_layout()
+      case TMEMLayout.SPARSE_METADATA_LAYOUT:
+        return tcgen05.sparse_meta_layout()

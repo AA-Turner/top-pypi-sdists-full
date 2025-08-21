@@ -21,12 +21,11 @@ pub(crate) fn require_concurrent_index_creation(ctx: &mut Linter, parse: &Parse<
                 if create_index.concurrently_token().is_none()
                     && !tables_created.contains(&Identifier::new(&table_name.text()))
                 {
-                    ctx.report(Violation::new(
+                    ctx.report(Violation::for_node(
                         Rule::RequireConcurrentIndexCreation,
                 "During normal index creation, table updates are blocked, but reads are still allowed.".into(),
-                        create_index.syntax().text_range(),
-                        "Use `CONCURRENTLY` to avoid blocking writes.".to_string(),
-                    ));
+                        create_index.syntax(),
+                    ).help("Use `CONCURRENTLY` to avoid blocking writes."));
                 }
             }
         }
@@ -37,7 +36,10 @@ pub(crate) fn require_concurrent_index_creation(ctx: &mut Linter, parse: &Parse<
 mod test {
     use insta::assert_debug_snapshot;
 
-    use crate::{Rule, test_utils::{lint, lint_with_assume_in_transaction}};
+    use crate::{
+        Rule,
+        test_utils::{lint, lint_with_assume_in_transaction},
+    };
 
     /// ```sql
     /// -- instead of

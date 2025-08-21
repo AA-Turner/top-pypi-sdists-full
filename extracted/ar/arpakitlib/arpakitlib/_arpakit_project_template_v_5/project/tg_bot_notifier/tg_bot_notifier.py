@@ -5,7 +5,7 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 
 from project.core.settings import get_cached_settings
-from project.core.util import setup_logging
+from project.core.setup_logging import setup_logging
 
 
 def create_async_tg_bot_notifier() -> aiogram.Bot | None:

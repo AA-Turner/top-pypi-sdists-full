@@ -1,6 +1,6 @@
 import asyncio
 
-from project.core.util import setup_logging
+from project.core.setup_logging import setup_logging
 from project.tg_bot.tg_bot import get_cached_tg_bot
 from project.tg_bot.util.set_tg_bot_commands import set_client_tg_bot_commands, set_admin_tg_bot_commands
 

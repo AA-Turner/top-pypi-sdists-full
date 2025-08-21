@@ -55,16 +55,9 @@ import jax.numpy as jnp
 map, unsafe_map = safe_map, map
 zip, unsafe_zip = safe_zip, zip
 
-Grid = pallas_core.Grid
-TupleGrid = pallas_core.TupleGrid
-GridSpec = pallas_core.GridSpec
 BlockMapping = pallas_core.BlockMapping
 GridMapping = pallas_core.GridMapping
-BlockSpec = pallas_core.BlockSpec
-BlockSpecTree = pallas_core.BlockSpecTree
-NoBlockSpec = pallas_core.NoBlockSpec
 no_block_spec = pallas_core.no_block_spec
-ScratchShapeTree = pallas_core.ScratchShapeTree
 CostEstimate = pallas_core.CostEstimate
 Backend = pallas_core.Backend
 CompilerParams = pallas_core.CompilerParams
@@ -1161,7 +1154,7 @@ def pallas_call_checkify_rule(error: checkify.Error,
           index_map_avals=grid_mapping.index_map_avals,
           index_map_tree=grid_mapping.index_map_tree,
           grid=grid_mapping.grid,
-          mapped_dims=grid_mapping.vmapped_dims,
+          vmapped_dims=grid_mapping.vmapped_dims,
           debug=True,
       ),
       error_block_specs,
@@ -1420,7 +1413,7 @@ def _pallas_call_state_discharge_rule(
           index_map_avals=grid_mapping.index_map_avals,
           index_map_tree=grid_mapping.index_map_tree,
           grid=grid_mapping.grid,
-          mapped_dims=grid_mapping.mapped_dims,
+          vmapped_dims=grid_mapping.vmapped_dims,
           debug=debug,
       )
       for ref_aval, block_spec in zip(ref_avals, ref_block_specs)
@@ -1513,17 +1506,19 @@ def pallas_call(
     kernel: Callable[..., None],
     out_shape: Any,
     *,
-    grid_spec: GridSpec | None = None,
-    grid: TupleGrid = (),
-    in_specs: BlockSpecTree = no_block_spec,
-    out_specs: BlockSpecTree = no_block_spec,
-    scratch_shapes: ScratchShapeTree = (),
+    grid_spec: pallas_core.GridSpec | None = None,
+    grid: pallas_core.TupleGrid = (),
+    in_specs: pallas_core.BlockSpecTree = no_block_spec,
+    out_specs: pallas_core.BlockSpecTree = no_block_spec,
+    scratch_shapes: pallas_core.ScratchShapeTree = (),
     input_output_aliases: Mapping[int, int] = {},
     debug: bool = False,
     interpret: Any = False,
     name: str | None = None,
     compiler_params: (
-        Mapping[Backend, pallas_core.CompilerParams] | pallas_core.CompilerParams | None
+        Mapping[Backend, pallas_core.CompilerParams]
+        | pallas_core.CompilerParams
+        | None
     ) = None,
     cost_estimate: CostEstimate | None = None,
     backend: Backend | None = None,
@@ -1589,7 +1584,7 @@ def pallas_call(
     invoke the Pallas kernel.
   """
   if grid_spec is None:
-    grid_spec = GridSpec(grid, in_specs, out_specs, scratch_shapes)
+    grid_spec = pallas_core.GridSpec(grid, in_specs, out_specs, scratch_shapes)
   else:
     if grid:
       raise ValueError(
@@ -1623,7 +1618,6 @@ def pallas_call(
   )
 
 
-
 def _normalize_compiler_params(
     compiler_params: Mapping[Backend, pallas_core.CompilerParams] | pallas_core.CompilerParams | None,
 ) -> Mapping[Backend, pallas_core.CompilerParams]:
@@ -1653,7 +1647,7 @@ def _pallas_call(
     kernel: Callable[..., None],
     out_shape: Any,
     *,
-    grid_spec: GridSpec,
+    grid_spec: pallas_core.GridSpec,
     mesh: pallas_core.Mesh | None = None,
     input_output_aliases: Mapping[int, int] = {},
     debug: bool = False,

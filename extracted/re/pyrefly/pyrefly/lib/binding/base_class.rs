@@ -7,28 +7,100 @@
 
 use pyrefly_python::ast::Ast;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprName;
+use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
 use crate::binding::bindings::BindingsBuilder;
 use crate::export::special::SpecialExport;
 
-/// Private helper type used to share part of the logic needed for the
+/// We only recognize a small subset of syntactical forms for expression that may appear on base classes
+#[derive(Debug, Clone)]
+pub enum BaseClassExpr {
+    Name(ExprName),
+    Attribute {
+        value: Box<BaseClassExpr>,
+        attr: Identifier,
+        range: TextRange,
+    },
+    Subscript {
+        value: Box<BaseClassExpr>,
+        slice: Box<Expr>,
+        range: TextRange,
+    },
+}
+
+impl Ranged for BaseClassExpr {
+    fn range(&self) -> TextRange {
+        match self {
+            BaseClassExpr::Name(x) => x.range(),
+            BaseClassExpr::Attribute { range, .. } => *range,
+            BaseClassExpr::Subscript { range, .. } => *range,
+        }
+    }
+}
+
+impl BaseClassExpr {
+    pub fn from_expr(expr: &Expr) -> Option<Self> {
+        match expr {
+            Expr::Name(x) => Some(Self::Name(x.clone())),
+            Expr::Attribute(x) => {
+                let value = Box::new(Self::from_expr(&x.value)?);
+                let attr = x.attr.clone();
+                let range = x.range();
+                Some(Self::Attribute { value, attr, range })
+            }
+            Expr::Subscript(x) => {
+                let value = Box::new(Self::from_expr(x.value.as_ref())?);
+                let slice = x.slice.clone();
+                let range = x.range();
+                Some(Self::Subscript {
+                    value,
+                    slice,
+                    range,
+                })
+            }
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum BaseClassGenericKind {
+    Generic,
+    Protocol,
+}
+
+#[derive(Debug, Clone)]
+pub struct BaseClassGeneric {
+    pub kind: BaseClassGenericKind,
+    pub args: Box<[Expr]>,
+    pub range: TextRange,
+}
+
+impl Ranged for BaseClassGeneric {
+    fn range(&self) -> TextRange {
+        self.range
+    }
+}
+
+/// Helper type used to share part of the logic needed for the
 /// binding-level work of finding legacy type parameters versus the type-level
 /// work of computing inheritance information and the MRO.
 #[derive(Debug, Clone)]
 pub enum BaseClass {
     TypedDict(TextRange),
-    Generic(Box<[Expr]>, TextRange),
-    Protocol(Box<[Expr]>, TextRange),
-    Expr(Expr),
+    Generic(BaseClassGeneric),
+    BaseClassExpr(BaseClassExpr),
+    InvalidExpr(Expr),
     NamedTuple(TextRange),
 }
 
 impl BaseClass {
     pub fn is_generic(&self) -> bool {
         match self {
-            BaseClass::Generic(ts, ..) | BaseClass::Protocol(ts, ..) if !ts.is_empty() => true,
+            BaseClass::Generic(x) if !x.args.is_empty() => true,
             _ => false,
         }
     }
@@ -45,9 +117,9 @@ impl Ranged for BaseClass {
     fn range(&self) -> TextRange {
         match self {
             BaseClass::TypedDict(range) => *range,
-            BaseClass::Generic(_, range) => *range,
-            BaseClass::Protocol(_, range) => *range,
-            BaseClass::Expr(expr) => expr.range(),
+            BaseClass::Generic(x) => x.range(),
+            BaseClass::BaseClassExpr(base_expr) => base_expr.range(),
+            BaseClass::InvalidExpr(expr) => expr.range(),
             BaseClass::NamedTuple(range) => *range,
         }
     }
@@ -60,27 +132,41 @@ impl<'a> BindingsBuilder<'a> {
             Some(SpecialExport::TypingNamedTuple) | Some(SpecialExport::CollectionsNamedTuple) => {
                 BaseClass::NamedTuple(base_expr.range())
             }
-            Some(SpecialExport::Protocol) => BaseClass::Protocol(Box::new([]), base_expr.range()),
-            Some(SpecialExport::Generic) => BaseClass::Generic(Box::new([]), base_expr.range()),
+            Some(SpecialExport::Protocol) => BaseClass::Generic(BaseClassGeneric {
+                kind: BaseClassGenericKind::Protocol,
+                args: Box::new([]),
+                range: base_expr.range(),
+            }),
+            Some(SpecialExport::Generic) => BaseClass::Generic(BaseClassGeneric {
+                kind: BaseClassGenericKind::Generic,
+                args: Box::new([]),
+                range: base_expr.range(),
+            }),
             _ => {
                 if let Expr::Subscript(subscript) = &base_expr {
                     match self.as_special_export(&subscript.value) {
                         Some(SpecialExport::Protocol) => {
-                            return BaseClass::Protocol(
-                                Ast::unpack_slice(&subscript.slice).into(),
-                                base_expr.range(),
-                            );
+                            return BaseClass::Generic(BaseClassGeneric {
+                                kind: BaseClassGenericKind::Protocol,
+                                args: Ast::unpack_slice(&subscript.slice).into(),
+                                range: base_expr.range(),
+                            });
                         }
                         Some(SpecialExport::Generic) => {
-                            return BaseClass::Generic(
-                                Ast::unpack_slice(&subscript.slice).into(),
-                                base_expr.range(),
-                            );
+                            return BaseClass::Generic(BaseClassGeneric {
+                                kind: BaseClassGenericKind::Generic,
+                                args: Ast::unpack_slice(&subscript.slice).into(),
+                                range: base_expr.range(),
+                            });
                         }
                         _ => {}
                     }
                 }
-                BaseClass::Expr(base_expr)
+                if let Some(valid_expr) = BaseClassExpr::from_expr(&base_expr) {
+                    BaseClass::BaseClassExpr(valid_expr)
+                } else {
+                    BaseClass::InvalidExpr(base_expr)
+                }
             }
         }
     }

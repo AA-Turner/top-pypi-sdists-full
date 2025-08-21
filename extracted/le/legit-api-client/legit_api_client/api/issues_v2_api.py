@@ -2804,10 +2804,10 @@ class IssuesV2Api:
         source_name: Annotated[Optional[StrictStr], Field(description="Filter issues that have at least one source with the given name")] = None,
         integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
         source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
-        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secrete type issues")] = None,
-        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secrete type issues")] = None,
-        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secret type issues")] = None,
+        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secret type issues")] = None,
+        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
         file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
         _request_timeout: Union[
             None,
@@ -2896,13 +2896,13 @@ class IssuesV2Api:
         :type integration_id: str
         :param source_scanner_ids: Filter issues that their SourceScannerId is in the given list
         :type source_scanner_ids: List[ControlClassification]
-        :param ai_validation_result: Filter issues by AI validation result. relevant only for secrete type issues
-        :type ai_validation_result: AiValidationResult
-        :param validity_status: Filter issues by secret validity status. relevant only for secrete type issues
+        :param ai_validation_result: Filter issues by AI validation result. relevant only for secret type issues
+        :type ai_validation_result: AiSecretValidationResult
+        :param validity_status: Filter issues by secret validity status. relevant only for secret type issues
         :type validity_status: SecretIssueValidityStatus
-        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_from_date: datetime
-        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_to_date: datetime
         :param file_path: Filter issues that their fila-path contains the given string
         :type file_path: str
@@ -3027,10 +3027,10 @@ class IssuesV2Api:
         source_name: Annotated[Optional[StrictStr], Field(description="Filter issues that have at least one source with the given name")] = None,
         integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
         source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
-        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secrete type issues")] = None,
-        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secrete type issues")] = None,
-        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secret type issues")] = None,
+        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secret type issues")] = None,
+        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
         file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
         _request_timeout: Union[
             None,
@@ -3119,13 +3119,13 @@ class IssuesV2Api:
         :type integration_id: str
         :param source_scanner_ids: Filter issues that their SourceScannerId is in the given list
         :type source_scanner_ids: List[ControlClassification]
-        :param ai_validation_result: Filter issues by AI validation result. relevant only for secrete type issues
-        :type ai_validation_result: AiValidationResult
-        :param validity_status: Filter issues by secret validity status. relevant only for secrete type issues
+        :param ai_validation_result: Filter issues by AI validation result. relevant only for secret type issues
+        :type ai_validation_result: AiSecretValidationResult
+        :param validity_status: Filter issues by secret validity status. relevant only for secret type issues
         :type validity_status: SecretIssueValidityStatus
-        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_from_date: datetime
-        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_to_date: datetime
         :param file_path: Filter issues that their fila-path contains the given string
         :type file_path: str
@@ -3250,10 +3250,10 @@ class IssuesV2Api:
         source_name: Annotated[Optional[StrictStr], Field(description="Filter issues that have at least one source with the given name")] = None,
         integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
         source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
-        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secrete type issues")] = None,
-        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secrete type issues")] = None,
-        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secret type issues")] = None,
+        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secret type issues")] = None,
+        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
         file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
         _request_timeout: Union[
             None,
@@ -3342,13 +3342,13 @@ class IssuesV2Api:
         :type integration_id: str
         :param source_scanner_ids: Filter issues that their SourceScannerId is in the given list
         :type source_scanner_ids: List[ControlClassification]
-        :param ai_validation_result: Filter issues by AI validation result. relevant only for secrete type issues
-        :type ai_validation_result: AiValidationResult
-        :param validity_status: Filter issues by secret validity status. relevant only for secrete type issues
+        :param ai_validation_result: Filter issues by AI validation result. relevant only for secret type issues
+        :type ai_validation_result: AiSecretValidationResult
+        :param validity_status: Filter issues by secret validity status. relevant only for secret type issues
         :type validity_status: SecretIssueValidityStatus
-        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_from_date: datetime
-        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_to_date: datetime
         :param file_path: Filter issues that their fila-path contains the given string
         :type file_path: str
@@ -3798,10 +3798,10 @@ class IssuesV2Api:
         source_name: Annotated[Optional[StrictStr], Field(description="Filter issues that have at least one source with the given name")] = None,
         integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
         source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
-        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secrete type issues")] = None,
-        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secrete type issues")] = None,
-        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secret type issues")] = None,
+        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secret type issues")] = None,
+        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
         file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
         _request_timeout: Union[
             None,
@@ -3898,13 +3898,13 @@ class IssuesV2Api:
         :type integration_id: str
         :param source_scanner_ids: Filter issues that their SourceScannerId is in the given list
         :type source_scanner_ids: List[ControlClassification]
-        :param ai_validation_result: Filter issues by AI validation result. relevant only for secrete type issues
-        :type ai_validation_result: AiValidationResult
-        :param validity_status: Filter issues by secret validity status. relevant only for secrete type issues
+        :param ai_validation_result: Filter issues by AI validation result. relevant only for secret type issues
+        :type ai_validation_result: AiSecretValidationResult
+        :param validity_status: Filter issues by secret validity status. relevant only for secret type issues
         :type validity_status: SecretIssueValidityStatus
-        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_from_date: datetime
-        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_to_date: datetime
         :param file_path: Filter issues that their fila-path contains the given string
         :type file_path: str
@@ -4037,10 +4037,10 @@ class IssuesV2Api:
         source_name: Annotated[Optional[StrictStr], Field(description="Filter issues that have at least one source with the given name")] = None,
         integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
         source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
-        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secrete type issues")] = None,
-        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secrete type issues")] = None,
-        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secret type issues")] = None,
+        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secret type issues")] = None,
+        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
         file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
         _request_timeout: Union[
             None,
@@ -4137,13 +4137,13 @@ class IssuesV2Api:
         :type integration_id: str
         :param source_scanner_ids: Filter issues that their SourceScannerId is in the given list
         :type source_scanner_ids: List[ControlClassification]
-        :param ai_validation_result: Filter issues by AI validation result. relevant only for secrete type issues
-        :type ai_validation_result: AiValidationResult
-        :param validity_status: Filter issues by secret validity status. relevant only for secrete type issues
+        :param ai_validation_result: Filter issues by AI validation result. relevant only for secret type issues
+        :type ai_validation_result: AiSecretValidationResult
+        :param validity_status: Filter issues by secret validity status. relevant only for secret type issues
         :type validity_status: SecretIssueValidityStatus
-        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_from_date: datetime
-        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_to_date: datetime
         :param file_path: Filter issues that their fila-path contains the given string
         :type file_path: str
@@ -4276,10 +4276,10 @@ class IssuesV2Api:
         source_name: Annotated[Optional[StrictStr], Field(description="Filter issues that have at least one source with the given name")] = None,
         integration_id: Annotated[Optional[StrictStr], Field(description="Filter issues that were detected by the given integration")] = None,
         source_scanner_ids: Annotated[Optional[List[ControlClassification]], Field(description="Filter issues that their SourceScannerId is in the given list")] = None,
-        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secrete type issues")] = None,
-        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secrete type issues")] = None,
-        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
-        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        ai_validation_result: Annotated[Optional[Any], Field(description="Filter issues by AI validation result. relevant only for secret type issues")] = None,
+        validity_status: Annotated[Optional[Any], Field(description="Filter issues by secret validity status. relevant only for secret type issues")] = None,
+        validity_check_from_date: Annotated[Optional[datetime], Field(description="Filter issues validated after the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
+        validity_check_to_date: Annotated[Optional[datetime], Field(description="Filter issues validated up to the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)")] = None,
         file_path: Annotated[Optional[StrictStr], Field(description="Filter issues that their fila-path contains the given string")] = None,
         _request_timeout: Union[
             None,
@@ -4376,13 +4376,13 @@ class IssuesV2Api:
         :type integration_id: str
         :param source_scanner_ids: Filter issues that their SourceScannerId is in the given list
         :type source_scanner_ids: List[ControlClassification]
-        :param ai_validation_result: Filter issues by AI validation result. relevant only for secrete type issues
-        :type ai_validation_result: AiValidationResult
-        :param validity_status: Filter issues by secret validity status. relevant only for secrete type issues
+        :param ai_validation_result: Filter issues by AI validation result. relevant only for secret type issues
+        :type ai_validation_result: AiSecretValidationResult
+        :param validity_status: Filter issues by secret validity status. relevant only for secret type issues
         :type validity_status: SecretIssueValidityStatus
-        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_from_date: Filter issues validated after the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_from_date: datetime
-        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secrete type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
+        :param validity_check_to_date: Filter issues validated up to the given date, relevant only for secret type issues. Time should be in ISO 8601 format (e.g. 2024-05-01T15:00:00Z)
         :type validity_check_to_date: datetime
         :param file_path: Filter issues that their fila-path contains the given string
         :type file_path: str

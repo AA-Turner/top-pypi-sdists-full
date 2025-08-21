@@ -82,9 +82,12 @@ def _get_configurable_jsonschema(graph: Pregel) -> dict:
                 json_schema["properties"].pop(key, None)
         # The type name of the configurable type is not preserved.
         # We'll add it back to the schema if we can.
-        if hasattr(graph, "config_type") and graph.config_type is not None:
-            if hasattr(graph.config_type, "__name__"):
-                json_schema["title"] = graph.config_type.__name__
+        if (
+            hasattr(graph, "config_type")
+            and graph.config_type is not None
+            and hasattr(graph.config_type, "__name__")
+        ):
+            json_schema["title"] = graph.config_type.__name__
         return json_schema
     # If the schema does not have a configurable field, return an empty schema.
     return {}
@@ -263,18 +266,16 @@ async def get_assistant_graph(
             drawable_graph = await graph.fetch_graph(xray=xray)
             json_graph = drawable_graph.to_json()
             for node in json_graph.get("nodes", []):
-                if data := node.get("data"):
-                    if isinstance(data, dict):
-                        data.pop("id", None)
+                if (data := node.get("data")) and isinstance(data, dict):
+                    data.pop("id", None)
             return ApiResponse(json_graph)
 
         try:
             drawable_graph = await graph.aget_graph(xray=xray)
             json_graph = drawable_graph.to_json()
             for node in json_graph.get("nodes", []):
-                if data := node.get("data"):
-                    if isinstance(data, dict):
-                        data.pop("id", None)
+                if (data := node.get("data")) and isinstance(data, dict):
+                    data.pop("id", None)
             return ApiResponse(json_graph)
         except NotImplementedError:
             raise HTTPException(

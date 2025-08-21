@@ -956,6 +956,11 @@ class SeeqNames:
         capsule_id_safe = 'Capsule SortKey'
         original_uncertainty = 'Original Uncertainty'
         is_suppressed = 'Is Suppressed'
+        class ThresholdMetric:
+            priority = 'Priority'
+            priority_name = 'Priority Name'
+            color = 'Color'
+        
     
     class Properties:
         guid = 'GUID'

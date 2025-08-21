@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-19T23:54:55.981520                                                            #
+# Generated on 2025-08-20T21:57:30.297705                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
+    import typing
     import metaflow.plugins.cards.card_modules.components
     import metaflow.plugins.cards.card_modules.card
-    import typing
 
 from .basic import LogComponent as LogComponent
 from .basic import ErrorComponent as ErrorComponent

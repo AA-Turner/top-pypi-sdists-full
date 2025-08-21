@@ -887,11 +887,16 @@ class DatasetScanNode(QueryNode):
         else:
             filter_expr = None
 
-        # this might be able to use the other format now that i don't need to drop the time partition column
-        reader = ds.scanner(
-            filter=filter_expr,
-        ).to_reader()
-        return reader
+        schema = ds.schema
+
+        # Datasets generated using SDK <1.2 will have TIME_PARTITION as a column
+        if TIME_PARTITION in schema.names:
+            columns_without_time_partition = [col for col in self.columns if col != TIME_PARTITION]
+            scanner = ds.scanner(filter=filter_expr, columns=columns_without_time_partition)
+        else:
+            scanner = ds.scanner(filter=filter_expr)
+
+        return scanner.to_reader()
 
 
 @attrs.frozen

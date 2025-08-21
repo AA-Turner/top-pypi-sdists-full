@@ -1,7 +1,7 @@
 r'''
 # `google_bigtable_schema_bundle`
 
-Refer to the Terraform Registry for docs: [`google_bigtable_schema_bundle`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle).
+Refer to the Terraform Registry for docs: [`google_bigtable_schema_bundle`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BigtableSchemaBundle(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.bigtableSchemaBundle.BigtableSchemaBundle",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle google_bigtable_schema_bundle}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle google_bigtable_schema_bundle}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class BigtableSchemaBundle(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle google_bigtable_schema_bundle} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle google_bigtable_schema_bundle} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param proto_schema: proto_schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#proto_schema BigtableSchemaBundle#proto_schema}
-        :param schema_bundle_id: The unique name of the schema bundle in the form '[*a-zA-Z0-9][-*.a-zA-Z0-9]*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#schema_bundle_id BigtableSchemaBundle#schema_bundle_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#id BigtableSchemaBundle#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_warnings: If true, allow backwards incompatible changes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#ignore_warnings BigtableSchemaBundle#ignore_warnings}
-        :param instance: The name of the instance to create the schema bundle within. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#instance BigtableSchemaBundle#instance}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#project BigtableSchemaBundle#project}.
-        :param table: The name of the table to create the schema bundle within. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#table BigtableSchemaBundle#table}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#timeouts BigtableSchemaBundle#timeouts}
+        :param proto_schema: proto_schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#proto_schema BigtableSchemaBundle#proto_schema}
+        :param schema_bundle_id: The unique name of the schema bundle in the form '[*a-zA-Z0-9][-*.a-zA-Z0-9]*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#schema_bundle_id BigtableSchemaBundle#schema_bundle_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#id BigtableSchemaBundle#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_warnings: If true, allow backwards incompatible changes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#ignore_warnings BigtableSchemaBundle#ignore_warnings}
+        :param instance: The name of the instance to create the schema bundle within. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#instance BigtableSchemaBundle#instance}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#project BigtableSchemaBundle#project}.
+        :param table: The name of the table to create the schema bundle within. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#table BigtableSchemaBundle#table}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#timeouts BigtableSchemaBundle#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class BigtableSchemaBundle(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BigtableSchemaBundle to import.
-        :param import_from_id: The id of the existing BigtableSchemaBundle that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BigtableSchemaBundle that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BigtableSchemaBundle to import is found.
         '''
         if __debug__:
@@ -138,7 +138,7 @@ class BigtableSchemaBundle(
     @jsii.member(jsii_name="putProtoSchema")
     def put_proto_schema(self, *, proto_descriptors: builtins.str) -> None:
         '''
-        :param proto_descriptors: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#proto_descriptors BigtableSchemaBundle#proto_descriptors}
+        :param proto_descriptors: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#proto_descriptors BigtableSchemaBundle#proto_descriptors}
         '''
         value = BigtableSchemaBundleProtoSchema(proto_descriptors=proto_descriptors)
 
@@ -153,9 +153,9 @@ class BigtableSchemaBundle(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#create BigtableSchemaBundle#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#delete BigtableSchemaBundle#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#update BigtableSchemaBundle#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#create BigtableSchemaBundle#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#delete BigtableSchemaBundle#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#update BigtableSchemaBundle#update}.
         '''
         value = BigtableSchemaBundleTimeouts(
             create=create, delete=delete, update=update
@@ -386,14 +386,14 @@ class BigtableSchemaBundleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param proto_schema: proto_schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#proto_schema BigtableSchemaBundle#proto_schema}
-        :param schema_bundle_id: The unique name of the schema bundle in the form '[*a-zA-Z0-9][-*.a-zA-Z0-9]*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#schema_bundle_id BigtableSchemaBundle#schema_bundle_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#id BigtableSchemaBundle#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_warnings: If true, allow backwards incompatible changes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#ignore_warnings BigtableSchemaBundle#ignore_warnings}
-        :param instance: The name of the instance to create the schema bundle within. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#instance BigtableSchemaBundle#instance}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#project BigtableSchemaBundle#project}.
-        :param table: The name of the table to create the schema bundle within. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#table BigtableSchemaBundle#table}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#timeouts BigtableSchemaBundle#timeouts}
+        :param proto_schema: proto_schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#proto_schema BigtableSchemaBundle#proto_schema}
+        :param schema_bundle_id: The unique name of the schema bundle in the form '[*a-zA-Z0-9][-*.a-zA-Z0-9]*'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#schema_bundle_id BigtableSchemaBundle#schema_bundle_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#id BigtableSchemaBundle#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_warnings: If true, allow backwards incompatible changes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#ignore_warnings BigtableSchemaBundle#ignore_warnings}
+        :param instance: The name of the instance to create the schema bundle within. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#instance BigtableSchemaBundle#instance}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#project BigtableSchemaBundle#project}.
+        :param table: The name of the table to create the schema bundle within. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#table BigtableSchemaBundle#table}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#timeouts BigtableSchemaBundle#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -517,7 +517,7 @@ class BigtableSchemaBundleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def proto_schema(self) -> "BigtableSchemaBundleProtoSchema":
         '''proto_schema block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#proto_schema BigtableSchemaBundle#proto_schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#proto_schema BigtableSchemaBundle#proto_schema}
         '''
         result = self._values.get("proto_schema")
         assert result is not None, "Required property 'proto_schema' is missing"
@@ -527,7 +527,7 @@ class BigtableSchemaBundleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema_bundle_id(self) -> builtins.str:
         '''The unique name of the schema bundle in the form '[*a-zA-Z0-9][-*.a-zA-Z0-9]*'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#schema_bundle_id BigtableSchemaBundle#schema_bundle_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#schema_bundle_id BigtableSchemaBundle#schema_bundle_id}
         '''
         result = self._values.get("schema_bundle_id")
         assert result is not None, "Required property 'schema_bundle_id' is missing"
@@ -535,7 +535,7 @@ class BigtableSchemaBundleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#id BigtableSchemaBundle#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#id BigtableSchemaBundle#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -549,7 +549,7 @@ class BigtableSchemaBundleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, allow backwards incompatible changes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#ignore_warnings BigtableSchemaBundle#ignore_warnings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#ignore_warnings BigtableSchemaBundle#ignore_warnings}
         '''
         result = self._values.get("ignore_warnings")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -558,14 +558,14 @@ class BigtableSchemaBundleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def instance(self) -> typing.Optional[builtins.str]:
         '''The name of the instance to create the schema bundle within.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#instance BigtableSchemaBundle#instance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#instance BigtableSchemaBundle#instance}
         '''
         result = self._values.get("instance")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#project BigtableSchemaBundle#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#project BigtableSchemaBundle#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -573,7 +573,7 @@ class BigtableSchemaBundleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def table(self) -> typing.Optional[builtins.str]:
         '''The name of the table to create the schema bundle within.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#table BigtableSchemaBundle#table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#table BigtableSchemaBundle#table}
         '''
         result = self._values.get("table")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -582,7 +582,7 @@ class BigtableSchemaBundleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BigtableSchemaBundleTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#timeouts BigtableSchemaBundle#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#timeouts BigtableSchemaBundle#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BigtableSchemaBundleTimeouts"], result)
@@ -607,7 +607,7 @@ class BigtableSchemaBundleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class BigtableSchemaBundleProtoSchema:
     def __init__(self, *, proto_descriptors: builtins.str) -> None:
         '''
-        :param proto_descriptors: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#proto_descriptors BigtableSchemaBundle#proto_descriptors}
+        :param proto_descriptors: Base64 encoded content of the file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#proto_descriptors BigtableSchemaBundle#proto_descriptors}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e3cfcdc762c32cf161852e24ae790238ff55ebdde542b34fc3fd85d5c336ee2)
@@ -620,7 +620,7 @@ class BigtableSchemaBundleProtoSchema:
     def proto_descriptors(self) -> builtins.str:
         '''Base64 encoded content of the file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#proto_descriptors BigtableSchemaBundle#proto_descriptors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#proto_descriptors BigtableSchemaBundle#proto_descriptors}
         '''
         result = self._values.get("proto_descriptors")
         assert result is not None, "Required property 'proto_descriptors' is missing"
@@ -705,9 +705,9 @@ class BigtableSchemaBundleTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#create BigtableSchemaBundle#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#delete BigtableSchemaBundle#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#update BigtableSchemaBundle#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#create BigtableSchemaBundle#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#delete BigtableSchemaBundle#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#update BigtableSchemaBundle#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c5d20e394ee049d70bbf83248d98727a4a55e16668141760740971cbd245a1a4)
@@ -724,19 +724,19 @@ class BigtableSchemaBundleTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#create BigtableSchemaBundle#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#create BigtableSchemaBundle#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#delete BigtableSchemaBundle#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#delete BigtableSchemaBundle#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/bigtable_schema_bundle#update BigtableSchemaBundle#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/bigtable_schema_bundle#update BigtableSchemaBundle#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -23,11 +23,19 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class Copy(BaseModel):
     """
     A serializer for Content Copy API.
     """ # noqa: E501
-    config: Optional[Any] = Field(description="A JSON document describing sources, destinations, and content to be copied")
+    config: Optional[Any]
     structured: Optional[StrictBool] = Field(default=True, description="Also copy any distributions, components, and releases as needed for any packages being copied. This will allow for structured publications of the target repository.Default is set to True")
     dependency_solving: Optional[StrictBool] = Field(default=False, description="Also copy dependencies of any packages being copied. NOT YETIMPLEMENTED! You must keep this at \"False\"!")
     __properties: ClassVar[List[str]] = ["config", "structured", "dependency_solving"]

@@ -946,6 +946,1317 @@ class CfnCisScanConfigurationProps:
 
 
 @jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnCodeSecurityIntegration(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityIntegration",
+):
+    '''Inspector CodeSecurityIntegration resource schema.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html
+    :cloudformationResource: AWS::InspectorV2::CodeSecurityIntegration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_inspectorv2 as inspectorv2
+        
+        cfn_code_security_integration = inspectorv2.CfnCodeSecurityIntegration(self, "MyCfnCodeSecurityIntegration",
+            create_integration_details=inspectorv2.CfnCodeSecurityIntegration.CreateDetailsProperty(
+                gitlab_self_managed=inspectorv2.CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty(
+                    access_token="accessToken",
+                    instance_url="instanceUrl"
+                )
+            ),
+            name="name",
+            tags={
+                "tags_key": "tags"
+            },
+            type="type",
+            update_integration_details=inspectorv2.CfnCodeSecurityIntegration.UpdateDetailsProperty(
+                github=inspectorv2.CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty(
+                    code="code",
+                    installation_id="installationId"
+                ),
+                gitlab_self_managed=inspectorv2.CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty(
+                    auth_code="authCode"
+                )
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        create_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.CreateDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        type: typing.Optional[builtins.str] = None,
+        update_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.UpdateDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param create_integration_details: 
+        :param name: Code Security Integration name.
+        :param tags: 
+        :param type: 
+        :param update_integration_details: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80799b4356912cf375014b9f868e52ed37e885f4e1f3c1ddd85598a234badc5f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCodeSecurityIntegrationProps(
+            create_integration_details=create_integration_details,
+            name=name,
+            tags=tags,
+            type=type,
+            update_integration_details=update_integration_details,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d2b41111bd2e5e5f072f8545fffa3c791a4d0e501f547576454bf1a1f74205d6)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a995b0a871c5ed338d9451bbbe7895dc95cb1d56fb43ef4d2d9d854ffdeb8a66)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Code Security Integration ARN.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAuthorizationUrl")
+    def attr_authorization_url(self) -> builtins.str:
+        '''Authorization URL for OAuth flow.
+
+        :cloudformationAttribute: AuthorizationUrl
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAuthorizationUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''Creation timestamp.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedAt")
+    def attr_last_updated_at(self) -> builtins.str:
+        '''Last update timestamp.
+
+        :cloudformationAttribute: LastUpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatusReason")
+    def attr_status_reason(self) -> builtins.str:
+        '''Reason for the current status.
+
+        :cloudformationAttribute: StatusReason
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatusReason"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="createIntegrationDetails")
+    def create_integration_details(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateDetailsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateDetailsProperty"]], jsii.get(self, "createIntegrationDetails"))
+
+    @create_integration_details.setter
+    def create_integration_details(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateDetailsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__95bada6a0a63eed0487660762db52cf7634424d68b180f5bdde1aa127cbc6ca1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "createIntegrationDetails", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Code Security Integration name.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__62c672b1420b745cd7e45b7351f3382ced028744668c9771a1148fe207c23267)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__56217870c5b8873ef3b3750235b4baa957fcd999c408c688e231f957b297af0b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e81de92c5a50f951f013bc7d558d9d09c3c119459f7f1a04ca44ba5291a994ee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="updateIntegrationDetails")
+    def update_integration_details(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateDetailsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateDetailsProperty"]], jsii.get(self, "updateIntegrationDetails"))
+
+    @update_integration_details.setter
+    def update_integration_details(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateDetailsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c450107a89d380f98e1bb112fb4f8df187acd5d7b74c42bca8a125923588adc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "updateIntegrationDetails", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityIntegration.CreateDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"gitlab_self_managed": "gitlabSelfManaged"},
+    )
+    class CreateDetailsProperty:
+        def __init__(
+            self,
+            *,
+            gitlab_self_managed: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param gitlab_self_managed: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-createdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_inspectorv2 as inspectorv2
+                
+                create_details_property = inspectorv2.CfnCodeSecurityIntegration.CreateDetailsProperty(
+                    gitlab_self_managed=inspectorv2.CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty(
+                        access_token="accessToken",
+                        instance_url="instanceUrl"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2262215d3482ab65dacec2a9b346848e87bce266386fcf679cd7607f925a41a9)
+                check_type(argname="argument gitlab_self_managed", value=gitlab_self_managed, expected_type=type_hints["gitlab_self_managed"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "gitlab_self_managed": gitlab_self_managed,
+            }
+
+        @builtins.property
+        def gitlab_self_managed(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-createdetails.html#cfn-inspectorv2-codesecurityintegration-createdetails-gitlabselfmanaged
+            '''
+            result = self._values.get("gitlab_self_managed")
+            assert result is not None, "Required property 'gitlab_self_managed' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CreateDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={"access_token": "accessToken", "instance_url": "instanceUrl"},
+    )
+    class CreateGitLabSelfManagedIntegrationDetailProperty:
+        def __init__(
+            self,
+            *,
+            access_token: builtins.str,
+            instance_url: builtins.str,
+        ) -> None:
+            '''
+            :param access_token: 
+            :param instance_url: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-creategitlabselfmanagedintegrationdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_inspectorv2 as inspectorv2
+                
+                create_git_lab_self_managed_integration_detail_property = inspectorv2.CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty(
+                    access_token="accessToken",
+                    instance_url="instanceUrl"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0bbc1b28a8c4770b506b8b2fbbfde8238181c9ccb84cf76f6b88eefb2a36575c)
+                check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
+                check_type(argname="argument instance_url", value=instance_url, expected_type=type_hints["instance_url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "access_token": access_token,
+                "instance_url": instance_url,
+            }
+
+        @builtins.property
+        def access_token(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-creategitlabselfmanagedintegrationdetail.html#cfn-inspectorv2-codesecurityintegration-creategitlabselfmanagedintegrationdetail-accesstoken
+            '''
+            result = self._values.get("access_token")
+            assert result is not None, "Required property 'access_token' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def instance_url(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-creategitlabselfmanagedintegrationdetail.html#cfn-inspectorv2-codesecurityintegration-creategitlabselfmanagedintegrationdetail-instanceurl
+            '''
+            result = self._values.get("instance_url")
+            assert result is not None, "Required property 'instance_url' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CreateGitLabSelfManagedIntegrationDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityIntegration.UpdateDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"github": "github", "gitlab_self_managed": "gitlabSelfManaged"},
+    )
+    class UpdateDetailsProperty:
+        def __init__(
+            self,
+            *,
+            github: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            gitlab_self_managed: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param github: 
+            :param gitlab_self_managed: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updatedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_inspectorv2 as inspectorv2
+                
+                update_details_property = inspectorv2.CfnCodeSecurityIntegration.UpdateDetailsProperty(
+                    github=inspectorv2.CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty(
+                        code="code",
+                        installation_id="installationId"
+                    ),
+                    gitlab_self_managed=inspectorv2.CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty(
+                        auth_code="authCode"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__49eb1e2e3f4009317c4c9d3bde00d5f76e2edded22c78e79a48f4596be9ae8b8)
+                check_type(argname="argument github", value=github, expected_type=type_hints["github"])
+                check_type(argname="argument gitlab_self_managed", value=gitlab_self_managed, expected_type=type_hints["gitlab_self_managed"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if github is not None:
+                self._values["github"] = github
+            if gitlab_self_managed is not None:
+                self._values["gitlab_self_managed"] = gitlab_self_managed
+
+        @builtins.property
+        def github(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updatedetails.html#cfn-inspectorv2-codesecurityintegration-updatedetails-github
+            '''
+            result = self._values.get("github")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty"]], result)
+
+        @builtins.property
+        def gitlab_self_managed(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updatedetails.html#cfn-inspectorv2-codesecurityintegration-updatedetails-gitlabselfmanaged
+            '''
+            result = self._values.get("gitlab_self_managed")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "UpdateDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={"code": "code", "installation_id": "installationId"},
+    )
+    class UpdateGitHubIntegrationDetailProperty:
+        def __init__(
+            self,
+            *,
+            code: builtins.str,
+            installation_id: builtins.str,
+        ) -> None:
+            '''
+            :param code: 
+            :param installation_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updategithubintegrationdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_inspectorv2 as inspectorv2
+                
+                update_git_hub_integration_detail_property = inspectorv2.CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty(
+                    code="code",
+                    installation_id="installationId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2b3487b0f19d852a82df38914d0b6e860cbf9001a42d8401b18e0a1768ad4cb7)
+                check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+                check_type(argname="argument installation_id", value=installation_id, expected_type=type_hints["installation_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "code": code,
+                "installation_id": installation_id,
+            }
+
+        @builtins.property
+        def code(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updategithubintegrationdetail.html#cfn-inspectorv2-codesecurityintegration-updategithubintegrationdetail-code
+            '''
+            result = self._values.get("code")
+            assert result is not None, "Required property 'code' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def installation_id(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updategithubintegrationdetail.html#cfn-inspectorv2-codesecurityintegration-updategithubintegrationdetail-installationid
+            '''
+            result = self._values.get("installation_id")
+            assert result is not None, "Required property 'installation_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "UpdateGitHubIntegrationDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty",
+        jsii_struct_bases=[],
+        name_mapping={"auth_code": "authCode"},
+    )
+    class UpdateGitLabSelfManagedIntegrationDetailProperty:
+        def __init__(self, *, auth_code: builtins.str) -> None:
+            '''
+            :param auth_code: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updategitlabselfmanagedintegrationdetail.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_inspectorv2 as inspectorv2
+                
+                update_git_lab_self_managed_integration_detail_property = inspectorv2.CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty(
+                    auth_code="authCode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__2e29538aad68be3e1d38e6aa515bc380b1c5dbb5fcc5c4ed65df930696a81461)
+                check_type(argname="argument auth_code", value=auth_code, expected_type=type_hints["auth_code"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "auth_code": auth_code,
+            }
+
+        @builtins.property
+        def auth_code(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityintegration-updategitlabselfmanagedintegrationdetail.html#cfn-inspectorv2-codesecurityintegration-updategitlabselfmanagedintegrationdetail-authcode
+            '''
+            result = self._values.get("auth_code")
+            assert result is not None, "Required property 'auth_code' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "UpdateGitLabSelfManagedIntegrationDetailProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityIntegrationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "create_integration_details": "createIntegrationDetails",
+        "name": "name",
+        "tags": "tags",
+        "type": "type",
+        "update_integration_details": "updateIntegrationDetails",
+    },
+)
+class CfnCodeSecurityIntegrationProps:
+    def __init__(
+        self,
+        *,
+        create_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.CreateDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        type: typing.Optional[builtins.str] = None,
+        update_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.UpdateDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCodeSecurityIntegration``.
+
+        :param create_integration_details: 
+        :param name: Code Security Integration name.
+        :param tags: 
+        :param type: 
+        :param update_integration_details: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_inspectorv2 as inspectorv2
+            
+            cfn_code_security_integration_props = inspectorv2.CfnCodeSecurityIntegrationProps(
+                create_integration_details=inspectorv2.CfnCodeSecurityIntegration.CreateDetailsProperty(
+                    gitlab_self_managed=inspectorv2.CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty(
+                        access_token="accessToken",
+                        instance_url="instanceUrl"
+                    )
+                ),
+                name="name",
+                tags={
+                    "tags_key": "tags"
+                },
+                type="type",
+                update_integration_details=inspectorv2.CfnCodeSecurityIntegration.UpdateDetailsProperty(
+                    github=inspectorv2.CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty(
+                        code="code",
+                        installation_id="installationId"
+                    ),
+                    gitlab_self_managed=inspectorv2.CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty(
+                        auth_code="authCode"
+                    )
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__71aafe099f5a07cc45a5a16ed7c8165fc3beaaf581b2a7075ad79583b48897ae)
+            check_type(argname="argument create_integration_details", value=create_integration_details, expected_type=type_hints["create_integration_details"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument update_integration_details", value=update_integration_details, expected_type=type_hints["update_integration_details"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if create_integration_details is not None:
+            self._values["create_integration_details"] = create_integration_details
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+        if type is not None:
+            self._values["type"] = type
+        if update_integration_details is not None:
+            self._values["update_integration_details"] = update_integration_details
+
+    @builtins.property
+    def create_integration_details(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityIntegration.CreateDetailsProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-createintegrationdetails
+        '''
+        result = self._values.get("create_integration_details")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityIntegration.CreateDetailsProperty]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Code Security Integration name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-type
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def update_integration_details(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityIntegration.UpdateDetailsProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityintegration.html#cfn-inspectorv2-codesecurityintegration-updateintegrationdetails
+        '''
+        result = self._values.get("update_integration_details")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityIntegration.UpdateDetailsProperty]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCodeSecurityIntegrationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnCodeSecurityScanConfiguration(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityScanConfiguration",
+):
+    '''Inspector CodeSecurityScanConfiguration resource schema.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html
+    :cloudformationResource: AWS::InspectorV2::CodeSecurityScanConfiguration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_inspectorv2 as inspectorv2
+        
+        cfn_code_security_scan_configuration = inspectorv2.CfnCodeSecurityScanConfiguration(self, "MyCfnCodeSecurityScanConfiguration",
+            configuration=inspectorv2.CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty(
+                rule_set_categories=["ruleSetCategories"],
+        
+                # the properties below are optional
+                continuous_integration_scan_configuration=inspectorv2.CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty(
+                    supported_events=["supportedEvents"]
+                ),
+                periodic_scan_configuration=inspectorv2.CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty(
+                    frequency="frequency",
+                    frequency_expression="frequencyExpression"
+                )
+            ),
+            level="level",
+            name="name",
+            scope_settings=inspectorv2.CfnCodeSecurityScanConfiguration.ScopeSettingsProperty(
+                project_selection_scope="projectSelectionScope"
+            ),
+            tags={
+                "tags_key": "tags"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        level: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        scope_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityScanConfiguration.ScopeSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param configuration: 
+        :param level: 
+        :param name: Code Security Scan Configuration name.
+        :param scope_settings: 
+        :param tags: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f8087fd99eb325ae09773df4a6c219dda10efe85e43341cb1f5b576a1e88cef)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCodeSecurityScanConfigurationProps(
+            configuration=configuration,
+            level=level,
+            name=name,
+            scope_settings=scope_settings,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ecb6f2f1a541e759bd4ebb9f175ef2898e08b44a5a2f74698a104ebf563f6050)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8ba67d1221ac83994db1e0ae5a5f4d8d289116bd2bbba3ba9086ac33ff847516)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Code Security Scan Configuration ARN.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configuration")
+    def configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]], jsii.get(self, "configuration"))
+
+    @configuration.setter
+    def configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__45b63b68b5efac81af01f69f6fc536a7e0c56ab5d78f7c4d82199c868ce47b16)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configuration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="level")
+    def level(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "level"))
+
+    @level.setter
+    def level(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80291f0cd7a0cb5b5f295442d46a5d028aa373ed833a3fb0e3b6091879e1a69b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "level", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Code Security Scan Configuration name.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__10ce312b3f34f6350a3d1ee625199c03f68c9cb605f5e399d8d24b0f3374d219)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scopeSettings")
+    def scope_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]], jsii.get(self, "scopeSettings"))
+
+    @scope_settings.setter
+    def scope_settings(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ScopeSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2418e2e1becb18ab1d3613df2cc71f18c45d161aa5b3aa4b796643c5c109a1b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scopeSettings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9428e2a90cc0578e6f07997b18e25682dcdf69843515552c29dd20aa94e714a3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "rule_set_categories": "ruleSetCategories",
+            "continuous_integration_scan_configuration": "continuousIntegrationScanConfiguration",
+            "periodic_scan_configuration": "periodicScanConfiguration",
+        },
+    )
+    class CodeSecurityScanConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            rule_set_categories: typing.Sequence[builtins.str],
+            continuous_integration_scan_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            periodic_scan_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param rule_set_categories: 
+            :param continuous_integration_scan_configuration: 
+            :param periodic_scan_configuration: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_inspectorv2 as inspectorv2
+                
+                code_security_scan_configuration_property = inspectorv2.CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty(
+                    rule_set_categories=["ruleSetCategories"],
+                
+                    # the properties below are optional
+                    continuous_integration_scan_configuration=inspectorv2.CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty(
+                        supported_events=["supportedEvents"]
+                    ),
+                    periodic_scan_configuration=inspectorv2.CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty(
+                        frequency="frequency",
+                        frequency_expression="frequencyExpression"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e69a31a73796f4b8caaf249f9369b948bbd3cba1089b94bed6018c89696c89cc)
+                check_type(argname="argument rule_set_categories", value=rule_set_categories, expected_type=type_hints["rule_set_categories"])
+                check_type(argname="argument continuous_integration_scan_configuration", value=continuous_integration_scan_configuration, expected_type=type_hints["continuous_integration_scan_configuration"])
+                check_type(argname="argument periodic_scan_configuration", value=periodic_scan_configuration, expected_type=type_hints["periodic_scan_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "rule_set_categories": rule_set_categories,
+            }
+            if continuous_integration_scan_configuration is not None:
+                self._values["continuous_integration_scan_configuration"] = continuous_integration_scan_configuration
+            if periodic_scan_configuration is not None:
+                self._values["periodic_scan_configuration"] = periodic_scan_configuration
+
+        @builtins.property
+        def rule_set_categories(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration-rulesetcategories
+            '''
+            result = self._values.get("rule_set_categories")
+            assert result is not None, "Required property 'rule_set_categories' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def continuous_integration_scan_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration-continuousintegrationscanconfiguration
+            '''
+            result = self._values.get("continuous_integration_scan_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty"]], result)
+
+        @builtins.property
+        def periodic_scan_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-codesecurityscanconfiguration-periodicscanconfiguration
+            '''
+            result = self._values.get("periodic_scan_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeSecurityScanConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"supported_events": "supportedEvents"},
+    )
+    class ContinuousIntegrationScanConfigurationProperty:
+        def __init__(self, *, supported_events: typing.Sequence[builtins.str]) -> None:
+            '''
+            :param supported_events: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-continuousintegrationscanconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_inspectorv2 as inspectorv2
+                
+                continuous_integration_scan_configuration_property = inspectorv2.CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty(
+                    supported_events=["supportedEvents"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__04bdb61b43cbfbc6d92a4c02a47e71f63015162a7acf1e60ef409eebcd21a9f2)
+                check_type(argname="argument supported_events", value=supported_events, expected_type=type_hints["supported_events"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "supported_events": supported_events,
+            }
+
+        @builtins.property
+        def supported_events(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-continuousintegrationscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-continuousintegrationscanconfiguration-supportedevents
+            '''
+            result = self._values.get("supported_events")
+            assert result is not None, "Required property 'supported_events' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContinuousIntegrationScanConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "frequency": "frequency",
+            "frequency_expression": "frequencyExpression",
+        },
+    )
+    class PeriodicScanConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            frequency: typing.Optional[builtins.str] = None,
+            frequency_expression: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param frequency: 
+            :param frequency_expression: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-periodicscanconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_inspectorv2 as inspectorv2
+                
+                periodic_scan_configuration_property = inspectorv2.CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty(
+                    frequency="frequency",
+                    frequency_expression="frequencyExpression"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__901beb5d14c9e234fd835b4523197f824e50f091ed2dcfbca59aef2f1f023dde)
+                check_type(argname="argument frequency", value=frequency, expected_type=type_hints["frequency"])
+                check_type(argname="argument frequency_expression", value=frequency_expression, expected_type=type_hints["frequency_expression"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if frequency is not None:
+                self._values["frequency"] = frequency
+            if frequency_expression is not None:
+                self._values["frequency_expression"] = frequency_expression
+
+        @builtins.property
+        def frequency(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-periodicscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-periodicscanconfiguration-frequency
+            '''
+            result = self._values.get("frequency")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def frequency_expression(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-periodicscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-periodicscanconfiguration-frequencyexpression
+            '''
+            result = self._values.get("frequency_expression")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PeriodicScanConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityScanConfiguration.ScopeSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"project_selection_scope": "projectSelectionScope"},
+    )
+    class ScopeSettingsProperty:
+        def __init__(
+            self,
+            *,
+            project_selection_scope: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param project_selection_scope: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-scopesettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_inspectorv2 as inspectorv2
+                
+                scope_settings_property = inspectorv2.CfnCodeSecurityScanConfiguration.ScopeSettingsProperty(
+                    project_selection_scope="projectSelectionScope"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__911607f762372da4ac39dfe813875203be92e9a87447c67741aae32d569743dc)
+                check_type(argname="argument project_selection_scope", value=project_selection_scope, expected_type=type_hints["project_selection_scope"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if project_selection_scope is not None:
+                self._values["project_selection_scope"] = project_selection_scope
+
+        @builtins.property
+        def project_selection_scope(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-inspectorv2-codesecurityscanconfiguration-scopesettings.html#cfn-inspectorv2-codesecurityscanconfiguration-scopesettings-projectselectionscope
+            '''
+            result = self._values.get("project_selection_scope")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScopeSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_inspectorv2.CfnCodeSecurityScanConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration": "configuration",
+        "level": "level",
+        "name": "name",
+        "scope_settings": "scopeSettings",
+        "tags": "tags",
+    },
+)
+class CfnCodeSecurityScanConfigurationProps:
+    def __init__(
+        self,
+        *,
+        configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        level: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        scope_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityScanConfiguration.ScopeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCodeSecurityScanConfiguration``.
+
+        :param configuration: 
+        :param level: 
+        :param name: Code Security Scan Configuration name.
+        :param scope_settings: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_inspectorv2 as inspectorv2
+            
+            cfn_code_security_scan_configuration_props = inspectorv2.CfnCodeSecurityScanConfigurationProps(
+                configuration=inspectorv2.CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty(
+                    rule_set_categories=["ruleSetCategories"],
+            
+                    # the properties below are optional
+                    continuous_integration_scan_configuration=inspectorv2.CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty(
+                        supported_events=["supportedEvents"]
+                    ),
+                    periodic_scan_configuration=inspectorv2.CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty(
+                        frequency="frequency",
+                        frequency_expression="frequencyExpression"
+                    )
+                ),
+                level="level",
+                name="name",
+                scope_settings=inspectorv2.CfnCodeSecurityScanConfiguration.ScopeSettingsProperty(
+                    project_selection_scope="projectSelectionScope"
+                ),
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ea2faaa39ad7a4370f1a43aa967ae3ded5ad2ac9c212905e92dd56f603ec204)
+            check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            check_type(argname="argument level", value=level, expected_type=type_hints["level"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument scope_settings", value=scope_settings, expected_type=type_hints["scope_settings"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if configuration is not None:
+            self._values["configuration"] = configuration
+        if level is not None:
+            self._values["level"] = level
+        if name is not None:
+            self._values["name"] = name
+        if scope_settings is not None:
+            self._values["scope_settings"] = scope_settings
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-configuration
+        '''
+        result = self._values.get("configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty]], result)
+
+    @builtins.property
+    def level(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-level
+        '''
+        result = self._values.get("level")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Code Security Scan Configuration name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def scope_settings(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityScanConfiguration.ScopeSettingsProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-scopesettings
+        '''
+        result = self._values.get("scope_settings")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityScanConfiguration.ScopeSettingsProperty]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-inspectorv2-codesecurityscanconfiguration.html#cfn-inspectorv2-codesecurityscanconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCodeSecurityScanConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
 class CfnFilter(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3195,6 +4506,10 @@ class CfnFilterProps:
 __all__ = [
     "CfnCisScanConfiguration",
     "CfnCisScanConfigurationProps",
+    "CfnCodeSecurityIntegration",
+    "CfnCodeSecurityIntegrationProps",
+    "CfnCodeSecurityScanConfiguration",
+    "CfnCodeSecurityScanConfigurationProps",
     "CfnFilter",
     "CfnFilterProps",
 ]
@@ -3311,6 +4626,207 @@ def _typecheckingstub__e3f0430cb9cf97c73c0c85526ac298bc695a6c9d3bf5e578a6d9b5c85
     schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCisScanConfiguration.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
     security_level: builtins.str,
     targets: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCisScanConfiguration.CisTargetsProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80799b4356912cf375014b9f868e52ed37e885f4e1f3c1ddd85598a234badc5f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    create_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.CreateDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    type: typing.Optional[builtins.str] = None,
+    update_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.UpdateDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d2b41111bd2e5e5f072f8545fffa3c791a4d0e501f547576454bf1a1f74205d6(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a995b0a871c5ed338d9451bbbe7895dc95cb1d56fb43ef4d2d9d854ffdeb8a66(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95bada6a0a63eed0487660762db52cf7634424d68b180f5bdde1aa127cbc6ca1(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityIntegration.CreateDetailsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62c672b1420b745cd7e45b7351f3382ced028744668c9771a1148fe207c23267(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56217870c5b8873ef3b3750235b4baa957fcd999c408c688e231f957b297af0b(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e81de92c5a50f951f013bc7d558d9d09c3c119459f7f1a04ca44ba5291a994ee(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c450107a89d380f98e1bb112fb4f8df187acd5d7b74c42bca8a125923588adc(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityIntegration.UpdateDetailsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2262215d3482ab65dacec2a9b346848e87bce266386fcf679cd7607f925a41a9(
+    *,
+    gitlab_self_managed: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.CreateGitLabSelfManagedIntegrationDetailProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0bbc1b28a8c4770b506b8b2fbbfde8238181c9ccb84cf76f6b88eefb2a36575c(
+    *,
+    access_token: builtins.str,
+    instance_url: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49eb1e2e3f4009317c4c9d3bde00d5f76e2edded22c78e79a48f4596be9ae8b8(
+    *,
+    github: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.UpdateGitHubIntegrationDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    gitlab_self_managed: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.UpdateGitLabSelfManagedIntegrationDetailProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b3487b0f19d852a82df38914d0b6e860cbf9001a42d8401b18e0a1768ad4cb7(
+    *,
+    code: builtins.str,
+    installation_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e29538aad68be3e1d38e6aa515bc380b1c5dbb5fcc5c4ed65df930696a81461(
+    *,
+    auth_code: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__71aafe099f5a07cc45a5a16ed7c8165fc3beaaf581b2a7075ad79583b48897ae(
+    *,
+    create_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.CreateDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    type: typing.Optional[builtins.str] = None,
+    update_integration_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityIntegration.UpdateDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f8087fd99eb325ae09773df4a6c219dda10efe85e43341cb1f5b576a1e88cef(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    level: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    scope_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityScanConfiguration.ScopeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecb6f2f1a541e759bd4ebb9f175ef2898e08b44a5a2f74698a104ebf563f6050(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8ba67d1221ac83994db1e0ae5a5f4d8d289116bd2bbba3ba9086ac33ff847516(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__45b63b68b5efac81af01f69f6fc536a7e0c56ab5d78f7c4d82199c868ce47b16(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80291f0cd7a0cb5b5f295442d46a5d028aa373ed833a3fb0e3b6091879e1a69b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10ce312b3f34f6350a3d1ee625199c03f68c9cb605f5e399d8d24b0f3374d219(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2418e2e1becb18ab1d3613df2cc71f18c45d161aa5b3aa4b796643c5c109a1b8(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCodeSecurityScanConfiguration.ScopeSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9428e2a90cc0578e6f07997b18e25682dcdf69843515552c29dd20aa94e714a3(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e69a31a73796f4b8caaf249f9369b948bbd3cba1089b94bed6018c89696c89cc(
+    *,
+    rule_set_categories: typing.Sequence[builtins.str],
+    continuous_integration_scan_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityScanConfiguration.ContinuousIntegrationScanConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    periodic_scan_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityScanConfiguration.PeriodicScanConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04bdb61b43cbfbc6d92a4c02a47e71f63015162a7acf1e60ef409eebcd21a9f2(
+    *,
+    supported_events: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__901beb5d14c9e234fd835b4523197f824e50f091ed2dcfbca59aef2f1f023dde(
+    *,
+    frequency: typing.Optional[builtins.str] = None,
+    frequency_expression: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__911607f762372da4ac39dfe813875203be92e9a87447c67741aae32d569743dc(
+    *,
+    project_selection_scope: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ea2faaa39ad7a4370f1a43aa967ae3ded5ad2ac9c212905e92dd56f603ec204(
+    *,
+    configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityScanConfiguration.CodeSecurityScanConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    level: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    scope_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCodeSecurityScanConfiguration.ScopeSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""

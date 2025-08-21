@@ -13,7 +13,21 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type, Union, cast, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 
 import pyarrow as pa
 
@@ -86,6 +100,7 @@ def import_all_files_once(
 supported_aggs = (
     "approx_count_distinct",
     "approx_percentile",
+    "approx_top_k",
     "array_agg",
     "count",
     "max",
@@ -166,7 +181,7 @@ def _check_types(
         return
 
     joined_annotation = joined_feature.typ.parsed_annotation
-    if aggregation not in {"count", "approx_count_distinct", "array_agg"}:
+    if aggregation not in {"count", "approx_count_distinct", "approx_top_k", "array_agg"}:
         _validate_types(
             annotation=joined_annotation,
             permitted_types=(int, float),
@@ -262,15 +277,13 @@ def _get_underlying_type(t: type, feature_name: str) -> type:
     return t
 
 
-def _parse_agg_function_call(expr: Underscore | None) -> Tuple[str, Underscore]:
+def _parse_agg_function_call(expr: Underscore | None) -> Tuple[str, Underscore, Sequence[Tuple[Any, Any]]]:
     if not isinstance(expr, UnderscoreCall):
         raise ChalkParseError(
             "missing aggregation function call for materialized aggregate feature -- if materialization is enabled, the expression must include an aggregation function (e.g. .count())"
         )
 
     call_expr = expr
-    if len(call_expr._chalk__args) > 0 or len(call_expr._chalk__kwargs) > 0:
-        raise ChalkParseError("should not have any arguments or keyword arguments")
 
     function_attribute = call_expr._chalk__parent
     if not isinstance(function_attribute, UnderscoreAttr):
@@ -280,7 +293,18 @@ def _parse_agg_function_call(expr: Underscore | None) -> Tuple[str, Underscore]:
     if aggregation not in supported_aggs:
         raise ChalkParseError(f"aggregation should be one of {', '.join(supported_aggs)}")
 
-    return aggregation, function_attribute._chalk__parent
+    if aggregation == "approx_top_k":
+        # Special arg validation for approx_top_k.
+        if len(call_expr._chalk__args) > 0:
+            raise ChalkParseError("should not have any positional arguments")
+        elif {"k"} != call_expr._chalk__kwargs.keys():
+            raise ChalkParseError("expecting exactly one required keyword argument 'k'")
+        elif (argtype := type(call_expr._chalk__kwargs.get("k"))) != int:
+            raise ChalkParseError(f"expecting 'int' type argument for 'k', but received arg of type '{argtype}'")
+    elif len(call_expr._chalk__args) > 0 or len(call_expr._chalk__kwargs) > 0:
+        raise ChalkParseError("should not have any arguments or keyword arguments")
+
+    return aggregation, function_attribute._chalk__parent, tuple(call_expr._chalk__kwargs.items())
 
 
 def _parse_projection(expr: Underscore | None) -> str:
@@ -456,7 +480,7 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
 
     aggregation_expr = call_expr._chalk__args[0]
 
-    aggregation, par = _parse_agg_function_call(aggregation_expr)
+    aggregation, par, aggregation_kwargs = _parse_agg_function_call(aggregation_expr)
 
     # If it's an error, we'll tolerate `.count()`, so leave it be for now.
     try:
@@ -532,6 +556,7 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
         bucket_start=bucket_start,
         aggregation=aggregation,
         aggregate_on=aggregated_feature,
+        aggregation_kwargs=aggregation_kwargs,
         pyarrow_dtype=pyarrow_dtype,
         filters=parsed_filters,
         backfill_resolver=_try_parse_resolver_fqn(
@@ -634,7 +659,7 @@ def clean_filters(joined_class: Type[Features], filters: list[UnderscoreFunction
 def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
     if f.window_duration is None:
         return None
-    aggregation, getitem_expression = _parse_agg_function_call(f.underscore_expression)
+    aggregation, getitem_expression, aggregation_kwargs = _parse_agg_function_call(f.underscore_expression)
 
     filters: list[UnderscoreFunction] = []
     aggregated_value = None
@@ -751,6 +776,7 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
         bucket_start=bucket_start,
         aggregation=aggregation,
         aggregate_on=aggregated_feature,
+        aggregation_kwargs=aggregation_kwargs,
         pyarrow_dtype=f.converter.pyarrow_dtype,
         filters=parsed_filters,
         backfill_resolver=_try_parse_resolver_fqn(

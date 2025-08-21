@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langwatch
-Version: 0.2.10
+Version: 0.2.11
 Summary: LangWatch Python SDK, for monitoring your LLMs
 Author-email: Langwatch Engineers <engineering@langwatch.ai>
 License: MIT
@@ -9,12 +9,11 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: !=3.9.7,<3.13,>=3.9
+Requires-Python: <3.13,>=3.10
 Requires-Dist: coolname>=2.2.0
 Requires-Dist: deprecated>=1.2.18
 Requires-Dist: dspy-ai<3.0.0,>=2.5.2
@@ -27,7 +26,9 @@ Requires-Dist: openinference-instrumentation-openai>=0.1.25
 Requires-Dist: openinference-semantic-conventions>=0.1.17
 Requires-Dist: opentelemetry-api>=1.32.1
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.32.1
+Requires-Dist: opentelemetry-instrumentation-crewai>=0.45.0
 Requires-Dist: opentelemetry-sdk>=1.32.1
+Requires-Dist: python-liquid>=2.0.2
 Requires-Dist: retry>=0.9.2
 Requires-Dist: termcolor>=3.0.1
 Provides-Extra: dev
@@ -35,6 +36,7 @@ Requires-Dist: ruff>=0.11.1; extra == 'dev'
 Provides-Extra: dspy
 Requires-Dist: dspy-ai<3.0.0,>=2.5.2; extra == 'dspy'
 Provides-Extra: tests
+Requires-Dist: factory-boy<4.0.0,>=3.3.0; extra == 'tests'
 Requires-Dist: pytest-asyncio<0.22.0,>=0.21.1; extra == 'tests'
 Requires-Dist: pytest<8.0.0,>=7.4.2; extra == 'tests'
 Description-Content-Type: text/markdown

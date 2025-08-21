@@ -25,7 +25,7 @@ For more information on the resources and properties available for this service,
 
 <!--END CFNONLY DISCLAIMER-->
 
-### Example
+## Example
 
 Here is an example of creating a glue table and putting lakeformation tags on it. Note: this example uses deprecated constructs and overly permissive IAM roles. This example is meant to give a general idea of using the L1s; it is not production level.
 

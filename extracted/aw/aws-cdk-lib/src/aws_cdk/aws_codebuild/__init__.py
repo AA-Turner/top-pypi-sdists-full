@@ -3752,6 +3752,12 @@ class CfnProject(
                     # the properties below are optional
                     exclude_matched_pattern=False
                 )]],
+                pull_request_build_policy=codebuild.CfnProject.PullRequestBuildPolicyProperty(
+                    requires_comment_approval="requiresCommentApproval",
+        
+                    # the properties below are optional
+                    approver_roles=["approverRoles"]
+                ),
                 scope_configuration=codebuild.CfnProject.ScopeConfigurationProperty(
                     name="name",
         
@@ -5980,6 +5986,7 @@ class CfnProject(
         name_mapping={
             "build_type": "buildType",
             "filter_groups": "filterGroups",
+            "pull_request_build_policy": "pullRequestBuildPolicy",
             "scope_configuration": "scopeConfiguration",
             "webhook": "webhook",
         },
@@ -5990,6 +5997,7 @@ class CfnProject(
             *,
             build_type: typing.Optional[builtins.str] = None,
             filter_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProject.WebhookFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]]]] = None,
+            pull_request_build_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProject.PullRequestBuildPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             scope_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProject.ScopeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             webhook: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         ) -> None:
@@ -6001,6 +6009,7 @@ class CfnProject(
 
             :param build_type: Specifies the type of build this webhook will trigger. Allowed values are:. - **BUILD** - A single build - **BUILD_BATCH** - A batch build
             :param filter_groups: A list of lists of ``WebhookFilter`` objects used to determine which webhook events are triggered. At least one ``WebhookFilter`` in the array must specify ``EVENT`` as its type.
+            :param pull_request_build_policy: 
             :param scope_configuration: Contains configuration information about the scope for a webhook.
             :param webhook: Specifies whether or not to begin automatically rebuilding the source code every time a code change is pushed to the repository.
 
@@ -6022,6 +6031,12 @@ class CfnProject(
                         # the properties below are optional
                         exclude_matched_pattern=False
                     )]],
+                    pull_request_build_policy=codebuild.CfnProject.PullRequestBuildPolicyProperty(
+                        requires_comment_approval="requiresCommentApproval",
+                
+                        # the properties below are optional
+                        approver_roles=["approverRoles"]
+                    ),
                     scope_configuration=codebuild.CfnProject.ScopeConfigurationProperty(
                         name="name",
                 
@@ -6036,6 +6051,7 @@ class CfnProject(
                 type_hints = typing.get_type_hints(_typecheckingstub__d2709928946ab49717544a38f5b4471ef55c9bf0ed8e39f24de9210b8c729a70)
                 check_type(argname="argument build_type", value=build_type, expected_type=type_hints["build_type"])
                 check_type(argname="argument filter_groups", value=filter_groups, expected_type=type_hints["filter_groups"])
+                check_type(argname="argument pull_request_build_policy", value=pull_request_build_policy, expected_type=type_hints["pull_request_build_policy"])
                 check_type(argname="argument scope_configuration", value=scope_configuration, expected_type=type_hints["scope_configuration"])
                 check_type(argname="argument webhook", value=webhook, expected_type=type_hints["webhook"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6043,6 +6059,8 @@ class CfnProject(
                 self._values["build_type"] = build_type
             if filter_groups is not None:
                 self._values["filter_groups"] = filter_groups
+            if pull_request_build_policy is not None:
+                self._values["pull_request_build_policy"] = pull_request_build_policy
             if scope_configuration is not None:
                 self._values["scope_configuration"] = scope_configuration
             if webhook is not None:
@@ -6074,6 +6092,16 @@ class CfnProject(
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnProject.WebhookFilterProperty"]]]]]], result)
 
         @builtins.property
+        def pull_request_build_policy(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.PullRequestBuildPolicyProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-projecttriggers.html#cfn-codebuild-project-projecttriggers-pullrequestbuildpolicy
+            '''
+            result = self._values.get("pull_request_build_policy")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.PullRequestBuildPolicyProperty"]], result)
+
+        @builtins.property
         def scope_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.ScopeConfigurationProperty"]]:
@@ -6103,6 +6131,79 @@ class CfnProject(
 
         def __repr__(self) -> str:
             return "ProjectTriggersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codebuild.CfnProject.PullRequestBuildPolicyProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "requires_comment_approval": "requiresCommentApproval",
+            "approver_roles": "approverRoles",
+        },
+    )
+    class PullRequestBuildPolicyProperty:
+        def __init__(
+            self,
+            *,
+            requires_comment_approval: builtins.str,
+            approver_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param requires_comment_approval: 
+            :param approver_roles: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-pullrequestbuildpolicy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codebuild as codebuild
+                
+                pull_request_build_policy_property = codebuild.CfnProject.PullRequestBuildPolicyProperty(
+                    requires_comment_approval="requiresCommentApproval",
+                
+                    # the properties below are optional
+                    approver_roles=["approverRoles"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__dc1eee42ab44fe674f81f814cf0b3916fe0be36f2eb0f8f6b963c3bbd44441fd)
+                check_type(argname="argument requires_comment_approval", value=requires_comment_approval, expected_type=type_hints["requires_comment_approval"])
+                check_type(argname="argument approver_roles", value=approver_roles, expected_type=type_hints["approver_roles"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "requires_comment_approval": requires_comment_approval,
+            }
+            if approver_roles is not None:
+                self._values["approver_roles"] = approver_roles
+
+        @builtins.property
+        def requires_comment_approval(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-pullrequestbuildpolicy.html#cfn-codebuild-project-pullrequestbuildpolicy-requirescommentapproval
+            '''
+            result = self._values.get("requires_comment_approval")
+            assert result is not None, "Required property 'requires_comment_approval' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def approver_roles(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-pullrequestbuildpolicy.html#cfn-codebuild-project-pullrequestbuildpolicy-approverroles
+            '''
+            result = self._values.get("approver_roles")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PullRequestBuildPolicyProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -7266,6 +7367,12 @@ class CfnProjectProps:
                         # the properties below are optional
                         exclude_matched_pattern=False
                     )]],
+                    pull_request_build_policy=codebuild.CfnProject.PullRequestBuildPolicyProperty(
+                        requires_comment_approval="requiresCommentApproval",
+            
+                        # the properties below are optional
+                        approver_roles=["approverRoles"]
+                    ),
                     scope_configuration=codebuild.CfnProject.ScopeConfigurationProperty(
                         name="name",
             
@@ -16713,6 +16820,12 @@ class SourceConfig:
                         # the properties below are optional
                         exclude_matched_pattern=False
                     )]],
+                    pull_request_build_policy=codebuild.CfnProject.PullRequestBuildPolicyProperty(
+                        requires_comment_approval="requiresCommentApproval",
+            
+                        # the properties below are optional
+                        approver_roles=["approverRoles"]
+                    ),
                     scope_configuration=codebuild.CfnProject.ScopeConfigurationProperty(
                         name="name",
             
@@ -19690,8 +19803,17 @@ def _typecheckingstub__d2709928946ab49717544a38f5b4471ef55c9bf0ed8e39f24de9210b8
     *,
     build_type: typing.Optional[builtins.str] = None,
     filter_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.WebhookFilterProperty, typing.Dict[builtins.str, typing.Any]]]]]]]] = None,
+    pull_request_build_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.PullRequestBuildPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scope_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.ScopeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     webhook: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc1eee42ab44fe674f81f814cf0b3916fe0be36f2eb0f8f6b963c3bbd44441fd(
+    *,
+    requires_comment_approval: builtins.str,
+    approver_roles: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

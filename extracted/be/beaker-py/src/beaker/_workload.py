@@ -157,6 +157,18 @@ class WorkloadClient(ServiceClient):
         else:
             return self.beaker.job.get_results(job)
 
+    def restart_tasks(self, workload: pb2.Workload) -> pb2.Workload:
+        """
+        Restart all failed or canceled tasks of an experiment workload.
+
+        :param workload: The current :class:`~beaker.types.BeakerWorkload`.
+
+        :returns: The updated :class:`~beaker.types.BeakerWorkload`.
+
+        :raises ValueError: If the workload is not an experiment.
+        """
+        return self.beaker.experiment.restart_tasks(workload)
+
     def list(
         self,
         *,

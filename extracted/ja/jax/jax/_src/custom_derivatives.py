@@ -39,7 +39,7 @@ from jax._src.interpreters import ad
 from jax._src.interpreters import batching
 from jax._src.interpreters import mlir
 from jax._src.interpreters import partial_eval as pe
-from jax._src.interpreters import xla
+from jax._src.interpreters import pxla
 from jax._src.interpreters.batching import not_mapped
 from jax._src.tree_util import (
     tree_flatten, tree_unflatten, tree_map, treedef_is_leaf, treedef_tuple,
@@ -378,7 +378,6 @@ def _flatten_jvp(f, store, primal_name, jvp_name, in_tree, maybe_out_type, *args
           f"  primal {av_p.str_short()} with tangent {av_t.str_short()}, expecting tangent {av_et}"
           for av_p, av_et, av_t in zip(primal_avals_out, expected_tangent_avals_out, tangent_avals_out)
           if av_et != av_t)
-
       raise TypeError(msg.format('\n'.join(disagreements)))
   store.store((out_tree, primal_avals, ()))
   return primals_out + tangents_out
@@ -437,11 +436,13 @@ def _custom_jvp_call_typecheck(_, *in_avals, call_jaxpr, jvp_jaxpr_fun,
   return call_jaxpr.out_avals, call_jaxpr.effects
 core.custom_typechecks[custom_jvp_call_p] = _custom_jvp_call_typecheck
 
-def _custom_jvp_vjp_call_lowering(ctx, *args, call_jaxpr, **_):
+def _custom_jvp_vjp_call_lowering(ctx: mlir.LoweringRuleContext, *args,
+                                  call_jaxpr: core.ClosedJaxpr, **_):
   consts = mlir._ir_consts(call_jaxpr.consts)
   out, tokens = mlir.jaxpr_subcomp(ctx.module_context, call_jaxpr.jaxpr,
                                    ctx.name_stack, ctx.tokens_in, consts,
-                                   *args, dim_var_values=ctx.dim_var_values)
+                                   *args, dim_var_values=ctx.dim_var_values,
+                                   const_lowering=ctx.const_lowering)
   ctx.set_tokens_out(tokens)
   return out
 mlir.register_lowering(custom_jvp_call_p, _custom_jvp_vjp_call_lowering)
@@ -451,8 +452,13 @@ mlir.register_lowering(custom_jvp_call_p, _custom_jvp_vjp_call_lowering)
 # been linearized, we can drop the jvp rule.
 def _custom_jvp_call_transpose(params, jaxpr, args, ct, _):
   del params
-  return ad.backward_pass(jaxpr.jaxpr, None, jaxpr.consts, args, ct)
+  return ad.backward_pass(jaxpr.jaxpr, False, jaxpr.consts, args, ct)
 ad.primitive_transposes[custom_jvp_call_p] = _custom_jvp_call_transpose
+
+def _custom_jvp_call_transpose_fancy(params, jaxpr, args, ct, _):
+  del params
+  return ad.backward_pass3(jaxpr.jaxpr, False, jaxpr.consts, args, ct)
+ad.fancy_transposes[custom_jvp_call_p] = _custom_jvp_call_transpose_fancy
 
 @weakref_lru_cache
 def _cached_closed_call_dce_instantiate(jaxpr_: core.ClosedJaxpr,
@@ -951,9 +957,10 @@ def _flatten_bwd(f: Callable,
         raise ValueError(msg)
       results.append(Zero(ct.aval))
     else:
-      if (not core.typecompat(a.to_tangent_aval(), a_ := core.get_aval(ct))
-          and not (_temporary_dtype_exception(a, a_) or
-                   _temporary_shape_exception(a, a_))):
+      if (not core.typecompat(a.to_tangent_aval(), a_ := core.get_aval(ct)) and
+          not _ref_typecompat(a.to_tangent_aval(), a_) and
+          not (_temporary_dtype_exception(a, a_) or
+               _temporary_shape_exception(a, a_))):
         msg = ("Custom VJP bwd rule must produce an output with the same "
                "shape/dtypes as the args tuple of the primal function, but at "
                f"output{keystr(kp)} the bwd rule produced an output of "
@@ -963,6 +970,10 @@ def _flatten_bwd(f: Callable,
         raise ValueError(msg)
       results.append(ct)
   return results
+
+def _ref_typecompat(a, a_):
+  return (isinstance(a, AbstractRef) and
+          core.typecompat(a.to_tangent_aval().inner_aval, a_))
 
 # TODO(mattjj): remove both these exceptions to cotangent compatibility check
 def _temporary_dtype_exception(a, a_) -> bool:
@@ -1317,13 +1328,13 @@ def _closure_convert_for_avals(fun, in_tree, in_avals,
   jaxpr, out_pvals, consts = pe.trace_to_jaxpr_dynamic(wrapped_fun, in_avals)
   out_tree = out_tree()
 
-  (closure_consts, hoisted_consts), merge = partition_list(_maybe_perturbed, consts)
-  num_consts = len(hoisted_consts)
+  (closure_consts, const_args), merge = partition_list(_maybe_perturbed, consts)
+  num_consts = len(const_args)
 
   def converted_fun(*args_hconsts):
     num_args = len(args_hconsts) - num_consts
-    args, hoisted_consts = split_list(args_hconsts, [num_args])
-    consts = merge(closure_consts, hoisted_consts)
+    args, const_args = split_list(args_hconsts, [num_args])
+    consts = merge(closure_consts, const_args)
     all_args, in_tree2 = tree_flatten(tuple(args))
     if in_tree != in_tree2:
       msg = ("The inputs to the closure produced by closure_convert must have "
@@ -1334,7 +1345,7 @@ def _closure_convert_for_avals(fun, in_tree, in_avals,
     out_flat = core.eval_jaxpr(jaxpr, consts, *all_args)
     return tree_unflatten(out_tree, out_flat)
 
-  return converted_fun, hoisted_consts
+  return converted_fun, const_args
 
 def partition_list(choice, lst):
   out = [], []
@@ -1529,7 +1540,7 @@ linear_call_p.def_impl(_linear_call_impl)
 linear_call_p.def_abstract_eval(_linear_call_abstract_eval)
 ad.primitive_jvps[linear_call_p] = _linear_call_jvp_rule
 ad.primitive_transposes[linear_call_p] = _linear_call_transpose_rule
-xla.register_initial_style_primitive(linear_call_p)
+pxla.register_initial_style_primitive(linear_call_p)
 mlir.register_lowering(linear_call_p, mlir.lower_fun(
     _linear_call_impl, multiple_results=True))
 
@@ -1837,7 +1848,7 @@ remat_opt_p = core.Primitive("remat_opt")
 remat_opt_p.multiple_results = True
 remat_opt_p.def_impl(_remat_opt_impl)
 remat_opt_p.def_effectful_abstract_eval(_remat_opt_abstract_eval)
-xla.register_initial_style_primitive(remat_opt_p)
+pxla.register_initial_style_primitive(remat_opt_p)
 mlir.register_lowering(remat_opt_p, mlir.lower_fun(
     _remat_opt_impl, multiple_results=True))
 

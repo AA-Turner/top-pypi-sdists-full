@@ -35,12 +35,12 @@ from jax._src import util
 from jax._src import xla_bridge
 from jax._src.interpreters import mlir
 from jax._src.interpreters import pxla
-from jax._src.interpreters import xla
-from jax._src.layout import AutoLayout, Layout, Format
-from jax._src.lib import xla_client as xc
+from jax._src.layout import AutoLayout, Format, Layout
 from jax._src.lib import _jax
-from jax._src.lib import jaxlib_extension_version
+from jax._src.lib import xla_client as xc
+from jax._src.mesh import empty_concrete_mesh
 from jax._src.sharding import Sharding
+from jax._src.tree_util import broadcast_prefix, tree_flatten, tree_unflatten
 from jax._src.sharding_impls import (
     PmapSharding, SingleDeviceSharding,
     device_replica_id_map, hashed_index, num_addressable_indices,
@@ -49,6 +49,7 @@ from jax._src.typing import ArrayLike, DLDeviceType, DTypeLike
 from jax._src.util import safe_zip, unzip3, use_cpp_class, use_cpp_method, cache
 import numpy as np
 
+zip, unsafe_zip = safe_zip, zip
 
 Shape = tuple[int, ...]
 Device = xc.Device
@@ -696,11 +697,6 @@ def _get_and_check_dtype(arrays: Sequence[basearray.Array | np.ndarray],
             f"of the addressable shards. Got dtype={dtype} and shard "
             f"dtype={arrays[0].dtype}`.")
   else:
-    if not config.enable_empty_arrays.value:
-      raise ValueError(
-          f"Building an Array with no addressable shards with `jax.{fname}` is "
-          "supported only if `jax.config.enable_empty_arrays` is set to True."
-      )
     if dtype is None:
       raise ValueError(
           "If the Array has no addressable shards, `dtype` must be provided "
@@ -782,7 +778,7 @@ def make_array_from_callback(
           " context."
       )
     # Value can be python scalar, resolve it into something with dtype.
-    return xla.canonicalize_dtype(r)
+    return dtypes.canonicalize_value(r)
 
   if sharding.is_fully_replicated:
     devices = list(sharding._internal_device_list.addressable_device_list)  # type: ignore
@@ -840,10 +836,9 @@ def make_array_from_callback(
 
 
 def make_array_from_process_local_data(
-    sharding: Sharding,
-    local_data: np.ndarray,
-    global_shape: Shape | None = None,
-) -> ArrayImpl:
+    sharding,  # PyTree[jax.sharding.Sharding]
+    local_data,  # PyTree[np.ndarray]
+    global_shape=None):  # PyTree[Shape]
   # pyformat: disable
   """Creates distributed tensor using the data available in process.
 
@@ -956,9 +951,31 @@ def make_array_from_process_local_data(
     Tensor that will have sharding=sharding and of shape global_shape.
   """
   # pyformat: enable
+
+  local_data_flat, treedef = tree_flatten(local_data)
+  sharding_flat = broadcast_prefix(sharding, local_data)
+  global_shape_flat = broadcast_prefix(
+      global_shape, local_data,
+      is_leaf=lambda x: x is None or isinstance(x, tuple))
   if xla_bridge.process_count() == 1:
+    # Safety check if the provided data doesn't match expected global_shape
+    for s, d in zip(global_shape_flat, local_data_flat):
+      if s is not None and s != d.shape:
+        raise ValueError(
+            "When calling `make_array_from_process_local_data` on a single"
+            " process, global_shape should be None or equal to"
+            f" local_data.shape.Got global_shape={s} and"
+            f" local_data.shape={d.shape}."
+        )
     return api.device_put(local_data, sharding)
 
+  out = [_array_from_process_local_data(data, s, shape)
+         for data, s, shape in zip(local_data_flat, sharding_flat, global_shape_flat)]
+  return tree_unflatten(treedef, out)
+
+def _array_from_process_local_data(
+    local_data: np.ndarray, sharding: Sharding,
+    global_shape: Shape | None = None) -> ArrayImpl:
   # TODO(sandler): consider supporting partially specified global_shape or
   # making local_to_global_shape available in the api.
   local_shape = local_data.shape
@@ -982,7 +999,7 @@ def make_array_from_process_local_data(
       if process_slice != data_dim:
         raise ValueError(
             "Invalid host data, each dimension should match either global or "
-            f"process shape. In dimension {i=}, the process data has {data_dim}"
+            f"process shape. In dimension {i}, the process data has {data_dim} "
             f"elements. Process addresses {process_slice} elements and "
             f"{global_shape=}."
         )
@@ -1091,7 +1108,7 @@ def make_array_from_single_device_arrays(
           f" arrays as input, but got types {set(map(type, arrays))}")
     raise
 
-xla.canonicalize_dtype_handlers[ArrayImpl] = pxla.identity
+dtypes.canonicalize_value_handlers[ArrayImpl] = pxla.identity
 
 def _get_aval_array(self):
   return core.update_aval_with_sharding(self.aval, self.sharding)
@@ -1153,7 +1170,7 @@ def shard_device_array(x, devices, indices, sharding):
   else:
     # TODO(yashkatariya): Maybe this should be set when we call the handler in
     # InputsHandler.__call__?
-    with _internal_use_concrete_mesh(None):
+    with _internal_use_concrete_mesh(empty_concrete_mesh):
       shards = x._multi_slice(start_indices, limit_indices, removed_dims)
   aval = core.shaped_abstractify(x)
   return pxla.batched_device_put(aval, sharding, shards, devices)
@@ -1217,10 +1234,7 @@ def _array_shard_arg(xs, shardings, layouts, copy_semantics):
         results.append(None)
         # Accumulate arguments to `batched_copy_array_to_devices_with_sharding`.
         batch_xs.append(x)
-        if jaxlib_extension_version >= 356:
-          batch_devs.append(devices)
-        else:
-          batch_devs.append(list(devices))
+        batch_devs.append(devices)
         batch_shardings.append(sharding)
         batch_indices.append(i)
         batch_cs.append(cs)

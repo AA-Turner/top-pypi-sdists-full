@@ -2300,7 +2300,7 @@ def batch_feature_view(
     :param compaction_enabled: (Private preview) If `True`, Tecton will run a compaction job after each batch
         materialization job to write to the online store. This requires the use of Dynamo and uses the ImportTable API.
         Because each batch job overwrites the online store, a larger compute cluster may be required.
-    :param environment: The custom environment in which materialization jobs will be run. Defaults to `None`, which means
+    :param environment: The environment in which materialization jobs will be run. Defaults to `None`, which means
         jobs will execute in the default Tecton environment.
     :param context_parameter_name: Name of the function parameter that Tecton injects MaterializationContext object to.
     :param secrets: A dictionary of Secret references that will be resolved and provided to the transformation function at runtime. During local development and testing, strings may be used instead Secret references.
@@ -2792,7 +2792,7 @@ def stream_feature_view(
     :param compaction_enabled: (Private preview) If `True`, Tecton will run a compaction job after each batch
         materialization job to write to the online store. This requires the use of Dynamo and uses the ImportTable API.
         Because each batch job overwrites the online store, a larger compute cluster may be required. This is required to be True if `stream_compaction_enabled` is True. defaults to `False`
-    :param environment: The custom environment in which materialization jobs will be run. Only one of `environment` and `transform_server_group` can be specified. Defaults to `None`, which means
+    :param environment: The environment in which materialization jobs will be run. Only one of `environment` and `transform_server_group` can be specified. Defaults to `None`, which means
         jobs will execute in the default Tecton environment.
     :param transform_server_group: The server group to use for running the transformation job. Only one of `environment` and `transform_server_group` can be specified. If not specified, the default Tecton Environment will be used. This is only applicable for stream feature views with push config.
         Defaults to `None`.
@@ -2933,6 +2933,7 @@ class FeatureTable(FeatureView):
         batch_compute: Optional[configs.ComputeConfigTypes] = None,
         online_serving_index: Optional[List[str]] = None,
         alert_email: Optional[str] = None,
+        environment: Optional[str] = None,
         tecton_materialization_runtime: Optional[str] = None,
         cache_config: Optional[configs.CacheConfig] = None,
         options: Optional[Dict[str, str]] = None,
@@ -2968,6 +2969,7 @@ class FeatureTable(FeatureView):
         :param features: A list of features this Feature Table manages.
         :param timestamp_field: The column name that refers to the timestamp for records that are produced by the
             Feature Table.
+        :param environment: The environment in which ingest jobs will be run. Only relevant for Rift.
         :param cache_config: Cache config for the Feature Table. Including this option enables the feature server to use
             the cache when retrieving features for this feature table. Will only be respected if the feature service
             containing this feature table has `enable_online_caching` set to `True`.
@@ -2989,6 +2991,8 @@ class FeatureTable(FeatureView):
 
         if tecton_materialization_runtime is None:
             tecton_materialization_runtime = repo_config.get_feature_table_defaults().tecton_materialization_runtime
+        if environment is None:
+            environment = repo_config.get_feature_table_defaults().environment
 
         feature_table_args = feature_view__args_pb2.FeatureTableArgs(
             tecton_materialization_runtime=tecton_materialization_runtime,
@@ -2998,6 +3002,7 @@ class FeatureTable(FeatureView):
             monitoring=configs.MonitoringConfig(monitor_freshness=False, alert_email=alert_email)._to_proto(),
             offline_store=offline_store._to_proto(),
             timestamp_field=timestamp_field,
+            environment=environment,
         )
 
         if features:
@@ -3417,7 +3422,9 @@ class FeatureTable(FeatureView):
         )
 
         ingest_request = metadata_service_pb2.IngestDataframeRequest(
-            workspace=self.info.workspace, feature_definition_id=self._spec.id_proto, df_path=df_path
+            workspace=self.info.workspace,
+            feature_definition_id=self._spec.id_proto,
+            df_path=df_path,
         )
         response = metadata_service.instance().IngestDataframe(ingest_request)
 

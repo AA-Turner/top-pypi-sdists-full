@@ -43,7 +43,7 @@ from jax._src.tree_util import (
     tree_map, tree_flatten, tree_unflatten, tree_structure, tree_transpose,
     tree_leaves, Partial, PyTreeDef, all_leaves, keystr, broadcast_prefix,
     prefix_errors, generate_key_paths, tree_flatten_with_path,
-    equality_errors_pytreedef)
+    equality_errors_pytreedef, register_pytree_node)
 from jax._src import config
 from jax._src import core
 from jax._src import dispatch
@@ -57,7 +57,7 @@ from jax._src import source_info_util
 from jax._src import traceback_util
 from jax._src import pjit
 from jax._src import xla_bridge as xb
-from jax._src.core import eval_jaxpr, shaped_abstractify, ShapedArray
+from jax._src.core import eval_jaxpr, shaped_abstractify, ShapedArray, typeof
 from jax._src.api_util import (
   flatten_fun, flatten_fun_nokwargs, flatten_fun_nokwargs2, argnums_partial,
   flatten_axes, donation_vector,
@@ -69,8 +69,8 @@ from jax._src.lib import xla_client as xc
 from jax._src.lib import pmap_lib
 from jax._src.sharding import Sharding
 from jax._src.mesh import get_concrete_mesh
-from jax._src.sharding_impls import (
-    PmapSharding, TransferToMemoryKind, PartitionSpec as P, NamedSharding)
+from jax._src.sharding_impls import (PmapSharding, PartitionSpec as P,
+                                     NamedSharding)
 from jax._src.layout import Format
 from jax._src.traceback_util import api_boundary
 from jax._src import tree_util
@@ -1690,8 +1690,8 @@ def _cpp_pmap(
     with core.take_current_trace() as trace:
       try:
         if isinstance(trace, core.EvalTrace):
-          execute = pxla.xla_pmap_impl_lazy(p.flat_fun, *p.flat_args, **params)
-          out = execute(*p.flat_args)
+          execute, const_args = pxla.xla_pmap_impl_lazy(p.flat_fun, *p.flat_args, **params)
+          out = execute(*const_args, *p.flat_args)
         else:
           out = pxla.xla_pmap_p.bind_with_trace(trace, (p.flat_fun, *p.flat_args), params)
       except api_util.InternalFloatingPointError as e:
@@ -1709,6 +1709,7 @@ def _cpp_pmap(
         # TODO(sharadmv): Enable effects in replicated computation
         not execute_replicated.has_unordered_effects
         and not execute_replicated.has_host_callbacks and
+        len(const_args) == 0 and
         # No tracers in the outputs.
         all(isinstance(x, xc.ArrayImpl) for x in out_flat))
 
@@ -2234,6 +2235,86 @@ class RSpec:
 si_vjp = saved_input_vjp
 
 
+def vjp3(f, *primals):
+  dbg = debug_info("vjp3", f, primals, {})
+  fun = lu.wrap_init(f, debug_info=dbg)
+  primals_flat, in_tree = tree_flatten(primals)
+  fun, out_tree = flatten_fun_nokwargs(fun, in_tree)
+  out_primals_flat, out_pvals, jaxpr, residuals = ad.linearize(fun, *primals_flat)
+  out_known = [pval.is_known() for pval in out_pvals]
+  id_map = {id(x): i for i, x in enumerate(primals_flat)}
+  used, opaque_residuals = set(), []
+  spec = [used.add(id(r)) or RSpec(id_map[id(r)], True) if id(r) in id_map else  # type: ignore
+          RSpec(opaque_residuals.append(r) or (len(opaque_residuals) - 1), False)  # type: ignore
+          for r in residuals]
+  args_res = tree_map(lambda x: x if id(x) in used else NotNeeded(), primals)
+  f_vjp = VJP(partial(_vjp3, spec, out_known, jaxpr), in_tree, out_tree(),
+              list(args_res), opaque_residuals)
+  out_primals = tree_unflatten(out_tree(), out_primals_flat)
+  return out_primals, f_vjp
+
+def _is_ref(x):
+  from jax._src.state.types import AbstractRef
+  try: return isinstance(typeof(x), AbstractRef)
+  except: return False
+
+def _vjp3(spec, out_known, jaxpr, in_tree, out_tree, args_res, opaque_res,
+          *maybe_ct_refs):
+  maybe_ct_refs_flat, in_tree_ = tree_flatten(maybe_ct_refs)
+  if in_tree != in_tree_: raise Exception
+  args_res_flat, in_tree_ = tree_flatten(tuple(args_res))
+  if in_tree != in_tree_: raise Exception
+  residuals = [args_res_flat[i.idx] if i.primal else opaque_res[i.idx] for i in spec]
+  maybe_refs = [ad.RefAccum(v.aval, x) if _is_ref(x) else ad.ValAccum(v.aval)
+                for v, x in zip(jaxpr.invars, maybe_ct_refs_flat)]
+  return Partial(partial(_vjp3_bwd, in_tree, out_tree, out_known, jaxpr),
+                 residuals, maybe_refs)
+
+def _vjp3_bwd(in_tree, out_tree, out_known, jaxpr, residuals, maybe_refs, out_ct):
+  cts_flat, out_tree_ = tree_flatten(out_ct)
+  if out_tree != out_tree_: raise Exception
+  cts_flat = [ct for ct, k in zip(cts_flat, out_known) if not k]
+  ad.backward_pass3(jaxpr, True, residuals, maybe_refs, cts_flat)
+  arg_cts = [x.freeze() if isinstance(x, ad.ValAccum) else GradRef()
+             for x in maybe_refs]
+  return tree_unflatten(in_tree, arg_cts)
+
+@dataclasses.dataclass(frozen=True)
+class NotNeeded:
+  pass
+
+@dataclasses.dataclass(frozen=True)
+class GradValue:
+  pass
+
+@dataclasses.dataclass(frozen=True)
+class GradRef:
+  pass
+
+@dataclasses.dataclass
+class VJP:
+  fun: Callable
+  in_tree: PyTreeDef
+  out_tree: PyTreeDef
+  args_res: list[Any]
+  opaque_residuals: list[Any]
+
+  def __call__(self, out_ct):
+    dums = tree_unflatten(self.in_tree, [GradValue()] * self.in_tree.num_leaves)
+    return self.fun(self.in_tree, self.out_tree, self.args_res,
+                    self.opaque_residuals, *dums)(out_ct)
+
+  def with_refs(self, *maybe_ct_refs):
+    return self.fun(self.in_tree, self.out_tree, self.args_res,
+                    self.opaque_residuals, *maybe_ct_refs)
+
+register_pytree_node(
+    VJP,
+    lambda vjp: ((vjp.args_res, vjp.opaque_residuals),
+                 (vjp.fun, vjp.in_tree, vjp.out_tree)),
+    lambda meta, args_res: VJP(*meta, *args_res))
+
+
 def linear_transpose(fun: Callable, *primals, reduce_axes=()) -> Callable:
   """Transpose a function that is promised to be linear.
 
@@ -2466,11 +2547,11 @@ def _check_string_compatible_sharding(s):
 @util.cache(max_size=2048, trace_context_in_key=False)
 def _check_sharding(aval, s):
   if (s is not None and
-      not isinstance(s, (xc.Device, Sharding, Format, TransferToMemoryKind))):
+      not isinstance(s, (xc.Device, Sharding, Format, core.MemorySpace))):
     raise ValueError(
         "`jax.device_put` only accepts `None`, `jax.sharding.Sharding`,"
-        " `jax.Device`, `Format` or a pytree of these values. Received"
-        f" invalid value: {s}")
+        " `jax.Device`, `Format`, `jax.memory.Space` or a pytree of these"
+        f" values. Received invalid value: {s}")
 
   if isinstance(aval, core.ShapedArray) and dtypes.is_string_dtype(aval.dtype):
     _check_string_compatible_sharding(s)
@@ -2486,17 +2567,17 @@ def _check_sharding(aval, s):
 def pspec_to_sharding(val):
   if isinstance(val, P):
     mesh = get_concrete_mesh()
-    if mesh is None:
+    if mesh.empty:
       raise ValueError(
-          "Please set a mesh via `jax.sharding.use_mesh` if a PartitionSpec is"
+          "Please set a mesh via `jax.set_mesh` if a PartitionSpec is"
           " passed to device_put")
     return NamedSharding(mesh, val)
   return val
 
 def device_put(
     x,
-    device: None | xc.Device | Sharding | P | Format | Any | TransferToMemoryKind = None,
-    *, src: None | xc.Device | Sharding | P | Format | Any | TransferToMemoryKind = None,
+    device: None | xc.Device | Sharding | P | Format | Any = None,
+    *, src: None | xc.Device | Sharding | P | Format | Any = None,
     donate: bool | Any = False, may_alias: bool | None | Any = None):
   """Transfers ``x`` to ``device``.
 
@@ -2533,13 +2614,13 @@ def device_put(
   with config.explicit_device_put_scope():
     x_flat, treedef = tree_flatten(x)
     if (device is None or
-        isinstance(device, (xc.Device, Sharding, TransferToMemoryKind))):
+        isinstance(device, (xc.Device, Sharding, core.MemorySpace))):
       device_flat = [device] * len(x_flat)
     else:
       device_flat = flatten_axes("device_put device", treedef, device)
 
     if (src is None or
-        isinstance(src, (xc.Device, Sharding, TransferToMemoryKind))):
+        isinstance(src, (xc.Device, Sharding, core.MemorySpace))):
       src_flat = [_infer_src_sharding(src, xf) for xf in x_flat]
     else:
       src_flat = flatten_axes("device_put source", treedef, src)
@@ -2842,10 +2923,10 @@ def eval_shape(fun: Callable, *args, **kwargs):
   float32
   """
   if type(fun) is xc._xla.PjitFunction:
-    return fun.trace(*args, **kwargs).eval_shape()  # type: ignore
+    return fun.trace(*args, **kwargs).out_info  # type: ignore
   try: hash(fun)
   except TypeError: fun = partial(fun)
-  return jit(fun).trace(*args, **kwargs).eval_shape()
+  return jit(fun).trace(*args, **kwargs).out_info
 
 
 def named_call(

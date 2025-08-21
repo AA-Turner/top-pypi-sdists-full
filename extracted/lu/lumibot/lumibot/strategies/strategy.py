@@ -2,23 +2,22 @@ import datetime
 import logging
 import os
 import time
-from decimal import Decimal
 import uuid
-from typing import Union, List, Type, Callable
+from decimal import Decimal
+from typing import Callable, List, Type, Union
 
 import jsonpickle
 import matplotlib
 import numpy as np
 import pandas as pd
 import pandas_market_calendars as mcal
-from termcolor import colored
 from apscheduler.triggers.cron import CronTrigger
+from termcolor import colored
 
-from ..entities import Asset, Order, Position, Data, TradingFee, Quote
+from ..data_sources import DataSource
+from ..entities import Asset, Data, Order, Position, Quote, TradingFee
 from ..tools import get_risk_free_rate
 from ..traders import Trader
-from ..data_sources import DataSource
-
 from ._strategy import _Strategy
 
 matplotlib.use("Agg")
@@ -236,7 +235,10 @@ class Strategy(_Strategy):
 
     @property
     def portfolio_value(self):
-        """Returns the current portfolio value (cash + positions value).
+        """
+        Returns the last portfolio value (cash + positions value) reported by the broker. Does
+        not query the broker for an updated value. To get the current broker value, use
+        `self.get_portfolio_value()`.
 
         Returns the portfolio value of positions plus cash in US dollars.
 
@@ -250,14 +252,15 @@ class Strategy(_Strategy):
 
         Example
         -------
-        >>> # Get the current portfolio value
+        >>> # Get the last seen portfolio value
         >>> self.log_message(self.portfolio_value)
 
         """
-
-        self.update_broker_balances(force_update=False)
-
         return self._portfolio_value
+
+    @portfolio_value.setter
+    def portfolio_value(self, value):
+        self._portfolio_value = value
 
     @property
     def cash(self):
@@ -985,7 +988,7 @@ class Strategy(_Strategy):
             from termcolor import colored
             error_msg = colored(
                 "No broker is set. Cannot set market. Please set a broker using environment variables, "
-                "secrets or by passing it as an argument to the strategy constructor.", 
+                "secrets or by passing it as an argument to the strategy constructor.",
                 "red"
             )
             self.logger.error(error_msg)
@@ -1109,7 +1112,9 @@ class Strategy(_Strategy):
         return self.get_positions()
 
     def get_portfolio_value(self):
-        """Get the current portfolio value (cash + net equity).
+        """
+        Query the broker to get the current portfolio value (cash + net equity). This is a slow,
+        expensive call, if you want the fast "last seen" value, use the `self.portfolio_value` property instead.
 
         Parameters
         ----------
@@ -1118,8 +1123,12 @@ class Strategy(_Strategy):
         Returns
         -------
         float
-            The current portfolio value, which is the sum of the cash and net equity. This is the total value of your account, which is the amount of money you would have if you sold all your assets and closed all your positions. For crypto assets, this is the total value of your account in the quote asset (eg. USDT if that is your quote asset).
+            The current portfolio value, which is the sum of the cash and net equity. This is the total value of your
+             account, which is the amount of money you would have if you sold all your assets and closed all your
+             positions. For crypto assets, this is the total value of your account in the quote asset (eg. USDT if
+            that is your quote asset).
         """
+        self.update_broker_balances(force_update=False)
         return self._portfolio_value
 
     def get_cash(self):
@@ -2866,7 +2875,7 @@ class Strategy(_Strategy):
 
         # If no value is specified, use the current portfolio value
         if value is None:
-            value = self.get_portfolio_value()
+            value = self.portfolio_value
 
         # Check for duplicate markers
         if len(self._chart_markers_list) > 0:
@@ -3070,6 +3079,7 @@ class Strategy(_Strategy):
         quote: Asset = None,
         exchange: str = None,
         include_after_hours: bool = True,
+        return_polars: bool = False,
     ):
         """Get historical pricing data for a given symbol or asset.
 
@@ -3101,6 +3111,9 @@ class Strategy(_Strategy):
             The exchange to pull the historical data from. Default is None (decided based on the broker)
         include_after_hours : bool
             Whether to include after hours data. Default is True. Currently only works with Interactive Brokers.
+        return_polars : bool
+            If True, return Bars with Polars DataFrame for better performance. Default is False (returns pandas).
+            When False and data is in Polars format, a warning will be issued about the conversion.
 
         Returns
         -------
@@ -3158,7 +3171,7 @@ class Strategy(_Strategy):
         if not isinstance(length, int):
             try:
                 length = int(length)
-            except Exception as e:
+            except Exception:
                 raise ValueError(
                     f"Invalid length parameter in get_historical_prices() method. Length must be an int but instead got {length}, "
                     f"which is a type {type(length)}."
@@ -3178,26 +3191,43 @@ class Strategy(_Strategy):
         asset = self.crypto_assets_to_tuple(asset, quote)
         if not timestep:
             timestep = self.broker.data_source.get_timestep()
+        # Call through to the appropriate data source. Only pass `return_polars` if supported
+        # to maintain compatibility with live data sources that don't yet accept it.
+        import inspect
+
+        def _call_get_hist(ds):
+            fn = ds.get_historical_prices
+            params = inspect.signature(fn).parameters
+            supports_return_polars = (
+                "return_polars" in params
+                or any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+            )
+
+            common_kwargs = dict(
+                timestep=timestep,
+                timeshift=timeshift,
+                exchange=exchange,
+                include_after_hours=include_after_hours,
+                quote=quote,
+            )
+            if supports_return_polars:
+                return fn(
+                    asset,
+                    length,
+                    return_polars=return_polars,
+                    **common_kwargs,
+                )
+            else:
+                return fn(
+                    asset,
+                    length,
+                    **common_kwargs,
+                )
+
         if self.broker.option_source and asset.asset_type == "option":
-            return self.broker.option_source.get_historical_prices(
-                asset,
-                length,
-                timestep=timestep,
-                timeshift=timeshift,
-                exchange=exchange,
-                include_after_hours=include_after_hours,
-                quote=quote,
-            )
+            return _call_get_hist(self.broker.option_source)
         else:
-            return self.broker.data_source.get_historical_prices(
-                asset,
-                length,
-                timestep=timestep,
-                timeshift=timeshift,
-                exchange=exchange,
-                include_after_hours=include_after_hours,
-                quote=quote,
-            )
+            return _call_get_hist(self.broker.data_source)
 
     def get_symbol_bars(
         self,

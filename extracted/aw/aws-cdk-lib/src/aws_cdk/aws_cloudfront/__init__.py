@@ -7191,6 +7191,7 @@ class CfnDistribution(
             "origin_protocol_policy": "originProtocolPolicy",
             "http_port": "httpPort",
             "https_port": "httpsPort",
+            "ip_address_type": "ipAddressType",
             "origin_keepalive_timeout": "originKeepaliveTimeout",
             "origin_read_timeout": "originReadTimeout",
             "origin_ssl_protocols": "originSslProtocols",
@@ -7203,6 +7204,7 @@ class CfnDistribution(
             origin_protocol_policy: builtins.str,
             http_port: typing.Optional[jsii.Number] = None,
             https_port: typing.Optional[jsii.Number] = None,
+            ip_address_type: typing.Optional[builtins.str] = None,
             origin_keepalive_timeout: typing.Optional[jsii.Number] = None,
             origin_read_timeout: typing.Optional[jsii.Number] = None,
             origin_ssl_protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -7214,6 +7216,7 @@ class CfnDistribution(
             :param origin_protocol_policy: Specifies the protocol (HTTP or HTTPS) that CloudFront uses to connect to the origin. Valid values are:. - ``http-only`` – CloudFront always uses HTTP to connect to the origin. - ``match-viewer`` – CloudFront connects to the origin using the same protocol that the viewer used to connect to CloudFront. - ``https-only`` – CloudFront always uses HTTPS to connect to the origin.
             :param http_port: The HTTP port that CloudFront uses to connect to the origin. Specify the HTTP port that the origin listens on. Default: - 80
             :param https_port: The HTTPS port that CloudFront uses to connect to the origin. Specify the HTTPS port that the origin listens on. Default: - 443
+            :param ip_address_type: 
             :param origin_keepalive_timeout: Specifies how long, in seconds, CloudFront persists its connection to the origin. The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 5 seconds. For more information, see `Keep-alive timeout (custom origins only) <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginKeepaliveTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 5
             :param origin_read_timeout: Specifies how long, in seconds, CloudFront waits for a response from the origin. This is also known as the *origin response timeout* . The minimum timeout is 1 second, the maximum is 120 seconds, and the default (if you don't specify otherwise) is 30 seconds. For more information, see `Response timeout <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginResponseTimeout>`_ in the *Amazon CloudFront Developer Guide* . Default: - 30
             :param origin_ssl_protocols: Specifies the minimum SSL/TLS protocol that CloudFront uses when connecting to your origin over HTTPS. Valid values include ``SSLv3`` , ``TLSv1`` , ``TLSv1.1`` , and ``TLSv1.2`` . For more information, see `Minimum Origin SSL Protocol <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#DownloadDistValuesOriginSSLProtocols>`_ in the *Amazon CloudFront Developer Guide* .
@@ -7233,6 +7236,7 @@ class CfnDistribution(
                     # the properties below are optional
                     http_port=123,
                     https_port=123,
+                    ip_address_type="ipAddressType",
                     origin_keepalive_timeout=123,
                     origin_read_timeout=123,
                     origin_ssl_protocols=["originSslProtocols"]
@@ -7243,6 +7247,7 @@ class CfnDistribution(
                 check_type(argname="argument origin_protocol_policy", value=origin_protocol_policy, expected_type=type_hints["origin_protocol_policy"])
                 check_type(argname="argument http_port", value=http_port, expected_type=type_hints["http_port"])
                 check_type(argname="argument https_port", value=https_port, expected_type=type_hints["https_port"])
+                check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
                 check_type(argname="argument origin_keepalive_timeout", value=origin_keepalive_timeout, expected_type=type_hints["origin_keepalive_timeout"])
                 check_type(argname="argument origin_read_timeout", value=origin_read_timeout, expected_type=type_hints["origin_read_timeout"])
                 check_type(argname="argument origin_ssl_protocols", value=origin_ssl_protocols, expected_type=type_hints["origin_ssl_protocols"])
@@ -7253,6 +7258,8 @@ class CfnDistribution(
                 self._values["http_port"] = http_port
             if https_port is not None:
                 self._values["https_port"] = https_port
+            if ip_address_type is not None:
+                self._values["ip_address_type"] = ip_address_type
             if origin_keepalive_timeout is not None:
                 self._values["origin_keepalive_timeout"] = origin_keepalive_timeout
             if origin_read_timeout is not None:
@@ -7299,6 +7306,14 @@ class CfnDistribution(
             '''
             result = self._values.get("https_port")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def ip_address_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-customoriginconfig.html#cfn-cloudfront-distribution-customoriginconfig-ipaddresstype
+            '''
+            result = self._values.get("ip_address_type")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def origin_keepalive_timeout(self) -> typing.Optional[jsii.Number]:
@@ -9966,6 +9981,7 @@ class CfnDistribution(
                         # the properties below are optional
                         http_port=123,
                         https_port=123,
+                        ip_address_type="ipAddressType",
                         origin_keepalive_timeout=123,
                         origin_read_timeout=123,
                         origin_ssl_protocols=["originSslProtocols"]
@@ -11242,6 +11258,7 @@ class CfnDistributionProps:
                             # the properties below are optional
                             http_port=123,
                             https_port=123,
+                            ip_address_type="ipAddressType",
                             origin_keepalive_timeout=123,
                             origin_read_timeout=123,
                             origin_ssl_protocols=["originSslProtocols"]
@@ -22937,6 +22954,7 @@ class OriginBindConfig:
                         # the properties below are optional
                         http_port=123,
                         https_port=123,
+                        ip_address_type="ipAddressType",
                         origin_keepalive_timeout=123,
                         origin_read_timeout=123,
                         origin_ssl_protocols=["originSslProtocols"]
@@ -30462,6 +30480,7 @@ def _typecheckingstub__4818766b050bad18cc83a1490771aa31b5eaddfe75b97673cb8c97008
     origin_protocol_policy: builtins.str,
     http_port: typing.Optional[jsii.Number] = None,
     https_port: typing.Optional[jsii.Number] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
     origin_keepalive_timeout: typing.Optional[jsii.Number] = None,
     origin_read_timeout: typing.Optional[jsii.Number] = None,
     origin_ssl_protocols: typing.Optional[typing.Sequence[builtins.str]] = None,

@@ -41,7 +41,7 @@ class TestDebAptRepository(unittest.TestCase):
                     },
                 name = '0',
                 description = '0',
-                retain_repo_versions = 1,
+                retain_repo_versions = 56,
                 remote = '',
                 publish_upstream_release_fields = True,
                 signing_service = '',

@@ -41,10 +41,16 @@ MaundyThursday = maundy_thursday()
 
 LabourDay = european_labour_day()
 
+BattleOfAricaAndFlagDay = Holiday("Battle of Arica and Flag Day", month=6, day=7, start_date="2024")
+
 SaintPeterAndSaintPaulDay = saint_peter_and_saint_paul_day()
+
+PeruvianAirForceDay = Holiday("Peruvian Air Force Day", month=7, day=23, start_date="2023")
 
 IndependenceDay1 = Holiday("Independence Day", month=7, day=28)
 IndependenceDay2 = Holiday("Independence Day", month=7, day=29)
+
+BattleOfJunin = Holiday("Battle of Junín", month=8, day=6, start_date="2022")
 
 SantaRosa = Holiday("Santa Rosa", month=8, day=30)
 
@@ -53,6 +59,8 @@ BattleOfAngamos = Holiday("Battle of Angamos", month=10, day=8)
 AllSaintsDay = all_saints_day()
 
 ImmaculateConception = immaculate_conception()
+
+BattleOfAyacucho = Holiday("Battle of Ayacucho", month=12, day=9, start_date="2022")
 
 Christmas = christmas()
 
@@ -89,6 +97,7 @@ EighthSummitOfTheAmericas = [pd.Timestamp("2018-04-13")]
 class XLIMExchangeCalendar(ExchangeCalendar):
     """
     Calendar for the Lima Stock Exchange (Bolsa de Valores de Lima) in Peru.
+    https://www.bvl.com.pe/mercado/resumen-mercado/feriados-y-horarios-de-negociacion
 
     Open Time: 9:00 AM, Peruvian Time
     Close Time: 4:00 PM, Peruvian Time
@@ -98,12 +107,16 @@ class XLIMExchangeCalendar(ExchangeCalendar):
       - Maundy Thursday
       - Good Friday
       - Labour Day
+      - Battle of Arica and Flag Day
       - Saint Paul and Saint Peter Day
+      - Peruvian Air Force Day
       - Independence Day
+      - Battle of Junín
       - Santa Rosa
       - Battle of Angamos
       - All Saints' Day
       - Immaculate Conception
+      - Battle of Ayacucho
       - Christmas Day
 
     Holidays No Longer Observed:
@@ -127,13 +140,17 @@ class XLIMExchangeCalendar(ExchangeCalendar):
                 MaundyThursday,
                 GoodFriday,
                 LabourDay,
+                BattleOfAricaAndFlagDay,
                 SaintPeterAndSaintPaulDay,
+                PeruvianAirForceDay,
                 IndependenceDay1,
                 IndependenceDay2,
+                BattleOfJunin,
                 SantaRosa,
                 BattleOfAngamos,
                 AllSaintsDay,
                 ImmaculateConception,
+                BattleOfAyacucho,
                 Christmas,
                 NewYearsEve,
             ]

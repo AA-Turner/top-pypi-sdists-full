@@ -3769,6 +3769,39 @@ def h3_lat_lon_to_cell(
     return UnderscoreFunction("h3_lat_lon_to_cell", lat, lon, resolution)
 
 
+def h3_cell_to_lat_lon(
+    cell: str,
+    return_unit: Literal["degrees", "radians"] = "degrees",
+):
+    """
+    Convert H3 cell to latitude and longitude. Returns as an list of floats where the first element is latitude
+    and the second element is longitude.
+
+    Parameters
+    ----------
+    cell
+        h3 cell
+    return_unit
+        units used for the returned latitude and longitude. (Degrees or Radians)
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features, LatLon
+    >>> @features
+    ... class Location:
+    ...    id: str
+    ...    h3_cell: str
+    ...    lat_lon: LatLon = F.h3_cell_to_lat_lon(_.h3_cell, return_unit="degrees")
+    """
+    if return_unit == "degrees":
+        return UnderscoreFunction("h3_cell_to_lat_lon_degrees", cell)
+    elif return_unit == "radians":
+        return UnderscoreFunction("h3_cell_to_lat_lon_radians", cell)
+    else:
+        raise ValueError("Could not call h3_cell_to_lat_lon. Only degrees and radians return units are accepted.")
+
+
 def cast(expr: Any, dtype: pa.DataType | type[Any]):
     """Cast an expression to a different type.
 
@@ -5230,6 +5263,7 @@ __all__ = (
     "http_put",
     "http_request",
     "h3_lat_lon_to_cell",
+    "h3_cell_to_lat_lon",
     "if_then_else",
     "is_leap_year",
     "is_month_end",

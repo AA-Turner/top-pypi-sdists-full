@@ -452,6 +452,11 @@ def aggregate_returns(returns, period=None, compounded=True):
     pd.Series or pd.DataFrame
         Aggregated returns for specified period
     """
+    # Normalize timezone for consistency before aggregation
+    # Convert to UTC if timezone-aware, then make naive
+    if hasattr(returns.index, 'tz') and returns.index.tz is not None:
+        returns = returns.tz_convert('UTC').tz_localize(None)
+    
     # Return original data if no period specified or daily period
     if period is None or "day" in period:
         return returns
@@ -562,8 +567,10 @@ def _prepare_prices(data, base=1.0):
     if isinstance(data, (_pd.DataFrame, _pd.Series)):
         data = data.fillna(0).replace([_np.inf, -_np.inf], float("NaN"))
 
-    # Remove timezone information for consistency
-    data = data.tz_localize(None)
+    # Normalize timezone information for consistency
+    # Convert to UTC if timezone-aware, then make naive
+    if hasattr(data.index, 'tz') and data.index.tz is not None:
+        data = data.tz_convert('UTC').tz_localize(None)
     return data
 
 
@@ -603,10 +610,10 @@ def _prepare_returns(data, rf=0.0, nperiods=None):
             col_clean = data[col].dropna()
             # Check if data looks like prices (positive values > 1)
             if col_clean.min() >= 0 and col_clean.max() > 1:
-                data[col] = data[col].pct_change()
+                data[col] = data[col].pct_change(fill_method=None)
     # Process Series data
     elif data.min() >= 0 and data.max() > 1:
-        data = data.pct_change()
+        data = data.pct_change(fill_method=None)
 
     # cleanup data - replace infinite values with NaN
     data = data.replace([_np.inf, -_np.inf], float("NaN"))
@@ -634,8 +641,10 @@ def _prepare_returns(data, rf=0.0, nperiods=None):
                     _PREPARE_RETURNS_CACHE[cache_key] = result.copy()
             return result
 
-    # Remove timezone information for consistency
-    data = data.tz_localize(None)
+    # Normalize timezone information for consistency
+    # Convert to UTC if timezone-aware, then make naive
+    if hasattr(data.index, 'tz') and data.index.tz is not None:
+        data = data.tz_convert('UTC').tz_localize(None)
 
     # Cache the result
     if cache_key:
@@ -679,8 +688,8 @@ def download_returns(ticker, period="max", proxy=None):
         params["period"] = period
 
     # Download data and calculate returns
-    df = safe_yfinance_download(proxy=proxy, **params)["Close"].pct_change()  # type: ignore
-    df = df.tz_localize(None)
+    df = safe_yfinance_download(proxy=proxy, **params)["Close"].pct_change(fill_method=None)  # type: ignore
+    df = df.fillna(0).tz_localize(None)
     return df
 
 
@@ -711,13 +720,16 @@ def _prepare_benchmark(benchmark=None, period="max", rf=0.0, prepare_returns=Tru
         benchmark = (
             benchmark_prices.reindex(new_index, method="bfill")
             .reindex(period)
-            .pct_change()
+            .pct_change(fill_method=None)
             .fillna(0)
         )
         benchmark = benchmark[benchmark.index.isin(period)]
 
-    # Remove timezone information
-    benchmark = benchmark.tz_localize(None)
+    # Normalize timezone information for consistent comparisons
+    # Convert to UTC if timezone-aware, then make naive
+    if hasattr(benchmark.index, 'tz') and benchmark.index.tz is not None:
+        benchmark = benchmark.tz_convert('UTC').tz_localize(None)
+    # If already timezone-naive, no action needed
 
     # Prepare returns or return raw data
     if prepare_returns:

@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n3qwak/self_service/account/v0/managing_account.proto\x12\x1cqwak.self_service.account.v0\x1a\x1fgoogle/protobuf/timestamp.proto\"\x12\n\x10\x43loudProviderAWS\"\x12\n\x10\x43loudProviderGCP\"\xb3\x01\n\x11\x43loudProviderSpec\x12=\n\x03\x61ws\x18\x01 \x01(\x0b\x32..qwak.self_service.account.v0.CloudProviderAWSH\x00\x12=\n\x03gcp\x18\x02 \x01(\x0b\x32..qwak.self_service.account.v0.CloudProviderGCPH\x00\x12\x0e\n\x06region\x18\x03 \x01(\tB\x10\n\x0e\x63loud_provider\"\x98\x02\n\x14\x43reateAccountOptions\x12\x14\n\x0c\x61\x63\x63ount_name\x18\x01 \x01(\t\x12G\n\x0e\x63loud_provider\x18\x02 \x01(\x0e\x32+.qwak.self_service.account.v0.CloudProviderB\x02\x18\x01\x12L\n\x13\x63loud_provider_spec\x18\x03 \x01(\x0b\x32/.qwak.self_service.account.v0.CloudProviderSpec\x12S\n\x11jfrog_tenant_spec\x18\x04 \x01(\x0b\x32\x38.qwak.self_service.account.v0.SelfServiceJFrogTenantSpec\"\xff\x01\n\x1f\x43reateAccountRequestDescription\x12L\n\x08metadata\x18\x01 \x01(\x0b\x32:.qwak.self_service.account.v0.CreateAccountRequestMetadata\x12\x44\n\x04spec\x18\x02 \x01(\x0b\x32\x36.qwak.self_service.account.v0.CreateAccountRequestSpec\x12H\n\x06status\x18\x03 \x01(\x0b\x32\x38.qwak.self_service.account.v0.CreateAccountRequestStatus\"x\n\x1c\x43reateAccountRequestMetadata\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12.\n\ncreated_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x14\n\x0crequested_by\x18\x03 \x01(\t\"0\n\x18\x43reateAccountRequestSpec\x12\x14\n\x0c\x61\x63\x63ount_name\x18\x01 \x01(\t\"\x9d\x01\n\x1a\x43reateAccountRequestStatus\x12J\n\x04\x63ode\x18\x01 \x01(\x0e\x32<.qwak.self_service.account.v0.CreateAccountRequestStatusCode\x12\x33\n\x0flast_changed_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"l\n\x14\x43loudProviderRegions\x12\x43\n\x0e\x63loud_provider\x18\x01 \x01(\x0e\x32+.qwak.self_service.account.v0.CloudProvider\x12\x0f\n\x07regions\x18\x02 \x03(\t\"2\n\x1bSelfServiceJFrogProjectSpec\x12\x13\n\x0bproject_key\x18\x01 \x01(\t\"u\n\x1aSelfServiceJFrogTenantSpec\x12W\n\x14\x64\x65\x66\x61ult_project_spec\x18\x01 \x01(\x0b\x32\x39.qwak.self_service.account.v0.SelfServiceJFrogProjectSpec*=\n\rCloudProvider\x12\x1a\n\x16\x43LOUD_PROVIDER_INVALID\x10\x00\x12\x07\n\x03\x41WS\x10\x01\x12\x07\n\x03GCP\x10\x02*\xa9\x01\n\x1e\x43reateAccountRequestStatusCode\x12.\n*CREATE_ACCOUNT_REQUEST_STATUS_CODE_INVALID\x10\x00\x12\x13\n\x0fREQUEST_PENDING\x10\x01\x12\x16\n\x12REQUEST_REGISTERED\x10\x02\x12\x16\n\x12REQUEST_PROCESSING\x10\x03\x12\x12\n\x0eREQUEST_FAILED\x10\x04\x42\xb9\x01\n#com.qwak.ai.self_service.account.v0P\x01Z\x8f\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/self_service/account/v0;self_service_account_v0b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n3qwak/self_service/account/v0/managing_account.proto\x12\x1cqwak.self_service.account.v0\x1a\x1fgoogle/protobuf/timestamp.proto\"\x12\n\x10\x43loudProviderAWS\"\x12\n\x10\x43loudProviderGCP\"\xb3\x01\n\x11\x43loudProviderSpec\x12=\n\x03\x61ws\x18\x01 \x01(\x0b\x32..qwak.self_service.account.v0.CloudProviderAWSH\x00\x12=\n\x03gcp\x18\x02 \x01(\x0b\x32..qwak.self_service.account.v0.CloudProviderGCPH\x00\x12\x0e\n\x06region\x18\x03 \x01(\tB\x10\n\x0e\x63loud_provider\"\xe9\x02\n\x14\x43reateAccountOptions\x12\x14\n\x0c\x61\x63\x63ount_name\x18\x01 \x01(\t\x12G\n\x0e\x63loud_provider\x18\x02 \x01(\x0e\x32+.qwak.self_service.account.v0.CloudProviderB\x02\x18\x01\x12P\n\x13\x63loud_provider_spec\x18\x03 \x01(\x0b\x32/.qwak.self_service.account.v0.CloudProviderSpecB\x02\x18\x01\x12S\n\x11jfrog_tenant_spec\x18\x04 \x01(\x0b\x32\x38.qwak.self_service.account.v0.SelfServiceJFrogTenantSpec\x12K\n\x12\x63luster_identifier\x18\x05 \x01(\x0b\x32/.qwak.self_service.account.v0.ClusterIdentifier\"d\n\x11\x43lusterIdentifier\x12G\n\ncluster_id\x18\x01 \x01(\x0b\x32\x31.qwak.self_service.account.v0.ClusterIdIdentifierH\x00\x42\x06\n\x04type\")\n\x13\x43lusterIdIdentifier\x12\x12\n\ncluster_id\x18\x01 \x01(\t\"\xff\x01\n\x1f\x43reateAccountRequestDescription\x12L\n\x08metadata\x18\x01 \x01(\x0b\x32:.qwak.self_service.account.v0.CreateAccountRequestMetadata\x12\x44\n\x04spec\x18\x02 \x01(\x0b\x32\x36.qwak.self_service.account.v0.CreateAccountRequestSpec\x12H\n\x06status\x18\x03 \x01(\x0b\x32\x38.qwak.self_service.account.v0.CreateAccountRequestStatus\"x\n\x1c\x43reateAccountRequestMetadata\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12.\n\ncreated_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x14\n\x0crequested_by\x18\x03 \x01(\t\"0\n\x18\x43reateAccountRequestSpec\x12\x14\n\x0c\x61\x63\x63ount_name\x18\x01 \x01(\t\"\x9d\x01\n\x1a\x43reateAccountRequestStatus\x12J\n\x04\x63ode\x18\x01 \x01(\x0e\x32<.qwak.self_service.account.v0.CreateAccountRequestStatusCode\x12\x33\n\x0flast_changed_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"l\n\x14\x43loudProviderRegions\x12\x43\n\x0e\x63loud_provider\x18\x01 \x01(\x0e\x32+.qwak.self_service.account.v0.CloudProvider\x12\x0f\n\x07regions\x18\x02 \x03(\t\"2\n\x1bSelfServiceJFrogProjectSpec\x12\x13\n\x0bproject_key\x18\x01 \x01(\t\"u\n\x1aSelfServiceJFrogTenantSpec\x12W\n\x14\x64\x65\x66\x61ult_project_spec\x18\x01 \x01(\x0b\x32\x39.qwak.self_service.account.v0.SelfServiceJFrogProjectSpec*=\n\rCloudProvider\x12\x1a\n\x16\x43LOUD_PROVIDER_INVALID\x10\x00\x12\x07\n\x03\x41WS\x10\x01\x12\x07\n\x03GCP\x10\x02*\xa9\x01\n\x1e\x43reateAccountRequestStatusCode\x12.\n*CREATE_ACCOUNT_REQUEST_STATUS_CODE_INVALID\x10\x00\x12\x13\n\x0fREQUEST_PENDING\x10\x01\x12\x16\n\x12REQUEST_REGISTERED\x10\x02\x12\x16\n\x12REQUEST_PROCESSING\x10\x03\x12\x12\n\x0eREQUEST_FAILED\x10\x04\x42\xb9\x01\n#com.qwak.ai.self_service.account.v0P\x01Z\x8f\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/self_service/account/v0;self_service_account_v0b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -25,10 +25,12 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._serialized_options = b'\n#com.qwak.ai.self_service.account.v0P\001Z\217\001github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/self_service/account/v0;self_service_account_v0'
   _CREATEACCOUNTOPTIONS.fields_by_name['cloud_provider']._options = None
   _CREATEACCOUNTOPTIONS.fields_by_name['cloud_provider']._serialized_options = b'\030\001'
-  _globals['_CLOUDPROVIDER']._serialized_start=1494
-  _globals['_CLOUDPROVIDER']._serialized_end=1555
-  _globals['_CREATEACCOUNTREQUESTSTATUSCODE']._serialized_start=1558
-  _globals['_CREATEACCOUNTREQUESTSTATUSCODE']._serialized_end=1727
+  _CREATEACCOUNTOPTIONS.fields_by_name['cloud_provider_spec']._options = None
+  _CREATEACCOUNTOPTIONS.fields_by_name['cloud_provider_spec']._serialized_options = b'\030\001'
+  _globals['_CLOUDPROVIDER']._serialized_start=1720
+  _globals['_CLOUDPROVIDER']._serialized_end=1781
+  _globals['_CREATEACCOUNTREQUESTSTATUSCODE']._serialized_start=1784
+  _globals['_CREATEACCOUNTREQUESTSTATUSCODE']._serialized_end=1953
   _globals['_CLOUDPROVIDERAWS']._serialized_start=118
   _globals['_CLOUDPROVIDERAWS']._serialized_end=136
   _globals['_CLOUDPROVIDERGCP']._serialized_start=138
@@ -36,19 +38,23 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_CLOUDPROVIDERSPEC']._serialized_start=159
   _globals['_CLOUDPROVIDERSPEC']._serialized_end=338
   _globals['_CREATEACCOUNTOPTIONS']._serialized_start=341
-  _globals['_CREATEACCOUNTOPTIONS']._serialized_end=621
-  _globals['_CREATEACCOUNTREQUESTDESCRIPTION']._serialized_start=624
-  _globals['_CREATEACCOUNTREQUESTDESCRIPTION']._serialized_end=879
-  _globals['_CREATEACCOUNTREQUESTMETADATA']._serialized_start=881
-  _globals['_CREATEACCOUNTREQUESTMETADATA']._serialized_end=1001
-  _globals['_CREATEACCOUNTREQUESTSPEC']._serialized_start=1003
-  _globals['_CREATEACCOUNTREQUESTSPEC']._serialized_end=1051
-  _globals['_CREATEACCOUNTREQUESTSTATUS']._serialized_start=1054
-  _globals['_CREATEACCOUNTREQUESTSTATUS']._serialized_end=1211
-  _globals['_CLOUDPROVIDERREGIONS']._serialized_start=1213
-  _globals['_CLOUDPROVIDERREGIONS']._serialized_end=1321
-  _globals['_SELFSERVICEJFROGPROJECTSPEC']._serialized_start=1323
-  _globals['_SELFSERVICEJFROGPROJECTSPEC']._serialized_end=1373
-  _globals['_SELFSERVICEJFROGTENANTSPEC']._serialized_start=1375
-  _globals['_SELFSERVICEJFROGTENANTSPEC']._serialized_end=1492
+  _globals['_CREATEACCOUNTOPTIONS']._serialized_end=702
+  _globals['_CLUSTERIDENTIFIER']._serialized_start=704
+  _globals['_CLUSTERIDENTIFIER']._serialized_end=804
+  _globals['_CLUSTERIDIDENTIFIER']._serialized_start=806
+  _globals['_CLUSTERIDIDENTIFIER']._serialized_end=847
+  _globals['_CREATEACCOUNTREQUESTDESCRIPTION']._serialized_start=850
+  _globals['_CREATEACCOUNTREQUESTDESCRIPTION']._serialized_end=1105
+  _globals['_CREATEACCOUNTREQUESTMETADATA']._serialized_start=1107
+  _globals['_CREATEACCOUNTREQUESTMETADATA']._serialized_end=1227
+  _globals['_CREATEACCOUNTREQUESTSPEC']._serialized_start=1229
+  _globals['_CREATEACCOUNTREQUESTSPEC']._serialized_end=1277
+  _globals['_CREATEACCOUNTREQUESTSTATUS']._serialized_start=1280
+  _globals['_CREATEACCOUNTREQUESTSTATUS']._serialized_end=1437
+  _globals['_CLOUDPROVIDERREGIONS']._serialized_start=1439
+  _globals['_CLOUDPROVIDERREGIONS']._serialized_end=1547
+  _globals['_SELFSERVICEJFROGPROJECTSPEC']._serialized_start=1549
+  _globals['_SELFSERVICEJFROGPROJECTSPEC']._serialized_end=1599
+  _globals['_SELFSERVICEJFROGTENANTSPEC']._serialized_start=1601
+  _globals['_SELFSERVICEJFROGTENANTSPEC']._serialized_end=1718
 # @@protoc_insertion_point(module_scope)

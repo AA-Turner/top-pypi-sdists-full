@@ -24,6 +24,14 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class DebReleaseFileResponse(BaseModel):
     """
     A serializer for ReleaseFile.
@@ -33,12 +41,13 @@ class DebReleaseFileResponse(BaseModel):
     pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
     pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")
+    vuln_report: Optional[StrictStr] = None
     artifacts: Dict[str, Any] = Field(description="A dict mapping relative paths inside the Content to the correspondingArtifact URLs. E.g.: {'relative/path': '/artifacts/1/'")
     codename: Optional[StrictStr] = Field(default=None, description="Codename of the release, e.g. \"buster\".")
     suite: Optional[StrictStr] = Field(default=None, description="Suite of the release, e.g. \"stable\".")
     distribution: StrictStr = Field(description="Distribution of the release, e.g. \"stable/updates\".")
     relative_path: Optional[StrictStr] = Field(default=None, description="Path of file relative to url.")
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "artifacts", "codename", "suite", "distribution", "relative_path"]
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "vuln_report", "artifacts", "codename", "suite", "distribution", "relative_path"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -74,12 +83,14 @@ class DebReleaseFileResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
+        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
             "prn",
             "pulp_created",
             "pulp_last_updated",
+            "vuln_report",
         ])
 
         _dict = self.model_dump(
@@ -104,6 +115,7 @@ class DebReleaseFileResponse(BaseModel):
             "pulp_created": obj.get("pulp_created"),
             "pulp_last_updated": obj.get("pulp_last_updated"),
             "pulp_labels": obj.get("pulp_labels"),
+            "vuln_report": obj.get("vuln_report"),
             "artifacts": obj.get("artifacts"),
             "codename": obj.get("codename"),
             "suite": obj.get("suite"),

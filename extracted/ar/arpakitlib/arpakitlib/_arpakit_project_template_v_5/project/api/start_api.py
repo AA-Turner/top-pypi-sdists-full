@@ -2,7 +2,7 @@ import uvicorn
 
 from project.api.before_start_api import before_start_api
 from project.core.settings import get_cached_settings
-from project.core.util import setup_logging
+from project.core.setup_logging import setup_logging
 
 
 def start_api():

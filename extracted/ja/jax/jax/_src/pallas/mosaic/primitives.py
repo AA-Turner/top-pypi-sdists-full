@@ -31,7 +31,6 @@ from jax._src import util
 from jax._src.interpreters import mlir
 from jax._src.pallas import core as pl_core
 from jax._src.pallas import primitives
-from jax._src.pallas import utils as pallas_utils
 from jax._src.pallas.mosaic import core as tpu_core
 from jax._src.state import discharge as state_discharge
 from jax._src.state import indexing
@@ -47,6 +46,7 @@ zip, unsafe_zip = util.safe_zip, zip
 
 IntDeviceId = int | jax.Array
 MultiDimDeviceId = tuple[IntDeviceId, ...] | dict[str | tuple[str, ...], IntDeviceId]
+Ref = state.AbstractRef | state.TransformedRef
 
 repeat_p = jax_core.Primitive('repeat')
 
@@ -76,8 +76,8 @@ def bitcast(x, ty: DTypeLike):
   ty = dtypes.canonicalize_dtype(ty)
   if len(x.shape) < 2:
     raise ValueError("Not implemented: bitcast 1D")
-  src_bitwidth = pallas_utils.dtype_bitwidth(x.dtype)
-  dst_bitwidth = pallas_utils.dtype_bitwidth(ty)
+  src_bitwidth = dtypes.bit_width(x.dtype)
+  dst_bitwidth = dtypes.bit_width(ty)
   if x.shape[-2] * src_bitwidth % dst_bitwidth:
     raise ValueError(
         "Not implemented: the 2nd minor dim can not be perfectly packed or"
@@ -89,16 +89,16 @@ def bitcast(x, ty: DTypeLike):
 @bitcast_p.def_abstract_eval
 def _bitcast_abstract_eval(x, *, ty):
   shape = list(x.shape)
-  src_bitwidth = pallas_utils.dtype_bitwidth(x.dtype)
-  dst_bitwidth = pallas_utils.dtype_bitwidth(ty)
+  src_bitwidth = dtypes.bit_width(x.dtype)
+  dst_bitwidth = dtypes.bit_width(ty)
   shape[-2] = shape[-2] * src_bitwidth // dst_bitwidth
   return jax_core.ShapedArray(shape, ty)
 
 
 def _bitcast_lowering_rule(ctx: mlir.LoweringRuleContext, x, *, ty):
   def _bitcast(x):
-    src_bitwidth = pallas_utils.dtype_bitwidth(x.dtype)
-    dst_bitwidth = pallas_utils.dtype_bitwidth(ty)
+    src_bitwidth = dtypes.bit_width(x.dtype)
+    dst_bitwidth = dtypes.bit_width(ty)
     if src_bitwidth < dst_bitwidth:
       *leading, m, n = x.shape
       packing = dst_bitwidth // src_bitwidth
@@ -689,7 +689,8 @@ def make_async_remote_copy(
     dst_ref: The destination Reference.
     send_sem: The semaphore on the source device.
     recv_sem: The semaphore on the destination device.
-    device_id: The device id of the destination device. It could be a tuple.
+    device_id: The device id of the destination device. It could be a tuple, or
+      a dictionary specifying the communication axis and destination index.
     device_id_type: The type of the device id.
 
   Returns:
@@ -885,3 +886,33 @@ def with_memory_space_constraint(
     )
   return pl_core.with_memory_space_constraint_p.bind(
       x, memory_space=memory_space)
+
+
+def load(ref: Ref, *, mask: jax.Array | None = None) -> jax.Array:
+  """Loads an array from the given ref.
+
+  If ``mask`` is not specified, this function has the same semantics as
+  ``ref[idx]`` in JAX.
+
+  Args:
+    ref: The ref to load from.
+    mask: An optional boolean mask specifying which indices to load.
+
+  Returns:
+    The loaded array.
+  """
+  return primitives.load(ref, None, mask=mask)
+
+
+def store(ref: Ref, val: jax.Array, *, mask: jax.Array | None = None) -> None:
+  """Stores a value to the given ref.
+
+  If ``mask`` is not specified, this function has the same semantics as
+  ``ref[idx] = val`` in JAX.
+
+  Args:
+    ref: The ref to store to.
+    val: The value to store.
+    mask: An optional boolean mask specifying which indices to store.
+  """
+  return primitives.store(ref, None, val, mask=mask)

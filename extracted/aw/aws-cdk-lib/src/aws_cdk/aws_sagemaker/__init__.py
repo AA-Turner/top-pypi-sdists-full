@@ -1595,6 +1595,7 @@ class CfnCluster(
         
                 # the properties below are optional
                 current_count=123,
+                image_id="imageId",
                 instance_storage_configs=[sagemaker.CfnCluster.ClusterInstanceStorageConfigProperty(
                     ebs_volume_config=sagemaker.CfnCluster.ClusterEbsVolumeConfigProperty(
                         volume_size_in_gb=123
@@ -1608,6 +1609,7 @@ class CfnCluster(
                 threads_per_core=123,
                 training_plan_arn="trainingPlanArn"
             )],
+            node_provisioning_mode="nodeProvisioningMode",
             node_recovery="nodeRecovery",
             orchestrator=sagemaker.CfnCluster.OrchestratorProperty(
                 eks=sagemaker.CfnCluster.ClusterOrchestratorEksConfigProperty(
@@ -1659,6 +1661,7 @@ class CfnCluster(
         *,
         cluster_name: typing.Optional[builtins.str] = None,
         instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ClusterInstanceGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        node_provisioning_mode: typing.Optional[builtins.str] = None,
         node_recovery: typing.Optional[builtins.str] = None,
         orchestrator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.OrchestratorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         restricted_instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ClusterRestrictedInstanceGroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -1670,6 +1673,7 @@ class CfnCluster(
         :param id: Construct identifier for this resource (unique in its scope).
         :param cluster_name: The name of the SageMaker HyperPod cluster.
         :param instance_groups: The instance groups of the SageMaker HyperPod cluster. To delete an instance group, remove it from the array.
+        :param node_provisioning_mode: Determines the scaling strategy for the SageMaker HyperPod cluster. When set to 'Continuous', enables continuous scaling which dynamically manages node provisioning. If the parameter is omitted, uses the standard scaling approach in previous release.
         :param node_recovery: Specifies whether to enable or disable the automatic node recovery feature of SageMaker HyperPod. Available values are ``Automatic`` for enabling and ``None`` for disabling.
         :param orchestrator: The orchestrator type for the SageMaker HyperPod cluster. Currently, ``'eks'`` is the only available option.
         :param restricted_instance_groups: The restricted instance groups of the SageMaker HyperPod cluster.
@@ -1683,6 +1687,7 @@ class CfnCluster(
         props = CfnClusterProps(
             cluster_name=cluster_name,
             instance_groups=instance_groups,
+            node_provisioning_mode=node_provisioning_mode,
             node_recovery=node_recovery,
             orchestrator=orchestrator,
             restricted_instance_groups=restricted_instance_groups,
@@ -1799,6 +1804,19 @@ class CfnCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__4e78b567f109d38ee1f8221168fe230f3c378e24d69dab4b08d88a01e417dae5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "instanceGroups", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeProvisioningMode")
+    def node_provisioning_mode(self) -> typing.Optional[builtins.str]:
+        '''Determines the scaling strategy for the SageMaker HyperPod cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nodeProvisioningMode"))
+
+    @node_provisioning_mode.setter
+    def node_provisioning_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d39c569175a8b9d71cfb9896c875b33282b0e81d29a15b8165b749085dff1964)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nodeProvisioningMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="nodeRecovery")
@@ -1949,6 +1967,7 @@ class CfnCluster(
             "instance_type": "instanceType",
             "life_cycle_config": "lifeCycleConfig",
             "current_count": "currentCount",
+            "image_id": "imageId",
             "instance_storage_configs": "instanceStorageConfigs",
             "on_start_deep_health_checks": "onStartDeepHealthChecks",
             "override_vpc_config": "overrideVpcConfig",
@@ -1966,6 +1985,7 @@ class CfnCluster(
             instance_type: builtins.str,
             life_cycle_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ClusterLifeCycleConfigProperty", typing.Dict[builtins.str, typing.Any]]],
             current_count: typing.Optional[jsii.Number] = None,
+            image_id: typing.Optional[builtins.str] = None,
             instance_storage_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.ClusterInstanceStorageConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
             override_vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1980,6 +2000,7 @@ class CfnCluster(
             :param instance_type: The instance type of the instance group of a SageMaker HyperPod cluster.
             :param life_cycle_config: The lifecycle configuration for a SageMaker HyperPod cluster.
             :param current_count: The number of instances that are currently in the instance group of a SageMaker HyperPod cluster.
+            :param image_id: AMI Id to be used for launching EC2 instances - HyperPodPublicAmiId or CustomAmiId.
             :param instance_storage_configs: The configurations of additional storage specified to the instance group where the instance (node) is launched.
             :param on_start_deep_health_checks: A flag indicating whether deep health checks should be performed when the HyperPod cluster instance group is created or updated. Deep health checks are comprehensive, invasive tests that validate the health of the underlying hardware and infrastructure components.
             :param override_vpc_config: The customized Amazon VPC configuration at the instance group level that overrides the default Amazon VPC configuration of the SageMaker HyperPod cluster.
@@ -2007,6 +2028,7 @@ class CfnCluster(
                 
                     # the properties below are optional
                     current_count=123,
+                    image_id="imageId",
                     instance_storage_configs=[sagemaker.CfnCluster.ClusterInstanceStorageConfigProperty(
                         ebs_volume_config=sagemaker.CfnCluster.ClusterEbsVolumeConfigProperty(
                             volume_size_in_gb=123
@@ -2029,6 +2051,7 @@ class CfnCluster(
                 check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
                 check_type(argname="argument life_cycle_config", value=life_cycle_config, expected_type=type_hints["life_cycle_config"])
                 check_type(argname="argument current_count", value=current_count, expected_type=type_hints["current_count"])
+                check_type(argname="argument image_id", value=image_id, expected_type=type_hints["image_id"])
                 check_type(argname="argument instance_storage_configs", value=instance_storage_configs, expected_type=type_hints["instance_storage_configs"])
                 check_type(argname="argument on_start_deep_health_checks", value=on_start_deep_health_checks, expected_type=type_hints["on_start_deep_health_checks"])
                 check_type(argname="argument override_vpc_config", value=override_vpc_config, expected_type=type_hints["override_vpc_config"])
@@ -2043,6 +2066,8 @@ class CfnCluster(
             }
             if current_count is not None:
                 self._values["current_count"] = current_count
+            if image_id is not None:
+                self._values["image_id"] = image_id
             if instance_storage_configs is not None:
                 self._values["instance_storage_configs"] = instance_storage_configs
             if on_start_deep_health_checks is not None:
@@ -2114,6 +2139,15 @@ class CfnCluster(
             '''
             result = self._values.get("current_count")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def image_id(self) -> typing.Optional[builtins.str]:
+            '''AMI Id to be used for launching EC2 instances - HyperPodPublicAmiId or CustomAmiId.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html#cfn-sagemaker-cluster-clusterinstancegroup-imageid
+            '''
+            result = self._values.get("image_id")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def instance_storage_configs(
@@ -2899,6 +2933,7 @@ class CfnCluster(
     name_mapping={
         "cluster_name": "clusterName",
         "instance_groups": "instanceGroups",
+        "node_provisioning_mode": "nodeProvisioningMode",
         "node_recovery": "nodeRecovery",
         "orchestrator": "orchestrator",
         "restricted_instance_groups": "restrictedInstanceGroups",
@@ -2912,6 +2947,7 @@ class CfnClusterProps:
         *,
         cluster_name: typing.Optional[builtins.str] = None,
         instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        node_provisioning_mode: typing.Optional[builtins.str] = None,
         node_recovery: typing.Optional[builtins.str] = None,
         orchestrator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OrchestratorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         restricted_instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterRestrictedInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -2922,6 +2958,7 @@ class CfnClusterProps:
 
         :param cluster_name: The name of the SageMaker HyperPod cluster.
         :param instance_groups: The instance groups of the SageMaker HyperPod cluster. To delete an instance group, remove it from the array.
+        :param node_provisioning_mode: Determines the scaling strategy for the SageMaker HyperPod cluster. When set to 'Continuous', enables continuous scaling which dynamically manages node provisioning. If the parameter is omitted, uses the standard scaling approach in previous release.
         :param node_recovery: Specifies whether to enable or disable the automatic node recovery feature of SageMaker HyperPod. Available values are ``Automatic`` for enabling and ``None`` for disabling.
         :param orchestrator: The orchestrator type for the SageMaker HyperPod cluster. Currently, ``'eks'`` is the only available option.
         :param restricted_instance_groups: The restricted instance groups of the SageMaker HyperPod cluster.
@@ -2951,6 +2988,7 @@ class CfnClusterProps:
             
                     # the properties below are optional
                     current_count=123,
+                    image_id="imageId",
                     instance_storage_configs=[sagemaker.CfnCluster.ClusterInstanceStorageConfigProperty(
                         ebs_volume_config=sagemaker.CfnCluster.ClusterEbsVolumeConfigProperty(
                             volume_size_in_gb=123
@@ -2964,6 +3002,7 @@ class CfnClusterProps:
                     threads_per_core=123,
                     training_plan_arn="trainingPlanArn"
                 )],
+                node_provisioning_mode="nodeProvisioningMode",
                 node_recovery="nodeRecovery",
                 orchestrator=sagemaker.CfnCluster.OrchestratorProperty(
                     eks=sagemaker.CfnCluster.ClusterOrchestratorEksConfigProperty(
@@ -3011,6 +3050,7 @@ class CfnClusterProps:
             type_hints = typing.get_type_hints(_typecheckingstub__c8126a53dc1741a2edde75d8d4eca79c53a2294746ea237dfba0097a758522ce)
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
             check_type(argname="argument instance_groups", value=instance_groups, expected_type=type_hints["instance_groups"])
+            check_type(argname="argument node_provisioning_mode", value=node_provisioning_mode, expected_type=type_hints["node_provisioning_mode"])
             check_type(argname="argument node_recovery", value=node_recovery, expected_type=type_hints["node_recovery"])
             check_type(argname="argument orchestrator", value=orchestrator, expected_type=type_hints["orchestrator"])
             check_type(argname="argument restricted_instance_groups", value=restricted_instance_groups, expected_type=type_hints["restricted_instance_groups"])
@@ -3021,6 +3061,8 @@ class CfnClusterProps:
             self._values["cluster_name"] = cluster_name
         if instance_groups is not None:
             self._values["instance_groups"] = instance_groups
+        if node_provisioning_mode is not None:
+            self._values["node_provisioning_mode"] = node_provisioning_mode
         if node_recovery is not None:
             self._values["node_recovery"] = node_recovery
         if orchestrator is not None:
@@ -3053,6 +3095,17 @@ class CfnClusterProps:
         '''
         result = self._values.get("instance_groups")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ClusterInstanceGroupProperty]]]], result)
+
+    @builtins.property
+    def node_provisioning_mode(self) -> typing.Optional[builtins.str]:
+        '''Determines the scaling strategy for the SageMaker HyperPod cluster.
+
+        When set to 'Continuous', enables continuous scaling which dynamically manages node provisioning. If the parameter is omitted, uses the standard scaling approach in previous release.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-cluster.html#cfn-sagemaker-cluster-nodeprovisioningmode
+        '''
+        result = self._values.get("node_provisioning_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def node_recovery(self) -> typing.Optional[builtins.str]:
@@ -6896,7 +6949,6 @@ class CfnDomain(
                     environment_id="environmentId",
                     project_id="projectId",
                     project_s3_path="projectS3Path",
-                    single_sign_on_application_arn="singleSignOnApplicationArn",
                     studio_web_portal_access="studioWebPortalAccess"
                 )
             ),
@@ -8322,7 +8374,6 @@ class CfnDomain(
                         environment_id="environmentId",
                         project_id="projectId",
                         project_s3_path="projectS3Path",
-                        single_sign_on_application_arn="singleSignOnApplicationArn",
                         studio_web_portal_access="studioWebPortalAccess"
                     )
                 )
@@ -9793,7 +9844,6 @@ class CfnDomain(
             "environment_id": "environmentId",
             "project_id": "projectId",
             "project_s3_path": "projectS3Path",
-            "single_sign_on_application_arn": "singleSignOnApplicationArn",
             "studio_web_portal_access": "studioWebPortalAccess",
         },
     )
@@ -9807,7 +9857,6 @@ class CfnDomain(
             environment_id: typing.Optional[builtins.str] = None,
             project_id: typing.Optional[builtins.str] = None,
             project_s3_path: typing.Optional[builtins.str] = None,
-            single_sign_on_application_arn: typing.Optional[builtins.str] = None,
             studio_web_portal_access: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The settings that apply to an Amazon SageMaker AI domain when you use it in Amazon SageMaker Unified Studio.
@@ -9818,7 +9867,6 @@ class CfnDomain(
             :param environment_id: The ID of the environment that Amazon SageMaker Unified Studio associates with the domain.
             :param project_id: The ID of the Amazon SageMaker Unified Studio project that corresponds to the domain.
             :param project_s3_path: The location where Amazon S3 stores temporary execution data and other artifacts for the project that corresponds to the domain.
-            :param single_sign_on_application_arn: The ARN of the Amazon DataZone application managed by Amazon SageMaker Unified Studio in the AWS IAM Identity Center.
             :param studio_web_portal_access: Sets whether you can access the domain in Amazon SageMaker Studio:. - **ENABLED** - You can access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it in both studio interfaces. - **DISABLED** - You can't access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it only in that studio interface. To migrate a domain to Amazon SageMaker Unified Studio, you specify the UnifiedStudioSettings data type when you use the UpdateDomain action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html
@@ -9837,7 +9885,6 @@ class CfnDomain(
                     environment_id="environmentId",
                     project_id="projectId",
                     project_s3_path="projectS3Path",
-                    single_sign_on_application_arn="singleSignOnApplicationArn",
                     studio_web_portal_access="studioWebPortalAccess"
                 )
             '''
@@ -9849,7 +9896,6 @@ class CfnDomain(
                 check_type(argname="argument environment_id", value=environment_id, expected_type=type_hints["environment_id"])
                 check_type(argname="argument project_id", value=project_id, expected_type=type_hints["project_id"])
                 check_type(argname="argument project_s3_path", value=project_s3_path, expected_type=type_hints["project_s3_path"])
-                check_type(argname="argument single_sign_on_application_arn", value=single_sign_on_application_arn, expected_type=type_hints["single_sign_on_application_arn"])
                 check_type(argname="argument studio_web_portal_access", value=studio_web_portal_access, expected_type=type_hints["studio_web_portal_access"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if domain_account_id is not None:
@@ -9864,8 +9910,6 @@ class CfnDomain(
                 self._values["project_id"] = project_id
             if project_s3_path is not None:
                 self._values["project_s3_path"] = project_s3_path
-            if single_sign_on_application_arn is not None:
-                self._values["single_sign_on_application_arn"] = single_sign_on_application_arn
             if studio_web_portal_access is not None:
                 self._values["studio_web_portal_access"] = studio_web_portal_access
 
@@ -9925,15 +9969,6 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-projects3path
             '''
             result = self._values.get("project_s3_path")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def single_sign_on_application_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the Amazon DataZone application managed by Amazon SageMaker Unified Studio in the AWS IAM Identity Center.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-singlesignonapplicationarn
-            '''
-            result = self._values.get("single_sign_on_application_arn")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -10777,7 +10812,6 @@ class CfnDomainProps:
                         environment_id="environmentId",
                         project_id="projectId",
                         project_s3_path="projectS3Path",
-                        single_sign_on_application_arn="singleSignOnApplicationArn",
                         studio_web_portal_access="studioWebPortalAccess"
                     )
                 ),
@@ -54455,6 +54489,7 @@ def _typecheckingstub__b1441bbec1bb60460bda62b43765e140885fbb36e13b090ded31c919b
     *,
     cluster_name: typing.Optional[builtins.str] = None,
     instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    node_provisioning_mode: typing.Optional[builtins.str] = None,
     node_recovery: typing.Optional[builtins.str] = None,
     orchestrator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OrchestratorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     restricted_instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterRestrictedInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -54484,6 +54519,12 @@ def _typecheckingstub__8c72731c4fb9d1b248db78e05e403c022229ea39aa9884e7da88a1c9d
 
 def _typecheckingstub__4e78b567f109d38ee1f8221168fe230f3c378e24d69dab4b08d88a01e417dae5(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnCluster.ClusterInstanceGroupProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d39c569175a8b9d71cfb9896c875b33282b0e81d29a15b8165b749085dff1964(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -54533,6 +54574,7 @@ def _typecheckingstub__3a19719ba9f3f785eebfbcc6ee996f6178944dfe9cbd5d5cdf73341bd
     instance_type: builtins.str,
     life_cycle_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterLifeCycleConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     current_count: typing.Optional[jsii.Number] = None,
+    image_id: typing.Optional[builtins.str] = None,
     instance_storage_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceStorageConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
     override_vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -54615,6 +54657,7 @@ def _typecheckingstub__c8126a53dc1741a2edde75d8d4eca79c53a2294746ea237dfba0097a7
     *,
     cluster_name: typing.Optional[builtins.str] = None,
     instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    node_provisioning_mode: typing.Optional[builtins.str] = None,
     node_recovery: typing.Optional[builtins.str] = None,
     orchestrator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.OrchestratorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     restricted_instance_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterRestrictedInstanceGroupProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -55421,7 +55464,6 @@ def _typecheckingstub__b4dad77d25b548827f5bcfd63cb5788816c5db5845110e1912053632c
     environment_id: typing.Optional[builtins.str] = None,
     project_id: typing.Optional[builtins.str] = None,
     project_s3_path: typing.Optional[builtins.str] = None,
-    single_sign_on_application_arn: typing.Optional[builtins.str] = None,
     studio_web_portal_access: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

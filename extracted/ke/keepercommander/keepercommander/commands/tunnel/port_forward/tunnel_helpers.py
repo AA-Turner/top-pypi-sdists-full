@@ -29,12 +29,26 @@ from keepercommander.subfolder import try_resolve_path
 from keepercommander import crypto, utils, rest_api, api
 
 # Import the websockets library for async WebSocket communication
+# Support both websockets 15.0.1+ (asyncio) and legacy 11.0.3 (sync) versions
 try:
-    import websockets
+    # Try websockets 15.0.1+ asyncio implementation first
+    from websockets.asyncio.client import connect as websockets_connect
+    from websockets.exceptions import ConnectionClosed, InvalidURI, InvalidHandshake
+    WEBSOCKETS_VERSION = "asyncio"
     WEBSOCKETS_AVAILABLE = True
 except ImportError:
-    WEBSOCKETS_AVAILABLE = False
-    print("websockets library not available - falling back to HTTP for ICE candidate exchange", file=sys.stderr)
+    try:
+        # Fallback to websockets 11.0.3 legacy implementation
+        from websockets import connect as websockets_connect
+        from websockets.exceptions import ConnectionClosed, InvalidURI, InvalidHandshake
+        WEBSOCKETS_VERSION = "legacy"
+        WEBSOCKETS_AVAILABLE = True
+    except ImportError:
+        WEBSOCKETS_AVAILABLE = False
+        websockets_connect = None
+        ConnectionClosed = None
+        WEBSOCKETS_VERSION = None
+        print("websockets library not available - install with: pip install websockets", file=sys.stderr)
 
 # Constants
 NONCE_LENGTH = 12
@@ -760,6 +774,65 @@ def resolve_pam_config(params, record_uid, pam_config_option):
 
 
 # Direct WebSocket handler - no stored state
+async def connect_websocket_with_fallback(ws_endpoint, headers, ssl_context, tube_registry, timeout):
+    """
+    Connect to WebSocket with backward compatibility for both websockets 15.0.1+ and 11.0.3
+    Handles parameter name differences between versions
+    """
+    # Base connection parameters that work across versions
+    base_kwargs = {
+        "ping_interval": 20,
+        "ping_timeout": 20,
+        "close_timeout": 30
+    }
+    
+    if WEBSOCKETS_VERSION == "asyncio":
+        # websockets 15.0.1+ uses additional_headers and ssl_context/ssl parameters
+        connect_kwargs = {
+            **base_kwargs,
+            "additional_headers": headers
+        }
+        
+        # Try ssl_context parameter first, fallback to ssl if not supported
+        if ssl_context:
+            try:
+                async with websockets_connect(ws_endpoint, ssl_context=ssl_context, **connect_kwargs) as websocket:
+                    logging.info("WebSocket connection established with ssl_context parameter")
+                    await handle_websocket_messages(websocket, tube_registry, timeout)
+                    return
+            except TypeError as e:
+                if "ssl_context" in str(e):
+                    logging.info("ssl_context parameter not supported, trying with ssl parameter")
+                    async with websockets_connect(ws_endpoint, ssl=ssl_context, **connect_kwargs) as websocket:
+                        logging.info("WebSocket connection established with ssl parameter")
+                        await handle_websocket_messages(websocket, tube_registry, timeout)
+                        return
+                else:
+                    raise
+        else:
+            async with websockets_connect(ws_endpoint, **connect_kwargs) as websocket:
+                logging.info("WebSocket connection established")
+                await handle_websocket_messages(websocket, tube_registry, timeout)
+                
+    elif WEBSOCKETS_VERSION == "legacy":
+        # websockets 11.0.3 uses extra_headers and ssl parameters
+        connect_kwargs = {
+            **base_kwargs,
+            "extra_headers": headers
+        }
+        
+        if ssl_context:
+            async with websockets_connect(ws_endpoint, ssl=ssl_context, **connect_kwargs) as websocket:
+                logging.info("WebSocket connection established (legacy)")
+                await handle_websocket_messages(websocket, tube_registry, timeout)
+        else:
+            async with websockets_connect(ws_endpoint, **connect_kwargs) as websocket:
+                logging.info("WebSocket connection established (legacy)")
+                await handle_websocket_messages(websocket, tube_registry, timeout)
+    else:
+        raise Exception("No compatible websockets version available")
+
+
 async def handle_websocket_responses(params, tube_registry, timeout=60, gateway_uid=None, gateway_cookies=None):
     """
     Direct WebSocket handler that connects, listens for responses, and routes them to Rust.
@@ -797,49 +870,46 @@ async def handle_websocket_responses(params, tube_registry, timeout=60, gateway_
             ssl_context.check_hostname = False
             ssl_context.verify_mode = ssl.CERT_NONE
     
-    # Connect and handle messages directly
-    async with websockets.connect(
-        ws_endpoint,
-        extra_headers=headers,
-        ssl=ssl_context,
-        ping_interval=20,
-        ping_timeout=20,
-        close_timeout=30
-    ) as websocket:
-        logging.info("WebSocket connection established")
+    # Connect and handle messages with backward compatibility
+    # Handle parameter differences between websockets versions
+    await connect_websocket_with_fallback(ws_endpoint, headers, ssl_context, tube_registry, timeout)
+
+
+async def handle_websocket_messages(websocket, tube_registry, timeout):
+    """Handle WebSocket message processing"""
         
-        # Listen for messages with timeout
-        try:
-            start_time = time.time()
-            while time.time() - start_time < timeout:
-                try:
-                    # Wait for a message with short timeout to allow checking overall timeout
-                    message_text = await asyncio.wait_for(websocket.recv(), timeout=1.0)
-                    logging.debug(f"WebSocket received: {message_text[:200]}...")
-                    
-                    # Parse response - can be an array or single object
-                    response_data = json.loads(message_text)
-                    if isinstance(response_data, list):
-                        # Handle an array of responses
-                        for response_item in response_data:
-                            route_message_to_rust(response_item, tube_registry)
-                    elif isinstance(response_data, dict):
-                        # Handle a single response object
-                        route_message_to_rust(response_data, tube_registry)
-                    else:
-                        logging.warning(f"Unexpected WebSocket message format: {type(response_data)}")
-                
-                except asyncio.TimeoutError:
-                    # No message received within 1 second, continue loop to check overall timeout
-                    continue
-                except websockets.exceptions.ConnectionClosed:
-                    logging.info("WebSocket connection closed")
-                    break
-                    
-        except Exception as e:
-            logging.error(f"Error in WebSocket message handling: {e}")
-        finally:
-            logging.debug("WebSocket handler completed")
+    # Listen for messages with timeout
+    try:
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                # Wait for a message with short timeout to allow checking overall timeout
+                message_text = await asyncio.wait_for(websocket.recv(), timeout=1.0)
+                logging.debug(f"WebSocket received: {message_text[:200]}...")
+
+                # Parse response - can be an array or single object
+                response_data = json.loads(message_text)
+                if isinstance(response_data, list):
+                    # Handle an array of responses
+                    for response_item in response_data:
+                        route_message_to_rust(response_item, tube_registry)
+                elif isinstance(response_data, dict):
+                    # Handle a single response object
+                    route_message_to_rust(response_data, tube_registry)
+                else:
+                    logging.warning(f"Unexpected WebSocket message format: {type(response_data)}")
+
+            except asyncio.TimeoutError:
+                # No message received within 1 second, continue loop to check overall timeout
+                continue
+            except ConnectionClosed:
+                logging.info("WebSocket connection closed")
+                break
+
+    except Exception as e:
+        logging.error(f"Error in WebSocket message handling: {e}")
+    finally:
+        logging.debug("WebSocket handler completed")
 
 
 def route_message_to_rust(response_item, tube_registry):
@@ -1006,10 +1076,6 @@ def start_websocket_listener(params, tube_registry, timeout=60, gateway_uid=None
     global _ACTIVE_WEBSOCKET_THREAD
     
     with _WEBSOCKET_THREAD_LOCK:
-        # If there's already an active WebSocket thread, reuse it
-        if _ACTIVE_WEBSOCKET_THREAD and _ACTIVE_WEBSOCKET_THREAD.is_alive():
-            logging.debug("Reusing existing WebSocket listener thread")
-            return _ACTIVE_WEBSOCKET_THREAD
         
         # Start a new WebSocket listener thread
         def run_websocket():
@@ -1388,6 +1454,33 @@ def start_rust_tunnel(params, record_uid, gateway_uid, host, port,
         # Register the encryption key in the global conversation store
         register_conversation_key(conversation_id, symmetric_key)
 
+        # Get session cookies for router affinity BEFORE creating tube
+        logging.debug(f"Getting session cookies for gateway {gateway_uid}")
+        gateway_cookies = get_controller_cookie(params, gateway_uid)
+        if gateway_cookies:
+            logging.debug(f"Got session cookies for router affinity")
+        else:
+            logging.warning("Failed to get session cookies - may experience routing issues")
+        
+        # Create a temporary tunnel session BEFORE creating the tube so ICE candidates can be buffered immediately
+        import uuid
+        temp_tube_id = str(uuid.uuid4())
+        
+        # Pre-create tunnel session with temporary ID to buffer early ICE candidates
+        tunnel_session = TunnelSession(
+            tube_id=temp_tube_id,
+            conversation_id=conversation_id,
+            gateway_uid=gateway_uid,
+            symmetric_key=symmetric_key,
+            gateway_cookies=gateway_cookies,
+            offer_sent=False,
+            host=host,
+            port=port
+        )
+        
+        # Register the temporary session so ICE candidates can be buffered immediately
+        register_tunnel_session(temp_tube_id, tunnel_session)
+        
         # Create the tube to get the WebRTC offer with trickle ICE
         logging.info("Creating WebRTC offer with trickle ICE gathering")
         
@@ -1400,9 +1493,13 @@ def start_rust_tunnel(params, record_uid, gateway_uid, host, port,
             base64_nonce=base64_nonce,
             conversation_id=conversation_id,
             tube_registry=tube_registry,
-            tube_id=None,
+            tube_id=temp_tube_id,  # Use temp ID initially 
             trickle_ice=True,
         )
+        signal_handler.gateway_cookies = gateway_cookies
+        
+        # Store signal handler reference so we can send buffered candidates later
+        tunnel_session.signal_handler = signal_handler
         
         print(f"{bcolors.OKBLUE}Creating WebRTC offer and setting up local listener...{bcolors.ENDC}")
         
@@ -1422,44 +1519,17 @@ def start_rust_tunnel(params, record_uid, gateway_uid, host, port,
             error_msg = "Failed to create tube"
             if offer:
                 error_msg = offer.get('error', error_msg)
+            # Clean up temporary session on failure
+            unregister_tunnel_session(temp_tube_id)
             return {"success": False, "error": error_msg}
 
         commander_tube_id = offer['tube_id']
+        
+        # Update both signal handler and tunnel session with real tube ID
         signal_handler.tube_id = commander_tube_id
         signal_handler.host = host  # Store for later endpoint display
         signal_handler.port = port
-        
-        logging.debug(f"Registered encryption key for conversation: {conversation_id}")
-        logging.info(f"Expecting WebSocket responses for conversation ID: {conversation_id}")
-        
-        # Get session cookies for router affinity BEFORE starting WebSocket
-        logging.debug(f"Getting session cookies for gateway {gateway_uid}")
-        gateway_cookies = get_controller_cookie(params, gateway_uid)
-        if gateway_cookies:
-            logging.debug(f"Got session cookies for router affinity")
-            signal_handler.gateway_cookies = gateway_cookies
-        else:
-            logging.warning("Failed to get session cookies - may experience routing issues")
-        
-        # Start or reuse WebSocket listener with cookies for session affinity
-        websocket_thread = start_websocket_listener(params, tube_registry, timeout=300, gateway_uid=gateway_uid, gateway_cookies=gateway_cookies)
-        
-        # Wait a moment for WebSocket to establish connection
-        time.sleep(1.5)
-        
-        # Create tunnel session for global management
-        tunnel_session = TunnelSession(
-            tube_id=commander_tube_id,
-            conversation_id=conversation_id,
-            gateway_uid=gateway_uid,
-            symmetric_key=symmetric_key,
-            gateway_cookies=gateway_cookies,
-            offer_sent=False,
-            host=host,
-            port=port
-        )
-        # Store signal handler reference so we can send buffered candidates later
-        tunnel_session.signal_handler = signal_handler
+        tunnel_session.tube_id = commander_tube_id
         
         # Get the actual listening address from Rust (source of truth)
         if 'actual_local_listen_addr' in offer and offer['actual_local_listen_addr']:
@@ -1469,12 +1539,24 @@ def start_rust_tunnel(params, record_uid, gateway_uid, host, port,
                     rust_host, rust_port = rust_addr.rsplit(':', 1)
                     tunnel_session.host = rust_host
                     tunnel_session.port = int(rust_port)
+                    signal_handler.host = rust_host
+                    signal_handler.port = int(rust_port)
                     logging.debug(f"Using actual Rust listening address: {rust_host}:{rust_port}")
             except Exception as e:
                 logging.warning(f"Failed to parse Rust address '{rust_addr}': {e}")
         
-        logging.debug(f"Creating tunnel session for tube {commander_tube_id} with host={tunnel_session.host}, port={tunnel_session.port}")
+        # Unregister temporary session and register with real tube ID
+        unregister_tunnel_session(temp_tube_id)
         register_tunnel_session(commander_tube_id, tunnel_session)
+        
+        logging.debug(f"Registered encryption key for conversation: {conversation_id}")
+        logging.info(f"Expecting WebSocket responses for conversation ID: {conversation_id}")
+        
+        # Start or reuse WebSocket listener with cookies for session affinity
+        websocket_thread = start_websocket_listener(params, tube_registry, timeout=300, gateway_uid=gateway_uid, gateway_cookies=gateway_cookies)
+        
+        # Wait a moment for WebSocket to establish connection
+        time.sleep(1.5)
         
         # Verify the session was stored correctly
         stored_session = get_tunnel_session(commander_tube_id)
@@ -1523,6 +1605,13 @@ def start_rust_tunnel(params, record_uid, gateway_uid, host, port,
             # Mark offer as sent in both signal handler and session
             signal_handler.offer_sent = True
             tunnel_session.offer_sent = True
+            
+            # Send any buffered ICE candidates that arrived before offer was sent
+            if tunnel_session.buffered_ice_candidates:
+                logging.debug(f"Flushing {len(tunnel_session.buffered_ice_candidates)} buffered ICE candidates after offer sent")
+                for candidate in tunnel_session.buffered_ice_candidates:
+                    signal_handler._send_ice_candidate_immediately(candidate, commander_tube_id)
+                tunnel_session.buffered_ice_candidates.clear()
             
         except Exception as e:
             signal_handler.cleanup()

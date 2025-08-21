@@ -15,8 +15,8 @@ picker_keys = {
     "help":                             [ord('?')],
     "exit":                             [ord('q')],
     "full_exit":                        [3], # Ctrl+c
-    "move_column_left":                 [ord('{')],
-    "move_column_right":                [ord('}')],
+    # "move_column_left":                 [ord('{')],
+    # "move_column_right":                [ord('}')],
     "cursor_down":                      [ord('j'), curses.KEY_DOWN],
     "cursor_up":                        [ord('k'), curses.KEY_UP],
     "half_page_up":                     [ord('u')],
@@ -81,6 +81,8 @@ picker_keys = {
     # "add_row_before":                          [ord('=')],
     "add_row_after":                          [ord('=')],
     "info":                             [ord('i')], 
+    "file_next":                             [ord('}')], 
+    "file_prev":                             [ord('{')], 
 }
 
 

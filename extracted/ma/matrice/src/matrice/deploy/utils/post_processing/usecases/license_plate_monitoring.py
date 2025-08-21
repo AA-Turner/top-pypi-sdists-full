@@ -18,18 +18,31 @@ from ..utils import (
     BBoxSmoothingConfig,
     BBoxSmoothingTracker
 )
-try:
-    import cv2
-    import numpy as np
-    import torch
-    from ..ocr.easyocr_extractor import EasyOCRExtractor
-    from ..ocr.postprocessing import TextPostprocessor 
-    from ..ocr.preprocessing import ImagePreprocessor
-    from ..core.config import BaseConfig, AlertConfig, ZoneConfig
-    
-except:
-    print("test-------------------------------------------------")
+# External dependencies
+import cv2
+import numpy as np
+#import torch
+import re
 
+# Fast license-plate OCR (replaces EasyOCR)
+# Attempt to import fast_plate_ocr; fall back to a stub if unavailable
+try:
+    from fast_plate_ocr import LicensePlateRecognizer  # type: ignore
+except ImportError:  # pragma: no cover – optional dependency may be absent
+    class LicensePlateRecognizer:  # type: ignore
+        """Stub fallback when fast_plate_ocr is not installed."""
+        def __init__(self, *args, **kwargs):
+            raise ImportError("fast_plate_ocr is required for LicensePlateMonitorUseCase but is not installed.")
+
+# Internal utilities that are still required
+from ..ocr.preprocessing import ImagePreprocessor
+from ..core.config import BaseConfig, AlertConfig, ZoneConfig
+
+# (Catch import errors early in the logs)
+try:
+    _ = LicensePlateRecognizer  # noqa: B018 – reference to quiet linters
+except Exception as _e:
+    print(f"Warning: fast_plate_ocr could not be imported ⇒ {_e}")
 
 
 @dataclass
@@ -44,10 +57,10 @@ class LicensePlateMonitorConfig(BaseConfig):
     frame_skip: int = 1
     fps: Optional[float] = None
     bbox_format: str = "auto"
-    usecase_categories: List[str] = field(default_factory=lambda: ['License_Plate'])
-    target_categories: List[str] = field(default_factory=lambda: ['License_Plate'])
+    usecase_categories: List[str] = field(default_factory=lambda: ['license_plate'])
+    target_categories: List[str] = field(default_factory=lambda: ['license_plate'])
     alert_config: Optional[AlertConfig] = None
-    index_to_category: Optional[Dict[int, str]] = field(default_factory=lambda: {0: "License_Plate"})
+    index_to_category: Optional[Dict[int, str]] = field(default_factory=lambda: {0: "license_plate"})
     language: List[str] = field(default_factory=lambda: ['en', 'ar'])
     country: str = field(default_factory=lambda: 'qatar')
 
@@ -69,12 +82,23 @@ class LicensePlateMonitorConfig(BaseConfig):
         return errors
 
 class LicensePlateMonitorUseCase(BaseProcessor):
-    CATEGORY_DISPLAY = {"License_Plate": "License Plate"}
+    CATEGORY_DISPLAY = {"license_plate": "license_plate"}
     
+    # --------------------------------------------------------------
+    # Shared resources (initialised once per process)
+    # --------------------------------------------------------------
+    _ocr_model: Optional[LicensePlateRecognizer] = None  # Fast plate OCR
+    _non_alnum_regex = re.compile(r"[^A-Za-z0-9]+")
+
+    # Minimum length for a valid plate (after cleaning)
+    _min_plate_len = 5
+    # number of consecutive frames a plate must appear to be considered "stable"
+    _stable_frames_required = 3
+
     def __init__(self):
         super().__init__("license_plate_monitor")
         self.category = "license_plate_monitor"
-        self.target_categories = ['License_Plate']
+        self.target_categories = ['license_plate']
         self.CASE_TYPE: Optional[str] = 'license_plate_monitor'
         self.CASE_VERSION: Optional[str] = '1.3'
         self.smoothing_tracker = None
@@ -91,10 +115,19 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         self._seen_plate_texts = set()
         # CHANGE: Added _tracked_plate_texts to store the longest plate_text per track_id
         self._tracked_plate_texts: Dict[Any, str] = {}
-        self._unique_plate_texts: Dict[str, str] = {}
+        # Containers for text stability & uniqueness
+        self._unique_plate_texts: Dict[str, str] = {}  # cleaned_text -> original (longest)
         self.image_preprocessor = ImagePreprocessor()
-        self.ocr_extractor = None  # Initialized in process
-        self.text_postprocessor = TextPostprocessor()
+        # Fast OCR model (shared across instances)
+        if LicensePlateMonitorUseCase._ocr_model is None:
+            try:
+                LicensePlateMonitorUseCase._ocr_model = LicensePlateRecognizer('cct-s-v1-global-model')
+                self.logger.info("LicensePlateRecognizer loaded successfully")
+            except Exception as e:
+                self.logger.error(f"Failed to initialise LicensePlateRecognizer: {e}")
+        self.ocr_model = LicensePlateMonitorUseCase._ocr_model
+        # OCR text history for stability checks (text → consecutive frame count)
+        self._text_history: Dict[str, int] = {}
 
         self.start_timer = None
         #self.reset_timer = "2025-08-19-04:22:47.187574 UTC"
@@ -112,23 +145,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         self._tracked_plate_texts = {}
         self._total_frame_counter = 0
         self._global_frame_offset = 0
+        self._text_history = {}
+        self._unique_plate_texts = {}
         self.logger.info("Plate tracking state reset")
-
-    # def _normalize_plate_text(self, text: str) -> str:
-    #     """Normalize plate text for comparison (e.g., remove spaces, convert to uppercase)."""
-    #     if not text or not text.strip():
-    #         return ""
-    #     text = text.replace(" ", "").upper()
-    #     # Map Arabic numerals to Latin to handle cases like ٠٠٤٦١٠
-    #     arabic_to_latin = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
-    #     text = text.translate(arabic_to_latin)
-    #     # Optional: Add OCR error corrections (e.g., 'O' to '0', 'I' to '1')
-    #     ocr_corrections = str.maketrans({'O': '0', 'I': '1', 'S': '5'})
-    #     text = text.translate(ocr_corrections)
-    #     # Validate: Ensure text is alphanumeric and at least 3 characters
-    #     if len(text) < 3 or not text.isalnum():
-    #         return ""
-    #     return text
 
     def reset_all_tracking(self) -> None:
         """Reset both advanced tracker and plate tracking state."""
@@ -152,19 +171,19 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 return self.create_error_result("input_bytes (video/image) is required for license plate monitoring",
                                                usecase=self.name, category=self.category, context=context)
             
-            # if not data:
-            #     return self.create_result(
-            #     data={"agg_summary": {}},
-            #     usecase=self.name,
-            #     category=self.category,
-            #     context=context
-            # )
-                # return self.create_error_result("Detection data is required for license plate monitoring",
-                #                                usecase=self.name, category=self.category, context=context)
-            
             # Initialize OCR extractor if not already done
-            if self.ocr_extractor is None:
-                self.ocr_extractor = EasyOCRExtractor(lang=config.language, gpu=torch.cuda.is_available(), verbose=False)
+            if self.ocr_model is None:
+                self.logger.info("Lazy initialisation fallback (should rarely happen)")
+                try:
+                    LicensePlateMonitorUseCase._ocr_model = LicensePlateRecognizer('cct-s-v1-global-model')
+                    self.ocr_model = LicensePlateMonitorUseCase._ocr_model
+                except Exception as e:
+                    return self.create_error_result(
+                        f"Failed to initialise OCR model: {e}",
+                        usecase=self.name,
+                        category=self.category,
+                        context=context,
+                    )
             
             input_format = match_results_structure(data)
             context.input_format = input_format
@@ -172,7 +191,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             
             self.logger.info(f"Processing license plate monitoring with format: {input_format.value}")
             
-            # Step 1: Apply confidence filtering
+            # Step 1: Apply confidence filtering 1
+            print("---------CONFIDENCE FILTERING",config.confidence_threshold)
+            print("---------DATA1--------------",data)
             processed_data = filter_by_confidence(data, config.confidence_threshold)
             self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
             
@@ -180,13 +201,13 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             if config.index_to_category:
                 processed_data = apply_category_mapping(processed_data, config.index_to_category)
                 self.logger.debug("Applied category mapping")
-            
+            print("---------DATA2--------------",processed_data)
             # Step 3: Filter to target categories
             processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
             self.logger.debug("Applied category filtering")
             
             raw_processed_data = [copy.deepcopy(det) for det in processed_data]
-            
+            print("---------DATA2--------------",processed_data)
             # Step 4: Apply bounding box smoothing if enabled
             if config.enable_smoothing:
                 if self.smoothing_tracker is None:
@@ -217,17 +238,20 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 processed_data = self.tracker.update(processed_data)
             except Exception as e:
                 self.logger.warning(f"AdvancedTracker failed: {e}")
-            
+            print("---------DATA3--------------",processed_data)
             # Step 6: Update tracking state
             self._update_tracking_state(processed_data)
-            
+            print("---------DATA4--------------",processed_data)
             # Step 7: Attach masks to detections
             processed_data = self._attach_masks_to_detections(processed_data, raw_processed_data)
-            
+            print("---------DATA5--------------",processed_data)
             # Step 8: Perform OCR on media
             ocr_analysis = self._analyze_ocr_in_media(processed_data, input_bytes, config)
+
+            print("ocr_analysis", ocr_analysis)
             
             # Step 9: Update plate texts
+            print("---------DATA6--------------",processed_data)
             processed_data = self._update_detections_with_ocr(processed_data, ocr_analysis)
             self._update_plate_texts(processed_data)
             
@@ -299,6 +323,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
     def _analyze_ocr_in_media(self, data: Any, media_bytes: bytes, config: LicensePlateMonitorConfig) -> List[Dict[str, Any]]:
         """Analyze OCR of license plates in video frames or images."""
         is_video = self._is_video_bytes(media_bytes)
+        print('is_video',is_video)
         if is_video:
             return self._analyze_ocr_in_video(data, media_bytes, config)
         else:
@@ -348,13 +373,8 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                     if crop.size == 0:
                         continue
 
-                    preprocessed_crop = self.image_preprocessor.preprocess(crop, grayscale=True)
-                    ocr_results = self.ocr_extractor.extract(preprocessed_crop, detail=1, paragraph=False)
-                    texts = [r['text'] for r in ocr_results]
-                    confs = [r['confidence'] for r in ocr_results]
-                    processed = self.text_postprocessor.postprocess(texts, confs, task="license_plate", region=config.country, confidence_threshold=0.3)
-                    valid_processed = [p for p in processed if p[2]]
-                    plate_text = valid_processed[0][0] if valid_processed else None
+                    plate_text_raw = self._run_ocr(crop)
+                    plate_text = plate_text_raw if plate_text_raw else None
 
                     ocr_record = {
                         "frame_id": frame_key,
@@ -388,26 +408,27 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         ocr_analysis = []
         detections = self._get_frame_detections(data, "0")
+
+        print("OCR-detections", detections)
         
         for detection in detections:
+            print("---------OCR DETECTION",detection)
             if detection.get("confidence", 1.0) < config.confidence_threshold:
                 continue
 
             bbox = detection.get("bounding_box", detection.get("bbox"))
+            print("---------OCR BBOX",bbox)
             if not bbox:
                 continue
 
             crop = self._crop_bbox(rgb_image, bbox, config.bbox_format)
+            print("---------OCR CROP SIZEE",crop.size)
             if crop.size == 0:
                 continue
-
-            preprocessed_crop = self.image_preprocessor.preprocess(crop, grayscale=True)
-            ocr_results = self.ocr_extractor.extract(preprocessed_crop, detail=1, paragraph=False)
-            texts = [r['text'] for r in ocr_results]
-            confs = [r['confidence'] for r in ocr_results]
-            processed = self.text_postprocessor.postprocess(texts, confs, task="license_plate", region=config.country, confidence_threshold=0.3)
-            valid_processed = [p for p in processed if p[2]]
-            plate_text = valid_processed[0][0] if valid_processed else None
+            
+            plate_text_raw = self._run_ocr(crop)
+            print("---------OCR PLATE TEXT",plate_text_raw)
+            plate_text = plate_text_raw if plate_text_raw else None
 
             ocr_record = {
                 "frame_id": "0",
@@ -450,6 +471,34 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             
         return image[ymin:ymax, xmin:xmax]
 
+    # ------------------------------------------------------------------
+    # Fast OCR helpers
+    # ------------------------------------------------------------------
+    def _clean_text(self, text: str) -> str:
+        """Sanitise OCR output to keep only alphanumerics and uppercase."""
+        if not text:
+            return ""
+        return LicensePlateMonitorUseCase._non_alnum_regex.sub('', text).upper()
+
+    def _run_ocr(self, crop: np.ndarray) -> str:
+        """Run OCR on a cropped plate image and return cleaned text or empty string."""
+        print("---------OCR CROP22",crop)
+        print("---------OCR CROP SIZE22",crop.size)
+
+        if crop is None or crop.size == 0 or self.ocr_model is None:
+            return ""
+        try:
+            # fast_plate_ocr expects RGB
+            rgb_crop = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+            res = self.ocr_model.run(rgb_crop)
+            if isinstance(res, list):
+                res = res[0] if res else ""
+            cleaned = self._clean_text(str(res))
+            return cleaned if len(cleaned) >= self._min_plate_len else ""
+        except Exception as exc:
+            self.logger.warning(f"OCR failed: {exc}")
+            return ""
+
     def _get_frame_detections(self, data: Any, frame_key: str) -> List[Dict[str, Any]]:
         """Extract detections for a specific frame from data."""
         if isinstance(data, dict):
@@ -473,7 +522,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                     bbox_key = tuple(sorted(rec["bbox"].items())) if rec.get("bbox") else None
                     if bbox_key:
                         ocr_dict[bbox_key] = rec["plate_text"]
-                self.logger.debug(f"OCR record: track_id={track_id}, plate_text={rec.get('plate_text')}, bbox={rec.get('bbox')}")
+                self.logger.info(f"OCR record: track_id={track_id}, plate_text={rec.get('plate_text')}, bbox={rec.get('bbox')}")
         
         for det in detections:
             track_id = det.get("track_id")
@@ -484,49 +533,46 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             elif bbox_key and bbox_key in ocr_dict:
                 plate_text = ocr_dict[bbox_key]
             det["plate_text"] = plate_text
-            self.logger.debug(f"Detection track_id={track_id}, bbox={det.get('bounding_box')}: Assigned plate_text={plate_text}")
+            self.logger.info(f"Detection track_id={track_id}, bbox={det.get('bounding_box')}: Assigned plate_text={plate_text}")
         return detections
 
     def _count_categories(self, detections: List[Dict], config: LicensePlateMonitorConfig) -> Dict[str, Any]:
-        """Count detections per category and include plate texts."""
-        counts: Dict[str, int] = {}
-        unique_keys_per_cat: Dict[str, set] = {}
-        valid_detections = []
+        """Count unique licence-plate texts per frame and attach detections."""
+        unique_texts: set = set()
+        valid_detections: List[Dict[str, Any]] = []
 
+        print("---------SUMMARY COUNT CATEGORIES",detections)
         for det in detections:
             if not all(k in det for k in ['category', 'confidence', 'bounding_box']):
-                self.logger.warning(f"Skipping invalid detection: {det}")
                 continue
 
-            cat = det.get('category', 'License_Plate')
-            track_id = det.get('track_id')
-            # Fallback to bbox tuple when track_id is missing
-            bbox_key = tuple(sorted(det.get('bounding_box', {}).items())) if track_id is None else None
-            unique_key = track_id if track_id is not None else bbox_key
+            cat = det.get('category', 'license_plate')
+            plate_text_raw = det.get('plate_text', '')
+            print("---------SUMMARY COUNT CATEGORIES PLATE TEXT RAW",plate_text_raw)
+            print("---------SUMMARY COUNT CATEGORIES PLATE TEXT RAW",det)
+            cleaned_text = self._clean_text(plate_text_raw)
 
-            if unique_key is None:
-                continue  # Cannot determine uniqueness
-
-            # Initialise storage for this category
-            unique_keys_per_cat.setdefault(cat, set())
-
-            # Only count once per unique key within the current frame
-            if unique_key not in unique_keys_per_cat[cat]:
-                unique_keys_per_cat[cat].add(unique_key)
-                counts[cat] = counts.get(cat, 0) + 1
+            # Consider as unique only if meets criteria
+            if cleaned_text and len(cleaned_text) >= self._min_plate_len:
+                unique_texts.add(cleaned_text)
 
             valid_detections.append({
                 "bounding_box": det.get("bounding_box"),
                 "category": cat,
                 "confidence": det.get("confidence"),
-                "track_id": track_id,
+                "track_id": det.get('track_id'),
                 "frame_id": det.get("frame_id"),
                 "masks": det.get("masks", []),
-                "plate_text": det.get("plate_text")
+                "plate_text": plate_text_raw
             })
-        self.logger.debug(f"Valid detections after filtering: {len(valid_detections)}")
+
+        counts = {"License_Plate": len(unique_texts)} if unique_texts else {}
+
+        print("---------SUMMARY COUNT CATEGORIES VALID DETECTIONS",valid_detections)
+        print(len(unique_texts),'per_cat_count',counts)
+
         return {
-            "total_count": sum(counts.values()),
+            "total_count": len(unique_texts),
             "per_category_count": counts,
             "detections": valid_detections
         }
@@ -547,21 +593,28 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         camera_info = self.get_camera_info_from_stream(stream_info)
         
         human_text_lines = []
+        print("counting_summary", counting_summary)
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
         if total_detections > 0:
             category_counts = [f"{count} {cat}" for cat, count in per_category_count.items()]
             detection_text = category_counts[0] + " detected" if len(category_counts) == 1 else f"{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
             human_text_lines.append(f"\t- {detection_text}")
             # Deduplicate plate texts for the current frame while preserving order
-            seen_plate_texts = set()
-            plate_texts = []
+            seen_cleaned = set()
+            display_texts = []
             for det in counting_summary.get("detections", []):
-                text = det.get("plate_text")
-                if text and text not in seen_plate_texts:
-                    seen_plate_texts.add(text)
-                    plate_texts.append(text)
-            if plate_texts:
-                human_text_lines.append(f"\t- License Plates: {', '.join(plate_texts)}")
+                raw = det.get("plate_text", "")
+                cleaned = self._clean_text(raw)
+                if cleaned and cleaned not in seen_cleaned:
+                    seen_cleaned.add(cleaned)
+                    # Display the longest raw variant seen in this frame for that cleaned text
+                    longest_variant = max(
+                        [d.get("plate_text", "") for d in counting_summary.get("detections", []) if self._clean_text(d.get("plate_text", "")) == cleaned],
+                        key=len,
+                    )
+                    display_texts.append(longest_variant)
+            if display_texts:
+                human_text_lines.append(f"\t- License Plates: {', '.join(display_texts)}")
         else:
             human_text_lines.append(f"\t- No detections")
         
@@ -569,10 +622,9 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
         human_text_lines.append(f"\t- Total Detected: {cumulative_total}")
 
-        if self._tracked_plate_texts:
+        if self._unique_plate_texts:
             human_text_lines.append("\t- Unique License Plates:")
-            # Deduplicate license plate texts across different track IDs
-            for text in sorted(set(self._tracked_plate_texts.values())):
+            for text in sorted(self._unique_plate_texts.values()):
                 human_text_lines.append(f"\t\t- {text}")
 
         current_counts = [{"category": cat, "count": count} for cat, count in per_category_count.items() if count > 0 or total_detections > 0]
@@ -581,11 +633,25 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         human_text = "\n".join(human_text_lines)
         detections = []
         for detection in counting_summary.get("detections", []):
+            raw = detection.get("plate_text", "")
+            cleaned = self._clean_text(raw)
+            # if cleaned and cleaned not in seen_cleaned2:
+            #     seen_cleaned2.add(cleaned)
+            #     # Display the longest raw variant seen in this frame for that cleaned text
+            if cleaned:
+                print("---------CLEANED-------------",cleaned)
+                plate_text = max(
+                    [d.get("plate_text", "") for d in counting_summary.get("detections", []) if self._clean_text(d.get("plate_text", "")) == cleaned],
+                    key=len,
+                )
+            else:
+                plate_text = "license_plate"
+            
             bbox = detection.get("bounding_box", {})
-            category = detection.get("category", "License_Plate")
-            plate_text = detection.get("plate_text", "")
+            category = detection.get("category", "license_plate")
+            #plate_text = detection.get("plate_text", "")
             segmentation = detection.get("masks", detection.get("segmentation", detection.get("mask", [])))
-            detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation, plate_text=plate_text)
+            detection_obj = self.create_detection_object(category, bbox, segmentation=None, plate_text=plate_text)
             detections.append(detection_obj)
         
         alert_settings = []
@@ -798,24 +864,37 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             text = det.get('plate_text')
             track_id = det.get('track_id')
             if text and track_id is not None:
-                # Skip text containing Unicode escape sequences (e.g., \u0664)
-                if r'\u' in str(text):
-                    self.logger.debug(f"Skipping plate_text={text} for track_id={track_id} due to Unicode escape sequence")
-                    continue
-                # Update _tracked_plate_texts with the longest text for this track_id
-                print(f"Detected license plate text: {text} (track_id={track_id})")
-                current_text = self._tracked_plate_texts.get(track_id, '')
-                if len(text) > len(current_text):
-                    self._tracked_plate_texts[track_id] = text
-                    self.logger.debug(f"Updated track_id={track_id} with new longest plate_text={text}")
-                # Maintain _seen_plate_texts for compatibility
-                self._seen_plate_texts.add(text)
-                self.logger.debug(f"Added plate_text={text} for track_id={track_id} to seen texts")
+                # Clean text again to guarantee consistency
+                text = self._clean_text(text)
+                if len(text) < self._min_plate_len:
+                    continue  # Too short to be a valid plate
+
+                # ----------------------------------------------------------
+                # Update consecutive frame appearance counter
+                # ----------------------------------------------------------
+                self._text_history[text] = self._text_history.get(text, 0) + 1
+
+                # Accept plate as stable only after N consecutive frames
+                if self._text_history[text] >= self._stable_frames_required:
+                    # Track longest string variant per track_id
+                    current_text = self._tracked_plate_texts.get(track_id, '')
+                    if len(text) > len(current_text):
+                        self._tracked_plate_texts[track_id] = text
+                    # Maintain global unique mapping (cleaned -> original longest)
+                    longest_variant = self._unique_plate_texts.get(text, '')
+                    if len(text) > len(longest_variant):
+                        self._unique_plate_texts[text] = text
+                    self.logger.debug(f"Stable plate confirmed: {text} (track_id={track_id})")
+
+        # Reset counters for texts not seen in this frame
+        current_frame_texts = {self._clean_text(det.get('plate_text', '')) for det in detections if det.get('plate_text')}
+        for t in list(self._text_history.keys()):
+            if t not in current_frame_texts:
+                self._text_history[t] = 0
 
     def get_total_counts(self):
         """Return total unique license plate texts encountered so far."""
-        # Count unique plate texts across *all* track_ids
-        return {'License_Plate': len(set(self._tracked_plate_texts.values()))}
+        return {'License_Plate': len(self._unique_plate_texts)}
 
     def _get_track_ids_info(self, detections: List[Dict]) -> Dict[str, Any]:
         """Get detailed information about track IDs."""

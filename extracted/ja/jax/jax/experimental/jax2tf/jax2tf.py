@@ -1320,8 +1320,10 @@ def _make_op_metadata(primitive: core.Primitive,
         op_name=eqn_str,
         source_file=mlir.get_canonical_source_file(
             frame.file_name if frame else "", mlir.TracebackCaches()),
-        source_line=frame.start_line if frame else None)
-
+        source_line=frame.start_line if frame else None,
+        source_end_line=frame.end_line if frame else None,
+        source_column=frame.start_column if frame else None,
+        source_end_column=frame.end_column if frame else None)
 
 class TensorFlowTrace(core.Trace):
   """Trace class that underlies the jax2tf transformation.
@@ -3022,7 +3024,7 @@ _scatter_reduction_computation = lambda x, y: y
 def _scatter(operand, scatter_indices, updates, *, update_jaxpr, update_consts,
              dimension_numbers, indices_are_sorted, unique_indices, mode,
              _in_avals: Sequence[core.ShapedArray],
-             _out_aval: core.ShapedArray, **kwargs):
+             _out_aval: core.ShapedArray):
   del unique_indices
   if update_jaxpr is None:
     assert not update_consts

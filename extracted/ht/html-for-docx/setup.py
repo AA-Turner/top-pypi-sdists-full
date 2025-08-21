@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 here   = os.path.abspath(os.path.dirname(__file__))
 README = open(os.path.join(here, 'README.md')).read()
-VERSION = '1.0.9'
+VERSION = '1.0.10'
 
 setup(
     name                 = 'html-for-docx',
@@ -28,9 +28,13 @@ setup(
     download_url         = f'https://github.com/dfop02/html4docx/archive/{VERSION}.tar.gz',
     classifiers          = [
         'Intended Audience :: Developers',
+        'License :: OSI Approved :: MIT License',
         'Topic :: Software Development :: Build Tools',
         'Topic :: Software Development :: Libraries',
-        'License :: OSI Approved :: MIT License',
+        'Topic :: Text Processing',
+        'Topic :: Text Processing :: Markup :: HTML',
+        'Topic :: Utilities',
+        'Programming Language :: Python',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',

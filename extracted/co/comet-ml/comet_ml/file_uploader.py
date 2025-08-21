@@ -139,7 +139,7 @@ def check_max_file_size(file_path: str, max_upload_size: int, too_big_msg: str) 
         raise
 
 
-def save_matplotlib_figure(figure: Optional[Any] = None) -> str:
+def save_matplotlib_figure(figure: Optional[Any] = None, format: str = "svg") -> str:
     """Try saving either the current global pyplot figure or the given one
     and return None in case of error.
     """
@@ -161,8 +161,8 @@ def save_matplotlib_figure(figure: Optional[Any] = None) -> str:
     if hasattr(figure, "savefig"):
         # Save the file to a tmp_file but don't delete it, the file uploader
         # thread will take care of it
-        tmp_file = tempfile.NamedTemporaryFile(suffix=".svg", delete=False)
-        figure.savefig(tmp_file, format="svg", bbox_inches="tight")
+        tmp_file = tempfile.NamedTemporaryFile(suffix=f".{format}", delete=False)
+        figure.savefig(tmp_file, format=format, bbox_inches="tight")
         tmp_file.flush()
         tmp_file.close()
 
@@ -171,14 +171,14 @@ def save_matplotlib_figure(figure: Optional[Any] = None) -> str:
         raise TypeError(FILE_UPLOADER_SAVE_MATPLOTLIB_FIGURE_UNSUPPORTED % figure)
 
 
-def save_plotly_figure(figure: Optional[Any]) -> str:
+def save_plotly_figure(figure: Optional[Any], format: str) -> str:
     """
     Save the Plotly Figure as an image.
     """
     # Save the file to a tmp_file but don't delete it, the file uploader
     # thread will take care of it
-    tmp_file = tempfile.NamedTemporaryFile(suffix=".svg", delete=False)
-    figure.write_image(tmp_file, format="svg")
+    tmp_file = tempfile.NamedTemporaryFile(suffix=f".{format}", delete=False)
+    figure.write_image(tmp_file, format=format)
     tmp_file.flush()
     tmp_file.close()
     return tmp_file.name
@@ -573,6 +573,9 @@ class FigureUploadProcessor(BaseUploadProcessor):
         error_message_identifier: Any,
         tmp_dir: str,
         critical: bool,
+        format: str,
+        svg_size_limit: int,
+        fallback_format: str = "png",
         upload_type: Optional[str] = None,
         on_asset_upload: Optional[Callable] = None,
         on_failed_asset_upload: Optional[Callable] = None,
@@ -591,13 +594,33 @@ class FigureUploadProcessor(BaseUploadProcessor):
         )
         if upload_type is not None:
             self.UPLOAD_TYPE = upload_type
+        self._format = format
+        self._fallback_format = fallback_format
+        self._svg_size_limit = svg_size_limit
 
     def process_upload_to_be_converted(
         self, user_input: Any
     ) -> Optional[UploadFileMessage]:
+        filename = self._save_figure_to_tmp(user_input)
+        if filename is None:
+            return None
+
+        if self._format == "auto":
+            self.url_params["extension"] = get_file_extension(filename)
+        else:
+            self.url_params["extension"] = self._format
+
+        return self._process_upload_by_filepath(TemporaryFilePath(filename))
+
+    def _save_figure_to_tmp(self, user_input) -> Optional[str]:
+        if self._format == "auto":
+            figure_format = "svg"
+        else:
+            figure_format = self._format
+
         if PlotlyFigure is not None and isinstance(user_input, PlotlyFigure):
             try:
-                filename = save_plotly_figure(user_input)
+                filename = save_plotly_figure(user_input, figure_format)
             except Exception:
                 LOGGER.warning(
                     FILE_UPLOADER_SAVE_PLOTLY_FAILED_WARNING,
@@ -610,10 +633,10 @@ class FigureUploadProcessor(BaseUploadProcessor):
                 if MatplotlibAxes is not None and isinstance(
                     user_input, MatplotlibAxes
                 ):
-                    # support for seaborn library which uses Axes classes
+                    # support for a seaborn library which uses Axes classes
                     user_input = user_input.get_figure()
 
-                filename = save_matplotlib_figure(user_input)
+                filename = save_matplotlib_figure(user_input, figure_format)
             except Exception as e:
                 LOGGER.warning(
                     FILE_UPLOADER_SAVE_MATPLOTLIB_FAILED_WARNING, e, exc_info=True
@@ -621,9 +644,20 @@ class FigureUploadProcessor(BaseUploadProcessor):
                 # An error occurred
                 return None
 
-        self.url_params["extension"] = get_file_extension(filename)
+        # check if the resulting figure is larger than the limit allowed for SVG and
+        # fallback to the _fallback_format if appropriate
+        file_size = os.path.getsize(filename)
+        if figure_format == "svg" and file_size > self._svg_size_limit:
+            self._format = self._fallback_format
+            LOGGER.info(
+                "Trying to log a figure that is exceeding allowed SVG file size limit (%d > %d). Falling back to %s format.",
+                file_size,
+                self._svg_size_limit,
+                self._fallback_format.upper(),
+            )
+            return self._save_figure_to_tmp(user_input)
 
-        return self._process_upload_by_filepath(TemporaryFilePath(filename))
+        return filename
 
 
 class ImageUploadProcessor(BaseUploadProcessor):

@@ -71,6 +71,7 @@ from .type_defs import (
     AcceptSubscriptionRequestOutputTypeDef,
     AddEntityOwnerInputTypeDef,
     AddPolicyGrantInputTypeDef,
+    AddPolicyGrantOutputTypeDef,
     AssociateEnvironmentRoleInputTypeDef,
     CancelMetadataGenerationRunInputTypeDef,
     CancelSubscriptionInputTypeDef,
@@ -453,7 +454,9 @@ class DataZoneClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#add_entity_owner)
         """
 
-    def add_policy_grant(self, **kwargs: Unpack[AddPolicyGrantInputTypeDef]) -> Dict[str, Any]:
+    def add_policy_grant(
+        self, **kwargs: Unpack[AddPolicyGrantInputTypeDef]
+    ) -> AddPolicyGrantOutputTypeDef:
         """
         Adds a policy grant (an authorization policy) to a specified entity, including
         domain units, environment blueprint configurations, or environment profiles.

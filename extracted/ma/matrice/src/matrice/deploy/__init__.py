@@ -2,8 +2,7 @@
 
 from matrice.utils import dependencies_check
 
-dependencies_check(
-    [
+base = [
         "httpx",
         "fastapi",
         "uvicorn",
@@ -18,11 +17,38 @@ dependencies_check(
         "python-snappy",
         "pyyaml",
         "imagehash",
-        "easyocr",
-        "torch",
-        "opencv-python"
+        "opencv-python",
     ]
+
+# Install base dependencies first
+dependencies_check(base)
+
+# Helper to attempt installation and verify importability
+def _install_and_verify(pkg: str, import_name: str):
+    """Install a package expression and return True if the import succeeds."""
+    if dependencies_check([pkg]):
+        try:
+            __import__(import_name)
+            return True
+        except ImportError:
+            return False
+    return False
+
+# Attempt GPU-specific dependencies first
+_gpu_ok = (
+    _install_and_verify("onnxruntime-gpu", "onnxruntime") and
+    _install_and_verify("fast-plate-ocr[onnx-gpu]", "fast_plate_ocr")
 )
+
+if not _gpu_ok:
+    # Fallback to CPU variants
+    _cpu_ok = (
+        _install_and_verify("onnxruntime", "onnxruntime") and
+        _install_and_verify("fast-plate-ocr[onnx]", "fast_plate_ocr")
+    )
+    if not _cpu_ok:
+        # Last-chance fallback without extras tag (PyPI sometimes lacks them)
+        _install_and_verify("fast-plate-ocr", "fast_plate_ocr")
 
 if not dependencies_check(["opencv-python"]):
     dependencies_check(["opencv-python-headless"])

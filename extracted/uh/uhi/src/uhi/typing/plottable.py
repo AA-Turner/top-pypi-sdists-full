@@ -12,7 +12,7 @@ MyPy will force you to only use items in the Protocol.
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
-from typing import Any, Protocol, Tuple, TypeVar, Union, runtime_checkable
+from typing import Any, Protocol, TypeVar, Union, runtime_checkable
 
 # NumPy 1.20+ will work much, much better than previous versions when type checking
 import numpy as np
@@ -53,7 +53,7 @@ T_co = TypeVar("T_co", covariant=True)
 
 
 @runtime_checkable
-class PlottableAxisGeneric(Protocol[T_co]):
+class PlottableAxisGeneric(Protocol[T_co]):  # noqa: PLW1641
     # name: str - Optional, not part of Protocol
     # label: str - Optional, not part of Protocol
     #
@@ -86,7 +86,7 @@ class PlottableAxisGeneric(Protocol[T_co]):
         """
 
 
-PlottableAxisContinuous = PlottableAxisGeneric[Tuple[float, float]]
+PlottableAxisContinuous = PlottableAxisGeneric[tuple[float, float]]
 PlottableAxisInt = PlottableAxisGeneric[int]
 PlottableAxisStr = PlottableAxisGeneric[str]
 

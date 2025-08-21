@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for DataDog/datadog provider version 3.71.0
+# CDKTF prebuilt bindings for DataDog/datadog provider version 3.72.0
 
-This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.71.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.72.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform datadog provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.71.0)
+* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.72.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -163,6 +163,7 @@ __all__ = [
     "data_datadog_incident_type",
     "data_datadog_integration_aws_available_logs_services",
     "data_datadog_integration_aws_available_namespaces",
+    "data_datadog_integration_aws_iam_permissions",
     "data_datadog_integration_aws_logs_services",
     "data_datadog_integration_aws_namespace_rules",
     "data_datadog_ip_ranges",
@@ -201,6 +202,7 @@ __all__ = [
     "data_datadog_user",
     "data_datadog_users",
     "data_datadog_workflow_automation",
+    "dataset",
     "domain_allowlist",
     "downtime",
     "downtime_schedule",
@@ -327,6 +329,7 @@ from . import data_datadog_hosts
 from . import data_datadog_incident_type
 from . import data_datadog_integration_aws_available_logs_services
 from . import data_datadog_integration_aws_available_namespaces
+from . import data_datadog_integration_aws_iam_permissions
 from . import data_datadog_integration_aws_logs_services
 from . import data_datadog_integration_aws_namespace_rules
 from . import data_datadog_ip_ranges
@@ -365,6 +368,7 @@ from . import data_datadog_teams
 from . import data_datadog_user
 from . import data_datadog_users
 from . import data_datadog_workflow_automation
+from . import dataset
 from . import domain_allowlist
 from . import downtime
 from . import downtime_schedule

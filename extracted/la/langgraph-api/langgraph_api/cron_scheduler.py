@@ -46,12 +46,11 @@ async def cron_scheduler():
                                         cron["cron_id"],
                                     )
                                 )
-                        except Exception as e:
-                            logger.error(
+                        except Exception:
+                            logger.exception(
                                 "Error scheduling cron run cron_id={}".format(
                                     cron["cron_id"]
-                                ),
-                                exc_info=e,
+                                )
                             )
                         next_run_date = await run_in_executor(
                             None, next_cron_date, cron["schedule"], cron["now"]
@@ -63,6 +62,6 @@ async def cron_scheduler():
             await asyncio.sleep(SLEEP_TIME)
         except asyncio.CancelledError:
             raise
-        except Exception as e:
-            logger.error("Error in cron_scheduler", exc_info=e)
+        except Exception:
+            logger.exception("Error in cron_scheduler")
             await asyncio.sleep(SLEEP_TIME + random())

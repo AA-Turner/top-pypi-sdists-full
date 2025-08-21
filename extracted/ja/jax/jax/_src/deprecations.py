@@ -123,8 +123,11 @@ def warn(deprecation_id: str, message: str, stacklevel: int) -> None:
 
 # Register a number of deprecations: we do this here to ensure they're
 # always registered by the time `accelerate` and `is_acelerated` are called.
+register('default-dtype-bits-config')
 register('jax-aval-named-shape')
 register('jax-dlpack-import-legacy')
+register('jax-experimental-host-callback')
+register('jax-lax-dot-positional-args')
 register('jax-nn-one-hot-float-input')
 register("jax-numpy-astype-complex-to-real")
 register('jax-numpy-clip-args')
@@ -134,5 +137,7 @@ register('jax-numpy-quantile-interpolation')
 register('jax-numpy-reduction-non-boolean-where')
 register('jax-numpy-trimzeros-not-1d-array')
 register('jax-scipy-special-sph-harm')
-register('jax-jit-positional-args')
 register('jax-abstract-dunder-array')
+register('jax-pallas-tpu-compiler-params')
+register('jax-pallas-tpu-memory-space')
+register("jax-pallas-triton-compiler-params")

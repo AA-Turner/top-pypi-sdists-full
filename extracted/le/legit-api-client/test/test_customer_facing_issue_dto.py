@@ -50,7 +50,7 @@ class TestCustomerFacingIssueDto(unittest.TestCase):
                 snoozed_type = 'DueDate',
                 snoozed_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 score = 1.337,
-                secretes_data_dto = legit_api_client.models.secretes_data_dto.SecretesDataDto(
+                secrets_data_dto = legit_api_client.models.secrets_data_dto.SecretsDataDto(
                     ai_validation_result = null, 
                     validity_status = null, 
                     validity_check_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 

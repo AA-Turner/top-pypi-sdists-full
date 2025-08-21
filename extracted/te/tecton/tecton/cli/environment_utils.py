@@ -29,6 +29,8 @@ ADDITIONAL_WHEELS_REPOS = ["https://s3.us-west-2.amazonaws.com/tecton.ai.public/
 PYTHON_VERSION_TO_PLATFORM = {
     "3.8": "x86_64-manylinux_2_31",
     "3.9": "x86_64-manylinux_2_31",
+    "3.10": "x86_64-manylinux_2_31",
+    "3.11": "x86_64-manylinux_2_31",
 }
 
 MAX_ENVIRONMENTS_NAME_LENGTH = 60
@@ -87,6 +89,8 @@ def resolve_dependencies_pex(
     python_version_to_platform = {
         "3.8": "linux_x86_64-cp-3.8.17-cp38",
         "3.9": "linux_x86_64-cp-3.9.17-cp39",
+        "3.10": "linux_x86_64-cp-3.10.6-cp310",
+        "3.11": "linux_x86_64-cp-3.11.13-cp311",
     }
     major_minor_version = _get_major_minor_version(python_version)
     if major_minor_version not in python_version_to_platform:

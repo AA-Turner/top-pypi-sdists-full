@@ -1344,19 +1344,23 @@ class AlexaAPI:
         end_time = (
             int((time.time() + 24 * 3600) * 1000) if end_time is None else end_time
         )
+        extra_headers = {
+            "referer": f"https://www.{login.url}",
+            "anti-csrftoken-a2z": login.csrf_token,
+        }
+        # The anti-csrf token expires after 24 hours
+        if login.csrf_token is None or (
+            int(time.time()) - login.csrf_token_created_at
+            > 60 * 60 * 24
+        ):
+            extra_headers["anti-csrftoken-a2z"] = await login.get_csrf_token()
+
         response = await AlexaAPI._static_request(
             "post",
             login,
             "/alexa-privacy/apd/rvh/customer-history-records-v2",
             data={"previousRequestToken": None},
-            additional_headers={
-                "anti-csrftoken-a2z": (
-                    login.csrf_token
-                    if login.csrf_token
-                    else await login.get_csrf_token()
-                ),
-                "referer": f"https://www.{login.url}",
-            },
+            additional_headers=extra_headers,
             query={
                 "startTime": start_time,
                 "endTime": end_time,

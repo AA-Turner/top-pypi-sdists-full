@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-bigquery
-Version: 3.35.1
+Version: 3.36.0
 Summary: Google BigQuery API client library
 Author-email: Google LLC <googleapis-packages@google.com>
 License: Apache 2.0
@@ -84,7 +84,7 @@ processing power of Google's infrastructure.
 .. |versions| image:: https://img.shields.io/pypi/pyversions/google-cloud-bigquery.svg
    :target: https://pypi.org/project/google-cloud-bigquery/
 .. _BigQuery: https://cloud.google.com/bigquery/what-is-bigquery
-.. _Client Library Documentation: https://googleapis.dev/python/bigquery/latest
+.. _Client Library Documentation: https://cloud.google.com/python/docs/reference/bigquery/latest/summary_overview
 .. _Product Documentation: https://cloud.google.com/bigquery/docs/reference/v2/
 
 Quick Start

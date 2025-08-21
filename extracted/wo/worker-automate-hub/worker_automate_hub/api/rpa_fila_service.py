@@ -12,9 +12,10 @@ async def burn_queue(id_fila: str):
     try:
 
         headers_basic = {"Authorization": f"Basic {env_config["API_AUTHORIZATION"]}"}
+        timeout = aiohttp.ClientTimeout(total=600) 
 
         async with aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(verify_ssl=True)
+            connector=aiohttp.TCPConnector(verify_ssl=True),  timeout=timeout
         ) as session:
             async with session.delete(
                 f"{env_config["API_BASE_URL"]}/fila/burn-queue/{id_fila}",

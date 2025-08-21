@@ -48,6 +48,7 @@ class TestPaginateddebSourcePackageReleaseComponentResponseList(unittest.TestCas
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         source_package = '', 
                         release_component = '', )
                     ]
@@ -64,6 +65,7 @@ class TestPaginateddebSourcePackageReleaseComponentResponseList(unittest.TestCas
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         source_package = '', 
                         release_component = '', )
                     ],

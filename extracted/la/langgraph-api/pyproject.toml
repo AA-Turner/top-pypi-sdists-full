@@ -112,9 +112,17 @@ path = "langgraph_api/__init__.py"
 addopts = "--strict-markers --strict-config --durations=5 -vv"
 
 [tool.ruff]
-lint.select = ["E", "F", "UP", "B", "I"]
+lint.select = ["F821", "E", "F", "UP", "TRY400", "B", "SIM", "I"]
 lint.ignore = ["E501", "B008"]
+extend-exclude = [".venv", "dist", "build", "__pycache__", "venv", "tests"]
 target-version = "py311"
+
+[tool.ty.rules]
+possibly-unbound-attribute = "error"
+possibly-unbound-implicit-call = "error"
+possibly-unresolved-reference = "error"
+unresolved-global = "error"
+unsupported-base = "error"
 
 [tool.pytest-watcher]
 now = true

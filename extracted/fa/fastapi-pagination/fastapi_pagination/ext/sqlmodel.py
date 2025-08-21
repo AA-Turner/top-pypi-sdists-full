@@ -66,7 +66,7 @@ def paginate(
 
 
 @overload
-@deprecated("Use `apaginate` instead. This function will be removed in v0.14.0")
+@deprecated("Use `apaginate` instead. This function will be removed in v0.15.0")
 async def paginate(
     session: Union[AsyncSession, AsyncConnection],
     query: _InputQuery[TSQLModel, T],
@@ -96,12 +96,12 @@ def paginate(
 ) -> Any:
     query = _prepare_query(query)
 
-    if count_query:
+    if count_query is not None:
         count_query = _prepare_query(count_query)
 
     if isinstance(session, (AsyncSession, AsyncConnection)):
         warnings.warn(
-            "Use `apaginate` instead. This function overload will be removed in v0.14.0",
+            "Use `apaginate` instead. This function overload will be removed in v0.15.0",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -110,7 +110,7 @@ def paginate(
             session,
             query,
             params,
-            count_query=count_query,
+            count_query=count_query,  # type: ignore[arg-type]
             subquery_count=subquery_count,
             transformer=transformer,
             additional_data=additional_data,
@@ -122,7 +122,7 @@ def paginate(
         session,
         query,
         params,
-        count_query=count_query,
+        count_query=count_query,  # type: ignore[arg-type]
         subquery_count=subquery_count,
         transformer=transformer,  # type: ignore[arg-type]
         additional_data=additional_data,
@@ -145,7 +145,7 @@ async def apaginate(
 ) -> Any:
     query = _prepare_query(query)
 
-    if count_query:
+    if count_query is not None:
         count_query = _prepare_query(count_query)  # type: ignore[assignment]
 
     return await _apaginate(

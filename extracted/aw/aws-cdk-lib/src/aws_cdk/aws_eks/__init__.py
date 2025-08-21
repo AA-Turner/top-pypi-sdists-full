@@ -6232,7 +6232,7 @@ class CfnCluster(
         :param access_config: The access configuration for the cluster.
         :param bootstrap_self_managed_addons: If you set this value to ``False`` when creating a cluster, the default networking add-ons will not be installed. The default networking add-ons include ``vpc-cni`` , ``coredns`` , and ``kube-proxy`` . Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons.
         :param compute_config: Indicates the current configuration of the compute capability on your EKS Auto Mode cluster. For example, if the capability is enabled or disabled. If the compute capability is enabled, EKS Auto Mode will create and delete EC2 Managed Instances in your AWS account. For more information, see EKS Auto Mode compute capability in the *Amazon EKS User Guide* .
-        :param deletion_protection: Set this value to true to enable deletion protection for the cluster.
+        :param deletion_protection: The current deletion protection setting for the cluster. When ``true`` , deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When ``false`` , the cluster can be deleted normally. This setting only applies to clusters in an active state.
         :param encryption_config: The encryption configuration for the cluster.
         :param force: Set this value to ``true`` to override upgrade-blocking readiness checks when updating a cluster. Default: - false
         :param kubernetes_network_config: The Kubernetes network configuration for the cluster.
@@ -6484,7 +6484,7 @@ class CfnCluster(
     def deletion_protection(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Set this value to true to enable deletion protection for the cluster.'''
+        '''The current deletion protection setting for the cluster.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "deletionProtection"))
 
     @deletion_protection.setter
@@ -8239,7 +8239,7 @@ class CfnClusterProps:
         :param access_config: The access configuration for the cluster.
         :param bootstrap_self_managed_addons: If you set this value to ``False`` when creating a cluster, the default networking add-ons will not be installed. The default networking add-ons include ``vpc-cni`` , ``coredns`` , and ``kube-proxy`` . Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons.
         :param compute_config: Indicates the current configuration of the compute capability on your EKS Auto Mode cluster. For example, if the capability is enabled or disabled. If the compute capability is enabled, EKS Auto Mode will create and delete EC2 Managed Instances in your AWS account. For more information, see EKS Auto Mode compute capability in the *Amazon EKS User Guide* .
-        :param deletion_protection: Set this value to true to enable deletion protection for the cluster.
+        :param deletion_protection: The current deletion protection setting for the cluster. When ``true`` , deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When ``false`` , the cluster can be deleted normally. This setting only applies to clusters in an active state.
         :param encryption_config: The encryption configuration for the cluster.
         :param force: Set this value to ``true`` to override upgrade-blocking readiness checks when updating a cluster. Default: - false
         :param kubernetes_network_config: The Kubernetes network configuration for the cluster.
@@ -8472,7 +8472,9 @@ class CfnClusterProps:
     def deletion_protection(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Set this value to true to enable deletion protection for the cluster.
+        '''The current deletion protection setting for the cluster.
+
+        When ``true`` , deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When ``false`` , the cluster can be deleted normally. This setting only applies to clusters in an active state.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-cluster.html#cfn-eks-cluster-deletionprotection
         '''

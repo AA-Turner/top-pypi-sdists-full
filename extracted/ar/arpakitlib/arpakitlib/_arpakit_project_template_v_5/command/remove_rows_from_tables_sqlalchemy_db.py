@@ -1,4 +1,4 @@
-from project.core.util import setup_logging
+from project.core.setup_logging import setup_logging
 from project.sqlalchemy_db_.sqlalchemy_db import get_cached_sqlalchemy_db
 
 

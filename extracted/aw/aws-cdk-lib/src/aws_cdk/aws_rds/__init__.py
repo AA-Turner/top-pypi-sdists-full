@@ -9198,114 +9198,36 @@ class CfnDBInstance(
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbinstance.html
     :cloudformationResource: AWS::RDS::DBInstance
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_rds as rds
+        # scope: Construct
+        # parent: Construct
+        # bucket: s3.CfnBucket
         
-        cfn_dBInstance = rds.CfnDBInstance(self, "MyCfnDBInstance",
-            allocated_storage="allocatedStorage",
-            allow_major_version_upgrade=False,
-            apply_immediately=False,
-            associated_roles=[rds.CfnDBInstance.DBInstanceRoleProperty(
-                feature_name="featureName",
-                role_arn="roleArn"
-            )],
-            automatic_backup_replication_kms_key_id="automaticBackupReplicationKmsKeyId",
-            automatic_backup_replication_region="automaticBackupReplicationRegion",
-            automatic_backup_replication_retention_period=123,
-            auto_minor_version_upgrade=False,
-            availability_zone="availabilityZone",
-            backup_retention_period=123,
-            backup_target="backupTarget",
-            ca_certificate_identifier="caCertificateIdentifier",
-            certificate_rotation_restart=False,
-            character_set_name="characterSetName",
-            copy_tags_to_snapshot=False,
-            custom_iam_instance_profile="customIamInstanceProfile",
-            database_insights_mode="databaseInsightsMode",
-            db_cluster_identifier="dbClusterIdentifier",
-            db_cluster_snapshot_identifier="dbClusterSnapshotIdentifier",
-            db_instance_class="dbInstanceClass",
-            db_instance_identifier="dbInstanceIdentifier",
-            db_name="dbName",
-            db_parameter_group_name="dbParameterGroupName",
-            db_security_groups=["dbSecurityGroups"],
-            db_snapshot_identifier="dbSnapshotIdentifier",
-            db_subnet_group_name="dbSubnetGroupName",
-            db_system_id="dbSystemId",
-            dedicated_log_volume=False,
-            delete_automated_backups=False,
-            deletion_protection=False,
-            domain="domain",
-            domain_auth_secret_arn="domainAuthSecretArn",
-            domain_dns_ips=["domainDnsIps"],
-            domain_fqdn="domainFqdn",
-            domain_iam_role_name="domainIamRoleName",
-            domain_ou="domainOu",
-            enable_cloudwatch_logs_exports=["enableCloudwatchLogsExports"],
-            enable_iam_database_authentication=False,
-            enable_performance_insights=False,
-            engine="engine",
-            engine_lifecycle_support="engineLifecycleSupport",
-            engine_version="engineVersion",
-            iops=123,
-            kms_key_id="kmsKeyId",
-            license_model="licenseModel",
-            manage_master_user_password=False,
-            master_username="masterUsername",
-            master_user_password="masterUserPassword",
-            master_user_secret=rds.CfnDBInstance.MasterUserSecretProperty(
-                kms_key_id="kmsKeyId",
-                secret_arn="secretArn"
-            ),
-            max_allocated_storage=123,
-            monitoring_interval=123,
-            monitoring_role_arn="monitoringRoleArn",
-            multi_az=False,
-            nchar_character_set_name="ncharCharacterSetName",
-            network_type="networkType",
-            option_group_name="optionGroupName",
-            performance_insights_kms_key_id="performanceInsightsKmsKeyId",
-            performance_insights_retention_period=123,
-            port="port",
-            preferred_backup_window="preferredBackupWindow",
-            preferred_maintenance_window="preferredMaintenanceWindow",
-            processor_features=[rds.CfnDBInstance.ProcessorFeatureProperty(
-                name="name",
-                value="value"
-            )],
-            promotion_tier=123,
-            publicly_accessible=False,
-            replica_mode="replicaMode",
-            restore_time="restoreTime",
-            source_db_cluster_identifier="sourceDbClusterIdentifier",
-            source_db_instance_automated_backups_arn="sourceDbInstanceAutomatedBackupsArn",
-            source_db_instance_identifier="sourceDbInstanceIdentifier",
-            source_dbi_resource_id="sourceDbiResourceId",
-            source_region="sourceRegion",
-            status_infos=[rds.CfnDBInstance.DBInstanceStatusInfoProperty(
-                message="message",
-                normal=False,
-                status="status",
-                status_type="statusType"
-            )],
-            storage_encrypted=False,
-            storage_throughput=123,
-            storage_type="storageType",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            tde_credential_arn="tdeCredentialArn",
-            tde_credential_password="tdeCredentialPassword",
-            timezone="timezone",
-            use_default_processor_features=False,
-            use_latest_restorable_time=False,
-            vpc_security_groups=["vpcSecurityGroups"]
+        
+        # Apply DESTROY policy to all resources in a scope
+        RemovalPolicies.of(scope).destroy()
+        
+        # Apply RETAIN policy to all resources in a scope
+        RemovalPolicies.of(scope).retain()
+        
+        # Apply SNAPSHOT policy to all resources in a scope
+        RemovalPolicies.of(scope).snapshot()
+        
+        # Apply RETAIN_ON_UPDATE_OR_DELETE policy to all resources in a scope
+        RemovalPolicies.of(scope).retain_on_update_or_delete()
+        
+        # Apply RETAIN policy only to specific resource types
+        RemovalPolicies.of(parent).retain(
+            apply_to_resource_types=["AWS::DynamoDB::Table", bucket.cfn_resource_type, rds.CfnDBInstance.CFN_RESOURCE_TYPE_NAME
+            ]
+        )
+        
+        # Apply SNAPSHOT policy excluding specific resource types
+        RemovalPolicies.of(scope).snapshot(
+            exclude_resource_types=["AWS::Test::Resource"]
         )
     '''
 
@@ -9385,7 +9307,6 @@ class CfnDBInstance(
         source_db_instance_identifier: typing.Optional[builtins.str] = None,
         source_dbi_resource_id: typing.Optional[builtins.str] = None,
         source_region: typing.Optional[builtins.str] = None,
-        status_infos: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDBInstance.DBInstanceStatusInfoProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         storage_throughput: typing.Optional[jsii.Number] = None,
         storage_type: typing.Optional[builtins.str] = None,
@@ -9471,7 +9392,6 @@ class CfnDBInstance(
         :param source_db_instance_identifier: If you want to create a read replica DB instance, specify the ID of the source DB instance. Each DB instance can have a limited number of read replicas. For more information, see `Working with Read Replicas <https://docs.aws.amazon.com/AmazonRDS/latest/DeveloperGuide/USER_ReadRepl.html>`_ in the *Amazon RDS User Guide* . For information about constraints that apply to DB instance identifiers, see `Naming constraints in Amazon RDS <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_Limits.html#RDS_Limits.Constraints>`_ in the *Amazon RDS User Guide* . The ``SourceDBInstanceIdentifier`` property determines whether a DB instance is a read replica. If you remove the ``SourceDBInstanceIdentifier`` property from your template and then update your stack, AWS CloudFormation promotes the read replica to a standalone DB instance. If you specify the ``UseLatestRestorableTime`` or ``RestoreTime`` properties in conjunction with the ``SourceDBInstanceIdentifier`` property, RDS restores the DB instance to the requested point in time, thereby creating a new DB instance. .. epigraph:: - If you specify a source DB instance that uses VPC security groups, we recommend that you specify the ``VPCSecurityGroups`` property. If you don't specify the property, the read replica inherits the value of the ``VPCSecurityGroups`` property from the source DB when you create the replica. However, if you update the stack, AWS CloudFormation reverts the replica's ``VPCSecurityGroups`` property to the default value because it's not defined in the stack's template. This change might cause unexpected issues. - Read replicas don't support deletion policies. AWS CloudFormation ignores any deletion policy that's associated with a read replica. - If you specify ``SourceDBInstanceIdentifier`` , don't specify the ``DBSnapshotIdentifier`` property. You can't create a read replica from a snapshot. - Don't set the ``BackupRetentionPeriod`` , ``DBName`` , ``MasterUsername`` , ``MasterUserPassword`` , and ``PreferredBackupWindow`` properties. The database attributes are inherited from the source DB instance, and backups are disabled for read replicas. - If the source DB instance is in a different region than the read replica, specify the source region in ``SourceRegion`` , and specify an ARN for a valid DB instance in ``SourceDBInstanceIdentifier`` . For more information, see `Constructing a Amazon RDS Amazon Resource Name (ARN) <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Tagging.html#USER_Tagging.ARN>`_ in the *Amazon RDS User Guide* . - For DB instances in Amazon Aurora clusters, don't specify this property. Amazon RDS automatically assigns writer and reader DB instances.
         :param source_dbi_resource_id: The resource ID of the source DB instance from which to restore.
         :param source_region: The ID of the region that contains the source DB instance for the read replica.
-        :param status_infos: The status of a read replica. If the DB instance isn't a read replica, the value is blank.
         :param storage_encrypted: A value that indicates whether the DB instance is encrypted. By default, it isn't encrypted. If you specify the ``KmsKeyId`` property, then you must enable encryption. If you specify the ``SourceDBInstanceIdentifier`` or ``SourceDbiResourceId`` property, don't specify this property. The value is inherited from the source DB instance, and if the DB instance is encrypted, the specified ``KmsKeyId`` property is used. If you specify the ``SourceDBInstanceAutomatedBackupsArn`` property, don't specify this property. The value is inherited from the source DB instance automated backup. If you specify ``DBSnapshotIdentifier`` property, don't specify this property. The value is inherited from the snapshot. *Amazon Aurora* Not applicable. The encryption for DB instances is managed by the DB cluster.
         :param storage_throughput: Specifies the storage throughput value, in mebibyte per second (MiBps), for the DB instance. This setting applies only to the ``gp3`` storage type. This setting doesn't apply to RDS Custom or Amazon Aurora.
         :param storage_type: The storage type to associate with the DB instance. If you specify ``io1`` , ``io2`` , or ``gp3`` , you must also include a value for the ``Iops`` parameter. This setting doesn't apply to Amazon Aurora DB instances. Storage is managed by the DB cluster. Valid Values: ``gp2 | gp3 | io1 | io2 | standard`` Default: ``io1`` , if the ``Iops`` parameter is specified. Otherwise, ``gp3`` .
@@ -9559,7 +9479,6 @@ class CfnDBInstance(
             source_db_instance_identifier=source_db_instance_identifier,
             source_dbi_resource_id=source_dbi_resource_id,
             source_region=source_region,
-            status_infos=status_infos,
             storage_encrypted=storage_encrypted,
             storage_throughput=storage_throughput,
             storage_type=storage_type,
@@ -10930,24 +10849,6 @@ class CfnDBInstance(
         jsii.set(self, "sourceRegion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="statusInfos")
-    def status_infos(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDBInstance.DBInstanceStatusInfoProperty"]]]]:
-        '''The status of a read replica.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDBInstance.DBInstanceStatusInfoProperty"]]]], jsii.get(self, "statusInfos"))
-
-    @status_infos.setter
-    def status_infos(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDBInstance.DBInstanceStatusInfoProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4884ce950f15c984dfbc419b109b2a3debd2bad2b67c4c46d41dcddbe16eadc4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "statusInfos", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="storageEncrypted")
     def storage_encrypted(
         self,
@@ -11681,7 +11582,6 @@ class CfnDBInstance(
         "source_db_instance_identifier": "sourceDbInstanceIdentifier",
         "source_dbi_resource_id": "sourceDbiResourceId",
         "source_region": "sourceRegion",
-        "status_infos": "statusInfos",
         "storage_encrypted": "storageEncrypted",
         "storage_throughput": "storageThroughput",
         "storage_type": "storageType",
@@ -11769,7 +11669,6 @@ class CfnDBInstanceProps:
         source_db_instance_identifier: typing.Optional[builtins.str] = None,
         source_dbi_resource_id: typing.Optional[builtins.str] = None,
         source_region: typing.Optional[builtins.str] = None,
-        status_infos: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBInstance.DBInstanceStatusInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         storage_throughput: typing.Optional[jsii.Number] = None,
         storage_type: typing.Optional[builtins.str] = None,
@@ -11854,7 +11753,6 @@ class CfnDBInstanceProps:
         :param source_db_instance_identifier: If you want to create a read replica DB instance, specify the ID of the source DB instance. Each DB instance can have a limited number of read replicas. For more information, see `Working with Read Replicas <https://docs.aws.amazon.com/AmazonRDS/latest/DeveloperGuide/USER_ReadRepl.html>`_ in the *Amazon RDS User Guide* . For information about constraints that apply to DB instance identifiers, see `Naming constraints in Amazon RDS <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_Limits.html#RDS_Limits.Constraints>`_ in the *Amazon RDS User Guide* . The ``SourceDBInstanceIdentifier`` property determines whether a DB instance is a read replica. If you remove the ``SourceDBInstanceIdentifier`` property from your template and then update your stack, AWS CloudFormation promotes the read replica to a standalone DB instance. If you specify the ``UseLatestRestorableTime`` or ``RestoreTime`` properties in conjunction with the ``SourceDBInstanceIdentifier`` property, RDS restores the DB instance to the requested point in time, thereby creating a new DB instance. .. epigraph:: - If you specify a source DB instance that uses VPC security groups, we recommend that you specify the ``VPCSecurityGroups`` property. If you don't specify the property, the read replica inherits the value of the ``VPCSecurityGroups`` property from the source DB when you create the replica. However, if you update the stack, AWS CloudFormation reverts the replica's ``VPCSecurityGroups`` property to the default value because it's not defined in the stack's template. This change might cause unexpected issues. - Read replicas don't support deletion policies. AWS CloudFormation ignores any deletion policy that's associated with a read replica. - If you specify ``SourceDBInstanceIdentifier`` , don't specify the ``DBSnapshotIdentifier`` property. You can't create a read replica from a snapshot. - Don't set the ``BackupRetentionPeriod`` , ``DBName`` , ``MasterUsername`` , ``MasterUserPassword`` , and ``PreferredBackupWindow`` properties. The database attributes are inherited from the source DB instance, and backups are disabled for read replicas. - If the source DB instance is in a different region than the read replica, specify the source region in ``SourceRegion`` , and specify an ARN for a valid DB instance in ``SourceDBInstanceIdentifier`` . For more information, see `Constructing a Amazon RDS Amazon Resource Name (ARN) <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Tagging.html#USER_Tagging.ARN>`_ in the *Amazon RDS User Guide* . - For DB instances in Amazon Aurora clusters, don't specify this property. Amazon RDS automatically assigns writer and reader DB instances.
         :param source_dbi_resource_id: The resource ID of the source DB instance from which to restore.
         :param source_region: The ID of the region that contains the source DB instance for the read replica.
-        :param status_infos: The status of a read replica. If the DB instance isn't a read replica, the value is blank.
         :param storage_encrypted: A value that indicates whether the DB instance is encrypted. By default, it isn't encrypted. If you specify the ``KmsKeyId`` property, then you must enable encryption. If you specify the ``SourceDBInstanceIdentifier`` or ``SourceDbiResourceId`` property, don't specify this property. The value is inherited from the source DB instance, and if the DB instance is encrypted, the specified ``KmsKeyId`` property is used. If you specify the ``SourceDBInstanceAutomatedBackupsArn`` property, don't specify this property. The value is inherited from the source DB instance automated backup. If you specify ``DBSnapshotIdentifier`` property, don't specify this property. The value is inherited from the snapshot. *Amazon Aurora* Not applicable. The encryption for DB instances is managed by the DB cluster.
         :param storage_throughput: Specifies the storage throughput value, in mebibyte per second (MiBps), for the DB instance. This setting applies only to the ``gp3`` storage type. This setting doesn't apply to RDS Custom or Amazon Aurora.
         :param storage_type: The storage type to associate with the DB instance. If you specify ``io1`` , ``io2`` , or ``gp3`` , you must also include a value for the ``Iops`` parameter. This setting doesn't apply to Amazon Aurora DB instances. Storage is managed by the DB cluster. Valid Values: ``gp2 | gp3 | io1 | io2 | standard`` Default: ``io1`` , if the ``Iops`` parameter is specified. Otherwise, ``gp3`` .
@@ -11956,12 +11854,6 @@ class CfnDBInstanceProps:
                 source_db_instance_identifier="sourceDbInstanceIdentifier",
                 source_dbi_resource_id="sourceDbiResourceId",
                 source_region="sourceRegion",
-                status_infos=[rds.CfnDBInstance.DBInstanceStatusInfoProperty(
-                    message="message",
-                    normal=False,
-                    status="status",
-                    status_type="statusType"
-                )],
                 storage_encrypted=False,
                 storage_throughput=123,
                 storage_type="storageType",
@@ -12050,7 +11942,6 @@ class CfnDBInstanceProps:
             check_type(argname="argument source_db_instance_identifier", value=source_db_instance_identifier, expected_type=type_hints["source_db_instance_identifier"])
             check_type(argname="argument source_dbi_resource_id", value=source_dbi_resource_id, expected_type=type_hints["source_dbi_resource_id"])
             check_type(argname="argument source_region", value=source_region, expected_type=type_hints["source_region"])
-            check_type(argname="argument status_infos", value=status_infos, expected_type=type_hints["status_infos"])
             check_type(argname="argument storage_encrypted", value=storage_encrypted, expected_type=type_hints["storage_encrypted"])
             check_type(argname="argument storage_throughput", value=storage_throughput, expected_type=type_hints["storage_throughput"])
             check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
@@ -12204,8 +12095,6 @@ class CfnDBInstanceProps:
             self._values["source_dbi_resource_id"] = source_dbi_resource_id
         if source_region is not None:
             self._values["source_region"] = source_region
-        if status_infos is not None:
-            self._values["status_infos"] = status_infos
         if storage_encrypted is not None:
             self._values["storage_encrypted"] = storage_encrypted
         if storage_throughput is not None:
@@ -13662,19 +13551,6 @@ class CfnDBInstanceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def status_infos(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDBInstance.DBInstanceStatusInfoProperty]]]]:
-        '''The status of a read replica.
-
-        If the DB instance isn't a read replica, the value is blank.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbinstance.html#cfn-rds-dbinstance-statusinfos
-        '''
-        result = self._values.get("status_infos")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDBInstance.DBInstanceStatusInfoProperty]]]], result)
-
-    @builtins.property
     def storage_encrypted(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
@@ -14288,7 +14164,7 @@ class CfnDBProxy(
         :param engine_family: The kinds of databases that the proxy can connect to. This value determines which database network protocol the proxy recognizes when it interprets network traffic to and from the database. For Aurora MySQL, RDS for MariaDB, and RDS for MySQL databases, specify ``MYSQL`` . For Aurora PostgreSQL and RDS for PostgreSQL databases, specify ``POSTGRESQL`` . For RDS for Microsoft SQL Server, specify ``SQLSERVER`` .
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the proxy uses to access secrets in AWS Secrets Manager.
         :param vpc_subnet_ids: One or more VPC subnet IDs to associate with the new proxy.
-        :param debug_logging: Specifies whether the proxy includes detailed information about SQL statements in its logs. This information helps you to debug issues involving SQL behavior or the performance and scalability of the proxy connections. The debug information includes the text of SQL statements that you submit through the proxy. Thus, only enable this setting when needed for debugging, and only when you have security measures in place to safeguard any sensitive information that appears in the logs.
+        :param debug_logging: Specifies whether the proxy logs detailed connection and query information. When you enable ``DebugLogging`` , the proxy captures connection details and connection pool behavior from your queries. Debug logging increases CloudWatch costs and can impact proxy performance. Enable this option only when you need to troubleshoot connection or performance issues.
         :param idle_client_timeout: The number of seconds that a connection to the proxy can be inactive before the proxy disconnects it. You can set this value higher or lower than the connection timeout limit for the associated database.
         :param require_tls: Specifies whether Transport Layer Security (TLS) encryption is required for connections to the proxy. By enabling this setting, you can enforce encrypted TLS connections to the proxy.
         :param tags: An optional set of key-value pairs to associate arbitrary data of your choosing with the proxy.
@@ -14458,7 +14334,7 @@ class CfnDBProxy(
     def debug_logging(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the proxy includes detailed information about SQL statements in its logs.'''
+        '''Specifies whether the proxy logs detailed connection and query information.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "debugLogging"))
 
     @debug_logging.setter
@@ -15242,7 +15118,7 @@ class CfnDBProxyProps:
         :param engine_family: The kinds of databases that the proxy can connect to. This value determines which database network protocol the proxy recognizes when it interprets network traffic to and from the database. For Aurora MySQL, RDS for MariaDB, and RDS for MySQL databases, specify ``MYSQL`` . For Aurora PostgreSQL and RDS for PostgreSQL databases, specify ``POSTGRESQL`` . For RDS for Microsoft SQL Server, specify ``SQLSERVER`` .
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role that the proxy uses to access secrets in AWS Secrets Manager.
         :param vpc_subnet_ids: One or more VPC subnet IDs to associate with the new proxy.
-        :param debug_logging: Specifies whether the proxy includes detailed information about SQL statements in its logs. This information helps you to debug issues involving SQL behavior or the performance and scalability of the proxy connections. The debug information includes the text of SQL statements that you submit through the proxy. Thus, only enable this setting when needed for debugging, and only when you have security measures in place to safeguard any sensitive information that appears in the logs.
+        :param debug_logging: Specifies whether the proxy logs detailed connection and query information. When you enable ``DebugLogging`` , the proxy captures connection details and connection pool behavior from your queries. Debug logging increases CloudWatch costs and can impact proxy performance. Enable this option only when you need to troubleshoot connection or performance issues.
         :param idle_client_timeout: The number of seconds that a connection to the proxy can be inactive before the proxy disconnects it. You can set this value higher or lower than the connection timeout limit for the associated database.
         :param require_tls: Specifies whether Transport Layer Security (TLS) encryption is required for connections to the proxy. By enabling this setting, you can enforce encrypted TLS connections to the proxy.
         :param tags: An optional set of key-value pairs to associate arbitrary data of your choosing with the proxy.
@@ -15371,9 +15247,9 @@ class CfnDBProxyProps:
     def debug_logging(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the proxy includes detailed information about SQL statements in its logs.
+        '''Specifies whether the proxy logs detailed connection and query information.
 
-        This information helps you to debug issues involving SQL behavior or the performance and scalability of the proxy connections. The debug information includes the text of SQL statements that you submit through the proxy. Thus, only enable this setting when needed for debugging, and only when you have security measures in place to safeguard any sensitive information that appears in the logs.
+        When you enable ``DebugLogging`` , the proxy captures connection details and connection pool behavior from your queries. Debug logging increases CloudWatch costs and can impact proxy performance. Enable this option only when you need to troubleshoot connection or performance issues.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbproxy.html#cfn-rds-dbproxy-debuglogging
         '''
@@ -50270,7 +50146,6 @@ def _typecheckingstub__255b0779ca741853674876540bf77279f6293bea05de2cd18724d2b92
     source_db_instance_identifier: typing.Optional[builtins.str] = None,
     source_dbi_resource_id: typing.Optional[builtins.str] = None,
     source_region: typing.Optional[builtins.str] = None,
-    status_infos: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBInstance.DBInstanceStatusInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     storage_throughput: typing.Optional[jsii.Number] = None,
     storage_type: typing.Optional[builtins.str] = None,
@@ -50723,12 +50598,6 @@ def _typecheckingstub__54e6abd38ac0878b58009488af0c37180d8361eafe2d4e20fd21251d2
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4884ce950f15c984dfbc419b109b2a3debd2bad2b67c4c46d41dcddbe16eadc4(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDBInstance.DBInstanceStatusInfoProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__e45dbb04a9f91d51cce34e9ad406fb8b0bf3ca45ebf5191d2c3fe3ef60c0f73a(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
@@ -50913,7 +50782,6 @@ def _typecheckingstub__3bddb1be0bd1f1699e3a084c5859d94d8879ff15011f2f2eaac29ec16
     source_db_instance_identifier: typing.Optional[builtins.str] = None,
     source_dbi_resource_id: typing.Optional[builtins.str] = None,
     source_region: typing.Optional[builtins.str] = None,
-    status_infos: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDBInstance.DBInstanceStatusInfoProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     storage_throughput: typing.Optional[jsii.Number] = None,
     storage_type: typing.Optional[builtins.str] = None,

@@ -197,6 +197,30 @@ def _first_last_n_partial_agg(type_: FirstLastAggregateFunctions, col: str, anch
     return Function(type_.value, Field(col), anchor_term, LiteralValue(param_n))
 
 
+"""
+Example of LAST_N aggregation processing:
+
+Input partial tiles (events within each tile are in ascending timestamp order):
+  - Tile 1 (2025-01-01): [2025-01-01 1:00, 2025-01-01 1:05]
+  - Tile 2 (2025-01-02): [2025-01-02 1:00, 2025-01-02 1:05]
+
+Step 1: Partial tiles come in descending order by anchor_time for LAST_N:
+  [[2025-01-02 1:00, 2025-01-02 1:05], [2025-01-01 1:00, 2025-01-01 1:05]]
+
+Step 2: Reverse each tile to get newest events first within each tile:
+  [[2025-01-02 1:05, 2025-01-02 1:00], [2025-01-01 1:05, 2025-01-01 1:00]]
+
+Step 3: Flatten the list of tiles (newest events overall come first):
+  [2025-01-02 1:05, 2025-01-02 1:00, 2025-01-01 1:05, 2025-01-01 1:00]
+
+Step 4: Slice to get the last N events (N=2 in this example):
+  [2025-01-02 1:05, 2025-01-02 1:00]
+
+Step 5: Reverse to return events in ascending chronological order:
+  [2025-01-02 1:00, 2025-01-02 1:05]  <- FINAL RESULT
+"""
+
+
 def _first_last_n_full_agg(
     type_: FirstLastAggregateFunctions,
     col: str,
@@ -206,8 +230,20 @@ def _first_last_n_full_agg(
 ) -> Term:
     agg = Function(type_.value, Field(col), anchor_term, LiteralValue(param_n))
     agg = aggregation_wrapper(agg)
+
+    # the tiles come in descending order by anchor time for last_n, ascending order for first_n
+    # however, the events within each tile are in ascending order by timestamp (which is no longer a column)
+    # so for last n, we will need to reverse the order of the events within each tile
+    if type_ == FirstLastAggregateFunctions.LAST_N:
+        agg = Function("list_transform", agg, LiteralValue("x -> list_reverse(x)"))
     agg = Function("flatten", agg)
     agg = Function("list_slice", agg, 1, LiteralValue(param_n))
+
+    # first / last n should always be returned in ascending order by timestamp
+    # for last n, the events were in descending order by timestamp so we could slice the last n.
+    # however, we need to reverse the order again to return in ascending order by timestamp
+    if type_ == FirstLastAggregateFunctions.LAST_N:
+        agg = ListReverse(agg)
     return Coalesce(
         agg,
         LiteralValue("[]"),

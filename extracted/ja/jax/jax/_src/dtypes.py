@@ -26,13 +26,14 @@ import builtins
 import dataclasses
 import functools
 import types
-from typing import cast, overload, Any, Literal, Union
+from typing import cast, overload, Any, Callable, Literal, Union
 import warnings
 
 import ml_dtypes
 import numpy as np
 
 from jax._src import config
+from jax._src import deprecations
 from jax._src.typing import Array, DType, DTypeLike
 from jax._src.util import set_module, StrictABC
 
@@ -207,6 +208,25 @@ _default_types: dict[str, type[Any]] = {
 }
 
 
+# Default dtypes. These are intended to have the same semantics as, say,
+# canonicalize_dtype(np.float64), but are preparing for the reduction in the
+# number of places we perform dtype canonicalization.
+
+def default_int_dtype() -> DType:
+  return np.dtype(np.int64) if config.enable_x64.value else np.dtype(np.int32)
+
+def default_uint_dtype() -> DType:
+  return np.dtype(np.uint64) if config.enable_x64.value else np.dtype(np.uint32)
+
+def default_float_dtype() -> DType:
+  return (np.dtype(np.float64) if config.enable_x64.value
+          else np.dtype(np.float32))
+
+def default_complex_dtype() -> DType:
+  return (np.dtype(np.complex128) if config.enable_x64.value
+          else np.dtype(np.complex64))
+
+
 def jax_dtype(obj: DTypeLike | None, *, align: bool = False,
               copy: bool = False) -> DType:
   """Cast an object to a dtype, respecting JAX dtype defaults.
@@ -318,6 +338,32 @@ def canonicalize_dtype(dtype: Any, allow_extended_dtype: bool = False) -> DType 
 def canonicalize_dtype(dtype: Any, allow_extended_dtype: bool = False) -> DType | ExtendedDType:
   """Convert from a dtype to a canonical dtype based on config.x64_enabled."""
   return _canonicalize_dtype(config.enable_x64.value, allow_extended_dtype, dtype)  # pytype: disable=bad-return-type
+
+class InvalidInputException(Exception):
+  pass
+
+canonicalize_value_handlers: dict[Any, Callable] = {}
+
+
+# TODO(mattjj): try to remove this canonicalize_dtype stuff
+def canonicalize_value(x):
+  typ = type(x)
+  handler = canonicalize_value_handlers.get(typ)
+  if handler: return handler(x)
+  for typ in typ.__mro__:
+    handler = canonicalize_value_handlers.get(typ)
+    if handler: return handler(x)
+  if hasattr(x, '__jax_array__'):
+    deprecations.warn(
+      'jax-abstract-dunder-array',
+      ('Triggering of __jax_array__() during abstractification is deprecated.'
+       ' To avoid this error, either explicitly convert your object using'
+       ' jax.numpy.array(), or register your object as a pytree.'),
+      stacklevel=6)
+    return canonicalize_value(x.__jax_array__())
+  raise InvalidInputException(
+      f"Argument '{x}' of type {type(x)} is not a valid JAX type.")
+
 
 # Default dtypes corresponding to Python scalars.
 python_scalar_dtypes : dict[type, DType] = {

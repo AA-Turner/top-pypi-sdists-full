@@ -257,9 +257,10 @@ class FeatureAggregation(_message.Message):
     def __init__(self, column: _Optional[str] = ..., function: _Optional[str] = ..., function_params: _Optional[_Mapping[str, ParamValue]] = ..., time_window_legacy: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., name: _Optional[str] = ..., time_window: _Optional[_Union[TimeWindow, _Mapping]] = ..., lifetime_window: _Optional[_Union[_time_window__client_pb2.LifetimeWindow, _Mapping]] = ..., time_window_series: _Optional[_Union[TimeWindowSeries, _Mapping]] = ..., column_dtype: _Optional[_Union[_data_type__client_pb2.DataType, _Mapping]] = ..., batch_sawtooth_tile_size: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., description: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class FeatureTableArgs(_message.Message):
-    __slots__ = ["attributes", "batch_compute", "monitoring", "offline_store", "offline_store_legacy", "online_store", "schema", "serving_ttl", "tecton_materialization_runtime", "timestamp_field"]
+    __slots__ = ["attributes", "batch_compute", "environment", "monitoring", "offline_store", "offline_store_legacy", "online_store", "schema", "serving_ttl", "tecton_materialization_runtime", "timestamp_field"]
     ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
     BATCH_COMPUTE_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     MONITORING_FIELD_NUMBER: _ClassVar[int]
     OFFLINE_STORE_FIELD_NUMBER: _ClassVar[int]
     OFFLINE_STORE_LEGACY_FIELD_NUMBER: _ClassVar[int]
@@ -270,6 +271,7 @@ class FeatureTableArgs(_message.Message):
     TIMESTAMP_FIELD_FIELD_NUMBER: _ClassVar[int]
     attributes: _containers.RepeatedCompositeFieldContainer[Attribute]
     batch_compute: ClusterConfig
+    environment: str
     monitoring: MonitoringConfig
     offline_store: OfflineStoreConfig
     offline_store_legacy: OfflineFeatureStoreConfig
@@ -278,7 +280,7 @@ class FeatureTableArgs(_message.Message):
     serving_ttl: _duration_pb2.Duration
     tecton_materialization_runtime: str
     timestamp_field: str
-    def __init__(self, schema: _Optional[_Union[_spark_schema__client_pb2.SparkSchema, _Mapping]] = ..., serving_ttl: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., offline_store_legacy: _Optional[_Union[OfflineFeatureStoreConfig, _Mapping]] = ..., offline_store: _Optional[_Union[OfflineStoreConfig, _Mapping]] = ..., online_store: _Optional[_Union[OnlineStoreConfig, _Mapping]] = ..., batch_compute: _Optional[_Union[ClusterConfig, _Mapping]] = ..., monitoring: _Optional[_Union[MonitoringConfig, _Mapping]] = ..., tecton_materialization_runtime: _Optional[str] = ..., attributes: _Optional[_Iterable[_Union[Attribute, _Mapping]]] = ..., timestamp_field: _Optional[str] = ...) -> None: ...
+    def __init__(self, schema: _Optional[_Union[_spark_schema__client_pb2.SparkSchema, _Mapping]] = ..., serving_ttl: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., offline_store_legacy: _Optional[_Union[OfflineFeatureStoreConfig, _Mapping]] = ..., offline_store: _Optional[_Union[OfflineStoreConfig, _Mapping]] = ..., online_store: _Optional[_Union[OnlineStoreConfig, _Mapping]] = ..., batch_compute: _Optional[_Union[ClusterConfig, _Mapping]] = ..., monitoring: _Optional[_Union[MonitoringConfig, _Mapping]] = ..., tecton_materialization_runtime: _Optional[str] = ..., attributes: _Optional[_Iterable[_Union[Attribute, _Mapping]]] = ..., timestamp_field: _Optional[str] = ..., environment: _Optional[str] = ...) -> None: ...
 
 class FeatureViewArgs(_message.Message):
     __slots__ = ["batch_compute_mode", "cache_config", "context_parameter_name", "data_quality_config", "entities", "feature_table_args", "feature_view_id", "feature_view_type", "forced_materialized_schema", "forced_view_schema", "info", "materialized_feature_view_args", "offline_enabled", "online_enabled", "online_serving_index", "options", "pipeline", "prevent_destroy", "prompt_args", "realtime_args", "resource_providers", "secrets", "version"]

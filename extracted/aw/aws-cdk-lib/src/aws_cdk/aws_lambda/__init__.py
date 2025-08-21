@@ -1216,7 +1216,7 @@ version = fn.current_version
 You can use Application AutoScaling to automatically configure the provisioned concurrency for your functions. AutoScaling can be set to track utilization or be based on a schedule. To configure AutoScaling on a function alias:
 
 ```python
-import aws_cdk.aws_autoscaling as autoscaling
+import aws_cdk.aws_applicationautoscaling as appscaling
 
 # fn: lambda.Function
 
@@ -1232,7 +1232,7 @@ as.scale_on_utilization(
 
 # Configure Scheduled Scaling
 as.scale_on_schedule("ScaleUpInTheMorning",
-    schedule=autoscaling.Schedule.cron(hour="8", minute="0"),
+    schedule=appscaling.Schedule.cron(hour="8", minute="0"),
     min_capacity=20
 )
 ```
@@ -3122,7 +3122,7 @@ class AutoScalingOptions:
 
         Example::
 
-            import aws_cdk.aws_autoscaling as autoscaling
+            import aws_cdk.aws_applicationautoscaling as appscaling
             
             # fn: lambda.Function
             
@@ -3138,7 +3138,7 @@ class AutoScalingOptions:
             
             # Configure Scheduled Scaling
             as.scale_on_schedule("ScaleUpInTheMorning",
-                schedule=autoscaling.Schedule.cron(hour="8", minute="0"),
+                schedule=appscaling.Schedule.cron(hour="8", minute="0"),
                 min_capacity=20
             )
         '''
@@ -24525,7 +24525,7 @@ class UtilizationScalingOptions(_BaseTargetTrackingProps_540ba713):
 
         Example::
 
-            import aws_cdk.aws_autoscaling as autoscaling
+            import aws_cdk.aws_applicationautoscaling as appscaling
             
             # fn: lambda.Function
             
@@ -24541,7 +24541,7 @@ class UtilizationScalingOptions(_BaseTargetTrackingProps_540ba713):
             
             # Configure Scheduled Scaling
             as.scale_on_schedule("ScaleUpInTheMorning",
-                schedule=autoscaling.Schedule.cron(hour="8", minute="0"),
+                schedule=appscaling.Schedule.cron(hour="8", minute="0"),
                 min_capacity=20
             )
         '''

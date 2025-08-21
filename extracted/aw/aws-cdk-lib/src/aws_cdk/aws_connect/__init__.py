@@ -7356,6 +7356,8 @@ class CfnPredefinedAttribute(
         cfn_predefined_attribute = connect.CfnPredefinedAttribute(self, "MyCfnPredefinedAttribute",
             instance_arn="instanceArn",
             name="name",
+        
+            # the properties below are optional
             values=connect.CfnPredefinedAttribute.ValuesProperty(
                 string_list=["stringList"]
             )
@@ -7369,7 +7371,7 @@ class CfnPredefinedAttribute(
         *,
         instance_arn: builtins.str,
         name: builtins.str,
-        values: typing.Union[_IResolvable_da3f097b, typing.Union["CfnPredefinedAttribute.ValuesProperty", typing.Dict[builtins.str, typing.Any]]],
+        values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPredefinedAttribute.ValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
@@ -7471,14 +7473,14 @@ class CfnPredefinedAttribute(
     @jsii.member(jsii_name="values")
     def values(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnPredefinedAttribute.ValuesProperty"]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPredefinedAttribute.ValuesProperty"]]:
         '''The values of a predefined attribute.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnPredefinedAttribute.ValuesProperty"], jsii.get(self, "values"))
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPredefinedAttribute.ValuesProperty"]], jsii.get(self, "values"))
 
     @values.setter
     def values(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnPredefinedAttribute.ValuesProperty"],
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPredefinedAttribute.ValuesProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__08003c8bd2407db8849ebc9b0c31a79805d1a0f97f0579e4ac977dfa6a2fd356)
@@ -7552,7 +7554,7 @@ class CfnPredefinedAttributeProps:
         *,
         instance_arn: builtins.str,
         name: builtins.str,
-        values: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.ValuesProperty, typing.Dict[builtins.str, typing.Any]]],
+        values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.ValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnPredefinedAttribute``.
 
@@ -7572,6 +7574,8 @@ class CfnPredefinedAttributeProps:
             cfn_predefined_attribute_props = connect.CfnPredefinedAttributeProps(
                 instance_arn="instanceArn",
                 name="name",
+            
+                # the properties below are optional
                 values=connect.CfnPredefinedAttribute.ValuesProperty(
                     string_list=["stringList"]
                 )
@@ -7585,8 +7589,9 @@ class CfnPredefinedAttributeProps:
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_arn": instance_arn,
             "name": name,
-            "values": values,
         }
+        if values is not None:
+            self._values["values"] = values
 
     @builtins.property
     def instance_arn(self) -> builtins.str:
@@ -7611,14 +7616,13 @@ class CfnPredefinedAttributeProps:
     @builtins.property
     def values(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.ValuesProperty]:
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.ValuesProperty]]:
         '''The values of a predefined attribute.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-predefinedattribute.html#cfn-connect-predefinedattribute-values
         '''
         result = self._values.get("values")
-        assert result is not None, "Required property 'values' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.ValuesProperty], result)
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.ValuesProperty]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14001,7 +14005,8 @@ class CfnUser(
                 # the properties below are optional
                 after_contact_work_time_limit=123,
                 auto_accept=False,
-                desk_phone_number="deskPhoneNumber"
+                desk_phone_number="deskPhoneNumber",
+                persistent_connection=False
             ),
             routing_profile_arn="routingProfileArn",
             security_profile_arns=["securityProfileArns"],
@@ -14433,6 +14438,7 @@ class CfnUser(
             "after_contact_work_time_limit": "afterContactWorkTimeLimit",
             "auto_accept": "autoAccept",
             "desk_phone_number": "deskPhoneNumber",
+            "persistent_connection": "persistentConnection",
         },
     )
     class UserPhoneConfigProperty:
@@ -14443,6 +14449,7 @@ class CfnUser(
             after_contact_work_time_limit: typing.Optional[jsii.Number] = None,
             auto_accept: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             desk_phone_number: typing.Optional[builtins.str] = None,
+            persistent_connection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         ) -> None:
             '''Contains information about the phone configuration settings for a user.
 
@@ -14450,6 +14457,7 @@ class CfnUser(
             :param after_contact_work_time_limit: The After Call Work (ACW) timeout setting, in seconds. This parameter has a minimum value of 0 and a maximum value of 2,000,000 seconds (24 days). Enter 0 if you don't want to allocate a specific amount of ACW time. It essentially means an indefinite amount of time. When the conversation ends, ACW starts; the agent must choose Close contact to end ACW. .. epigraph:: When returned by a ``SearchUsers`` call, ``AfterContactWorkTimeLimit`` is returned in milliseconds.
             :param auto_accept: The Auto accept setting.
             :param desk_phone_number: The phone number for the user's desk phone.
+            :param persistent_connection: The Persistent Connection setting.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-userphoneconfig.html
             :exampleMetadata: fixture=_generated
@@ -14466,7 +14474,8 @@ class CfnUser(
                     # the properties below are optional
                     after_contact_work_time_limit=123,
                     auto_accept=False,
-                    desk_phone_number="deskPhoneNumber"
+                    desk_phone_number="deskPhoneNumber",
+                    persistent_connection=False
                 )
             '''
             if __debug__:
@@ -14475,6 +14484,7 @@ class CfnUser(
                 check_type(argname="argument after_contact_work_time_limit", value=after_contact_work_time_limit, expected_type=type_hints["after_contact_work_time_limit"])
                 check_type(argname="argument auto_accept", value=auto_accept, expected_type=type_hints["auto_accept"])
                 check_type(argname="argument desk_phone_number", value=desk_phone_number, expected_type=type_hints["desk_phone_number"])
+                check_type(argname="argument persistent_connection", value=persistent_connection, expected_type=type_hints["persistent_connection"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "phone_type": phone_type,
             }
@@ -14484,6 +14494,8 @@ class CfnUser(
                 self._values["auto_accept"] = auto_accept
             if desk_phone_number is not None:
                 self._values["desk_phone_number"] = desk_phone_number
+            if persistent_connection is not None:
+                self._values["persistent_connection"] = persistent_connection
 
         @builtins.property
         def phone_type(self) -> builtins.str:
@@ -14528,6 +14540,17 @@ class CfnUser(
             '''
             result = self._values.get("desk_phone_number")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def persistent_connection(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''The Persistent Connection setting.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-userphoneconfig.html#cfn-connect-user-userphoneconfig-persistentconnection
+            '''
+            result = self._values.get("persistent_connection")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15883,7 +15906,8 @@ class CfnUserProps:
                     # the properties below are optional
                     after_contact_work_time_limit=123,
                     auto_accept=False,
-                    desk_phone_number="deskPhoneNumber"
+                    desk_phone_number="deskPhoneNumber",
+                    persistent_connection=False
                 ),
                 routing_profile_arn="routingProfileArn",
                 security_profile_arns=["securityProfileArns"],
@@ -17836,7 +17860,7 @@ def _typecheckingstub__aae8251f3c38f12791d918a121eabea35a0fd76a17fe96a45e59fab89
     *,
     instance_arn: builtins.str,
     name: builtins.str,
-    values: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.ValuesProperty, typing.Dict[builtins.str, typing.Any]]],
+    values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.ValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17866,7 +17890,7 @@ def _typecheckingstub__505c1fe18f355a3c8343fc74e29b578ea13ba483aa5951da1f12eba81
     pass
 
 def _typecheckingstub__08003c8bd2407db8849ebc9b0c31a79805d1a0f97f0579e4ac977dfa6a2fd356(
-    value: typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.ValuesProperty],
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPredefinedAttribute.ValuesProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17882,7 +17906,7 @@ def _typecheckingstub__e67db40db23ebfe580f504576f3022c3cb9338c26c6aa02862725f1ec
     *,
     instance_arn: builtins.str,
     name: builtins.str,
-    values: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.ValuesProperty, typing.Dict[builtins.str, typing.Any]]],
+    values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPredefinedAttribute.ValuesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18982,6 +19006,7 @@ def _typecheckingstub__e774e2d87fa8144ee9994624937d62ce4393d565b8e6982f7d2e1c5bf
     after_contact_work_time_limit: typing.Optional[jsii.Number] = None,
     auto_accept: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     desk_phone_number: typing.Optional[builtins.str] = None,
+    persistent_connection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -7,10 +7,12 @@ from .exchange_calendar import ExchangeCalendar
 from .exchange_calendar_aixk import AIXKExchangeCalendar
 from .exchange_calendar_asex import ASEXExchangeCalendar
 from .exchange_calendar_bvmf import BVMFExchangeCalendar
+from .exchange_calendar_xcys import XCYSExchangeCalendar
 from .exchange_calendar_cmes import CMESExchangeCalendar
 from .exchange_calendar_iepa import IEPAExchangeCalendar
 from .exchange_calendar_xams import XAMSExchangeCalendar
 from .exchange_calendar_xasx import XASXExchangeCalendar
+from .exchange_calendar_xbda import XBDAExchangeCalendar
 from .exchange_calendar_xbkk import XBKKExchangeCalendar
 from .exchange_calendar_xbog import XBOGExchangeCalendar
 from .exchange_calendar_xbom import XBOMExchangeCalendar
@@ -64,6 +66,7 @@ from .exchange_calendar_xtks import XTKSExchangeCalendar
 from .exchange_calendar_xtse import XTSEExchangeCalendar
 from .exchange_calendar_xwar import XWARExchangeCalendar
 from .exchange_calendar_xwbo import XWBOExchangeCalendar
+from .exchange_calendar_xzag import XZAGExchangeCalendar
 from .us_futures_calendar import QuantopianUSFuturesCalendar
 from .weekday_calendar import WeekdayCalendar
 
@@ -72,10 +75,12 @@ _default_calendar_factories = {
     "AIXK": AIXKExchangeCalendar,
     "ASEX": ASEXExchangeCalendar,
     "BVMF": BVMFExchangeCalendar,
+    "XCYS": XCYSExchangeCalendar,
     "CMES": CMESExchangeCalendar,
     "IEPA": IEPAExchangeCalendar,
     "XAMS": XAMSExchangeCalendar,
     "XASX": XASXExchangeCalendar,
+    "XBDA": XBDAExchangeCalendar,
     "XBKK": XBKKExchangeCalendar,
     "XBOG": XBOGExchangeCalendar,
     "XBOM": XBOMExchangeCalendar,
@@ -129,6 +134,7 @@ _default_calendar_factories = {
     "XTSE": XTSEExchangeCalendar,
     "XWAR": XWARExchangeCalendar,
     "XWBO": XWBOExchangeCalendar,
+    "XZAG": XZAGExchangeCalendar,
     # Miscellaneous calendars.
     "us_futures": QuantopianUSFuturesCalendar,
     "24/7": AlwaysOpenCalendar,

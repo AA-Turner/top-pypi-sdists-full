@@ -339,6 +339,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     Vec::new()
                 };
+                // Pass any contextual information to the parameter bindings used in the lambda body as a side
+                // effect, by setting an answer for the vars created at binding time.
                 let return_hint = hint.and_then(|hint| self.decompose_lambda(hint, &param_vars));
 
                 let mut params = param_vars.into_map(|(name, var)| {
@@ -494,7 +496,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let elt_hint = hint.and_then(|ty| self.decompose_list(ty));
                 if x.is_empty() {
                     let elem_ty = elt_hint.map_or_else(
-                        || self.solver().fresh_contained(self.uniques).to_type(),
+                        || {
+                            if !self.infer_with_first_use() {
+                                Type::any_implicit()
+                            } else {
+                                self.solver().fresh_contained(self.uniques).to_type()
+                            }
+                        },
                         |hint| hint.to_type(),
                     );
                     self.stdlib.list(elem_ty).to_type()
@@ -508,7 +516,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let elem_hint = hint.and_then(|ty| self.decompose_set(ty));
                 if x.is_empty() {
                     let elem_ty = elem_hint.map_or_else(
-                        || self.solver().fresh_contained(self.uniques).to_type(),
+                        || {
+                            if !self.infer_with_first_use() {
+                                Type::any_implicit()
+                            } else {
+                                self.solver().fresh_contained(self.uniques).to_type()
+                            }
+                        },
                         |hint| hint.to_type(),
                     );
                     self.stdlib.set(elem_ty).to_type()
@@ -828,11 +842,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let (key_hint, value_hint) = hint.map_or((None, None), |ty| self.decompose_dict(ty));
         if items.is_empty() {
             let key_ty = key_hint.map_or_else(
-                || self.solver().fresh_contained(self.uniques).to_type(),
+                || {
+                    if !self.infer_with_first_use() {
+                        Type::any_implicit()
+                    } else {
+                        self.solver().fresh_contained(self.uniques).to_type()
+                    }
+                },
                 |ty| ty.to_type(),
             );
             let value_ty = value_hint.map_or_else(
-                || self.solver().fresh_contained(self.uniques).to_type(),
+                || {
+                    if !self.infer_with_first_use() {
+                        Type::any_implicit()
+                    } else {
+                        self.solver().fresh_contained(self.uniques).to_type()
+                    }
+                },
                 |ty| ty.to_type(),
             );
             self.stdlib.dict(key_ty, value_ty).to_type()

@@ -12,6 +12,11 @@ class ExperimentClient(ServiceClient):
     Methods for interacting with Beaker `Experiments <https://beaker-docs.apps.allenai.org/concept/experiments.html>`_.
     Accessed via the :data:`Beaker.experiment <beaker.Beaker.experiment>` property.
 
+    .. note::
+        If you're coming from the v1 client you may think we're missing some important methods here.
+        Those were moved to :data:`Beaker.workload <beaker._workload.WorkloadClient>` methods
+        since workloads encompass experiments.
+
     .. warning::
         Do not instantiate this class directly! The :class:`~beaker.Beaker` client will create
         one automatically which you can access through the corresponding property.
@@ -72,6 +77,9 @@ class ExperimentClient(ServiceClient):
     def restart_tasks(self, experiment: pb2.Experiment | pb2.Workload) -> pb2.Workload:
         """
         Restart all failed or canceled tasks of an experiment.
+
+        .. seealso::
+            :meth:`Beaker.workload.restart_tasks() <beaker._workload.WorkloadClient.restart_tasks>`
 
         :param experiment: The :class:`~beaker.types.BeakerExperiment` or :class:`~beaker.types.BeakerWorkload`.
 

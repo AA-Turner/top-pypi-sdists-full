@@ -67,16 +67,27 @@ def nothing_saveable(*_, **__) -> bool:
 
 def dots_saveable(prim, *_, **__) -> bool:
   # Matrix multiplies are expensive, so let's save them (and nothing else).
-  return prim in {lax_internal.dot_general_p,
-                  lax_convolution.conv_general_dilated_p}
+  # We check for scaled matmul by name because we want to avoid importing
+  # cudnn here.
+  return (prim in {lax_internal.dot_general_p,
+                  lax_convolution.conv_general_dilated_p} or
+          prim.name == "scaled_matmul_wrapper")
 checkpoint_dots = dots_saveable
 
-def dots_with_no_batch_dims_saveable(prim, *_, **params) -> bool:
+def dots_with_no_batch_dims_saveable(prim, *args, **params) -> bool:
   # This is a useful heuristic for transformers.
   if prim is lax_internal.dot_general_p:
     (_, _), (lhs_b, rhs_b) = params['dimension_numbers']
     if not lhs_b and not rhs_b:
       return True
+
+  # We check for scaled matmul by name because we want to avoid importing
+  # cudnn here.
+  if prim.name == "scaled_matmul_wrapper":
+    lhs = args[0]
+    # Only save the dot if its batch dim is of size 1.
+    return lhs.shape[0] == 1
+
   return False
 
 def offload_dot_with_no_batch_dims(offload_src, offload_dst):
@@ -783,7 +794,7 @@ def _remat_translation_using_opt_barrier(*args, jaxpr: core.Jaxpr):
 
 
 def _remat_lowering(
-    ctx,
+    ctx: mlir.LoweringRuleContext,
     *args,
     jaxpr: core.Jaxpr,
     prevent_cse: bool,
@@ -801,7 +812,8 @@ def _remat_lowering(
     jaxpr_args = args
   outs, tokens_out = mlir.jaxpr_subcomp(
       ctx.module_context, jaxpr, ctx.name_stack.extend('checkpoint'),
-      ctx.tokens_in, (), *jaxpr_args, dim_var_values=ctx.dim_var_values)
+      ctx.tokens_in, (), *jaxpr_args, dim_var_values=ctx.dim_var_values,
+      const_lowering=ctx.const_lowering)
   ctx.set_tokens_out(tokens_out)
   return outs
 

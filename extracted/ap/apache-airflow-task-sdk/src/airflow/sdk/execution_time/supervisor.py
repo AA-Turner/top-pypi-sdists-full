@@ -83,6 +83,7 @@ from airflow.sdk.execution_time.comms import (
     GetConnection,
     GetDagRunState,
     GetDRCount,
+    GetPreviousDagRun,
     GetPrevSuccessfulDagRun,
     GetTaskRescheduleStartDate,
     GetTaskStates,
@@ -93,6 +94,7 @@ from airflow.sdk.execution_time.comms import (
     GetXComSequenceItem,
     GetXComSequenceSlice,
     InactiveAssetsResult,
+    MaskSecret,
     PrevSuccessfulDagRunResult,
     PutVariable,
     RescheduleTask,
@@ -1024,11 +1026,11 @@ class ActivitySubprocess(WatchedSubprocess):
                 self._terminal_state = SERVER_TERMINATED
             else:
                 # If we get any other error, we'll just log it and try again next time
-                self._handle_heartbeat_failures()
-        except Exception:
-            self._handle_heartbeat_failures()
+                self._handle_heartbeat_failures(e)
+        except Exception as e:
+            self._handle_heartbeat_failures(e)
 
-    def _handle_heartbeat_failures(self):
+    def _handle_heartbeat_failures(self, exc: Exception | None):
         """Increment the failed heartbeats counter and kill the process if too many failures."""
         self.failed_heartbeats += 1
         log.warning(
@@ -1036,7 +1038,7 @@ class ActivitySubprocess(WatchedSubprocess):
             failed_heartbeats=self.failed_heartbeats,
             ti_id=self.id,
             max_retries=MAX_FAILED_HEARTBEATS,
-            exc_info=True,
+            exception=exc,
         )
         # If we've failed to heartbeat too many times, kill the process
         if self.failed_heartbeats >= MAX_FAILED_HEARTBEATS:
@@ -1063,7 +1065,10 @@ class ActivitySubprocess(WatchedSubprocess):
         return TaskInstanceState.FAILED
 
     def _handle_request(self, msg: ToSupervisor, log: FilteringBoundLogger, req_id: int):
-        log.debug("Received message from task runner", msg=msg)
+        if isinstance(msg, MaskSecret):
+            log.debug("Received message from task runner (body omitted)", msg=type(msg))
+        else:
+            log.debug("Received message from task runner", msg=msg)
         resp: BaseModel | None = None
         dump_opts = {}
         if isinstance(msg, TaskState):
@@ -1131,7 +1136,14 @@ class ActivitySubprocess(WatchedSubprocess):
                 resp = xcom
         elif isinstance(msg, GetXComSequenceSlice):
             xcoms = self.client.xcoms.get_sequence_slice(
-                msg.dag_id, msg.run_id, msg.task_id, msg.key, msg.start, msg.stop, msg.step
+                msg.dag_id,
+                msg.run_id,
+                msg.task_id,
+                msg.key,
+                msg.start,
+                msg.stop,
+                msg.step,
+                msg.include_prior_dates,
             )
             resp = XComSequenceSliceResult.from_response(xcoms)
         elif isinstance(msg, DeferTask):
@@ -1227,6 +1239,12 @@ class ActivitySubprocess(WatchedSubprocess):
                 run_ids=msg.run_ids,
                 states=msg.states,
             )
+        elif isinstance(msg, GetPreviousDagRun):
+            resp = self.client.dag_runs.get_previous(
+                dag_id=msg.dag_id,
+                logical_date=msg.logical_date,
+                state=msg.state,
+            )
         elif isinstance(msg, DeleteVariable):
             resp = self.client.variables.delete(msg.key)
         elif isinstance(msg, ValidateInletsAndOutlets):
@@ -1239,6 +1257,8 @@ class ActivitySubprocess(WatchedSubprocess):
                 self._send_new_log_fd(req_id)
                 # Since we've sent the message, return. Nothing else in this ifelse/switch should return directly
                 return
+        elif isinstance(msg, MaskSecret):
+            mask_secret(msg.value, msg.name)
         else:
             log.error("Unhandled request", msg=msg)
             self.send_msg(

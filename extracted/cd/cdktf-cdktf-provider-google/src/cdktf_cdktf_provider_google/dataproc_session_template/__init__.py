@@ -1,7 +1,7 @@
 r'''
 # `google_dataproc_session_template`
 
-Refer to the Terraform Registry for docs: [`google_dataproc_session_template`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template).
+Refer to the Terraform Registry for docs: [`google_dataproc_session_template`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataprocSessionTemplate(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataprocSessionTemplate.DataprocSessionTemplate",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template google_dataproc_session_template}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template google_dataproc_session_template}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class DataprocSessionTemplate(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template google_dataproc_session_template} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template google_dataproc_session_template} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The resource name of the session template in the following format: projects/{project}/locations/{location}/sessionTemplates/{template_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#name DataprocSessionTemplate#name}
-        :param environment_config: environment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#environment_config DataprocSessionTemplate#environment_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#id DataprocSessionTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param jupyter_session: jupyter_session block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#jupyter_session DataprocSessionTemplate#jupyter_session}
-        :param labels: The labels to associate with this session template. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#labels DataprocSessionTemplate#labels}
-        :param location: The location in which the session template will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#location DataprocSessionTemplate#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#project DataprocSessionTemplate#project}.
-        :param runtime_config: runtime_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#runtime_config DataprocSessionTemplate#runtime_config}
-        :param spark_connect_session: spark_connect_session block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#spark_connect_session DataprocSessionTemplate#spark_connect_session}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#timeouts DataprocSessionTemplate#timeouts}
+        :param name: The resource name of the session template in the following format: projects/{project}/locations/{location}/sessionTemplates/{template_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#name DataprocSessionTemplate#name}
+        :param environment_config: environment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#environment_config DataprocSessionTemplate#environment_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#id DataprocSessionTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param jupyter_session: jupyter_session block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#jupyter_session DataprocSessionTemplate#jupyter_session}
+        :param labels: The labels to associate with this session template. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#labels DataprocSessionTemplate#labels}
+        :param location: The location in which the session template will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#location DataprocSessionTemplate#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#project DataprocSessionTemplate#project}.
+        :param runtime_config: runtime_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#runtime_config DataprocSessionTemplate#runtime_config}
+        :param spark_connect_session: spark_connect_session block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#spark_connect_session DataprocSessionTemplate#spark_connect_session}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#timeouts DataprocSessionTemplate#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class DataprocSessionTemplate(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataprocSessionTemplate to import.
-        :param import_from_id: The id of the existing DataprocSessionTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataprocSessionTemplate that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataprocSessionTemplate to import is found.
         '''
         if __debug__:
@@ -149,8 +149,8 @@ class DataprocSessionTemplate(
         peripherals_config: typing.Optional[typing.Union["DataprocSessionTemplateEnvironmentConfigPeripheralsConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param execution_config: execution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#execution_config DataprocSessionTemplate#execution_config}
-        :param peripherals_config: peripherals_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#peripherals_config DataprocSessionTemplate#peripherals_config}
+        :param execution_config: execution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#execution_config DataprocSessionTemplate#execution_config}
+        :param peripherals_config: peripherals_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#peripherals_config DataprocSessionTemplate#peripherals_config}
         '''
         value = DataprocSessionTemplateEnvironmentConfig(
             execution_config=execution_config, peripherals_config=peripherals_config
@@ -166,8 +166,8 @@ class DataprocSessionTemplate(
         kernel: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param display_name: Display name, shown in the Jupyter kernelspec card. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#display_name DataprocSessionTemplate#display_name}
-        :param kernel: Kernel to be used with Jupyter interactive session. Possible values: ["PYTHON", "SCALA"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#kernel DataprocSessionTemplate#kernel}
+        :param display_name: Display name, shown in the Jupyter kernelspec card. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#display_name DataprocSessionTemplate#display_name}
+        :param kernel: Kernel to be used with Jupyter interactive session. Possible values: ["PYTHON", "SCALA"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#kernel DataprocSessionTemplate#kernel}
         '''
         value = DataprocSessionTemplateJupyterSession(
             display_name=display_name, kernel=kernel
@@ -184,9 +184,9 @@ class DataprocSessionTemplate(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_image: Optional custom container image for the job runtime environment. If not specified, a default container image will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#container_image DataprocSessionTemplate#container_image}
-        :param properties: A mapping of property names to values, which are used to configure workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#properties DataprocSessionTemplate#properties}
-        :param version: Version of the session runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#version DataprocSessionTemplate#version}
+        :param container_image: Optional custom container image for the job runtime environment. If not specified, a default container image will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#container_image DataprocSessionTemplate#container_image}
+        :param properties: A mapping of property names to values, which are used to configure workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#properties DataprocSessionTemplate#properties}
+        :param version: Version of the session runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#version DataprocSessionTemplate#version}
         '''
         value = DataprocSessionTemplateRuntimeConfig(
             container_image=container_image, properties=properties, version=version
@@ -209,9 +209,9 @@ class DataprocSessionTemplate(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#create DataprocSessionTemplate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#delete DataprocSessionTemplate#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#update DataprocSessionTemplate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#create DataprocSessionTemplate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#delete DataprocSessionTemplate#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#update DataprocSessionTemplate#update}.
         '''
         value = DataprocSessionTemplateTimeouts(
             create=create, delete=delete, update=update
@@ -503,16 +503,16 @@ class DataprocSessionTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The resource name of the session template in the following format: projects/{project}/locations/{location}/sessionTemplates/{template_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#name DataprocSessionTemplate#name}
-        :param environment_config: environment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#environment_config DataprocSessionTemplate#environment_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#id DataprocSessionTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param jupyter_session: jupyter_session block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#jupyter_session DataprocSessionTemplate#jupyter_session}
-        :param labels: The labels to associate with this session template. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#labels DataprocSessionTemplate#labels}
-        :param location: The location in which the session template will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#location DataprocSessionTemplate#location}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#project DataprocSessionTemplate#project}.
-        :param runtime_config: runtime_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#runtime_config DataprocSessionTemplate#runtime_config}
-        :param spark_connect_session: spark_connect_session block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#spark_connect_session DataprocSessionTemplate#spark_connect_session}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#timeouts DataprocSessionTemplate#timeouts}
+        :param name: The resource name of the session template in the following format: projects/{project}/locations/{location}/sessionTemplates/{template_id}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#name DataprocSessionTemplate#name}
+        :param environment_config: environment_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#environment_config DataprocSessionTemplate#environment_config}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#id DataprocSessionTemplate#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param jupyter_session: jupyter_session block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#jupyter_session DataprocSessionTemplate#jupyter_session}
+        :param labels: The labels to associate with this session template. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#labels DataprocSessionTemplate#labels}
+        :param location: The location in which the session template will be created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#location DataprocSessionTemplate#location}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#project DataprocSessionTemplate#project}.
+        :param runtime_config: runtime_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#runtime_config DataprocSessionTemplate#runtime_config}
+        :param spark_connect_session: spark_connect_session block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#spark_connect_session DataprocSessionTemplate#spark_connect_session}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#timeouts DataprocSessionTemplate#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -649,7 +649,7 @@ class DataprocSessionTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The resource name of the session template in the following format: projects/{project}/locations/{location}/sessionTemplates/{template_id}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#name DataprocSessionTemplate#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#name DataprocSessionTemplate#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -661,14 +661,14 @@ class DataprocSessionTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocSessionTemplateEnvironmentConfig"]:
         '''environment_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#environment_config DataprocSessionTemplate#environment_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#environment_config DataprocSessionTemplate#environment_config}
         '''
         result = self._values.get("environment_config")
         return typing.cast(typing.Optional["DataprocSessionTemplateEnvironmentConfig"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#id DataprocSessionTemplate#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#id DataprocSessionTemplate#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -682,7 +682,7 @@ class DataprocSessionTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocSessionTemplateJupyterSession"]:
         '''jupyter_session block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#jupyter_session DataprocSessionTemplate#jupyter_session}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#jupyter_session DataprocSessionTemplate#jupyter_session}
         '''
         result = self._values.get("jupyter_session")
         return typing.cast(typing.Optional["DataprocSessionTemplateJupyterSession"], result)
@@ -694,7 +694,7 @@ class DataprocSessionTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#labels DataprocSessionTemplate#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#labels DataprocSessionTemplate#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -703,14 +703,14 @@ class DataprocSessionTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> typing.Optional[builtins.str]:
         '''The location in which the session template will be created in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#location DataprocSessionTemplate#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#location DataprocSessionTemplate#location}
         '''
         result = self._values.get("location")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#project DataprocSessionTemplate#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#project DataprocSessionTemplate#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -718,7 +718,7 @@ class DataprocSessionTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def runtime_config(self) -> typing.Optional["DataprocSessionTemplateRuntimeConfig"]:
         '''runtime_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#runtime_config DataprocSessionTemplate#runtime_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#runtime_config DataprocSessionTemplate#runtime_config}
         '''
         result = self._values.get("runtime_config")
         return typing.cast(typing.Optional["DataprocSessionTemplateRuntimeConfig"], result)
@@ -729,7 +729,7 @@ class DataprocSessionTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DataprocSessionTemplateSparkConnectSession"]:
         '''spark_connect_session block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#spark_connect_session DataprocSessionTemplate#spark_connect_session}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#spark_connect_session DataprocSessionTemplate#spark_connect_session}
         '''
         result = self._values.get("spark_connect_session")
         return typing.cast(typing.Optional["DataprocSessionTemplateSparkConnectSession"], result)
@@ -738,7 +738,7 @@ class DataprocSessionTemplateConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DataprocSessionTemplateTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#timeouts DataprocSessionTemplate#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#timeouts DataprocSessionTemplate#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DataprocSessionTemplateTimeouts"], result)
@@ -771,8 +771,8 @@ class DataprocSessionTemplateEnvironmentConfig:
         peripherals_config: typing.Optional[typing.Union["DataprocSessionTemplateEnvironmentConfigPeripheralsConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param execution_config: execution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#execution_config DataprocSessionTemplate#execution_config}
-        :param peripherals_config: peripherals_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#peripherals_config DataprocSessionTemplate#peripherals_config}
+        :param execution_config: execution_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#execution_config DataprocSessionTemplate#execution_config}
+        :param peripherals_config: peripherals_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#peripherals_config DataprocSessionTemplate#peripherals_config}
         '''
         if isinstance(execution_config, dict):
             execution_config = DataprocSessionTemplateEnvironmentConfigExecutionConfig(**execution_config)
@@ -794,7 +794,7 @@ class DataprocSessionTemplateEnvironmentConfig:
     ) -> typing.Optional["DataprocSessionTemplateEnvironmentConfigExecutionConfig"]:
         '''execution_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#execution_config DataprocSessionTemplate#execution_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#execution_config DataprocSessionTemplate#execution_config}
         '''
         result = self._values.get("execution_config")
         return typing.cast(typing.Optional["DataprocSessionTemplateEnvironmentConfigExecutionConfig"], result)
@@ -805,7 +805,7 @@ class DataprocSessionTemplateEnvironmentConfig:
     ) -> typing.Optional["DataprocSessionTemplateEnvironmentConfigPeripheralsConfig"]:
         '''peripherals_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#peripherals_config DataprocSessionTemplate#peripherals_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#peripherals_config DataprocSessionTemplate#peripherals_config}
         '''
         result = self._values.get("peripherals_config")
         return typing.cast(typing.Optional["DataprocSessionTemplateEnvironmentConfigPeripheralsConfig"], result)
@@ -850,14 +850,14 @@ class DataprocSessionTemplateEnvironmentConfigExecutionConfig:
         ttl: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param authentication_config: authentication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#authentication_config DataprocSessionTemplate#authentication_config}
-        :param idle_ttl: The duration to keep the session alive while it's idling. Exceeding this threshold causes the session to terminate. Minimum value is 10 minutes; maximum value is 14 day. Defaults to 1 hour if not set. If both ttl and idleTtl are specified for an interactive session, the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or when ttl has been exceeded, whichever occurs first. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#idle_ttl DataprocSessionTemplate#idle_ttl}
-        :param kms_key: The Cloud KMS key to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#kms_key DataprocSessionTemplate#kms_key}
-        :param network_tags: Tags used for network traffic control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#network_tags DataprocSessionTemplate#network_tags}
-        :param service_account: Service account that used to execute workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#service_account DataprocSessionTemplate#service_account}
-        :param staging_bucket: A Cloud Storage bucket used to stage workload dependencies, config files, and store workload output and other ephemeral data, such as Spark history files. If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location according to the region where your workload is running, and then create and manage project-level, per-location staging and temporary buckets. This field requires a Cloud Storage bucket name, not a gs://... URI to a Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#staging_bucket DataprocSessionTemplate#staging_bucket}
-        :param subnetwork_uri: Subnetwork configuration for workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#subnetwork_uri DataprocSessionTemplate#subnetwork_uri}
-        :param ttl: The duration after which the workload will be terminated. When the workload exceeds this duration, it will be unconditionally terminated without waiting for ongoing work to finish. If ttl is not specified for a session workload, the workload will be allowed to run until it exits naturally (or run forever without exiting). If ttl is not specified for an interactive session, it defaults to 24 hours. If ttl is not specified for a batch that uses 2.1+ runtime version, it defaults to 4 hours. Minimum value is 10 minutes; maximum value is 14 days. If both ttl and idleTtl are specified (for an interactive session), the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or when ttl has been exceeded, whichever occurs first. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#ttl DataprocSessionTemplate#ttl}
+        :param authentication_config: authentication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#authentication_config DataprocSessionTemplate#authentication_config}
+        :param idle_ttl: The duration to keep the session alive while it's idling. Exceeding this threshold causes the session to terminate. Minimum value is 10 minutes; maximum value is 14 day. Defaults to 1 hour if not set. If both ttl and idleTtl are specified for an interactive session, the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or when ttl has been exceeded, whichever occurs first. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#idle_ttl DataprocSessionTemplate#idle_ttl}
+        :param kms_key: The Cloud KMS key to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#kms_key DataprocSessionTemplate#kms_key}
+        :param network_tags: Tags used for network traffic control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#network_tags DataprocSessionTemplate#network_tags}
+        :param service_account: Service account that used to execute workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#service_account DataprocSessionTemplate#service_account}
+        :param staging_bucket: A Cloud Storage bucket used to stage workload dependencies, config files, and store workload output and other ephemeral data, such as Spark history files. If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location according to the region where your workload is running, and then create and manage project-level, per-location staging and temporary buckets. This field requires a Cloud Storage bucket name, not a gs://... URI to a Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#staging_bucket DataprocSessionTemplate#staging_bucket}
+        :param subnetwork_uri: Subnetwork configuration for workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#subnetwork_uri DataprocSessionTemplate#subnetwork_uri}
+        :param ttl: The duration after which the workload will be terminated. When the workload exceeds this duration, it will be unconditionally terminated without waiting for ongoing work to finish. If ttl is not specified for a session workload, the workload will be allowed to run until it exits naturally (or run forever without exiting). If ttl is not specified for an interactive session, it defaults to 24 hours. If ttl is not specified for a batch that uses 2.1+ runtime version, it defaults to 4 hours. Minimum value is 10 minutes; maximum value is 14 days. If both ttl and idleTtl are specified (for an interactive session), the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or when ttl has been exceeded, whichever occurs first. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#ttl DataprocSessionTemplate#ttl}
         '''
         if isinstance(authentication_config, dict):
             authentication_config = DataprocSessionTemplateEnvironmentConfigExecutionConfigAuthenticationConfig(**authentication_config)
@@ -895,7 +895,7 @@ class DataprocSessionTemplateEnvironmentConfigExecutionConfig:
     ) -> typing.Optional["DataprocSessionTemplateEnvironmentConfigExecutionConfigAuthenticationConfig"]:
         '''authentication_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#authentication_config DataprocSessionTemplate#authentication_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#authentication_config DataprocSessionTemplate#authentication_config}
         '''
         result = self._values.get("authentication_config")
         return typing.cast(typing.Optional["DataprocSessionTemplateEnvironmentConfigExecutionConfigAuthenticationConfig"], result)
@@ -909,7 +909,7 @@ class DataprocSessionTemplateEnvironmentConfigExecutionConfig:
         are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or when ttl has
         been exceeded, whichever occurs first.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#idle_ttl DataprocSessionTemplate#idle_ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#idle_ttl DataprocSessionTemplate#idle_ttl}
         '''
         result = self._values.get("idle_ttl")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -918,7 +918,7 @@ class DataprocSessionTemplateEnvironmentConfigExecutionConfig:
     def kms_key(self) -> typing.Optional[builtins.str]:
         '''The Cloud KMS key to use for encryption.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#kms_key DataprocSessionTemplate#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#kms_key DataprocSessionTemplate#kms_key}
         '''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -927,7 +927,7 @@ class DataprocSessionTemplateEnvironmentConfigExecutionConfig:
     def network_tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Tags used for network traffic control.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#network_tags DataprocSessionTemplate#network_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#network_tags DataprocSessionTemplate#network_tags}
         '''
         result = self._values.get("network_tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -936,7 +936,7 @@ class DataprocSessionTemplateEnvironmentConfigExecutionConfig:
     def service_account(self) -> typing.Optional[builtins.str]:
         '''Service account that used to execute workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#service_account DataprocSessionTemplate#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#service_account DataprocSessionTemplate#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -950,7 +950,7 @@ class DataprocSessionTemplateEnvironmentConfigExecutionConfig:
         and then create and manage project-level, per-location staging and temporary buckets.
         This field requires a Cloud Storage bucket name, not a gs://... URI to a Cloud Storage bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#staging_bucket DataprocSessionTemplate#staging_bucket}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#staging_bucket DataprocSessionTemplate#staging_bucket}
         '''
         result = self._values.get("staging_bucket")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -959,7 +959,7 @@ class DataprocSessionTemplateEnvironmentConfigExecutionConfig:
     def subnetwork_uri(self) -> typing.Optional[builtins.str]:
         '''Subnetwork configuration for workload execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#subnetwork_uri DataprocSessionTemplate#subnetwork_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#subnetwork_uri DataprocSessionTemplate#subnetwork_uri}
         '''
         result = self._values.get("subnetwork_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -976,7 +976,7 @@ class DataprocSessionTemplateEnvironmentConfigExecutionConfig:
         the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or
         when ttl has been exceeded, whichever occurs first.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#ttl DataprocSessionTemplate#ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#ttl DataprocSessionTemplate#ttl}
         '''
         result = self._values.get("ttl")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1007,7 +1007,7 @@ class DataprocSessionTemplateEnvironmentConfigExecutionConfigAuthenticationConfi
         user_workload_authentication_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param user_workload_authentication_type: Authentication type for the user workload running in containers. Possible values: ["SERVICE_ACCOUNT", "END_USER_CREDENTIALS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#user_workload_authentication_type DataprocSessionTemplate#user_workload_authentication_type}
+        :param user_workload_authentication_type: Authentication type for the user workload running in containers. Possible values: ["SERVICE_ACCOUNT", "END_USER_CREDENTIALS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#user_workload_authentication_type DataprocSessionTemplate#user_workload_authentication_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__096f3de8a091ba10f644e8157efb74c15be1c47e44fc10a54c574e065132e175)
@@ -1020,7 +1020,7 @@ class DataprocSessionTemplateEnvironmentConfigExecutionConfigAuthenticationConfi
     def user_workload_authentication_type(self) -> typing.Optional[builtins.str]:
         '''Authentication type for the user workload running in containers. Possible values: ["SERVICE_ACCOUNT", "END_USER_CREDENTIALS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#user_workload_authentication_type DataprocSessionTemplate#user_workload_authentication_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#user_workload_authentication_type DataprocSessionTemplate#user_workload_authentication_type}
         '''
         result = self._values.get("user_workload_authentication_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1123,7 +1123,7 @@ class DataprocSessionTemplateEnvironmentConfigExecutionConfigOutputReference(
         user_workload_authentication_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param user_workload_authentication_type: Authentication type for the user workload running in containers. Possible values: ["SERVICE_ACCOUNT", "END_USER_CREDENTIALS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#user_workload_authentication_type DataprocSessionTemplate#user_workload_authentication_type}
+        :param user_workload_authentication_type: Authentication type for the user workload running in containers. Possible values: ["SERVICE_ACCOUNT", "END_USER_CREDENTIALS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#user_workload_authentication_type DataprocSessionTemplate#user_workload_authentication_type}
         '''
         value = DataprocSessionTemplateEnvironmentConfigExecutionConfigAuthenticationConfig(
             user_workload_authentication_type=user_workload_authentication_type
@@ -1348,14 +1348,14 @@ class DataprocSessionTemplateEnvironmentConfigOutputReference(
         ttl: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param authentication_config: authentication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#authentication_config DataprocSessionTemplate#authentication_config}
-        :param idle_ttl: The duration to keep the session alive while it's idling. Exceeding this threshold causes the session to terminate. Minimum value is 10 minutes; maximum value is 14 day. Defaults to 1 hour if not set. If both ttl and idleTtl are specified for an interactive session, the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or when ttl has been exceeded, whichever occurs first. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#idle_ttl DataprocSessionTemplate#idle_ttl}
-        :param kms_key: The Cloud KMS key to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#kms_key DataprocSessionTemplate#kms_key}
-        :param network_tags: Tags used for network traffic control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#network_tags DataprocSessionTemplate#network_tags}
-        :param service_account: Service account that used to execute workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#service_account DataprocSessionTemplate#service_account}
-        :param staging_bucket: A Cloud Storage bucket used to stage workload dependencies, config files, and store workload output and other ephemeral data, such as Spark history files. If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location according to the region where your workload is running, and then create and manage project-level, per-location staging and temporary buckets. This field requires a Cloud Storage bucket name, not a gs://... URI to a Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#staging_bucket DataprocSessionTemplate#staging_bucket}
-        :param subnetwork_uri: Subnetwork configuration for workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#subnetwork_uri DataprocSessionTemplate#subnetwork_uri}
-        :param ttl: The duration after which the workload will be terminated. When the workload exceeds this duration, it will be unconditionally terminated without waiting for ongoing work to finish. If ttl is not specified for a session workload, the workload will be allowed to run until it exits naturally (or run forever without exiting). If ttl is not specified for an interactive session, it defaults to 24 hours. If ttl is not specified for a batch that uses 2.1+ runtime version, it defaults to 4 hours. Minimum value is 10 minutes; maximum value is 14 days. If both ttl and idleTtl are specified (for an interactive session), the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or when ttl has been exceeded, whichever occurs first. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#ttl DataprocSessionTemplate#ttl}
+        :param authentication_config: authentication_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#authentication_config DataprocSessionTemplate#authentication_config}
+        :param idle_ttl: The duration to keep the session alive while it's idling. Exceeding this threshold causes the session to terminate. Minimum value is 10 minutes; maximum value is 14 day. Defaults to 1 hour if not set. If both ttl and idleTtl are specified for an interactive session, the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or when ttl has been exceeded, whichever occurs first. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#idle_ttl DataprocSessionTemplate#idle_ttl}
+        :param kms_key: The Cloud KMS key to use for encryption. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#kms_key DataprocSessionTemplate#kms_key}
+        :param network_tags: Tags used for network traffic control. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#network_tags DataprocSessionTemplate#network_tags}
+        :param service_account: Service account that used to execute workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#service_account DataprocSessionTemplate#service_account}
+        :param staging_bucket: A Cloud Storage bucket used to stage workload dependencies, config files, and store workload output and other ephemeral data, such as Spark history files. If you do not specify a staging bucket, Cloud Dataproc will determine a Cloud Storage location according to the region where your workload is running, and then create and manage project-level, per-location staging and temporary buckets. This field requires a Cloud Storage bucket name, not a gs://... URI to a Cloud Storage bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#staging_bucket DataprocSessionTemplate#staging_bucket}
+        :param subnetwork_uri: Subnetwork configuration for workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#subnetwork_uri DataprocSessionTemplate#subnetwork_uri}
+        :param ttl: The duration after which the workload will be terminated. When the workload exceeds this duration, it will be unconditionally terminated without waiting for ongoing work to finish. If ttl is not specified for a session workload, the workload will be allowed to run until it exits naturally (or run forever without exiting). If ttl is not specified for an interactive session, it defaults to 24 hours. If ttl is not specified for a batch that uses 2.1+ runtime version, it defaults to 4 hours. Minimum value is 10 minutes; maximum value is 14 days. If both ttl and idleTtl are specified (for an interactive session), the conditions are treated as OR conditions: the workload will be terminated when it has been idle for idleTtl or when ttl has been exceeded, whichever occurs first. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#ttl DataprocSessionTemplate#ttl}
         '''
         value = DataprocSessionTemplateEnvironmentConfigExecutionConfig(
             authentication_config=authentication_config,
@@ -1378,8 +1378,8 @@ class DataprocSessionTemplateEnvironmentConfigOutputReference(
         spark_history_server_config: typing.Optional[typing.Union["DataprocSessionTemplateEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param metastore_service: Resource name of an existing Dataproc Metastore service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#metastore_service DataprocSessionTemplate#metastore_service}
-        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#spark_history_server_config DataprocSessionTemplate#spark_history_server_config}
+        :param metastore_service: Resource name of an existing Dataproc Metastore service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#metastore_service DataprocSessionTemplate#metastore_service}
+        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#spark_history_server_config DataprocSessionTemplate#spark_history_server_config}
         '''
         value = DataprocSessionTemplateEnvironmentConfigPeripheralsConfig(
             metastore_service=metastore_service,
@@ -1458,8 +1458,8 @@ class DataprocSessionTemplateEnvironmentConfigPeripheralsConfig:
         spark_history_server_config: typing.Optional[typing.Union["DataprocSessionTemplateEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param metastore_service: Resource name of an existing Dataproc Metastore service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#metastore_service DataprocSessionTemplate#metastore_service}
-        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#spark_history_server_config DataprocSessionTemplate#spark_history_server_config}
+        :param metastore_service: Resource name of an existing Dataproc Metastore service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#metastore_service DataprocSessionTemplate#metastore_service}
+        :param spark_history_server_config: spark_history_server_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#spark_history_server_config DataprocSessionTemplate#spark_history_server_config}
         '''
         if isinstance(spark_history_server_config, dict):
             spark_history_server_config = DataprocSessionTemplateEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig(**spark_history_server_config)
@@ -1477,7 +1477,7 @@ class DataprocSessionTemplateEnvironmentConfigPeripheralsConfig:
     def metastore_service(self) -> typing.Optional[builtins.str]:
         '''Resource name of an existing Dataproc Metastore service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#metastore_service DataprocSessionTemplate#metastore_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#metastore_service DataprocSessionTemplate#metastore_service}
         '''
         result = self._values.get("metastore_service")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1488,7 +1488,7 @@ class DataprocSessionTemplateEnvironmentConfigPeripheralsConfig:
     ) -> typing.Optional["DataprocSessionTemplateEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig"]:
         '''spark_history_server_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#spark_history_server_config DataprocSessionTemplate#spark_history_server_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#spark_history_server_config DataprocSessionTemplate#spark_history_server_config}
         '''
         result = self._values.get("spark_history_server_config")
         return typing.cast(typing.Optional["DataprocSessionTemplateEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig"], result)
@@ -1532,7 +1532,7 @@ class DataprocSessionTemplateEnvironmentConfigPeripheralsConfigOutputReference(
         dataproc_cluster: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#dataproc_cluster DataprocSessionTemplate#dataproc_cluster}
+        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#dataproc_cluster DataprocSessionTemplate#dataproc_cluster}
         '''
         value = DataprocSessionTemplateEnvironmentConfigPeripheralsConfigSparkHistoryServerConfig(
             dataproc_cluster=dataproc_cluster
@@ -1609,7 +1609,7 @@ class DataprocSessionTemplateEnvironmentConfigPeripheralsConfigSparkHistoryServe
         dataproc_cluster: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#dataproc_cluster DataprocSessionTemplate#dataproc_cluster}
+        :param dataproc_cluster: Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#dataproc_cluster DataprocSessionTemplate#dataproc_cluster}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f2845ff97a1d1957c68b4999e9306bc49b2b64edc1f1bcf23d0dc7ac6fdba1e0)
@@ -1622,7 +1622,7 @@ class DataprocSessionTemplateEnvironmentConfigPeripheralsConfigSparkHistoryServe
     def dataproc_cluster(self) -> typing.Optional[builtins.str]:
         '''Resource name of an existing Dataproc Cluster to act as a Spark History Server for the workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#dataproc_cluster DataprocSessionTemplate#dataproc_cluster}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#dataproc_cluster DataprocSessionTemplate#dataproc_cluster}
         '''
         result = self._values.get("dataproc_cluster")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1711,8 +1711,8 @@ class DataprocSessionTemplateJupyterSession:
         kernel: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param display_name: Display name, shown in the Jupyter kernelspec card. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#display_name DataprocSessionTemplate#display_name}
-        :param kernel: Kernel to be used with Jupyter interactive session. Possible values: ["PYTHON", "SCALA"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#kernel DataprocSessionTemplate#kernel}
+        :param display_name: Display name, shown in the Jupyter kernelspec card. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#display_name DataprocSessionTemplate#display_name}
+        :param kernel: Kernel to be used with Jupyter interactive session. Possible values: ["PYTHON", "SCALA"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#kernel DataprocSessionTemplate#kernel}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14d76be43440e657e2cf9f9d16e870713160b4a483527409f795fddb3ab2ecb7)
@@ -1728,7 +1728,7 @@ class DataprocSessionTemplateJupyterSession:
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Display name, shown in the Jupyter kernelspec card.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#display_name DataprocSessionTemplate#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#display_name DataprocSessionTemplate#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1737,7 +1737,7 @@ class DataprocSessionTemplateJupyterSession:
     def kernel(self) -> typing.Optional[builtins.str]:
         '''Kernel to be used with Jupyter interactive session. Possible values: ["PYTHON", "SCALA"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#kernel DataprocSessionTemplate#kernel}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#kernel DataprocSessionTemplate#kernel}
         '''
         result = self._values.get("kernel")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1850,9 +1850,9 @@ class DataprocSessionTemplateRuntimeConfig:
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_image: Optional custom container image for the job runtime environment. If not specified, a default container image will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#container_image DataprocSessionTemplate#container_image}
-        :param properties: A mapping of property names to values, which are used to configure workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#properties DataprocSessionTemplate#properties}
-        :param version: Version of the session runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#version DataprocSessionTemplate#version}
+        :param container_image: Optional custom container image for the job runtime environment. If not specified, a default container image will be used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#container_image DataprocSessionTemplate#container_image}
+        :param properties: A mapping of property names to values, which are used to configure workload execution. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#properties DataprocSessionTemplate#properties}
+        :param version: Version of the session runtime. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#version DataprocSessionTemplate#version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40a83ee8a98a2133ade12574aa3746b9538a6617a8f98b9254506a521f7b87c6)
@@ -1871,7 +1871,7 @@ class DataprocSessionTemplateRuntimeConfig:
     def container_image(self) -> typing.Optional[builtins.str]:
         '''Optional custom container image for the job runtime environment. If not specified, a default container image will be used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#container_image DataprocSessionTemplate#container_image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#container_image DataprocSessionTemplate#container_image}
         '''
         result = self._values.get("container_image")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1880,7 +1880,7 @@ class DataprocSessionTemplateRuntimeConfig:
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''A mapping of property names to values, which are used to configure workload execution.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#properties DataprocSessionTemplate#properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#properties DataprocSessionTemplate#properties}
         '''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1889,7 +1889,7 @@ class DataprocSessionTemplateRuntimeConfig:
     def version(self) -> typing.Optional[builtins.str]:
         '''Version of the session runtime.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#version DataprocSessionTemplate#version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#version DataprocSessionTemplate#version}
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2085,9 +2085,9 @@ class DataprocSessionTemplateTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#create DataprocSessionTemplate#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#delete DataprocSessionTemplate#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#update DataprocSessionTemplate#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#create DataprocSessionTemplate#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#delete DataprocSessionTemplate#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#update DataprocSessionTemplate#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f971ac06bdd6c17aefe2fe612fd6b35a5594d1486c1b668127c0b70a1548556b)
@@ -2104,19 +2104,19 @@ class DataprocSessionTemplateTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#create DataprocSessionTemplate#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#create DataprocSessionTemplate#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#delete DataprocSessionTemplate#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#delete DataprocSessionTemplate#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dataproc_session_template#update DataprocSessionTemplate#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dataproc_session_template#update DataprocSessionTemplate#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1611,6 +1611,11 @@ class CfnDomain(
                 anonymous_auth_disable_date="anonymousAuthDisableDate",
                 anonymous_auth_enabled=False,
                 enabled=False,
+                iam_federation_options={
+                    "enabled": False,
+                    "roles_key": "rolesKey",
+                    "subject_key": "subjectKey"
+                },
                 internal_user_database_enabled=False,
                 jwt_options=opensearchservice.CfnDomain.JWTOptionsProperty(
                     enabled=False,
@@ -2365,6 +2370,7 @@ class CfnDomain(
             "anonymous_auth_disable_date": "anonymousAuthDisableDate",
             "anonymous_auth_enabled": "anonymousAuthEnabled",
             "enabled": "enabled",
+            "iam_federation_options": "iamFederationOptions",
             "internal_user_database_enabled": "internalUserDatabaseEnabled",
             "jwt_options": "jwtOptions",
             "master_user_options": "masterUserOptions",
@@ -2378,6 +2384,7 @@ class CfnDomain(
             anonymous_auth_disable_date: typing.Optional[builtins.str] = None,
             anonymous_auth_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            iam_federation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.IAMFederationOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             internal_user_database_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             jwt_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.JWTOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             master_user_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.MasterUserOptionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2390,6 +2397,7 @@ class CfnDomain(
             :param anonymous_auth_disable_date: Date and time when the migration period will be disabled. Only necessary when `enabling fine-grained access control on an existing domain <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/fgac.html#fgac-enabling-existing>`_ .
             :param anonymous_auth_enabled: True to enable a 30-day migration period during which administrators can create role mappings. Only necessary when `enabling fine-grained access control on an existing domain <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/fgac.html#fgac-enabling-existing>`_ .
             :param enabled: True to enable fine-grained access control. You must also enable encryption of data at rest and node-to-node encryption. See `Fine-grained access control in Amazon OpenSearch Service <https://docs.aws.amazon.com/opensearch-service/latest/developerguide/fgac.html>`_ .
+            :param iam_federation_options: 
             :param internal_user_database_enabled: True to enable the internal user database.
             :param jwt_options: Container for information about the JWT configuration of the Amazon OpenSearch Service.
             :param master_user_options: Specifies information about the master user.
@@ -2408,6 +2416,11 @@ class CfnDomain(
                     anonymous_auth_disable_date="anonymousAuthDisableDate",
                     anonymous_auth_enabled=False,
                     enabled=False,
+                    iam_federation_options={
+                        "enabled": False,
+                        "roles_key": "rolesKey",
+                        "subject_key": "subjectKey"
+                    },
                     internal_user_database_enabled=False,
                     jwt_options=opensearchservice.CfnDomain.JWTOptionsProperty(
                         enabled=False,
@@ -2439,6 +2452,7 @@ class CfnDomain(
                 check_type(argname="argument anonymous_auth_disable_date", value=anonymous_auth_disable_date, expected_type=type_hints["anonymous_auth_disable_date"])
                 check_type(argname="argument anonymous_auth_enabled", value=anonymous_auth_enabled, expected_type=type_hints["anonymous_auth_enabled"])
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument iam_federation_options", value=iam_federation_options, expected_type=type_hints["iam_federation_options"])
                 check_type(argname="argument internal_user_database_enabled", value=internal_user_database_enabled, expected_type=type_hints["internal_user_database_enabled"])
                 check_type(argname="argument jwt_options", value=jwt_options, expected_type=type_hints["jwt_options"])
                 check_type(argname="argument master_user_options", value=master_user_options, expected_type=type_hints["master_user_options"])
@@ -2450,6 +2464,8 @@ class CfnDomain(
                 self._values["anonymous_auth_enabled"] = anonymous_auth_enabled
             if enabled is not None:
                 self._values["enabled"] = enabled
+            if iam_federation_options is not None:
+                self._values["iam_federation_options"] = iam_federation_options
             if internal_user_database_enabled is not None:
                 self._values["internal_user_database_enabled"] = internal_user_database_enabled
             if jwt_options is not None:
@@ -2495,6 +2511,16 @@ class CfnDomain(
             '''
             result = self._values.get("enabled")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def iam_federation_options(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.IAMFederationOptionsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-advancedsecurityoptionsinput.html#cfn-opensearchservice-domain-advancedsecurityoptionsinput-iamfederationoptions
+            '''
+            result = self._values.get("iam_federation_options")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.IAMFederationOptionsProperty"]], result)
 
         @builtins.property
         def internal_user_database_enabled(
@@ -3360,6 +3386,93 @@ class CfnDomain(
 
         def __repr__(self) -> str:
             return "EncryptionAtRestOptionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_opensearchservice.CfnDomain.IAMFederationOptionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "roles_key": "rolesKey",
+            "subject_key": "subjectKey",
+        },
+    )
+    class IAMFederationOptionsProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            roles_key: typing.Optional[builtins.str] = None,
+            subject_key: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param enabled: 
+            :param roles_key: 
+            :param subject_key: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-iamfederationoptions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_opensearchservice as opensearchservice
+                
+                i_aMFederation_options_property = {
+                    "enabled": False,
+                    "roles_key": "rolesKey",
+                    "subject_key": "subjectKey"
+                }
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__971641e70ccfc775e66557140fbf7dd5e756f8742fc74a12671b24f77bea23c6)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument roles_key", value=roles_key, expected_type=type_hints["roles_key"])
+                check_type(argname="argument subject_key", value=subject_key, expected_type=type_hints["subject_key"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+            if roles_key is not None:
+                self._values["roles_key"] = roles_key
+            if subject_key is not None:
+                self._values["subject_key"] = subject_key
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-iamfederationoptions.html#cfn-opensearchservice-domain-iamfederationoptions-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def roles_key(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-iamfederationoptions.html#cfn-opensearchservice-domain-iamfederationoptions-roleskey
+            '''
+            result = self._values.get("roles_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def subject_key(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-iamfederationoptions.html#cfn-opensearchservice-domain-iamfederationoptions-subjectkey
+            '''
+            result = self._values.get("subject_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IAMFederationOptionsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4999,6 +5112,11 @@ class CfnDomainProps:
                     anonymous_auth_disable_date="anonymousAuthDisableDate",
                     anonymous_auth_enabled=False,
                     enabled=False,
+                    iam_federation_options={
+                        "enabled": False,
+                        "roles_key": "rolesKey",
+                        "subject_key": "subjectKey"
+                    },
                     internal_user_database_enabled=False,
                     jwt_options=opensearchservice.CfnDomain.JWTOptionsProperty(
                         enabled=False,
@@ -10731,6 +10849,7 @@ def _typecheckingstub__fd5c3c68239a044600ab387ec52e22ed8852c6e213d5626aa4396b28a
     anonymous_auth_disable_date: typing.Optional[builtins.str] = None,
     anonymous_auth_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    iam_federation_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.IAMFederationOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     internal_user_database_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     jwt_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.JWTOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     master_user_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.MasterUserOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10801,6 +10920,15 @@ def _typecheckingstub__8045e71bf2b9389f7b778b391167aea3cf2ff9b7ccd6b9462c26cc1dc
     *,
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__971641e70ccfc775e66557140fbf7dd5e756f8742fc74a12671b24f77bea23c6(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    roles_key: typing.Optional[builtins.str] = None,
+    subject_key: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

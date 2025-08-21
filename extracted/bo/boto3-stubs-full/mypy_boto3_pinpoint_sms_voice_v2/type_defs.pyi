@@ -508,6 +508,7 @@ class PhoneNumberInformationTypeDef(TypedDict):
     PhoneNumberId: NotRequired[str]
     TwoWayChannelArn: NotRequired[str]
     TwoWayChannelRole: NotRequired[str]
+    InternationalSendingEnabled: NotRequired[bool]
     PoolId: NotRequired[str]
     RegistrationId: NotRequired[str]
 
@@ -869,6 +870,7 @@ class UpdatePhoneNumberRequestTypeDef(TypedDict):
     TwoWayChannelRole: NotRequired[str]
     SelfManagedOptOutsEnabled: NotRequired[bool]
     OptOutListName: NotRequired[str]
+    InternationalSendingEnabled: NotRequired[bool]
     DeletionProtectionEnabled: NotRequired[bool]
 
 class UpdatePoolRequestTypeDef(TypedDict):
@@ -1219,6 +1221,7 @@ class UpdatePhoneNumberResultTypeDef(TypedDict):
     TwoWayChannelRole: str
     SelfManagedOptOutsEnabled: bool
     OptOutListName: str
+    InternationalSendingEnabled: bool
     DeletionProtectionEnabled: bool
     RegistrationId: str
     CreatedTimestamp: datetime
@@ -1391,6 +1394,7 @@ class RequestPhoneNumberRequestTypeDef(TypedDict):
     OptOutListName: NotRequired[str]
     PoolId: NotRequired[str]
     RegistrationId: NotRequired[str]
+    InternationalSendingEnabled: NotRequired[bool]
     DeletionProtectionEnabled: NotRequired[bool]
     Tags: NotRequired[Sequence[TagTypeDef]]
     ClientToken: NotRequired[str]
@@ -1410,6 +1414,7 @@ class RequestPhoneNumberResultTypeDef(TypedDict):
     TwoWayChannelRole: str
     SelfManagedOptOutsEnabled: bool
     OptOutListName: str
+    InternationalSendingEnabled: bool
     DeletionProtectionEnabled: bool
     PoolId: str
     RegistrationId: str

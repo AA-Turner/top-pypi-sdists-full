@@ -4,8 +4,10 @@ import subprocess
 from typing import Optional
 import urllib.request
 
+from sky.utils import directory_utils
+
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = '523104e8e33153f9aba88897ea9a472513bbd9da'
+_SKYPILOT_COMMIT_SHA = 'd3bea00da2fdee863cd4bb423224adf21c68b604'
 
 
 def _get_git_commit():
@@ -35,8 +37,8 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20250819'
-__root_dir__ = os.path.dirname(os.path.abspath(__file__))
+__version__ = '1.0.0.dev20250820'
+__root_dir__ = directory_utils.get_sky_dir()
 
 
 # ---------------------- Proxy Configuration ---------------------- #

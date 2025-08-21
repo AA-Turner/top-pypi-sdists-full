@@ -54,6 +54,7 @@ use crate::alt::types::legacy_lookup::LegacyTypeParameterLookup;
 use crate::alt::types::yields::YieldFromResult;
 use crate::alt::types::yields::YieldResult;
 use crate::binding::base_class::BaseClass;
+use crate::binding::base_class::BaseClassGeneric;
 use crate::binding::bindings::Bindings;
 use crate::binding::narrow::NarrowOp;
 use crate::binding::pydantic::PydanticMetadataBinding;
@@ -95,8 +96,8 @@ assert_words!(BindingExpect, 11);
 assert_words!(BindingAnnotation, 15);
 assert_words!(BindingClass, 22);
 assert_words!(BindingTParams, 10);
-assert_words!(BindingClassBaseType, 4);
-assert_words!(BindingClassMetadata, 11);
+assert_words!(BindingClassBaseType, 3);
+assert_words!(BindingClassMetadata, 7);
 assert_bytes!(BindingClassMro, 4);
 assert_words!(BindingClassField, 21);
 assert_bytes!(BindingClassSynthesizedFields, 4);
@@ -487,6 +488,8 @@ impl DisplayWith<Bindings> for ExprOrBinding {
 pub enum BindingExpect {
     /// An expression where we need to check for type errors, but don't need the result type.
     TypeCheckExpr(Expr),
+    /// Same as `TypeCheckExpr` but more checks are needed for expressions that appear in base class list.
+    TypeCheckBaseClassExpr(Expr),
     /// The expected number of values in an unpacked iterable expression.
     UnpackedLength(Idx<Key>, TextRange, SizeExpectation),
     /// An exception and its cause from a raise statement.
@@ -510,6 +513,9 @@ impl DisplayWith<Bindings> for BindingExpect {
         match self {
             Self::TypeCheckExpr(x) => {
                 write!(f, "TypeCheckExpr({})", m.display(x))
+            }
+            Self::TypeCheckBaseClassExpr(x) => {
+                write!(f, "TypeCheckBaseClassExpr({})", m.display(x))
             }
             Self::Bool(x) => {
                 write!(f, "Bool({})", m.display(x))
@@ -1732,7 +1738,7 @@ impl DisplayWith<Bindings> for BindingClass {
 pub struct BindingTParams {
     pub name: Identifier,
     pub scoped_type_params: Option<Box<TypeParams>>,
-    pub bases: Box<[BaseClass]>,
+    pub generic_bases: Box<[BaseClassGeneric]>,
     pub legacy_tparams: Box<[Idx<KeyLegacyTypeParam>]>,
 }
 
@@ -1748,10 +1754,6 @@ pub struct BindingClassBaseType {
     pub class_idx: Idx<KeyClass>,
     /// The base class list, as expressions.
     pub bases: Box<[BaseClass]>,
-    /// May contain a base class to directly inject into the base class list. This is needed
-    /// for some synthesized classes, which have no actual class body and therefore usually have no
-    /// base class expressions, but may have a known base class for the synthesized class.
-    pub special_base: Option<Box<BaseClass>>,
     pub is_new_type: bool,
 }
 
@@ -1928,10 +1930,6 @@ pub struct BindingClassMetadata {
     pub decorators: Box<[(Idx<Key>, TextRange)]>,
     /// Is this a new type? True only for synthesized classes created from a `NewType` call.
     pub is_new_type: bool,
-    /// May contain a base class to directly inject into the base class list. This is needed
-    /// for some synthesized classes, which have no actual class body and therefore usually have no
-    /// base class expressions, but may have a known base class for the synthesized class.
-    pub special_base: Option<Box<BaseClass>>,
     pub pydantic_metadata: PydanticMetadataBinding,
 }
 

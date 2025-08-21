@@ -53,6 +53,7 @@ from ..constants import (
     ASSET_TYPE_VIDEO,
     PAYLOAD_ADDITIONAL_SYSTEM_INFO_LIST,
     PAYLOAD_API_KEY,
+    PAYLOAD_ASSET_NAME,
     PAYLOAD_COMMAND,
     PAYLOAD_DEPENDENCIES,
     PAYLOAD_DEPENDENCY_NAME,
@@ -1573,14 +1574,14 @@ class BaseApiClient(object):
         endpoint: str,
         payload: Any,
         alternate_base_url: Optional[str] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> requests.Response:
         return self._result_from_http_method(
             method=self.post,
             endpoint=endpoint,
             payload=payload,
             alternate_base_url=alternate_base_url,
-            **kwargs
+            **kwargs,
         )
 
     def put_from_endpoint(
@@ -1588,14 +1589,14 @@ class BaseApiClient(object):
         endpoint: str,
         payload: Any,
         alternate_base_url: Optional[str] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> requests.Response:
         return self._result_from_http_method(
             method=self.put,
             endpoint=endpoint,
             payload=payload,
             alternate_base_url=alternate_base_url,
-            **kwargs
+            **kwargs,
         )
 
     def _result_from_http_method(
@@ -1604,7 +1605,7 @@ class BaseApiClient(object):
         endpoint: str,
         payload: Any,
         alternate_base_url: Optional[str],
-        **kwargs: Any
+        **kwargs: Any,
     ) -> requests.Response:
         url = self._endpoint_url(
             endpoint=endpoint, alternate_base_url=alternate_base_url
@@ -1938,8 +1939,50 @@ class RestApiClient(BaseApiClient):
         results = self.get_from_endpoint(
             "experiment/asset/list", params=params, timeout=timeout
         )
-        if results:
+        if results is not None:
             return results["assets"]
+
+        return None
+
+    def get_experiment_assets_list_by_name(
+        self,
+        experiment_key: str,
+        asset_name: str,
+        asset_type: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        Fetch a list of experiment assets by their name and optional type.
+
+        This method interacts with an endpoint to retrieve a list of assets for a given
+        experiment, filtered by the provided asset name and optionally by asset type.
+
+        Args:
+            experiment_key:
+                The unique key identifying the experiment.
+            asset_name:
+                The name of the asset to fetch.
+            asset_type:
+                The type of the asset to filter the results. Default is None.
+            timeout: Optional[float]
+                The maximum time in seconds to wait for the endpoint response. Default is None.
+
+        Returns:
+            A list of assets matching the provided criteria, or None if no assets are found.
+        """
+        params = {
+            PAYLOAD_EXPERIMENT_KEY: experiment_key,
+            PAYLOAD_ASSET_NAME: asset_name,
+        }
+        if asset_type is not None:
+            params["type"] = asset_type
+        results = self.get_from_endpoint(
+            "experiment/asset/get-by-name", params=params, timeout=timeout
+        )
+        if results is not None:
+            return results["assets"]
+
+        return None
 
     def _prepare_experiment_asset_request(
         self,
@@ -1973,7 +2016,7 @@ class RestApiClient(BaseApiClient):
         return_type: str = "binary",
         stream: bool = False,
         allow301: bool = False,
-    ) -> requests.Response:
+    ) -> Union[bytes, Dict[str, Any], requests.Response]:
         request = self._prepare_experiment_asset_request(
             asset_id=asset_id,
             experiment_key=experiment_key,
@@ -4501,7 +4544,7 @@ class RestApiClientWithCache(RestApiClient):
         endpoint: str,
         payload: Any,
         alternate_base_url: Optional[str] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> requests.Response:
         """
         Wrapper that clears the cache after posting.
@@ -4510,7 +4553,7 @@ class RestApiClientWithCache(RestApiClient):
             endpoint=endpoint,
             payload=payload,
             alternate_base_url=alternate_base_url,
-            **kwargs
+            **kwargs,
         )
         self.cache_clear_read_endpoints(endpoint, payload)
         if "params" in kwargs:

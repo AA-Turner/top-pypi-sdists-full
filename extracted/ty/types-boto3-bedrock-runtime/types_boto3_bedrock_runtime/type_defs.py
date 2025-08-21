@@ -108,7 +108,11 @@ __all__ = (
     "ConverseStreamRequestTypeDef",
     "ConverseStreamResponseTypeDef",
     "ConverseStreamTraceTypeDef",
+    "ConverseTokensRequestTypeDef",
     "ConverseTraceTypeDef",
+    "CountTokensInputTypeDef",
+    "CountTokensRequestTypeDef",
+    "CountTokensResponseTypeDef",
     "DocumentBlockOutputTypeDef",
     "DocumentBlockTypeDef",
     "DocumentBlockUnionTypeDef",
@@ -183,6 +187,7 @@ __all__ = (
     "InternalServerExceptionTypeDef",
     "InvokeModelRequestTypeDef",
     "InvokeModelResponseTypeDef",
+    "InvokeModelTokensRequestTypeDef",
     "InvokeModelWithBidirectionalStreamInputTypeDef",
     "InvokeModelWithBidirectionalStreamOutputTypeDef",
     "InvokeModelWithBidirectionalStreamRequestTypeDef",
@@ -610,6 +615,11 @@ ToolUseBlockTypeDef = TypedDict(
 )
 
 
+class CountTokensResponseTypeDef(TypedDict):
+    inputTokens: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class InvokeModelResponseTypeDef(TypedDict):
     body: StreamingBody
     contentType: str
@@ -655,6 +665,10 @@ class InvokeModelRequestTypeDef(TypedDict):
     guardrailIdentifier: NotRequired[str]
     guardrailVersion: NotRequired[str]
     performanceConfigLatency: NotRequired[PerformanceConfigLatencyType]
+
+
+class InvokeModelTokensRequestTypeDef(TypedDict):
+    body: BlobTypeDef
 
 
 class InvokeModelWithResponseStreamRequestTypeDef(TypedDict):
@@ -1342,3 +1356,22 @@ class ConverseStreamRequestTypeDef(TypedDict):
     additionalModelResponseFieldPaths: NotRequired[Sequence[str]]
     requestMetadata: NotRequired[Mapping[str, str]]
     performanceConfig: NotRequired[PerformanceConfigurationTypeDef]
+
+
+class ConverseTokensRequestTypeDef(TypedDict):
+    messages: NotRequired[Sequence[MessageUnionTypeDef]]
+    system: NotRequired[Sequence[SystemContentBlockTypeDef]]
+
+
+class CountTokensInputTypeDef(TypedDict):
+    invokeModel: NotRequired[InvokeModelTokensRequestTypeDef]
+    converse: NotRequired[ConverseTokensRequestTypeDef]
+
+
+CountTokensRequestTypeDef = TypedDict(
+    "CountTokensRequestTypeDef",
+    {
+        "modelId": str,
+        "input": CountTokensInputTypeDef,
+    },
+)

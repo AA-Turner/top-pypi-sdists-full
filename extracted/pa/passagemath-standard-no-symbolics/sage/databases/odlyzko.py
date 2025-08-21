@@ -1,4 +1,3 @@
-# sage_setup: distribution = sagemath-database-odlyzko-zeta
 """
 Database of the zeros of the Riemann zeta function
 

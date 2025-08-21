@@ -126,6 +126,8 @@ use crate::types::types::Var;
 pub enum TypeFormContext {
     /// Expression in a base class list
     BaseClassList,
+    /// Keyword in a class definition - `class C(some_keyword=SomeValue): ...`
+    ClassKeyword,
     /// Variable annotation in a class
     ClassVarAnnotation,
     /// Argument to a function such as cast, assert_type, or TypeVar
@@ -253,7 +255,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             keywords,
             decorators,
             is_new_type,
-            special_base,
             pydantic_metadata,
         } = binding;
         let metadata = match &self.get_idx(*k).0 {
@@ -264,7 +265,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 keywords,
                 decorators,
                 *is_new_type,
-                special_base,
                 pydantic_metadata,
                 errors,
             ),
@@ -319,6 +319,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.solver().is_subset_eq(got, want, self.type_order())
     }
 
+    pub fn expr_class_keyword(&self, x: &Expr, errors: &ErrorCollector) -> Annotation {
+        // For now, we happen to know that ReadOnly is the only qualifier we support here, so we can
+        // make some simplifying assumptions about what patterns we need to match. We swallow
+        // errors from expr_qualifier() because expr_infer will produce the same errors anyway.
+        match x {
+            Expr::Subscript(x)
+                if let Some(qualifier) = self.expr_qualifier(
+                    &x.value,
+                    TypeFormContext::ClassKeyword,
+                    &self.error_swallower(),
+                ) =>
+            {
+                Annotation {
+                    qualifiers: vec![qualifier],
+                    ty: Some(self.expr_infer(&x.slice, errors)),
+                }
+            }
+            _ => Annotation::new_type(self.expr_infer(x, errors)),
+        }
+    }
+
     fn expr_qualifier(
         &self,
         x: &Expr,
@@ -332,17 +353,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(Type::Type(box Type::SpecialForm(special))) = ty {
             let qualifier = special.to_qualifier();
             match qualifier {
-                Some(
-                    Qualifier::ClassVar
-                    | Qualifier::ReadOnly
-                    | Qualifier::NotRequired
-                    | Qualifier::Required,
-                ) if type_form_context != TypeFormContext::ClassVarAnnotation => {
+                Some(Qualifier::ClassVar | Qualifier::NotRequired | Qualifier::Required)
+                    if type_form_context != TypeFormContext::ClassVarAnnotation =>
+                {
                     self.error(
                         errors,
                         x.range(),
                         ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
                         format!("`{special}` is only allowed inside a class body"),
+                    );
+                    None
+                }
+                Some(Qualifier::ReadOnly)
+                    if !matches!(
+                        type_form_context,
+                        TypeFormContext::ClassVarAnnotation | TypeFormContext::ClassKeyword
+                    ) =>
+                {
+                    self.error(
+                        errors,
+                        x.range(),
+                        ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                        format!("`{special}` is only allowed inside a class body or class keyword"),
                     );
                     None
                 }
@@ -1165,6 +1197,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             BindingExpect::TypeCheckExpr(x) => {
                 self.expr_infer(x, errors);
             }
+            BindingExpect::TypeCheckBaseClassExpr(x) => {
+                self.expr_untype(x, TypeFormContext::BaseClassList, errors);
+            }
             BindingExpect::Bool(x) => {
                 let ty = self.expr_infer(x, errors);
                 self.check_dunder_bool_is_callable(&ty, x.range(), errors);
@@ -1368,7 +1403,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.calculate_class_tparams(
             &binding.name,
             binding.scoped_type_params.as_deref(),
-            &binding.bases,
+            &binding.generic_bases,
             &binding.legacy_tparams,
             errors,
         )
@@ -1381,13 +1416,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Arc<ClassBases> {
         let class_bases = match &self.get_idx(binding.class_idx).0 {
             None => ClassBases::recursive(),
-            Some(cls) => self.class_bases_of(
-                cls,
-                &binding.bases,
-                &binding.special_base,
-                binding.is_new_type,
-                errors,
-            ),
+            Some(cls) => self.class_bases_of(cls, &binding.bases, binding.is_new_type, errors),
         };
         Arc::new(class_bases)
     }
@@ -1439,6 +1468,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         Arc::new(fields)
     }
+
     // TODO zeina: After doing the full implementation, look into extracting fields and
     // base types from existing bindings
     pub fn solve_variance_binding(&self, variance_info: &BindingVariance) -> Arc<VarianceMap> {
@@ -3026,7 +3056,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Unwraps a type, originally evaluated as a value, so that it can be used as a type annotation.
     /// For example, in `def f(x: int): ...`, we evaluate `int` as a value, getting its type as
     /// `type[int]`, then call `untype(type[int])` to get the `int` annotation.
-    fn untype(&self, ty: Type, range: TextRange, errors: &ErrorCollector) -> Type {
+    pub fn untype(&self, ty: Type, range: TextRange, errors: &ErrorCollector) -> Type {
         if let Some(t) = self.untype_opt(ty.clone(), range) {
             t
         } else {

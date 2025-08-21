@@ -43,19 +43,26 @@ from jax._src.pallas.mosaic.primitives import async_remote_copy as async_remote_
 from jax._src.pallas.mosaic.primitives import bitcast as bitcast
 from jax._src.pallas.mosaic.primitives import delay as delay
 from jax._src.pallas.mosaic.primitives import get_barrier_semaphore as get_barrier_semaphore
+from jax._src.pallas.mosaic.primitives import load as load
 from jax._src.pallas.mosaic.primitives import make_async_copy as make_async_copy
 from jax._src.pallas.mosaic.primitives import make_async_remote_copy as make_async_remote_copy
 from jax._src.pallas.mosaic.primitives import prng_random_bits as prng_random_bits
 from jax._src.pallas.mosaic.primitives import prng_seed as prng_seed
 from jax._src.pallas.mosaic.primitives import repeat as repeat
 from jax._src.pallas.mosaic.primitives import roll as roll
+from jax._src.pallas.mosaic.primitives import store as store
 from jax._src.pallas.mosaic.primitives import with_memory_space_constraint as with_memory_space_constraint
+from jax._src.pallas.mosaic.random import stateful_bernoulli as stateful_bernoulli
+from jax._src.pallas.mosaic.random import stateful_bits as stateful_bits
+from jax._src.pallas.mosaic.random import stateful_normal as stateful_normal
+from jax._src.pallas.mosaic.random import stateful_uniform as stateful_uniform
 from jax._src.pallas.mosaic.random import sample_block as sample_block
 from jax._src.pallas.mosaic.random import to_pallas_key as to_pallas_key
 
 # Those primitives got moved to Pallas core. Keeping the updated imports
 # here for backward compatibility.
 from jax._src.pallas.core import semaphore as semaphore
+from jax._src.pallas.core import MemorySpace as GeneralMemorySpace
 from jax._src.pallas.primitives import DeviceIdType as DeviceIdType
 from jax._src.pallas.primitives import semaphore_read as semaphore_read
 from jax._src.pallas.primitives import semaphore_signal as semaphore_signal
@@ -71,28 +78,43 @@ verification = types.SimpleNamespace(
 )
 del types, assume, pretend, skip, define_model  # Clean up.
 
-ANY = MemorySpace.ANY
 CMEM = MemorySpace.CMEM
 SMEM = MemorySpace.SMEM
 VMEM = MemorySpace.VMEM
+VMEM_SHARED = MemorySpace.VMEM_SHARED
 HBM = MemorySpace.HBM
+HOST = MemorySpace.HOST
 SEMAPHORE = MemorySpace.SEMAPHORE
+# Expose ANY for backward compatibility.
+ANY = GeneralMemorySpace.ANY
+del GeneralMemorySpace
 
 import typing as _typing  # pylint: disable=g-import-not-at-top
 if _typing.TYPE_CHECKING:
   TPUCompilerParams = CompilerParams
   TPUMemorySpace = MemorySpace
 else:
-  from jax._src.deprecations import deprecation_getattr as _deprecation_getattr
+  from jax._src.deprecations import (
+      deprecation_getattr as _deprecation_getattr,
+      is_accelerated as is_accelerated,
+  )
+  if is_accelerated("jax-pallas-tpu-compiler-params"):
+    _deprecated_TPUCompilerParams = None
+  else:
+    _deprecated_TPUCompilerParams = CompilerParams
+  if is_accelerated("jax-pallas-tpu-memory-space"):
+    _deprecated_TPUMemorySpace = None
+  else:
+    _deprecated_TPUMemorySpace = MemorySpace
   _deprecations = {
       # Deprecated on May 30th 2025.
       "TPUCompilerParams": (
           "TPUCompilerParams is deprecated, use CompilerParams instead.",
-          CompilerParams,
+          _deprecated_TPUCompilerParams,
       ),
       "TPUMemorySpace": (
           "TPUMemorySpace is deprecated, use MemorySpace instead.",
-          MemorySpace,
+          _deprecated_TPUMemorySpace,
       ),
   }
   __getattr__ = _deprecation_getattr(__name__, _deprecations)

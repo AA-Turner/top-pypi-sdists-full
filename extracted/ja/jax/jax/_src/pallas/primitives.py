@@ -20,6 +20,7 @@ from collections.abc import Callable, Sequence
 from collections.abc import Hashable
 import enum
 import functools
+import math
 import string
 from typing import Any
 
@@ -40,14 +41,16 @@ from jax._src.interpreters import ad
 from jax._src.interpreters import batching
 from jax._src.interpreters import partial_eval as pe
 from jax._src.pallas import core as pallas_core
+from jax._src.pallas import utils as pallas_utils
 from jax._src.state import discharge as state_discharge
 from jax._src.state import indexing
 from jax._src.state import primitives as sp
 from jax._src.state import types as state_types
 from jax.interpreters import mlir
+from jax._src.lib.mlir import ir
+from jax._src.lib.mlir.dialects import arith
 import jax.numpy as jnp
 
-partial = functools.partial
 Slice = indexing.Slice
 NDIndexer = indexing.NDIndexer
 
@@ -469,8 +472,9 @@ def _pad_values_to_avoid_dynamic_slice_oob_shift(value,
                   padding_value=padding_value)
   return value
 
-_unpad_values_to_avoid_dynamic_slice_oob_shift = partial(
-  _pad_values_to_avoid_dynamic_slice_oob_shift, unpad=True)
+_unpad_values_to_avoid_dynamic_slice_oob_shift = functools.partial(
+    _pad_values_to_avoid_dynamic_slice_oob_shift, unpad=True
+)
 
 
 @state_discharge.register_discharge_rule(load_p)
@@ -493,7 +497,7 @@ def _load_discharge_rule(in_avals, out_avals, *args_flat, args_tree, **_):
     # of bounds, it will instead move the start_index backwards so the slice
     # will fit in memory.
     ref = _pad_values_to_avoid_dynamic_slice_oob_shift(ref, slice_sizes)
-    idx_dtype = dtypes.canonicalize_dtype(jnp.int64)
+    idx_dtype = dtypes.default_int_dtype()
     out_ones = lax.dynamic_slice(
         ref,
         [jnp.astype(s, idx_dtype) for s in slice_starts],
@@ -515,7 +519,7 @@ swap_p = jax_core.Primitive('masked_swap')
 
 @swap_p.def_effectful_abstract_eval
 def _swap_abstract_eval(*avals_flat, args_tree, **_):
-  ref, transforms, val, _ = args_tree.unflatten(avals_flat)
+  ref, transforms, val, mask = args_tree.unflatten(avals_flat)
   assert transforms is not None and isinstance(transforms[-1], NDIndexer)
   transformed_ref = pallas_core.TransformedRef(ref, transforms)
   expected_output_shape = transformed_ref.shape
@@ -772,7 +776,8 @@ def debug_print(fmt: str, *args: jax.typing.ArrayLike):
         (``{...}``), since it is always printed before any of the values.
       * On GPU, when using the experimental Mosaic GPU backend, ``fmt`` must
         contain a placeholder for each value to be printed. Format specs and
-        conversions are not supported. All values must be scalars.
+        conversions are not supported. If a single value is provided, the value
+        may be an array. Otherwise, all values must be scalars.
       * On TPU, if all inputs are scalars: If ``fmt`` contains placeholders,
         all values must be 32-bit integers. If there are no placeholders, the
         values are printed after the format string.
@@ -1105,6 +1110,9 @@ state_discharge.register_discharge_rule(semaphore_read_p)(
 )
 
 
+DeviceId = int | jax.Array | None | tuple[int | jax.Array, ...] | dict[Any, int | jax.Array]
+
+
 semaphore_signal_p = jax_core.Primitive('semaphore_signal')
 semaphore_signal_p.multiple_results = True
 
@@ -1113,7 +1121,7 @@ def semaphore_signal(
     sem_or_view,
     inc: int | jax.Array = 1,
     *,
-    device_id: int | jax.Array | None | tuple[int | jax.Array, ...] = None,
+    device_id: DeviceId = None,
     device_id_type: DeviceIdType = DeviceIdType.MESH,
     core_index: int | jax.Array | None = None,
 ):
@@ -1275,3 +1283,79 @@ def _semaphore_wait_discharge_rule(in_avals,
 state_discharge.register_discharge_rule(semaphore_wait_p)(
     _semaphore_wait_discharge_rule
 )
+
+
+def _device_id_dict_to_mesh(mesh_context: pallas_utils.MeshInfo, device_id_dict, get_axis_index):
+  i32 = ir.IntegerType.get_signless(32)
+  assert mesh_context is not None
+  mesh_axis_sizes = dict(zip(mesh_context.axis_names, mesh_context.mesh_shape))
+  physical_axis_dict = {}
+  # Handle joint axes (i.e., one logical axis over >1 physical axes)
+  for axis, idx in device_id_dict.items():
+    if isinstance(axis, tuple) and any(a in mesh_context.axis_names for a in axis):
+      if not all(a in mesh_context.axis_names for a in axis):
+        raise NotImplementedError(
+            f"{axis} mixes JAX mesh and Pallas mesh grid axes"
+        )
+      axes_dimensions = [mesh_axis_sizes[name] for name in axis]
+      for axis_index, axis_name in enumerate(axis):
+        axis_size = arith.constant(i32, mesh_axis_sizes[axis_name])
+        minor_divisor = arith.constant(
+            i32, math.prod(axes_dimensions[axis_index + 1 :])
+        )
+        device_idx = arith.remsi(arith.divsi(idx, minor_divisor), axis_size)
+        physical_axis_dict[axis_name] = device_idx
+    else:
+      physical_axis_dict[axis] = idx
+  device_id = []
+  for axis in mesh_context.axis_names:
+    if axis in physical_axis_dict:
+      device_id.append(physical_axis_dict[axis])
+    else:
+      device_id.append(get_axis_index(axis))
+  non_mesh_axes = {
+      k: v
+      for k, v in physical_axis_dict.items()
+      if k not in mesh_context.axis_names
+  }
+  return tuple(device_id), non_mesh_axes
+
+
+def device_id_to_logical(
+    mesh_context: pallas_utils.MeshInfo | None,
+    device_id: ir.Value | tuple[ir.Value, ...] | dict[Any, ir.Value],
+    device_id_type: DeviceIdType,
+    get_axis_index,
+) -> tuple[ir.Value, dict[Any, ir.Value]]:
+  """Normalizes a device id into a logical device id and axes that don't correspond to JAX mesh axes.
+
+  The indexing implied by the returned axis dict should be handled by the caller.
+  """
+  non_mesh_axes = {}
+  if isinstance(device_id, dict):
+    if device_id_type is not DeviceIdType.MESH:
+      raise ValueError(
+          "`device_id_type` must be MESH if `device_id` is a dict,"
+          f" got: {device_id_type = }."
+      )
+    assert mesh_context is not None
+    device_id, non_mesh_axes = _device_id_dict_to_mesh(mesh_context, device_id, get_axis_index)
+  if device_id_type is DeviceIdType.MESH:
+    assert mesh_context is not None
+    # Mesh means we are passed the mesh coordinates for the device
+    device_ids = tree_util.tree_leaves(device_id)
+    mesh_strides = mesh_context.mesh_strides
+
+    i32 = ir.IntegerType.get_signless(32)
+    if len(device_ids) == 0:
+      return arith.constant(i32, 0), non_mesh_axes
+    return functools.reduce(
+        arith.addi,
+        (
+            arith.muli(a, arith.constant(i32, b))
+            for a, b in zip(device_ids, mesh_strides)
+        ),
+    ), non_mesh_axes
+  elif device_id_type is DeviceIdType.LOGICAL:
+    return device_id, non_mesh_axes
+  raise NotImplementedError(f"Unsupported device id type: {device_id_type}")

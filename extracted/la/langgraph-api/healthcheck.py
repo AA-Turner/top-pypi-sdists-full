@@ -3,6 +3,7 @@ import os
 import urllib.request
 
 prefix = ""
+mount_prefix = None
 # Override prefix if it's set in the http config
 if (http := os.environ.get("LANGGRAPH_HTTP")) and (
     mount_prefix := json.loads(http).get("mount_prefix")

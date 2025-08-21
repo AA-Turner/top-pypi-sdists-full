@@ -538,9 +538,9 @@ class CfnCluster(
             '''An endpoint available for interaction with the scheduler.
 
             :param port: The endpoint's connection port number.
-            :param private_ip_address: The endpoint's private IP address.
+            :param private_ip_address: For clusters that use IPv4, this is the endpoint's private IP address. Example: ``10.1.2.3`` For clusters configured to use IPv6, this is an empty string.
             :param type: Indicates the type of endpoint running at the specific IP address.
-            :param ipv6_address: The endpoint's IPv6 address.
+            :param ipv6_address: The endpoint's IPv6 address. Example: ``2001:db8::1``
             :param public_ip_address: The endpoint's public IP address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-endpoint.html
@@ -591,7 +591,11 @@ class CfnCluster(
 
         @builtins.property
         def private_ip_address(self) -> builtins.str:
-            '''The endpoint's private IP address.
+            '''For clusters that use IPv4, this is the endpoint's private IP address.
+
+            Example: ``10.1.2.3``
+
+            For clusters configured to use IPv6, this is an empty string.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-endpoint.html#cfn-pcs-cluster-endpoint-privateipaddress
             '''
@@ -612,6 +616,8 @@ class CfnCluster(
         @builtins.property
         def ipv6_address(self) -> typing.Optional[builtins.str]:
             '''The endpoint's IPv6 address.
+
+            Example: ``2001:db8::1``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-endpoint.html#cfn-pcs-cluster-endpoint-ipv6address
             '''
@@ -725,9 +731,9 @@ class CfnCluster(
             security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''TThe networking configuration for the cluster's control plane.
+            '''The networking configuration for the cluster's control plane.
 
-            :param network_type: The IP of the cluster (IPV4 or IPV6).
+            :param network_type: The IP address version the cluster uses. The default is ``IPV4`` .
             :param security_group_ids: The list of security group IDs associated with the Elastic Network Interface (ENI) created in subnets.
             :param subnet_ids: The list of subnet IDs where AWS PCS creates an Elastic Network Interface (ENI) to enable communication between managed controllers and AWS PCS resources. The subnet must have an available IP address, cannot reside in AWS Outposts, AWS Wavelength, or an AWS Local Zone. AWS PCS currently supports only 1 subnet in this list.
 
@@ -761,7 +767,9 @@ class CfnCluster(
 
         @builtins.property
         def network_type(self) -> typing.Optional[builtins.str]:
-            '''The IP of the cluster (IPV4 or IPV6).
+            '''The IP address version the cluster uses.
+
+            The default is ``IPV4`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-cluster-networking.html#cfn-pcs-cluster-networking-networktype
             '''
@@ -2639,7 +2647,7 @@ class CfnQueue(
             '''An error that occurred during resource provisioning.
 
             :param code: The short-form error code.
-            :param message: TBDThe detailed error information.
+            :param message: The detailed error information.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-queue-errorinfo.html
             :exampleMetadata: fixture=_generated
@@ -2676,7 +2684,7 @@ class CfnQueue(
 
         @builtins.property
         def message(self) -> typing.Optional[builtins.str]:
-            '''TBDThe detailed error information.
+            '''The detailed error information.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-pcs-queue-errorinfo.html#cfn-pcs-queue-errorinfo-message
             '''

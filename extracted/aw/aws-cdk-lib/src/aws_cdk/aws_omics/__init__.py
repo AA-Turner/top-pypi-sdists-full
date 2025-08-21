@@ -3326,7 +3326,7 @@ class CfnWorkflowVersion(
     Provide a version name that is unique for this workflow. You cannot change the name after HealthOmics creates the version.
     .. epigraph::
 
-       Don’t include any personally identifiable information (PII) in the version name. Version names appear in the workflow version ARN.
+       Don't include any personally identifiable information (PII) in the version name. Version names appear in the workflow version ARN.
 
     For more information, see `Workflow versioning in AWS HealthOmics <https://docs.aws.amazon.com/omics/latest/dev/workflow-versions.html>`_ in the *AWS HealthOmics User Guide* .
 

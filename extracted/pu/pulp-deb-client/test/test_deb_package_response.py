@@ -43,6 +43,7 @@ class TestDebPackageResponse(unittest.TestCase):
                 pulp_labels = {
                     'key' : ''
                     },
+                vuln_report = '',
                 artifact = '',
                 relative_path = '',
                 distribution = '',

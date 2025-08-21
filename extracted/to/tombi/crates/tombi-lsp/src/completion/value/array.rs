@@ -60,9 +60,11 @@ impl FindCompletionContents for tombi_document_tree::Array {
                 match current_schema.value_schema.as_ref() {
                     ValueSchema::Array(array_schema) => {
                         let mut new_item_index = 0;
+                        let mut new_item_start_position = None;
                         for (index, value) in self.values().iter().enumerate() {
                             if value.range().end < position {
                                 new_item_index = index + 1;
+                                new_item_start_position = Some(value.range().end);
                             }
                             if value.range().contains(position) {
                                 let accessor = Accessor::Index(index);
@@ -118,7 +120,28 @@ impl FindCompletionContents for tombi_document_tree::Array {
                                         Some(&current_schema),
                                         schema_context,
                                         if self.kind() == ArrayKind::Array {
-                                            Some(CompletionHint::InArray)
+                                            if new_item_index == 0 {
+                                                Some(CompletionHint::InArray)
+                                            } else {
+                                                if matches!(
+                                                    completion_hint,
+                                                    Some(CompletionHint::LastComma { .. })
+                                                ) {
+                                                    if new_item_index == self.len() {
+                                                        Some(CompletionHint::InArray)
+                                                    } else {
+                                                        Some(CompletionHint::NeedTailComma)
+                                                    }
+                                                } else if let Some(start_position) =
+                                                    new_item_start_position
+                                                {
+                                                    Some(CompletionHint::NeedHeadComma {
+                                                        start_position,
+                                                    })
+                                                } else {
+                                                    Some(CompletionHint::InArray)
+                                                }
+                                            }
                                         } else {
                                             completion_hint
                                         },
@@ -126,7 +149,7 @@ impl FindCompletionContents for tombi_document_tree::Array {
                                     .await;
 
                                 if array_schema.unique_items == Some(true) {
-                                    let values = self
+                                    let unique_values = self
                                         .values()
                                         .iter()
                                         .filter_map(Option::<LiteralValueRef>::from)
@@ -137,7 +160,7 @@ impl FindCompletionContents for tombi_document_tree::Array {
                                         .into_iter()
                                         .filter(|completion| {
                                             !(completion.kind.is_literal()
-                                                && values.contains(&completion.label))
+                                                && unique_values.contains(&completion.label))
                                         })
                                         .collect_vec();
                                 }
@@ -215,7 +238,7 @@ impl FindCompletionContents for tombi_document_tree::Array {
                                     .iter()
                                     .cloned()
                                     .chain(std::iter::once(accessor))
-                                    .collect::<Vec<_>>(),
+                                    .collect_vec(),
                                 None,
                                 schema_context,
                                 completion_hint,

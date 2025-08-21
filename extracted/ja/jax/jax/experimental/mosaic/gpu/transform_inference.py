@@ -23,7 +23,6 @@ from functools import partial
 import math
 from typing import cast
 
-from jax._src import lib as jaxlib
 from jax._src.lib import mosaic_gpu_dialect as mgpu
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import arith
@@ -34,9 +33,9 @@ from jax._src.lib.mlir.dialects import vector
 from . import fragmented_array as fa
 from . import inference_utils
 from . import layouts as layouts_lib
+from . import tcgen05
 from . import utils
 
-# mypy: ignore-errors
 
 OptionalTransforms = tuple[list[ir.Attribute], list[ir.Attribute]] | None
 TransformInferenceRule = Callable[[ir.OpView], OptionalTransforms]
@@ -107,7 +106,7 @@ def _resolve_transforms(
   return ir.ArrayAttr.get(new_transforms)
 
 
-def _transforms_from_uses(op: ir.OpView) -> ir.Attribute | None:
+def _transforms_from_uses(op: ir.OpView) -> ir.ArrayAttr | None:
   transforms = None
 
   for result_use in cast(ir.OpResult, op.result).uses:
@@ -120,7 +119,7 @@ def _transforms_from_uses(op: ir.OpView) -> ir.Attribute | None:
   return transforms
 
 
-def _infer_transforms_for_wgmma_ref(
+def _infer_transforms_for_mma_ref(
     ref_ty: ir.MemRefType, max_swizzle: mgpu.SwizzlingMode
 ) -> tuple[ir.ArrayAttr, mgpu.SwizzlingMode]:
   if len(ref_ty.shape) != 2:
@@ -163,23 +162,34 @@ def _infer_transforms_for_wgmma_ref(
   )
 
 
-@partial(_add_transform_inference_rule, mgpu.WGMMAOp)
-def infer_wgmma_transforms(op: mgpu.WGMMAOp) -> OptionalTransforms:
-  b_transforms, b_swizzle = _infer_transforms_for_wgmma_ref(
-      ir.MemRefType(op.b.type), max_swizzle=mgpu.SwizzlingMode.k128ByteSwizzle
+def _infer_mma_transforms(
+    a_type: ir.Type, b_type: ir.Type
+) -> OptionalTransforms:
+  b_transforms, b_swizzle = _infer_transforms_for_mma_ref(
+      ir.MemRefType(b_type), max_swizzle=mgpu.SwizzlingMode.k128ByteSwizzle
   )
-  if ir.MemRefType.isinstance(op.a.type):
-    a_transforms, a_swizzle = _infer_transforms_for_wgmma_ref(
-        cast(ir.MemRefType, op.a.type), max_swizzle=b_swizzle
+  if ir.MemRefType.isinstance(a_type):
+    a_transforms, a_swizzle = _infer_transforms_for_mma_ref(
+        cast(ir.MemRefType, a_type), max_swizzle=b_swizzle
     )
     if a_swizzle != b_swizzle:
       # The swizzle for a and b has to match.
-      b_transforms, b_swizzle = _infer_transforms_for_wgmma_ref(
-          ir.MemRefType(op.b.type), max_swizzle=a_swizzle
+      b_transforms, b_swizzle = _infer_transforms_for_mma_ref(
+          ir.MemRefType(b_type), max_swizzle=a_swizzle
       )
       assert a_swizzle == b_swizzle
     return [a_transforms, b_transforms], []
   return [b_transforms], []
+
+
+@partial(_add_transform_inference_rule, mgpu.WGMMAOp)
+def infer_wgmma_transforms(op: mgpu.WGMMAOp) -> OptionalTransforms:
+  return _infer_mma_transforms(op.a.type, op.b.type)
+
+
+@partial(_add_transform_inference_rule, mgpu.TcGen05MMAOp)
+def infer_tcgen05_mma_transforms(op: mgpu.TcGen05MMAOp) -> OptionalTransforms:
+  return _infer_mma_transforms(op.a.type, op.b.type)
 
 
 @partial(_add_transform_inference_rule, mgpu.AsyncStoreOp)
@@ -220,12 +230,14 @@ def _infer_vector_load_store_transforms(
   transforms = inference_utils.value_transforms(op.base)
 
   if layout == fa.WGMMA_LAYOUT:
-    layout_transforms, _ = _infer_transforms_for_wgmma_ref(
-        ir.MemRefType(op.base.type), max_swizzle=mgpu.SwizzlingMode.k128ByteSwizzle
+    layout_transforms, _ = _infer_transforms_for_mma_ref(
+        ir.MemRefType(op.base.type),
+        max_swizzle=mgpu.SwizzlingMode.k128ByteSwizzle,
     )
   elif (
       layout == fa.WGMMA_ROW_LAYOUT
       or layout == fa.WGMMA_COL_LAYOUT
+      or layout == tcgen05.TMEM_NATIVE_LAYOUT
       or isinstance(layout, fa.WGStridedFragLayout)
       or isinstance(layout, fa.WGSplatFragLayout)
   ):
@@ -372,9 +384,10 @@ def _infer_memref_transpose_transforms(
   transpose = in_strides != out_strides
 
   out_transforms = _transforms_from_uses(op)
-  in_transforms = []
+  in_transforms: list[ir.Attribute] = []
   if not transpose:
-    in_transforms = out_transforms
+    if out_transforms:
+      in_transforms.extend(*out_transforms)
   else:
     tile_transform, swizzle_transform = _get_tile_and_swizzle_transforms(
         out_transforms
@@ -408,22 +421,18 @@ def _infer_memref_cast_transforms(
   return [transforms], [transforms]
 
 
-# TODO(dasenov): Remove this after the minimal jaxlib version is 0.6.2.
-if jaxlib.version >= (0, 6, 2):
-  @partial(_add_transform_inference_rule, mgpu.WithTransformsOp)
-  def _infer_mgpu_with_transforms_transforms(
-      op: mgpu.WithTransformsOp,
-  ) -> OptionalTransforms:
-    # Do not change the manually provided transforms.
-    return [op.transforms], [op.transforms]
+@partial(_add_transform_inference_rule, mgpu.WithTransformsOp)
+def _infer_mgpu_with_transforms_transforms(
+    op: mgpu.WithTransformsOp,
+) -> OptionalTransforms:
+  # Do not change the manually provided transforms.
+  return [op.transforms], [op.transforms]
 
 
-# TODO(dasenov): Remove this after the minimal jaxlib version is 0.7.0.
-if jaxlib.version >= (0, 7, 0):
-  @partial(_add_transform_inference_rule, mgpu.TmemAllocOp)
-  def _infer_tmem_alloc_transforms(op: mgpu.TmemAllocOp) -> OptionalTransforms:
-    del op
-    return [], []
+@partial(_add_transform_inference_rule, mgpu.TmemAllocOp)
+def _infer_tmem_alloc_transforms(op: mgpu.TmemAllocOp) -> OptionalTransforms:
+  del op
+  return [], []
 
 
 @partial(_add_transform_inference_rule, mgpu.CustomPrimitiveOp)

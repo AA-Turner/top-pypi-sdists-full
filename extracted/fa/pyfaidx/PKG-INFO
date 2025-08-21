@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyfaidx
-Version: 0.8.2
+Version: 0.9.0
 Summary: pyfaidx: efficient pythonic random access to fasta subsequences
 Author-email: Matthew Shirley <mdshw5@gmail.com>
 License: BSD-3-Clause

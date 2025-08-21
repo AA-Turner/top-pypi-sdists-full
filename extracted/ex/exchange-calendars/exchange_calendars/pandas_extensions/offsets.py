@@ -7,8 +7,9 @@ import toolz
 import numpy as np
 import pandas as pd
 
-from pandas.tseries.offsets import CustomBusinessDay
+from pandas.tseries.offsets import CustomBusinessDay, BaseOffset
 from pandas._libs.tslibs.offsets import apply_wraps
+from pandas._libs.tslibs.conversion import localize_pydatetime
 
 
 class CompositeCustomBusinessDay(CustomBusinessDay):
@@ -305,3 +306,55 @@ class MultipleWeekmaskCustomBusinessDay(CompositeCustomBusinessDay):
     @weekmasks.setter
     def weekmasks(self, weekmasks):
         self._weekmasks = weekmasks
+
+
+class SingleConstructorOffset(BaseOffset):
+    def __reduce__(self):
+        ...
+
+
+class OrthodoxEaster(SingleConstructorOffset):
+    """
+    DateOffset for the Orthodox Easter holiday.
+    """
+
+    def __setstate__(self, state):
+        self.n = state.pop("n")
+        self.normalize = state.pop("normalize")
+
+    @apply_wraps
+    def _apply(self, other: datetime) -> datetime:
+        from dateutil.easter import easter, EASTER_ORTHODOX
+
+        current_easter = easter(other.year, method=EASTER_ORTHODOX)
+        current_easter = datetime(
+            current_easter.year, current_easter.month, current_easter.day
+        )
+        current_easter = localize_pydatetime(current_easter, other.tzinfo)
+
+        n = self.n
+        if n >= 0 and other < current_easter:
+            n -= 1
+        elif n < 0 and other > current_easter:
+            n += 1
+
+        new = easter(other.year + n, method=EASTER_ORTHODOX)
+        new = datetime(
+            new.year,
+            new.month,
+            new.day,
+            other.hour,
+            other.minute,
+            other.second,
+            other.microsecond,
+        )
+        return new
+
+    def is_on_offset(self, dt: datetime) -> bool:
+        if self.normalize and not _is_normalized(dt):
+            return False
+
+        from dateutil.easter import easter, EASTER_ORTHODOX
+        from datetime import date
+
+        return date(dt.year, dt.month, dt.day) == easter(dt.year, method=EASTER_ORTHODOX)

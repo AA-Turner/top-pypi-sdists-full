@@ -113,6 +113,7 @@ class BlockscoutClient:
         EthereumNetwork.SHAPE: "https://shapescan.xyz/api/v2",
         EthereumNetwork.SHAPE_SEPOLIA_TESTNET: "https://sepolia.shapescan.xyz/api/v2/",
         EthereumNetwork.STORY_AENEID_TESTNET: "https://aeneid.storyscan.io/api/v2/",
+        EthereumNetwork.ETHEREAL_TESTNET: "https://explorer-ethereal-testnet.t.conduit.xyz/api/v2/",
     }
 
     def __init__(
@@ -158,7 +159,7 @@ class BlockscoutClient:
                 name,
                 abi,
                 False,
-                implementations[0]["address"] if implementations else None,
+                implementations[0]["address_hash"] if implementations else None,
             )
         return None
 

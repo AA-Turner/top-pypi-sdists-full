@@ -24,6 +24,14 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class DebInstallerPackageResponse(BaseModel):
     """
     A Serializer for InstallerPackage.
@@ -33,6 +41,7 @@ class DebInstallerPackageResponse(BaseModel):
     pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
     pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")
+    vuln_report: Optional[StrictStr] = None
     artifact: Optional[StrictStr] = Field(default=None, description="Artifact file representing the physical content")
     relative_path: Optional[StrictStr] = Field(default=None, description="Path where the artifact is located relative to distributions base_path")
     md5: Optional[StrictStr] = Field(default=None, description="The MD5 checksum if available.")
@@ -70,7 +79,7 @@ class DebInstallerPackageResponse(BaseModel):
     pre_depends: Optional[StrictStr] = None
     provides: Optional[StrictStr] = None
     replaces: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "artifact", "relative_path", "md5", "sha1", "sha224", "sha256", "sha384", "sha512", "package", "source", "version", "architecture", "section", "priority", "origin", "tag", "bugs", "essential", "build_essential", "installed_size", "maintainer", "original_maintainer", "description", "description_md5", "homepage", "built_using", "auto_built_package", "multi_arch", "breaks", "conflicts", "depends", "recommends", "suggests", "enhances", "pre_depends", "provides", "replaces"]
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "vuln_report", "artifact", "relative_path", "md5", "sha1", "sha224", "sha256", "sha384", "sha512", "package", "source", "version", "architecture", "section", "priority", "origin", "tag", "bugs", "essential", "build_essential", "installed_size", "maintainer", "original_maintainer", "description", "description_md5", "homepage", "built_using", "auto_built_package", "multi_arch", "breaks", "conflicts", "depends", "recommends", "suggests", "enhances", "pre_depends", "provides", "replaces"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -141,12 +150,14 @@ class DebInstallerPackageResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
+        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
             "prn",
             "pulp_created",
             "pulp_last_updated",
+            "vuln_report",
             "md5",
             "sha1",
             "sha224",
@@ -206,6 +217,7 @@ class DebInstallerPackageResponse(BaseModel):
             "pulp_created": obj.get("pulp_created"),
             "pulp_last_updated": obj.get("pulp_last_updated"),
             "pulp_labels": obj.get("pulp_labels"),
+            "vuln_report": obj.get("vuln_report"),
             "artifact": obj.get("artifact"),
             "relative_path": obj.get("relative_path"),
             "md5": obj.get("md5"),

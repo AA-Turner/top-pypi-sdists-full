@@ -1,7 +1,7 @@
 r'''
 # `google_dialogflow_encryption_spec`
 
-Refer to the Terraform Registry for docs: [`google_dialogflow_encryption_spec`](https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec).
+Refer to the Terraform Registry for docs: [`google_dialogflow_encryption_spec`](https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DialogflowEncryptionSpec(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dialogflowEncryptionSpec.DialogflowEncryptionSpec",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec google_dialogflow_encryption_spec}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec google_dialogflow_encryption_spec}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DialogflowEncryptionSpec(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec google_dialogflow_encryption_spec} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec google_dialogflow_encryption_spec} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#encryption_spec DialogflowEncryptionSpec#encryption_spec}
-        :param location: The location in which the encryptionSpec is to be initialized. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#location DialogflowEncryptionSpec#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#id DialogflowEncryptionSpec#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#project DialogflowEncryptionSpec#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#timeouts DialogflowEncryptionSpec#timeouts}
+        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#encryption_spec DialogflowEncryptionSpec#encryption_spec}
+        :param location: The location in which the encryptionSpec is to be initialized. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#location DialogflowEncryptionSpec#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#id DialogflowEncryptionSpec#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#project DialogflowEncryptionSpec#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#timeouts DialogflowEncryptionSpec#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DialogflowEncryptionSpec(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DialogflowEncryptionSpec to import.
-        :param import_from_id: The id of the existing DialogflowEncryptionSpec that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DialogflowEncryptionSpec that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DialogflowEncryptionSpec to import is found.
         '''
         if __debug__:
@@ -129,7 +129,7 @@ class DialogflowEncryptionSpec(
     @jsii.member(jsii_name="putEncryptionSpec")
     def put_encryption_spec(self, *, kms_key: builtins.str) -> None:
         '''
-        :param kms_key: The name of customer-managed encryption key that is used to secure a resource and its sub-resources. If empty, the resource is secured by the default Google encryption key. Only the key in the same location as this resource is allowed to be used for encryption. Format: projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{key} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#kms_key DialogflowEncryptionSpec#kms_key}
+        :param kms_key: The name of customer-managed encryption key that is used to secure a resource and its sub-resources. If empty, the resource is secured by the default Google encryption key. Only the key in the same location as this resource is allowed to be used for encryption. Format: projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{key} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#kms_key DialogflowEncryptionSpec#kms_key}
         '''
         value = DialogflowEncryptionSpecEncryptionSpec(kms_key=kms_key)
 
@@ -143,8 +143,8 @@ class DialogflowEncryptionSpec(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#create DialogflowEncryptionSpec#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#delete DialogflowEncryptionSpec#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#create DialogflowEncryptionSpec#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#delete DialogflowEncryptionSpec#delete}.
         '''
         value = DialogflowEncryptionSpecTimeouts(create=create, delete=delete)
 
@@ -296,11 +296,11 @@ class DialogflowEncryptionSpecConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#encryption_spec DialogflowEncryptionSpec#encryption_spec}
-        :param location: The location in which the encryptionSpec is to be initialized. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#location DialogflowEncryptionSpec#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#id DialogflowEncryptionSpec#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#project DialogflowEncryptionSpec#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#timeouts DialogflowEncryptionSpec#timeouts}
+        :param encryption_spec: encryption_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#encryption_spec DialogflowEncryptionSpec#encryption_spec}
+        :param location: The location in which the encryptionSpec is to be initialized. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#location DialogflowEncryptionSpec#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#id DialogflowEncryptionSpec#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#project DialogflowEncryptionSpec#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#timeouts DialogflowEncryptionSpec#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -415,7 +415,7 @@ class DialogflowEncryptionSpecConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encryption_spec(self) -> "DialogflowEncryptionSpecEncryptionSpec":
         '''encryption_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#encryption_spec DialogflowEncryptionSpec#encryption_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#encryption_spec DialogflowEncryptionSpec#encryption_spec}
         '''
         result = self._values.get("encryption_spec")
         assert result is not None, "Required property 'encryption_spec' is missing"
@@ -425,7 +425,7 @@ class DialogflowEncryptionSpecConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location in which the encryptionSpec is to be initialized.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#location DialogflowEncryptionSpec#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#location DialogflowEncryptionSpec#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -433,7 +433,7 @@ class DialogflowEncryptionSpecConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#id DialogflowEncryptionSpec#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#id DialogflowEncryptionSpec#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -443,7 +443,7 @@ class DialogflowEncryptionSpecConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#project DialogflowEncryptionSpec#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#project DialogflowEncryptionSpec#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -451,7 +451,7 @@ class DialogflowEncryptionSpecConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DialogflowEncryptionSpecTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#timeouts DialogflowEncryptionSpec#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#timeouts DialogflowEncryptionSpec#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DialogflowEncryptionSpecTimeouts"], result)
@@ -476,7 +476,7 @@ class DialogflowEncryptionSpecConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class DialogflowEncryptionSpecEncryptionSpec:
     def __init__(self, *, kms_key: builtins.str) -> None:
         '''
-        :param kms_key: The name of customer-managed encryption key that is used to secure a resource and its sub-resources. If empty, the resource is secured by the default Google encryption key. Only the key in the same location as this resource is allowed to be used for encryption. Format: projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{key} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#kms_key DialogflowEncryptionSpec#kms_key}
+        :param kms_key: The name of customer-managed encryption key that is used to secure a resource and its sub-resources. If empty, the resource is secured by the default Google encryption key. Only the key in the same location as this resource is allowed to be used for encryption. Format: projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{key} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#kms_key DialogflowEncryptionSpec#kms_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed6f7b1d975c82b4eb84cfb99cc6cece309546f32b60d96deac2ae10b695fefa)
@@ -493,7 +493,7 @@ class DialogflowEncryptionSpecEncryptionSpec:
         Only the key in the same location as this resource is allowed to be used for encryption.
         Format: projects/{project}/locations/{location}/keyRings/{keyRing}/cryptoKeys/{key}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#kms_key DialogflowEncryptionSpec#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#kms_key DialogflowEncryptionSpec#kms_key}
         '''
         result = self._values.get("kms_key")
         assert result is not None, "Required property 'kms_key' is missing"
@@ -577,8 +577,8 @@ class DialogflowEncryptionSpecTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#create DialogflowEncryptionSpec#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#delete DialogflowEncryptionSpec#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#create DialogflowEncryptionSpec#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#delete DialogflowEncryptionSpec#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3d6d45811e50fe3bb8c3664d8a5e5ba9214ce6e4b0144027c391e15f2272281b)
@@ -592,13 +592,13 @@ class DialogflowEncryptionSpecTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#create DialogflowEncryptionSpec#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#create DialogflowEncryptionSpec#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.0/docs/resources/dialogflow_encryption_spec#delete DialogflowEncryptionSpec#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.1/docs/resources/dialogflow_encryption_spec#delete DialogflowEncryptionSpec#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

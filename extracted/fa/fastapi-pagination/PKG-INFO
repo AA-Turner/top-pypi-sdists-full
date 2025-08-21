@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-pagination
-Version: 0.13.3
+Version: 0.14.0
 Summary: FastAPI pagination
 Project-URL: Repository, https://github.com/uriyyo/fastapi-pagination
 Author-email: Yurii Karabas <1998uriyyo@gmail.com>
@@ -19,30 +19,11 @@ Requires-Python: <4.0,>=3.9
 Requires-Dist: fastapi>=0.93.0
 Requires-Dist: pydantic>=1.9.1
 Requires-Dist: typing-extensions<5,>=4.8.0
-Provides-Extra: all
-Requires-Dist: asyncpg>=0.24.0; extra == 'all'
-Requires-Dist: beanie>=1.25.0; extra == 'all'
-Requires-Dist: bunnet<2,>=1.1.0; extra == 'all'
-Requires-Dist: databases>=0.6.0; extra == 'all'
-Requires-Dist: django<6.0.0; extra == 'all'
-Requires-Dist: elasticsearch-dsl<9,>=8.13.0; extra == 'all'
-Requires-Dist: google-cloud-firestore<3,>=2.19.0; extra == 'all'
-Requires-Dist: mongoengine<0.30.0,>=0.23.1; extra == 'all'
-Requires-Dist: motor<4.0.0,>=3.6.0; extra == 'all'
-Requires-Dist: odmantic<2,>=1.0.2; extra == 'all'
-Requires-Dist: orm>=0.3.1; extra == 'all'
-Requires-Dist: piccolo<1.25,>=0.89; extra == 'all'
-Requires-Dist: pony<0.8,>=0.7.16; extra == 'all'
-Requires-Dist: scylla-driver<4,>=3.25.6; extra == 'all'
-Requires-Dist: sqlakeyset<3,>=2.0.1680321678; extra == 'all'
-Requires-Dist: sqlalchemy>=1.3.20; extra == 'all'
-Requires-Dist: sqlmodel>=0.0.22; extra == 'all'
-Requires-Dist: tortoise-orm>=0.22.0; extra == 'all'
 Provides-Extra: asyncpg
 Requires-Dist: asyncpg>=0.24.0; extra == 'asyncpg'
 Requires-Dist: sqlalchemy>=1.3.20; extra == 'asyncpg'
 Provides-Extra: beanie
-Requires-Dist: beanie>=1.25.0; extra == 'beanie'
+Requires-Dist: beanie>=2.0.0; extra == 'beanie'
 Provides-Extra: bunnet
 Requires-Dist: bunnet<2,>=1.1.0; extra == 'bunnet'
 Provides-Extra: databases

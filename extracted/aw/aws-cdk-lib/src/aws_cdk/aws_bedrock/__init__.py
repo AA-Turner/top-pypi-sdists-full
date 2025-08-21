@@ -36282,6 +36282,12 @@ class FoundationModelIdentifier(
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_INSTANT_V1_2_100K"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_1_20250805_V1_0")
+    def ANTHROPIC_CLAUDE_OPUS_4_1_20250805_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-opus-4-1-20250805-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_OPUS_4_1_20250805_V1_0"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0")
     def ANTHROPIC_CLAUDE_OPUS_4_20250514_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "anthropic.claude-opus-4-20250514-v1:0".'''
@@ -36655,6 +36661,18 @@ class FoundationModelIdentifier(
     def MISTRAL_SMALL_V0_1(cls) -> "FoundationModelIdentifier":
         '''Base model "mistral.mistral-small-2402-v1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_SMALL_V0_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_OSS_120B_1")
+    def OPENAI_GPT_OSS_120_B_1(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-oss-120b-1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_120B_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_OSS_20B_1")
+    def OPENAI_GPT_OSS_20_B_1(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-oss-20b-1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_20B_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STABILITY_SD3_5_LARGE_V1_0")

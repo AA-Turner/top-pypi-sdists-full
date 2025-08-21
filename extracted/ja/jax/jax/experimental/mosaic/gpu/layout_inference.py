@@ -21,6 +21,7 @@ from functools import partial
 import math
 from typing import cast
 
+from jax._src import lib as jaxlib
 from jax._src.lib import mosaic_gpu_dialect as mgpu
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import arith
@@ -35,8 +36,6 @@ from . import inference_utils
 from . import layouts as layouts_lib
 from . import utils
 
-
-# mypy: ignore-errors
 
 OptionalLayouts = tuple[list[ir.Attribute], list[ir.Attribute]] | None
 LayoutInferenceRule = Callable[[ir.OpView], OptionalLayouts]
@@ -75,25 +74,23 @@ def _choose_representative_layout(
   if not layouts:
     return None
 
-  strided_layouts: list[fa.WGStridedFragLayout] = [
-      layouts_lib.from_layout_attr(layout)
+  strided_layouts = [
+      cast(fa.WGStridedFragLayout, layouts_lib.from_layout_attr(layout))
       for layout in layouts
       if layouts_lib.is_strided_fragmented_layout(layout)
   ]
 
-  splat_layouts: list[fa.WGSplatFragLayout] = list(
-      map(
-          layouts_lib.from_layout_attr,
-          filter(layouts_lib.is_splat_fragmented_layout, layouts),
-      )
-  )
+  splat_layouts = [
+      cast(fa.WGSplatFragLayout, layouts_lib.from_layout_attr(layout))
+      for layout in layouts
+      if layouts_lib.is_splat_fragmented_layout(layout)
+  ]
 
-  tiled_layouts: list[fa.TiledLayout] = list(
-      map(
-          layouts_lib.from_layout_attr,
-          filter(layouts_lib.is_tiled_layout, layouts),
-      )
-  )
+  tiled_layouts = [
+      cast(fa.TiledLayout, layouts_lib.from_layout_attr(layout))
+      for layout in layouts
+      if layouts_lib.is_tiled_layout(layout)
+  ]
 
   if len(splat_layouts) + len(strided_layouts) + len(tiled_layouts) != len(
       layouts
@@ -203,58 +200,60 @@ def _infer_pointwise_op_layouts(op: ir.OpView) -> OptionalLayouts:
   return (num_vector_operands * [layout], num_vector_results * [layout])
 
 
-for op in [
-    arith.AddIOp,
-    arith.AddFOp,
-    arith.AndIOp,
-    arith.BitcastOp,
-    arith.CmpFOp,
-    arith.CmpIOp,
-    arith.ExtFOp,
-    arith.ExtSIOp,
-    arith.ExtUIOp,
-    arith.FPToSIOp,
-    arith.FPToUIOp,
-    arith.MaximumFOp,
-    arith.MaxUIOp,
-    arith.MaxSIOp,
-    arith.MinimumFOp,
-    arith.MinUIOp,
-    arith.MinSIOp,
-    arith.MulIOp,
-    arith.MulFOp,
-    arith.OrIOp,
-    arith.FloorDivSIOp,
-    arith.DivUIOp,
-    arith.DivFOp,
-    arith.RemUIOp,
-    arith.RemSIOp,
-    arith.RemFOp,
-    arith.SIToFPOp,
-    arith.UIToFPOp,
-    arith.SubIOp,
-    arith.SubFOp,
-    arith.TruncFOp,
-    arith.TruncIOp,
-    arith.XOrIOp,
-    mlir_math.ExpOp,
-    mlir_math.Exp2Op,
-    mlir_math.LogOp,
-    mlir_math.RsqrtOp,
-    mlir_math.TanhOp,
-    vector.LoadOp,
-    vector.StoreOp,
-]:
+for op in (
+    [
+        arith.AddIOp,
+        arith.AddFOp,
+        arith.AndIOp,
+        arith.BitcastOp,
+        arith.CmpFOp,
+        arith.CmpIOp,
+        arith.ExtFOp,
+        arith.ExtSIOp,
+        arith.ExtUIOp,
+        arith.FPToSIOp,
+        arith.FPToUIOp,
+        arith.MaximumFOp,
+        arith.MaxUIOp,
+        arith.MaxSIOp,
+        arith.MinimumFOp,
+        arith.MinUIOp,
+        arith.MinSIOp,
+        arith.MulIOp,
+        arith.MulFOp,
+        arith.OrIOp,
+        arith.FloorDivSIOp,
+        arith.DivUIOp,
+        arith.DivFOp,
+        arith.RemUIOp,
+        arith.RemSIOp,
+        arith.RemFOp,
+        arith.SIToFPOp,
+        arith.UIToFPOp,
+        arith.SubIOp,
+        arith.SubFOp,
+        arith.TruncFOp,
+        arith.TruncIOp,
+        arith.XOrIOp,
+        mlir_math.ExpOp,
+        mlir_math.Exp2Op,
+        mlir_math.LogOp,
+        mlir_math.RsqrtOp,
+        mlir_math.TanhOp,
+        vector.LoadOp,
+        vector.StoreOp,
+    ]
+    # TODO(allanrenucci): Remove this after the minimal jaxlib version is 0.7.1.
+    + [mgpu.AsyncLoadTmemOp, mgpu.AsyncStoreTmemOp]
+    if jaxlib.version >= (0, 7, 1)
+    else []
+):
   _add_layout_inference_rule(op, _infer_pointwise_op_layouts)
 
 
-# TODO(bchetioui): remove once minimum jaxlib >= 0.5.3.
-OptimizationBarrierOp = getattr(mgpu, "OptimizationBarrierOp", None)
-
-
-@partial(_add_layout_inference_rule, OptimizationBarrierOp)
+@partial(_add_layout_inference_rule, mgpu.OptimizationBarrierOp)
 def _infer_optimization_barrier_op_layout(
-    op: OptimizationBarrierOp,
+    op: mgpu.OptimizationBarrierOp,
 ) -> OptionalLayouts:
   def is_array(v: ir.Value) -> bool:
     return ir.VectorType.isinstance(v.type)
@@ -458,6 +457,18 @@ def _infer_splat_op_layout(splat_op: vector.SplatOp) -> OptionalLayouts:
   return [], [layout]
 
 
+@partial(_add_layout_inference_rule, vector.BroadcastOp)
+def _infer_broadcast_op_layout(
+    broadcast_op: vector.BroadcastOp,
+) -> OptionalLayouts:
+  layout = layouts_lib.to_splat_fragmented_layout_attr(
+      fa.WGSplatFragLayout(
+          shape=cast(ir.ShapedType, broadcast_op.result.type).shape
+      )
+  )
+  return [], [layout]
+
+
 def _update_layout_shape(
     layout: ir.Attribute, shape: Sequence[int], origin: str
 ) -> ir.Attribute:
@@ -465,7 +476,7 @@ def _update_layout_shape(
       layout
   ) or layouts_lib.is_strided_fragmented_layout(layout):
     return layouts_lib.to_layout_attr(
-        dataclasses.replace(layouts_lib.from_layout_attr(layout), shape=shape)
+        dataclasses.replace(layouts_lib.from_layout_attr(layout), shape=shape)  # type: ignore[arg-type]
     )
   raise NotImplementedError(f"Unsupported {origin} layout: {layout}.")
 
@@ -593,70 +604,68 @@ def _infer_custom_primitive_op_layout(
   return in_layouts, out_layouts
 
 
-# TODO(dasenov): Remove this after the minimal jaxlib version is 0.6.1.
-if hasattr(mgpu, "BroadcastInDimOp"):
-  @partial(_add_layout_inference_rule, mgpu.BroadcastInDimOp)
-  def _infer_broadcast_in_dim_op_layout(
-      op: mgpu.BroadcastInDimOp,
-  ) -> OptionalLayouts:
-    if inference_utils.has_any_layout_set(op):
-      op_in_layouts = list(inference_utils.in_layouts(op))
-      op_out_layouts = list(inference_utils.out_layouts(op))
-      return op_in_layouts, op_out_layouts
+@partial(_add_layout_inference_rule, mgpu.BroadcastInDimOp)
+def _infer_broadcast_in_dim_op_layout(
+    op: mgpu.BroadcastInDimOp,
+) -> OptionalLayouts:
+  if inference_utils.has_any_layout_set(op):
+    op_in_layouts = list(inference_utils.in_layouts(op))
+    op_out_layouts = list(inference_utils.out_layouts(op))
+    return op_in_layouts, op_out_layouts
 
-    in_ty = ir.VectorType(op.operand.type)
-    out_ty = ir.VectorType(op.result.type)
-    if len(in_ty.shape) != 1 or len(out_ty.shape) != 2:
-      raise NotImplementedError(
-          "Broadcast in dim with non-trivial broadcast dimensions is not"
-          f" supported: {op}"
-      )
+  in_ty = ir.VectorType(op.operand.type)
+  out_ty = ir.VectorType(op.result.type)
+  if len(in_ty.shape) != 1 or len(out_ty.shape) != 2:
+    raise NotImplementedError(
+        "Broadcast in dim with non-trivial broadcast dimensions is not"
+        f" supported: {op}"
+    )
 
-    # Find out the layout of the output from the consumers.
-    user_layouts = set()
-    for use in cast(ir.OpResult, op.result).uses:
-      consumer = use.owner
-      operand = consumer.operands[use.operand_number]
-      layout = inference_utils.in_layout_for_operand(consumer, operand)
-      if layout is not None:
-        user_layouts.add(layout)
-    if user_layouts:
-      out_layout = _choose_representative_layout(user_layouts)
+  # Find out the layout of the output from the consumers.
+  user_layouts = set()
+  for use in cast(ir.OpResult, op.result).uses:
+    consumer = use.owner
+    operand = consumer.operands[use.operand_number]
+    layout = inference_utils.in_layout_for_operand(consumer, operand)
+    if layout is not None:
+      user_layouts.add(layout)
+  if user_layouts:
+    out_layout = _choose_representative_layout(user_layouts)
 
-      if out_layout is None:
-        raise ValueError(f"Could not choose a best layout from {user_layouts}")
+    if out_layout is None:
+      raise ValueError(f"Could not choose a best layout from {user_layouts}")
 
-      if out_layout != layouts_lib.to_layout_attr(fa.WGMMA_LAYOUT):
-        raise NotImplementedError(f"Unsupported layout: {out_layout}")
-
-      broadcast_dims = list(op.broadcast_dimensions)
-      if broadcast_dims == [0]:
-        in_layout = layouts_lib.to_layout_attr(fa.WGMMA_ROW_LAYOUT)
-      elif broadcast_dims == [1]:
-        in_layout = layouts_lib.to_layout_attr(fa.WGMMA_COL_LAYOUT)
-      else:
-        raise ValueError(f"Invalid broadcast dimensions: {broadcast_dims}")
-
-      return [in_layout], [out_layout]
-
-    # The consumers did not have any layouts set. Find out the layout of the
-    # input and infer the output layout from it.
-    in_layout = inference_utils.value_layout(op.operand)
-    if in_layout is None:
-      return None
+    if out_layout != layouts_lib.to_layout_attr(fa.WGMMA_LAYOUT):
+      raise NotImplementedError(f"Unsupported layout: {out_layout}")
 
     broadcast_dims = list(op.broadcast_dimensions)
-    if (
-        broadcast_dims == [0]
-        and in_layout == layouts_lib.to_layout_attr(fa.WGMMA_ROW_LAYOUT)
-    ) or (
-        broadcast_dims == [1]
-        and in_layout == layouts_lib.to_layout_attr(fa.WGMMA_COL_LAYOUT)
-    ):
-      out_layout = layouts_lib.to_layout_attr(fa.WGMMA_LAYOUT)
-      return [in_layout], [out_layout]
+    if broadcast_dims == [0]:
+      in_layout = layouts_lib.to_layout_attr(fa.WGMMA_ROW_LAYOUT)
+    elif broadcast_dims == [1]:
+      in_layout = layouts_lib.to_layout_attr(fa.WGMMA_COL_LAYOUT)
+    else:
+      raise ValueError(f"Invalid broadcast dimensions: {broadcast_dims}")
 
+    return [in_layout], [out_layout]
+
+  # The consumers did not have any layouts set. Find out the layout of the
+  # input and infer the output layout from it.
+  in_layout = inference_utils.value_layout(op.operand)
+  if in_layout is None:
     return None
+
+  broadcast_dims = list(op.broadcast_dimensions)
+  if (
+      broadcast_dims == [0]
+      and in_layout == layouts_lib.to_layout_attr(fa.WGMMA_ROW_LAYOUT)
+  ) or (
+      broadcast_dims == [1]
+      and in_layout == layouts_lib.to_layout_attr(fa.WGMMA_COL_LAYOUT)
+  ):
+    out_layout = layouts_lib.to_layout_attr(fa.WGMMA_LAYOUT)
+    return [in_layout], [out_layout]
+
+  return None
 
 
 @partial(_add_layout_inference_rule, mgpu.WGMMAOp)
@@ -667,16 +676,6 @@ def _infer_wgmma_op_layout(wgmma_op: mgpu.WGMMAOp) -> OptionalLayouts:
     return [layout, layout], [layout]
 
   return [layout], [layout]
-
-
-def _earliest_use(regions: list[ir.Region], uses: Sequence[ir.OpOperand]) -> ir.OpView:
-  owners = [use.owner for use in uses]
-  for region in regions:
-    for block in region:
-      for op in block:
-        if op in owners:
-          return op
-  raise ValueError("None of uses are in the given block")
 
 
 class TraversalOrder(enum.Enum):
@@ -765,7 +764,7 @@ def infer_layout(module: ir.Module):
     if not ir.VectorType.isinstance(ty):
       return None
     layout = fa.WGStridedFragLayout(
-        shape=cast(ir.ShapedType, ty).shape, vec_size=default_vector_size
+        shape=cast(ir.ShapedType, ty).shape, vec_size=int(default_vector_size)
     )
     return layouts_lib.to_strided_fragmented_layout_attr(layout)
 

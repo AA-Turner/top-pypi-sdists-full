@@ -18,11 +18,19 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
+
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
 
 class PatcheddebAptRepository(BaseModel):
     """
@@ -31,7 +39,7 @@ class PatcheddebAptRepository(BaseModel):
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
     name: Optional[Annotated[str, Field(min_length=1, strict=True)]] = Field(default=None, description="A unique name for this repository.")
     description: Optional[Annotated[str, Field(min_length=1, strict=True)]] = Field(default=None, description="An optional description.")
-    retain_repo_versions: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Retain X versions of the repository. Default is null which retains all versions.")
+    retain_repo_versions: Optional[StrictInt] = Field(default=None, description="Retain X versions of the repository. Default is null which retains all versions.")
     remote: Optional[StrictStr] = Field(default=None, description="An optional remote to use by default when syncing.")
     publish_upstream_release_fields: Optional[StrictBool] = Field(default=None, description="Previously, pulp_deb only synced the Release file fields codename and suite, now version, origin, label, and description are also synced. Setting this setting to False will make Pulp revert to the old behaviour of using it's own internal values for the new fields during publish. This is primarily intended to avoid a sudden change in behaviour for existing Pulp repositories, since many Release file field changes need to be accepted by hosts consuming the published repository. The default for new repositories is True.")
     signing_service: Optional[StrictStr] = Field(default=None, description="A reference to an associated signing service. Used if AptPublication.signing_service is not set")

@@ -41,11 +41,11 @@ class ItemMap:
         self.fall_through = False
         self.data_item_cache = _common.LRUCache()
 
-    def __contains__(self, key):
+    def __contains__(self, key: object) -> bool:
         key = _common.ensure_upper_case_id('ID', key)
         contains = self._item_map.__contains__(key)
         if not contains and self._should_fall_through(key):
-            return key
+            return True
         else:
             return contains
 

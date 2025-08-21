@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scipy-stubs
-Version: 1.16.1.0
+Version: 1.16.1.1
 Summary: Type annotations for SciPy
 Keywords: scipy,typing,stubs,mypy,pyright,pep484,pep561,scipy-stubs
 Author: Joren Hammudoglu
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Stubs Only
-Requires-Dist: optype[numpy]>=0.13.1,<0.14
+Requires-Dist: optype[numpy]>=0.13.4,<0.14
 Requires-Dist: scipy>=1.16.1,<1.17 ; extra == 'scipy'
 Maintainer: Joren Hammudoglu, SciPy Developers
 Maintainer-email: Joren Hammudoglu <jhammudoglu@gmail.com>, SciPy Developers <scipy-dev@python.org>

@@ -1,7 +1,7 @@
 import asyncio
 import concurrent.futures
 from collections.abc import AsyncIterator, Coroutine
-from contextlib import AbstractAsyncContextManager
+from contextlib import AbstractAsyncContextManager, suppress
 from functools import partial
 from typing import Any, Generic, TypeVar
 
@@ -26,10 +26,8 @@ def get_event_loop() -> asyncio.AbstractEventLoop:
 
 
 async def sleep_if_not_done(delay: float, done: asyncio.Event) -> None:
-    try:
+    with suppress(TimeoutError):
         await asyncio.wait_for(done.wait(), delay)
-    except TimeoutError:
-        pass
 
 
 class ValueEvent(asyncio.Event):
@@ -95,14 +93,13 @@ PENDING_TASKS = set()
 
 
 def _create_task_done_callback(
-    ignore_exceptions: tuple[Exception, ...],
+    ignore_exceptions: tuple[type[Exception], ...],
     task: asyncio.Task | asyncio.Future,
 ) -> None:
     PENDING_TASKS.discard(task)
     try:
-        if exc := task.exception():
-            if not isinstance(exc, ignore_exceptions):
-                logger.exception("asyncio.task failed", exc_info=exc)
+        if (exc := task.exception()) and not isinstance(exc, ignore_exceptions):
+            logger.exception("asyncio.task failed", exc_info=exc)
     except asyncio.CancelledError:
         pass
 
@@ -176,16 +173,13 @@ class SimpleTaskGroup(AbstractAsyncContextManager["SimpleTaskGroup"]):
         self.taskgroup_name = f" {taskgroup_name} " if taskgroup_name else ""
 
     def _create_task_done_callback(
-        self, ignore_exceptions: tuple[Exception, ...], task: asyncio.Task
+        self, ignore_exceptions: tuple[type[Exception], ...], task: asyncio.Task
     ) -> None:
-        try:
+        with suppress(AttributeError):
             self.tasks.remove(task)
-        except AttributeError:
-            pass
         try:
-            if exc := task.exception():
-                if not isinstance(exc, ignore_exceptions):
-                    logger.exception("asyncio.task failed in task group", exc_info=exc)
+            if (exc := task.exception()) and not isinstance(exc, ignore_exceptions):
+                logger.exception("asyncio.task failed in task group", exc_info=exc)
         except asyncio.CancelledError:
             pass
 
@@ -286,13 +280,8 @@ class AsyncQueue(Generic[T], asyncio.Queue[T]):
                 await getter
             except:
                 getter.cancel()  # Just in case getter is not done yet.
-                try:
-                    # Clean self._getters from canceled getters.
+                with suppress(ValueError):
                     self._getters.remove(getter)
-                except ValueError:
-                    # The getter could be removed from self._getters by a
-                    # previous put_nowait call.
-                    pass
                 if not self.empty() and not getter.cancelled():
                     # We were woken up by put_nowait(), but can't take
                     # the call.  Wake up the next in line.

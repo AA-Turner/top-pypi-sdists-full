@@ -35,7 +35,7 @@ from .tunnel.port_forward.TunnelGraph import TunnelDAG
 from .tunnel.port_forward.tunnel_helpers import find_open_port, get_config_uid, get_keeper_tokens, \
     get_or_create_tube_registry, get_gateway_uid_from_record, initialize_rust_logger, RUST_LOGGER_INITIALIZED, \
     get_rust_logger_state, resolve_record, resolve_pam_config, resolve_folder, remove_field, start_rust_tunnel, \
-    get_tunnel_session, CloseConnectionReasons
+    get_tunnel_session, CloseConnectionReasons, create_rust_webrtc_settings
 from .. import api, vault, record_management
 from ..display import bcolors
 from ..error import CommandError
@@ -52,6 +52,7 @@ class PAMTunnelCommand(GroupCommand):
         self.register_command('list', PAMTunnelListCommand(), 'List all Tunnels', 'l')
         self.register_command('stop', PAMTunnelStopCommand(), 'Stop Tunnel to the server', 'x')
         self.register_command('edit', PAMTunnelEditCommand(), 'Edit Tunnel settings', 'e')
+        self.register_command('diagnose', PAMTunnelDiagnoseCommand(), 'Diagnose network connectivity to krelay server', 'd')
         self.default_verb = 'list'
 
 
@@ -190,56 +191,31 @@ class PAMTunnelStopCommand(Command):
         uid = kwargs.get('uid')
         if not uid:
             raise CommandError('tunnel stop', '"uid" argument is required')
-        
-        # Rust logger should already be initialized by the loglevel command
-        if not RUST_LOGGER_INITIALIZED:
-            debug_level = hasattr(params, 'debug') and params.debug
-            log_level = logging.DEBUG if debug_level else logging.INFO
-            initialize_rust_logger(logger_name="keeper-pam-webrtc-rs", verbose=False, level=log_level)
-        
-        # Try to use Rust PyTubeRegistry first
-        tube_registry = get_or_create_tube_registry(params)
-        if tube_registry:
-            # Find matching tubes using Rust API
-            matching_tubes = tube_registry.find_tubes(uid)
-            
-            if not matching_tubes:
-                # Also check if it's a tube ID directly
-                if tube_registry.tube_found(uid):
-                    matching_tubes = [uid]
-                else:
-                    raise CommandError('tunnel stop', f"No active tunnels found matching '{uid}'")
-            
-            # Stop all matching tubes by closing their connections
-            stopped_count = 0
-            for tube_id in matching_tubes:
-                try:
-                    # Get all conversation IDs for this tube
-                    conversation_ids = tube_registry.get_conversation_ids_by_tube_id(tube_id)
-                    
-                    if conversation_ids:
-                        # Close each connection on the tube with Normal reason (user-initiated stop)
-                        for conversation_id in conversation_ids:
-                            tube_registry.close_connection(conversation_id, reason=CloseConnectionReasons.Normal)
-                        print(f"{bcolors.OKGREEN}Stopped tunnel: {tube_id}{bcolors.ENDC}")
-                        stopped_count += 1
-                    else:
-                        # Fallback to close_tube if no conversation IDs found
-                        tube_registry.close_tube(tube_id, reason=CloseConnectionReasons.Normal)
-                        print(f"{bcolors.OKGREEN}Stopped tunnel: {tube_id}{bcolors.ENDC}")
-                        stopped_count += 1
-                    
-                except Exception as e:
-                    print(f"{bcolors.FAIL}Failed to stop tunnel {tube_id}: {e}{bcolors.ENDC}")
-            
-            if stopped_count == 0:
-                raise CommandError('tunnel stop', f"Failed to stop any tunnels matching '{uid}'")
-        else:
-            # Rust WebRTC library is required for tunnel operations
-            raise CommandError('tunnel stop', 'This command requires the Rust WebRTC library (keeper_pam_webrtc_rs). '
-                                            'Please ensure the keeper_pam_webrtc_rs module is installed and available.')
 
-        return
+        tube_registry = get_or_create_tube_registry(params)
+        if not tube_registry:
+            raise CommandError('tunnel stop', 'This command requires the Rust WebRTC library')
+
+        # Find matching tubes
+        matching_tubes = tube_registry.find_tubes(uid)
+        if not matching_tubes and tube_registry.tube_found(uid):
+            matching_tubes = [uid]
+
+        if not matching_tubes:
+            raise CommandError('tunnel stop', f"No active tunnels found matching '{uid}'")
+
+        # Close all matching tubes
+        stopped_count = 0
+        for tube_id in matching_tubes:
+            try:
+                tube_registry.close_tube(tube_id, reason=CloseConnectionReasons.Normal)
+                print(f"{bcolors.OKGREEN}Stopped tunnel: {tube_id}{bcolors.ENDC}")
+                stopped_count += 1
+            except Exception as e:
+                print(f"{bcolors.FAIL}Failed to stop tunnel {tube_id}: {e}{bcolors.ENDC}")
+
+        if stopped_count == 0:
+            raise CommandError('tunnel stop', f"Failed to stop any tunnels matching '{uid}'")
 
 
 class PAMTunnelEditCommand(Command):
@@ -544,6 +520,157 @@ class PAMTunnelStartCommand(Command):
             print(f'\n{bcolors.FAIL}{fail_dashed_line}{bcolors.ENDC}')
             print(f'{bcolors.FAIL}| Tunnel failed to start: {error_msg}{bcolors.ENDC}')
             print(f'{bcolors.FAIL}{fail_dashed_line}{bcolors.ENDC}\n')
+
+
+class PAMTunnelDiagnoseCommand(Command):
+    pam_cmd_parser = argparse.ArgumentParser(prog='pam tunnel diagnose', 
+                                           description='Diagnose network connectivity to krelay server. '
+                                                       'Tests DNS resolution, TCP/UDP connectivity, AWS infrastructure, '
+                                                       'and WebRTC peer connection setup for IT troubleshooting.')
+    pam_cmd_parser.add_argument('record', type=str, action='store', 
+                                help='The Record UID of the PAM resource record to test connectivity for')
+    pam_cmd_parser.add_argument('--timeout', '-t', required=False, dest='timeout', action='store',
+                                type=int, default=30,
+                                help='Test timeout in seconds (default: 30)')
+    pam_cmd_parser.add_argument('--verbose', '-v', required=False, dest='verbose', action='store_true',
+                                help='Show detailed diagnostic output including ICE server lists')
+    pam_cmd_parser.add_argument('--format', '-f', required=False, dest='format', action='store',
+                                choices=['table', 'json'], default='table',
+                                help='Output format: table (human-readable) or json (machine-readable)')
+    pam_cmd_parser.add_argument('--test', required=False, dest='test_filter', action='store',
+                                help='Comma-separated list of specific tests to run. Available: '
+                                     'dns_resolution,aws_connectivity,tcp_connectivity,udp_binding,'
+                                     'ice_configuration,webrtc_peer_connection')
+
+    def get_parser(self):
+        return PAMTunnelDiagnoseCommand.pam_cmd_parser
+
+    def execute(self, params, **kwargs):
+        record_name = kwargs.get('record')
+        timeout = kwargs.get('timeout', 30)
+        verbose = kwargs.get('verbose', False)
+        output_format = kwargs.get('format', 'table')
+        test_filter = kwargs.get('test_filter')
+        
+        if not record_name:
+            raise CommandError('pam tunnel diagnose', '"record" parameter is required.')
+
+        # Check for Rust WebRTC library availability
+        tube_registry = get_or_create_tube_registry(params)
+        if not tube_registry:
+            print(f"{bcolors.FAIL}This command requires the Rust WebRTC library (keeper_pam_webrtc_rs).{bcolors.ENDC}")
+            print(f"{bcolors.OKBLUE}Please ensure the keeper_pam_webrtc_rs module is installed and available.{bcolors.ENDC}")
+            return 1
+
+        # Initialize Rust logger if not already done
+        if not RUST_LOGGER_INITIALIZED:
+            debug_level = hasattr(params, 'debug') and params.debug
+            log_level = logging.DEBUG if debug_level else logging.INFO
+            initialize_rust_logger(logger_name="keeper-pam-webrtc-rs", verbose=verbose, level=log_level)
+
+        # Resolve and validate the record
+        api.sync_down(params)
+        record = RecordMixin.resolve_single_record(params, record_name)
+        if not record:
+            print(f"{bcolors.FAIL}Record '{record_name}' not found.{bcolors.ENDC}")
+            return 1
+        if not isinstance(record, vault.TypedRecord):
+            print(f"{bcolors.FAIL}Record '{record_name}' cannot be used for tunneling.{bcolors.ENDC}")
+            return 1
+
+        record_uid = record.record_uid
+        record_type = record.record_type
+        if record_type not in ("pamMachine pamDatabase pamDirectory pamNetworkConfiguration pamAwsConfiguration "
+                               "pamRemoteBrowser pamAzureConfiguration").split():
+            print(f"{bcolors.FAIL}Record type '{record_type}' is not supported for tunneling.{bcolors.ENDC}")
+            print(f"Supported types: pamMachine, pamDatabase, pamDirectory, pamRemoteBrowser, "
+                  f"pamNetworkConfiguration, pamAwsConfiguration, pamAzureConfiguration")
+            return 1
+
+        # Get the krelay server from the PAM configuration
+        try:
+            encrypted_session_token, encrypted_transmission_key, transmission_key = get_keeper_tokens(params)
+            pam_config_uid = get_config_uid(params, encrypted_session_token, encrypted_transmission_key, record_uid)
+            
+            if not pam_config_uid:
+                print(f"{bcolors.FAIL}No PAM Configuration found for record '{record_name}'.{bcolors.ENDC}")
+                print(f"Please configure the record with: {bcolors.OKBLUE}pam tunnel edit {record_uid} --config [ConfigUID]{bcolors.ENDC}")
+                return 1
+
+            # The krelay server hostname is constructed from the params.server
+            krelay_server = f"krelay.{params.server}"
+            
+        except Exception as e:
+            print(f"{bcolors.FAIL}Failed to get PAM configuration: {e}{bcolors.ENDC}")
+            return 1
+
+        # Build test settings
+        settings = {
+            "use_turn": True,
+            "turn_only": False
+        }
+
+        # Parse test filter if provided
+        if test_filter:
+            allowed_tests = {'dns_resolution', 'aws_connectivity', 'tcp_connectivity', 
+                           'udp_binding', 'ice_configuration', 'webrtc_peer_connection'}
+            requested_tests = set(test.strip() for test in test_filter.split(','))
+            invalid_tests = requested_tests - allowed_tests
+            if invalid_tests:
+                print(f"{bcolors.FAIL}Invalid test names: {', '.join(invalid_tests)}{bcolors.ENDC}")
+                print(f"Available tests: {', '.join(sorted(allowed_tests))}")
+                return 1
+            settings["test_filter"] = list(requested_tests)
+
+        print(f"{bcolors.OKBLUE}Starting network connectivity diagnosis for krelay server: {krelay_server}{bcolors.ENDC}")
+        print(f"Record: {record.title} ({record_uid})")
+        print(f"Timeout: {timeout}s")
+        print("")
+
+        # Get TURN credentials for the connectivity test
+        try:
+            webrtc_settings = create_rust_webrtc_settings(
+                params, host="127.0.0.1", port=0, 
+                target_host="test", target_port=22, 
+                socks=False, nonce=os.urandom(32)
+            )
+            turn_username = webrtc_settings.get("turn_username")
+            turn_password = webrtc_settings.get("turn_password")
+        except Exception as e:
+            print(f"{bcolors.WARNING}Could not get TURN credentials: {e}{bcolors.ENDC}")
+            turn_username = None
+            turn_password = None
+
+        # Run the connectivity test
+        try:
+            results = tube_registry.test_webrtc_connectivity(
+                krelay_server=krelay_server,
+                settings=settings,
+                timeout_seconds=timeout,
+                username=turn_username,
+                password=turn_password
+            )
+            
+            if output_format == 'json':
+                import json
+                print(json.dumps(results, indent=2))
+                return 0
+            else:
+                # Use the built-in formatter for human-readable output
+                formatted_output = tube_registry.format_connectivity_results(results, detailed=verbose)
+                print(formatted_output)
+                
+                # Return appropriate exit code
+                overall_result = results.get('overall_result', {})
+                if overall_result.get('success', False):
+                    return 0
+                else:
+                    return 1
+                    
+        except Exception as e:
+            print(f"{bcolors.FAIL}Network connectivity test failed: {e}{bcolors.ENDC}")
+            logging.debug(f"Full error details: {e}", exc_info=True)
+            return 1
 
 
 class PAMConnectionEditCommand(Command):

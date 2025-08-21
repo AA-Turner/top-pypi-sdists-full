@@ -1,9 +1,10 @@
 ci:
   autoupdate_commit_msg: 'chore: update pre-commit hooks'
+  autoupdate_schedule: 'monthly'
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
     - id: check-added-large-files
     - id: check-case-conflict
@@ -17,14 +18,14 @@ repos:
     - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.6.8"
+    rev: "v0.12.7"
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: ["--fix", "--show-fixes"]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
+    rev: v1.17.1
     hooks:
     - id: mypy
       files: ^(src|tests)
@@ -33,6 +34,8 @@ repos:
         - numpy
         - pytest
         - importlib_resources
+        - boost-histogram>=1.6.1
+        - hist>=2.9.0
 
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: v1.10.0
@@ -42,7 +45,7 @@ repos:
       - id: rst-inline-touching-normal
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.3.0
+    rev: v2.4.1
     hooks:
     - id: codespell
       args: ["-L", "hist,thist,ans,nd,gaus"]
@@ -52,17 +55,17 @@ repos:
       - id: disallow-caps
         name: Disallow improper capitalization
         language: pygrep
-        entry: PyBind|Numpy|Cmake|CCache|Github|PyTest
+        entry: PyBind|Numpy|Cmake|CCache|Github|PyTest|Weighed
         exclude: .pre-commit-config.yaml
 
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: "v3.3.3"
+    rev: "v3.6.2"
     hooks:
       - id: prettier
         types_or: [json]
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.29.3
+    rev: 0.33.2
     hooks:
       - id: check-readthedocs
       - id: check-github-workflows
@@ -71,4 +74,9 @@ repos:
       - id: check-jsonschema
         name: Validate Histogram examples
         args: [--schemafile, src/uhi/resources/histogram.schema.json]
-        files: ^tests/resources/.*\.json
+        files: ^tests/resources/valid/.*\.json
+
+  - repo: https://github.com/henryiii/validate-pyproject-schema-store
+    rev: 2025.07.28
+    hooks:
+      - id: validate-pyproject

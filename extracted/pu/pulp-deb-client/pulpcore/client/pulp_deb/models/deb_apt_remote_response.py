@@ -27,6 +27,14 @@ from pulpcore.client.pulp_deb.models.policy_enum import PolicyEnum
 from typing import Optional, Set
 from typing_extensions import Self
 
+
+class OneOf:
+    @staticmethod
+    def from_dict(obj, *args, **kwargs):
+        """Noop override to fix missing OneOf import/implementation."""
+        return obj
+
+
 class DebAptRemoteResponse(BaseModel):
     """
     A Serializer for AptRemote.
@@ -42,7 +50,7 @@ class DebAptRemoteResponse(BaseModel):
     tls_validation: Optional[StrictBool] = Field(default=None, description="If True, TLS peer validation must be performed.")
     proxy_url: Optional[StrictStr] = Field(default=None, description="The proxy URL. Format: scheme://host:port")
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
-    download_concurrency: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Total number of simultaneous connections. If not set then the default value will be used.")
+    download_concurrency: Optional[StrictInt] = Field(default=None, description="Total number of simultaneous connections. If not set then the default value will be used.")
     max_retries: Optional[StrictInt] = Field(default=None, description="Maximum number of retry attempts after a download failure. If not set then the default value (3) will be used.")
     policy: Optional[PolicyEnum] = Field(default=None, description="The policy to use when downloading content. The possible values include: 'immediate', 'on_demand', and 'streamed'. 'immediate' is the default.  * `immediate` - When syncing, download all metadata and content now. * `on_demand` - When syncing, download metadata, but do not download content now. Instead, download content as clients request it, and save it in Pulp to be served for future client requests. * `streamed` - When syncing, download metadata, but do not download content now. Instead,download content as clients request it, but never save it in Pulp. This causes future requests for that same content to have to be downloaded again.")
     total_timeout: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="aiohttp.ClientTimeout.total (q.v.) for download-connections. The default is null, which will cause the default from the aiohttp library to be used.")
@@ -96,14 +104,12 @@ class DebAptRemoteResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
             "prn",
             "pulp_created",
             "pulp_last_updated",
-            "hidden_fields",
         ])
 
         _dict = self.model_dump(

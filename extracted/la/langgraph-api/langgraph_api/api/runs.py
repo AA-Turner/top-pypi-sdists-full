@@ -212,9 +212,11 @@ async def wait_run(request: ApiRequest):
             )
         ) as stream:
             async for mode, chunk, _ in stream:
-                if mode == b"values":
-                    vchunk = chunk
-                elif mode == b"updates" and b"__interrupt__" in chunk:
+                if (
+                    mode == b"values"
+                    or mode == b"updates"
+                    and b"__interrupt__" in chunk
+                ):
                     vchunk = chunk
                 elif mode == b"error":
                     vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
@@ -295,9 +297,11 @@ async def wait_run_stateless(request: ApiRequest):
             )
         ) as stream:
             async for mode, chunk, _ in stream:
-                if mode == b"values":
-                    vchunk = chunk
-                elif mode == b"updates" and b"__interrupt__" in chunk:
+                if (
+                    mode == b"values"
+                    or mode == b"updates"
+                    and b"__interrupt__" in chunk
+                ):
                     vchunk = chunk
                 elif mode == b"error":
                     vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})

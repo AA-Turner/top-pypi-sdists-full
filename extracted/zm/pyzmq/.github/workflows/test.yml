@@ -30,6 +30,11 @@ env:
   # don't compile Cython if we are building from source
   NO_CYTHON_COMPILE: "true"
 
+defaults:
+  run:
+    # use bash even on Windows
+    shell: bash
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -87,6 +92,8 @@ jobs:
 
           - os: ubuntu-24.04
             python: "3.13"
+            env: |
+              PYTHONDEVMODE=1
 
           - os: ubuntu-24.04
             python: "3.13"
@@ -111,6 +118,10 @@ jobs:
             python: "3.13"
             arch: x64
 
+          - os: windows-latest
+            python: "3.14"
+            arch: x64
+
     steps:
       - uses: actions/checkout@v4
 
@@ -124,6 +135,11 @@ jobs:
           freethreaded: ${{ matrix.free_threading == 'free_threading' }}
           check-latest: ${{ matrix.python == '3.14' }}
           cache: pip
+
+      - name: set environment variables
+        if: ${{ matrix.env }}
+        run: |
+          echo "${{ matrix.env }}" >> "$GITHUB_ENV"
 
       - name: setup free threading
         if: ${{ matrix.free_threading }}

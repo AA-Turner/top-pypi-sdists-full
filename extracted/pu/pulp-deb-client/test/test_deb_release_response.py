@@ -43,6 +43,7 @@ class TestDebReleaseResponse(unittest.TestCase):
                 pulp_labels = {
                     'key' : ''
                     },
+                vuln_report = '',
                 codename = '',
                 suite = '',
                 distribution = '',

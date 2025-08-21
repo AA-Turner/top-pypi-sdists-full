@@ -100,10 +100,40 @@ def get_ref_and_transforms(
 
 
 def ref_get(
-    ref_or_view: Any, idx: Indexer | tuple[Indexer, ...] | None = None
+    ref: Any, idx: Indexer | tuple[Indexer, ...] | None = None
 ) -> Array:
-  """Reads a value from a `Ref`, a.k.a. value <- ref[idx]."""
-  ref, transforms = get_ref_and_transforms(ref_or_view, idx, "ref_get")
+  """Read a value from an ArrayRef.
+
+  This is equivalent to ``ref[idx]`` for a NumPy-style indexer ``idx``.
+  For more on mutable array refs, refer to the `ArrayRef guide`_.
+
+  Args:
+    ref: a :class:`jax.ref.ArrayRef` object.
+    idx: a NumPy-style indexer
+
+  Returns:
+    A :class:`jax.Array` object (note, not a :class:`jax.ref.ArrayRef`) containing
+    the indexed elements of the mutable reference.
+
+  Examples:
+    >>> import jax
+    >>> ref = jax.array_ref(jax.numpy.arange(5))
+    >>> jax.ref.get(ref, slice(1, 3))
+    Array([1, 2], dtype=int32)
+
+    Equivalent operation via indexing syntax:
+
+    >>> ref[1:3]
+    Array([1, 2], dtype=int32)
+
+    Use ``...`` to extract the full buffer:
+
+    >>> ref[...]
+    Array([0, 1, 2, 3, 4], dtype=int32)
+
+  .. _ArrayRef guide: https://docs.jax.dev/en/latest/array_refs.html
+  """
+  ref, transforms = get_ref_and_transforms(ref, idx, "ref_get")
   flat_transforms, tree = tree_util.tree_flatten(transforms)
   return get_p.bind(ref, *flat_transforms, tree=tree)
 
@@ -140,15 +170,58 @@ def swap_ragged_prop_rule(eqn_params, invar_raggedness, outvars):
 batching.ragged_prop_rules[swap_p] = swap_ragged_prop_rule
 
 def ref_swap(
-    ref_or_view: AbstractRef | TransformedRef,
+    ref: AbstractRef | TransformedRef,
     idx: Indexer | tuple[Indexer, ...] | None,
     value: Array,
     _function_name: str = "ref_swap",
 ) -> Array:
-  """Sets a `Ref`'s value and returns the original value."""
-  if hasattr(ref_or_view, 'dtype'):
-    value = _maybe_implicit_cast(ref_or_view.dtype, value)
-  ref, transforms = get_ref_and_transforms(ref_or_view, idx, _function_name)
+  """Set an array value inplace while returning the existing value.
+
+  This is equivalent to ``ref[idx], prev = value, ref[idx]`` while returning
+  ``prev``, for a NumPy-style indexer ``idx``.
+  For more on mutable array refs, refer to the `ArrayRef guide`_.
+
+  Args:
+    ref: a :class:`jax.ref.ArrayRef` object. On return, the buffer will be
+      mutated by this operation.
+    idx: a NumPy-style indexer
+    value: a :class:`jax.Array` object (note, not a :class:`jax.ref.ArrayRef`)
+      containing the values to set in the array.
+
+  Returns:
+    A :class:`jax.Array` containing the previous value at `idx`.
+
+  Examples:
+    >>> import jax
+    >>> ref = jax.array_ref(jax.numpy.arange(5))
+    >>> jax.ref.swap(ref, 3, 10)
+    Array(3, dtype=int32)
+    >>> ref
+    ArrayRef([ 0,  1,  2, 10,  4], dtype=int32)
+
+    Equivalent operation via indexing syntax:
+
+    >>> ref = jax.array_ref(jax.numpy.arange(5))
+    >>> ref[3], prev = 10, ref[3]
+    >>> prev
+    Array(3, dtype=int32)
+    >>> ref
+    ArrayRef([ 0,  1,  2, 10,  4], dtype=int32)
+
+    Use ``...`` to swap the value of a scalar ref:
+
+    >>> ref = jax.array_ref(jax.numpy.int32(5))
+    >>> jax.ref.swap(ref, ..., 10)
+    Array(5, dtype=int32)
+    >>> ref
+    ArrayRef(10, dtype=int32)
+
+  .. _ArrayRef guide: https://docs.jax.dev/en/latest/array_refs.html
+  """
+  "Sets a ref's value as `ref[idx], prev = value, ref[idx]` and returns `prev`."
+  if hasattr(ref, 'dtype'):
+    value = _maybe_implicit_cast(ref.dtype, value)
+  ref, transforms = get_ref_and_transforms(ref, idx, _function_name)
   flat_transforms, tree = tree_util.tree_flatten(transforms)
   return swap_p.bind(ref, value, *flat_transforms, tree=tree)
 
@@ -167,12 +240,49 @@ def _maybe_implicit_cast(dtype, value):
 
 
 def ref_set(
-    ref_or_view: AbstractRef | TransformedRef,
+    ref: AbstractRef | TransformedRef,
     idx: Indexer | tuple[Indexer, ...] | None,
     value: Array,
 ) -> None:
-  """Sets a `Ref`'s value, a.k.a. ref[idx] <- value."""
-  ref_swap(ref_or_view, idx, value, _function_name="ref_set")
+  """Set a value in an ArrayRef in-place.
+
+  This is equivalent to ``ref[idx] = value`` for a NumPy-style indexer
+  ``idx``. For more on mutable array refs, refer to the `ArrayRef guide`_.
+
+  Args:
+    ref: a :class:`jax.ref.ArrayRef` object. On return, the buffer will be
+      mutated by this operation.
+    idx: a NumPy-style indexer
+    value: a :class:`jax.Array` object (note, not a :class:`jax.ref.ArrayRef`)
+      containing the values to set in the array.
+
+  Returns:
+    None
+
+  Examples:
+    >>> import jax
+    >>> ref = jax.array_ref(jax.numpy.zeros(5))
+    >>> jax.ref.set(ref, 1, 10.0)
+    >>> ref
+    ArrayRef([ 0., 10.,  0.,  0.,  0.], dtype=float32)
+
+    Equivalent operation via indexing syntax:
+
+    >>> ref = jax.array_ref(jax.numpy.zeros(5))
+    >>> ref[1] = 10.0
+    >>> ref
+    ArrayRef([ 0., 10.,  0.,  0.,  0.], dtype=float32)
+
+    Use ``...`` to set the value of a scalar ref:
+
+    >>> ref = jax.array_ref(jax.numpy.int32(0))
+    >>> ref[...] = 4
+    >>> ref
+    ArrayRef(4, dtype=int32)
+
+  .. _ArrayRef guide: https://docs.jax.dev/en/latest/array_refs.html
+  """
+  ref_swap(ref, idx, value, _function_name="ref_set")
 
 
 # `addupdate_p` mutates a `Ref`, adding a value to its existing value.
@@ -193,14 +303,54 @@ addupdate_p.def_impl(partial(dispatch.apply_primitive, addupdate_p))
 
 
 def ref_addupdate(
-    ref_or_view: AbstractRef,
+    ref: AbstractRef,
     idx: Indexer | tuple[Indexer, ...] | None,
     x: Array,
 ) -> None:
-  """Mutates a ref with an additive update i.e. `ref[idx] += x`."""
-  ref, transforms = get_ref_and_transforms(ref_or_view, idx, "ref_addupdate")
+  """Add to an element in an ArrayRef in-place.
+
+  This is analogous to ``ref[idx] += value`` for a NumPy array ``ref`` and
+  NumPy-style indexer ``idx``. However, for an ArrayRef ``ref``, executing
+  ``ref[idx] += value`` actually performs a ``ref_get``, add, and ``ref_set``,
+  so using this function can be more efficient under autodiff. For more on
+  mutable array refs, refer to the `ArrayRef guide`_.
+
+  Args:
+    ref: a :class:`jax.ref.ArrayRef` object. On return, the buffer will be
+      mutated by this operation.
+    idx: a NumPy-style indexer
+    x: a :class:`jax.Array` object (note, not a :class:`jax.ref.ArrayRef`)
+      containing the values to add at the specified indices.
+
+  Returns:
+    None
+
+  Examples:
+    >>> import jax
+    >>> ref = jax.array_ref(jax.numpy.arange(5))
+    >>> jax.ref.addupdate(ref, 2, 10)
+    >>> ref
+    ArrayRef([ 0,  1, 12,  3,  4], dtype=int32)
+
+    Equivalent operation via indexing syntax:
+
+    >>> ref = jax.array_ref(jax.numpy.arange(5))
+    >>> ref[2] += 10
+    >>> ref
+    ArrayRef([ 0,  1, 12,  3,  4], dtype=int32)
+
+    Use ``...`` to add to a scalar ref:
+
+    >>> ref = jax.array_ref(jax.numpy.int32(2))
+    >>> ref[...] += 10
+    >>> ref
+    ArrayRef(12, dtype=int32)
+
+  .. _ArrayRef guide: https://docs.jax.dev/en/latest/array_refs.html
+  """
+  ref, transforms = get_ref_and_transforms(ref, idx, "ref_addupdate")
   flat_transforms, tree = tree_util.tree_flatten(transforms)
-  return addupdate_p.bind(ref, x, *flat_transforms, tree=tree)
+  addupdate_p.bind(ref, x, *flat_transforms, tree=tree)
 
 
 ## get/set/addupdate abstract evaluation rules
@@ -804,5 +954,7 @@ def _mut_lin(nzs, x, *, memory_space):
   return x_ref, True, None, mut_lin
 
 ad.primitive_jvps[core.mutable_array_p] = _mut_jvp
-ad.defjvp(core.freeze_p, lambda g, _: core.freeze(g))
 ad.primitive_linearizations[core.mutable_array_p] = _mut_lin
+# TODO(mattjj): lin rule for freeze and accum_grad_in_ref?
+ad.defjvp(core.freeze_p, lambda g, _: core.freeze(g))
+ad.defjvp(core.accum_grad_in_ref_p, lambda g, _: core.accum_grad_in_ref_p.bind(g))

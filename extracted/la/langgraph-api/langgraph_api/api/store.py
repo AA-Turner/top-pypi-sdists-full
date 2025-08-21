@@ -134,6 +134,7 @@ async def list_namespaces(request: ApiRequest):
     payload = await request.json(StoreListNamespacesRequest)
     prefix = tuple(payload["prefix"]) if payload.get("prefix") else None
     suffix = tuple(payload["suffix"]) if payload.get("suffix") else None
+    err = None
     if prefix and (err := _validate_namespace(prefix)):
         return err
     if suffix and (err := _validate_namespace(suffix)):

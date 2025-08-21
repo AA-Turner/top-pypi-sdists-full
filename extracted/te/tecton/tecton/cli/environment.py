@@ -486,7 +486,7 @@ def _validate_input_requirements(input_requirements_path: Path):
     printer.safe_print(
         f"{ERROR_MESSAGE_PREFIX} Please include at least one of the supporting Tecton libraries:\n"
         f"💡  `tecton-runtime` package (https://pypi.org/project/tecton-runtime) to support Realtime environments\n"
-        f"💡  `tecton[rift-materialization]` package (https://pypi.org/project/tecton) to support Rift materialization environments\n",
+        f"💡  `tecton\\[rift-materialization]` package (https://pypi.org/project/tecton) to support Rift materialization environments\n",
         "\nFor more information, please see: https://docs.tecton.ai/docs/materializing-features/configure-rift-materialization/python-rift-environments",
         file=sys.stderr,
     )
@@ -593,7 +593,7 @@ def _run_dependency_resolution(
             resolved_requirements_path=resolved_requirements_path,
             timeout_seconds=DEPENDENCY_RESOLUTION_TIMEOUT_SECONDS,
         )
-        dependencies = _validate_and_get_dependencies(lock_output_path)
+        dependencies = _validate_and_get_dependencies(lock_file_path=lock_output_path)
 
         tecton_runtime_version = dependencies.get_version(dependency_name=TECTON_TRANSFORM_RUNTIME_PACKAGE)
         tecton_rift_version = dependencies.get_version(dependency_name=TECTON_RIFT_MATERIALIZATION_RUNTIME_PACKAGE)
@@ -832,7 +832,7 @@ def _validate_and_get_dependencies(lock_file_path: Path) -> EnvironmentDependenc
         rift_extras = dependencies.get_dependency_extras(TECTON_RIFT_MATERIALIZATION_RUNTIME_PACKAGE)
         if "rift-materialization" not in rift_extras:
             printer.safe_print(
-                f"{ERROR_MESSAGE_PREFIX} `rift-materialization` extra must be included for package `tecton` to support Rift materialization (tecton[rift-materialization]==x.x.x)",
+                f"{ERROR_MESSAGE_PREFIX} `rift-materialization` extra must be included for package `tecton` to support Rift materialization (tecton\\[rift-materialization]==x.x.x)",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -841,7 +841,7 @@ def _validate_and_get_dependencies(lock_file_path: Path) -> EnvironmentDependenc
         printer.safe_print(
             f"{ERROR_MESSAGE_PREFIX} Please include at least one of the supporting Tecton libraries:\n"
             f"💡  `tecton-runtime` package (https://pypi.org/project/tecton-runtime) to support Realtime environments\n"
-            f"💡  `tecton[rift-materialization]` package (https://pypi.org/project/tecton) to support Rift materialization environments",
+            f"💡  `tecton\\[rift-materialization\\]` package (https://pypi.org/project/tecton) to support Rift materialization environments",
             "\nFor more information, please see: https://docs.tecton.ai/docs/materializing-features/configure-rift-materialization/python-rift-environments",
             file=sys.stderr,
         )

@@ -16,11 +16,11 @@ def init_log_file(*, log_filepath: str):
             file.write("")
 
 
-_normal_logging_was_setup: bool = False
+_logging_was_setup: bool = False
 
 
 def setup_normal_logging(log_filepath: Optional[str] = None):
-    global _normal_logging_was_setup
+    global _logging_was_setup
     if _normal_logging_was_setup is True:
         return
 

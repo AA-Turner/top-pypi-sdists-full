@@ -4205,7 +4205,7 @@ async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_
             for item in data[:5]:
                 try:
                     MSG_TEXT, MSG_BUTTONS = item
-                    MSG_BUTTONS = ast.literal_eval(MSG_BUTTONS) if MSG_BUTTONS else []
+                    MSG_BUTTONS = json.loads(MSG_BUTTONS) if MSG_BUTTONS else []
                     MSG_BUTTONS = ', '.join([it['lbl'] for it in MSG_BUTTONS if it and 'lbl' in it])
 
                     if MSG_TEXT:
@@ -9377,6 +9377,77 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
     return USER_TID, username, full_name, USER_GAMES, USER_VARS, USER_LSTS
 
 
+async def is_limits_exeeded(chat_id, name, USER_LSTS, BASE_P, limit_=2):
+    result = True
+    try:
+        print(f"is_limits_exeeded..")
+
+        dt_ = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        USER_LIMITS = USER_LSTS.get('USER_LIMITS', {})
+        obj = USER_LIMITS.get(name, None)
+        cur_count = 0 if not obj or obj.get('date') != dt_ else int(obj.get('count', 0))
+        print(f"{cur_count=}, {dt_=}")
+
+        cur_count += 1
+        result = True if cur_count > limit_ else False
+        if result: return result
+
+        USER_LIMITS[name] = {
+            'date': dt_,
+            'count': cur_count
+        }
+        print(f"{USER_LIMITS=}")
+
+        USER_LSTS['USER_LIMITS'] = USER_LIMITS
+        USER_LSTS = json.dumps(USER_LSTS, ensure_ascii=False)
+        sql = "UPDATE \"USER\" SET USER_LSTS=$1 WHERE USER_TID=$2"
+        await db_change_pg(sql, (USER_LSTS, chat_id, ), BASE_P)
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
+
+
+async def is_subscription_expired(USER_VARS, USER_LSTS):
+    result = False
+    try:
+        print(f"is_subscription_expired..")
+
+        subs_dt = []
+        for p in USER_LSTS.get('USER_PAYMENTS', []):
+            dt_end = p.get('DT_END', None);
+            if not dt_end: continue
+            try:
+                subs_dt.append(datetime.strptime(dt_end, '%d-%m-%Y_%H-%M-%S').replace(tzinfo=timezone.utc))
+            except:
+                pass
+
+        if len(subs_dt):
+            result = datetime.now(timezone.utc) <= max(subs_dt)
+            print(f"len(subs_dt): datetime.now(timezone.utc) <= max(subs_dt)")
+            print(f"{datetime.now(timezone.utc) <= max(subs_dt)}")
+            print(f"days={(max(subs_dt) - datetime.now(timezone.utc)).days}")
+            print(f"{datetime.now(timezone.utc)=}, {max(subs_dt)=}")
+        elif USER_VARS.get('USER_DT', None):
+            USER_DT = datetime.strptime(USER_VARS['USER_DT'], '%d-%m-%Y_%H-%M-%S').replace(tzinfo=timezone.utc)
+            m = USER_DT.month + 1
+            y = USER_DT.year + (m - 1) // 12
+            m = (m - 1) % 12 + 1
+            d = min(USER_DT.day, calendar.monthrange(y, m)[1])
+            reg_plus_month = USER_DT.replace(year=y, month=m, day=d)
+            result = datetime.now(timezone.utc) <= reg_plus_month
+            print(f"else: datetime.now(timezone.utc) <= reg_plus_month")
+            print(f"{USER_DT=}")
+            print(f"{datetime.now(timezone.utc) <= reg_plus_month}")
+            print(f"days={(reg_plus_month - datetime.now(timezone.utc)).days}")
+            print(f"days={(datetime.now(timezone.utc) - reg_plus_month).days}")
+            print(f"{datetime.now(timezone.utc)=}, {reg_plus_month=}")
+
+        print(f"====== {status=}")
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
 # endregion
 
 
@@ -9628,7 +9699,7 @@ async def create_invoice_link_my(BOT_TID, BOT_LC, msg_text, msg_btns, POST_LNK, 
         print(f"{POST_LNK=}")
         if POST_LNK:
             if '[' in POST_LNK:
-                urls = ast.literal_eval(POST_LNK)
+                urls = json.loads(POST_LNK)
                 photo_url = next((url for url in urls if str(url).lower().endswith(('.png', '.jpg', '.jpeg'))), None)
             else:
                 photo_url = POST_LNK if str(POST_LNK).lower().endswith(('.png', '.jpg', '.jpeg')) else None
@@ -13429,8 +13500,8 @@ async def show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, B
             if call and str(post_id) == await get_current_page_number(call):
                 await call.message.edit_reply_markup(reply_markup=reply_markup.as_markup())
             elif OFFER_FILEID:
-                OFFER_FILEID = ast.literal_eval(OFFER_FILEID) if OFFER_FILEID and '[' in OFFER_FILEID else OFFER_FILEID
-                OFFER_MEDIATYPE = ast.literal_eval(
+                OFFER_FILEID = json.loads(OFFER_FILEID) if OFFER_FILEID and '[' in OFFER_FILEID else OFFER_FILEID
+                OFFER_MEDIATYPE = json.loads(
                     OFFER_MEDIATYPE) if OFFER_MEDIATYPE and '[' in OFFER_MEDIATYPE else OFFER_MEDIATYPE
 
                 media = []
@@ -13550,9 +13621,9 @@ async def send_user(bot, chat_id, offer_id, item, message_id=None, cur_=1):
             reply_markup = InlineKeyboardBuilder()
 
         if '[' in OFFER_MEDIATYPE:
-            OFFER_FILEID = ast.literal_eval(OFFER_FILEID)
-            OFFER_MEDIATYPE = ast.literal_eval(OFFER_MEDIATYPE)
-            OFFER_TGPHLINK = ast.literal_eval(OFFER_TGPHLINK)
+            OFFER_FILEID = json.loads(OFFER_FILEID)
+            OFFER_MEDIATYPE = json.loads(OFFER_MEDIATYPE)
+            OFFER_TGPHLINK = json.loads(OFFER_TGPHLINK)
             len_ = len(OFFER_FILEID)
 
             OFFER_FILEID = OFFER_FILEID[cur_ - 1] if message_id else OFFER_FILEID[0]
@@ -13956,19 +14027,19 @@ async def fsm_album_admin(bot, FsmOffer, message, album, state, KEYS_JSON, MEDIA
                 file_link = '' if file_link is None else file_link
                 if file_name and os.path.exists(file_name): os.remove(file_name)
 
-                offer_tgph_link = (ast.literal_eval(str(offer_tgph_link)) + [file_link]) if offer_tgph_link else [
+                offer_tgph_link = (json.loads(str(offer_tgph_link)) + [file_link]) if offer_tgph_link else [
                     file_link]
-                file_name_part = (ast.literal_eval(str(file_name_part)) + [file_name_part_new]) if file_name_part else [
+                file_name_part = (json.loads(str(file_name_part)) + [file_name_part_new]) if file_name_part else [
                     file_name_part_new]
-                offer_file_id = (ast.literal_eval(str(offer_file_id)) + [media_id]) if offer_file_id else [media_id]
-                offer_file_type = (ast.literal_eval(str(offer_file_type)) + [media_type]) if offer_file_type else [
+                offer_file_id = (json.loads(str(offer_file_id)) + [media_id]) if offer_file_id else [media_id]
+                offer_file_type = (json.loads(str(offer_file_type)) + [media_type]) if offer_file_type else [
                     media_type]
 
                 await state.update_data(offer_file_id=str(offer_file_id), offer_file_type=str(offer_file_type),
                                         offer_tgph_link=str(offer_tgph_link), file_name_part=str(file_name_part))
                 await asyncio.sleep(0.05)
 
-            if len(ast.literal_eval(str(offer_file_id))) < 2:
+            if len(json.loads(str(offer_file_id))) < 2:
                 await bot.send_message(chat_id=chat_id, text=l_post_media[lz])
                 await state.set_state(FsmOffer.media)
                 return
@@ -14343,7 +14414,7 @@ async def fsm_finish_admin(bot, FsmOffer, message, state, EXTRA_D, BASE_P, bot_u
             offer_isbutton = 1 if offer_button else 0
             offer_tgph_link = data.get('offer_tgph_link', None)
             if offer_tgph_link and '[' in offer_tgph_link:
-                offer_istgph = 1 if len([it for it in ast.literal_eval(str(offer_tgph_link)) if it != '']) else 0
+                offer_istgph = 1 if len([it for it in json.loads(str(offer_tgph_link)) if it != '']) else 0
             else:
                 offer_istgph = 1 if offer_tgph_link else 0
 
@@ -14466,9 +14537,9 @@ async def edit_simple(bot, chat_id, post_id, message_id, cur_, BASE_P):
         #                                          POST_BUTTONS) if POST_ISBUTTON else InlineKeyboardBuilder()
         reply_markup = InlineKeyboardBuilder()
         if '[' in POST_MEDIATYPE and POST_ISGALLERY:
-            POST_FILEID = ast.literal_eval(POST_FILEID)
-            POST_MEDIATYPE = ast.literal_eval(POST_MEDIATYPE)
-            POST_TGPHLINK = ast.literal_eval(POST_TGPHLINK)
+            POST_FILEID = json.loads(POST_FILEID)
+            POST_MEDIATYPE = json.loads(POST_MEDIATYPE)
+            POST_TGPHLINK = json.loads(POST_TGPHLINK)
 
             len_ = len(POST_FILEID)
             POST_FILEID = POST_FILEID[cur_ - 1]
@@ -14522,8 +14593,8 @@ async def edit_simple(bot, chat_id, post_id, message_id, cur_, BASE_P):
             await bot.edit_message_media(media=media, chat_id=chat_id, message_id=message_id,
                                          reply_markup=reply_markup.as_markup())
         else:
-            OFFER_FILEID = ast.literal_eval(POST_FILEID) if POST_FILEID and '[' in POST_FILEID else POST_FILEID
-            OFFER_MEDIATYPE = ast.literal_eval(
+            OFFER_FILEID = json.loads(POST_FILEID) if POST_FILEID and '[' in POST_FILEID else POST_FILEID
+            OFFER_MEDIATYPE = json.loads(
                 POST_MEDIATYPE) if POST_MEDIATYPE and '[' in POST_MEDIATYPE else POST_MEDIATYPE
 
             media = []
@@ -14568,9 +14639,9 @@ async def edit_simple2(bot, chat_id, user_id, entity_id, post_id, message_id, cu
 
         reply_markup = InlineKeyboardBuilder()
         if '[' in POST_TYPE and POST_ISGALLERY:
-            POST_FID = ast.literal_eval(POST_FID)
-            POST_TYPE = ast.literal_eval(POST_TYPE)
-            POST_LNK = ast.literal_eval(POST_LNK)
+            POST_FID = json.loads(POST_FID)
+            POST_TYPE = json.loads(POST_TYPE)
+            POST_LNK = json.loads(POST_LNK)
 
             len_ = len(POST_FID)
             POST_FID = POST_FID[cur_ - 1]
@@ -14647,8 +14718,8 @@ async def edit_simple2(bot, chat_id, user_id, entity_id, post_id, message_id, cu
             await bot.edit_message_media(media=media, chat_id=chat_id, message_id=message_id,
                                          reply_markup=reply_markup.as_markup())
         else:
-            POST_FID = ast.literal_eval(POST_FID) if POST_FID and '[' in POST_FID else POST_FID
-            POST_TYPE = ast.literal_eval(POST_TYPE) if POST_TYPE and '[' in POST_TYPE else POST_TYPE
+            POST_FID = json.loads(POST_FID) if POST_FID and '[' in POST_FID else POST_FID
+            POST_TYPE = json.loads(POST_TYPE) if POST_TYPE and '[' in POST_TYPE else POST_TYPE
 
             media = []
             POST_TEXT = None if POST_TEXT == str_empty else POST_TEXT

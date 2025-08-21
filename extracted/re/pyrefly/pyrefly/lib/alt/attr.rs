@@ -23,7 +23,6 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::callable::CallArg;
 use crate::alt::class::class_field::DataclassMember;
 use crate::alt::expr::TypeOrExpr;
-use crate::alt::types::class_metadata::EnumMetadata;
 use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::KeyExport;
 use crate::config::error_kind::ErrorKind;
@@ -180,8 +179,8 @@ impl AttrSubsetError {
     }
 }
 
-/// The result of looking up an attribute. We can analyze get and set actions
-/// on an attribute, each of which can be allowed with some type or disallowed.
+/// The result of looking up an attribute, which can be used for structural
+/// subtyping checks or performing get / set / delete actions.
 #[derive(Debug)]
 pub struct Attribute {
     inner: AttributeInner,
@@ -193,10 +192,9 @@ enum Visibility {
     ReadWrite,
 }
 
-/// The result of an attempt to access an attribute (with a get or set operation).
-///
-/// The operation is either permitted with an attribute `Type`, or is not allowed
-/// and has a reason.
+/// The result of an attempt to access an attribute (which will eventually be
+/// used either for an action like get / set / delete, or in a structural subtype
+/// check).
 #[derive(Debug)]
 enum AttributeInner {
     /// A `NoAccess` attribute indicates that the attribute is well-defined, but does
@@ -280,29 +278,29 @@ enum InternalError {
 
 impl Attribute {
     fn new(inner: AttributeInner) -> Self {
-        Attribute { inner }
+        Self { inner }
     }
 
     pub fn no_access(reason: NoAccessReason) -> Self {
-        Attribute {
+        Self {
             inner: AttributeInner::NoAccess(reason),
         }
     }
 
     pub fn read_write(ty: Type) -> Self {
-        Attribute {
+        Self {
             inner: AttributeInner::Simple(ty, Visibility::ReadWrite),
         }
     }
 
     pub fn read_only(ty: Type, reason: ReadOnlyReason) -> Self {
-        Attribute {
+        Self {
             inner: AttributeInner::Simple(ty, Visibility::ReadOnly(reason)),
         }
     }
 
-    pub fn read_only_equivalent(attr: Attribute, reason: ReadOnlyReason) -> Self {
-        match attr.inner {
+    pub fn read_only_equivalent(self, reason: ReadOnlyReason) -> Self {
+        match self.inner {
             AttributeInner::Simple(ty, Visibility::ReadWrite) => Attribute::read_only(ty, reason),
             AttributeInner::Property(getter, _, cls) => Attribute::property(getter, None, cls),
             AttributeInner::Descriptor(descriptor) => Attribute::descriptor(
@@ -316,7 +314,7 @@ impl Attribute {
     }
 
     pub fn property(getter: Type, setter: Option<Type>, cls: Class) -> Self {
-        Attribute {
+        Self {
             inner: AttributeInner::Property(getter, setter, cls),
         }
     }
@@ -327,7 +325,7 @@ impl Attribute {
         getter: Option<Type>,
         setter: Option<Type>,
     ) -> Self {
-        Attribute {
+        Self {
             inner: AttributeInner::Descriptor(Descriptor {
                 descriptor_ty: ty,
                 base,
@@ -337,8 +335,8 @@ impl Attribute {
         }
     }
 
-    pub fn getattr(not_found: NotFound, getattr: Attribute, name: Name) -> Self {
-        Attribute {
+    pub fn getattr(not_found: NotFound, getattr: Self, name: Name) -> Self {
+        Self {
             inner: AttributeInner::GetAttr(not_found, Box::new(getattr.inner), name),
         }
     }
@@ -549,8 +547,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.unions(results)
     }
 
-    /// Compute the get (i.e., read) type of a magic dunder attribute, if it can be found. If reading is not
-    /// permitted, return an error and `Some(Any)`. If no attribute is found, return `None`.
+    /// Compute the get (i.e., read) type of a magic dunder attribute, if it can
+    /// be found. Handles distributing over unions.
+    /// - If we find it, return `Some(dunder_type)`
+    /// - If no attribute is found, return `None`.
+    /// - If we hit an internal error, record it in a type error so we can debug, and assume `Any`
     ///
     /// Note that this method is only expected to be used for magic attr lookups and is not expected to
     /// produce correct results for arbitrary kinds of attributes. If you don't know whether an attribute lookup
@@ -611,25 +612,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return None;
         }
         Some(self.unions(attr_tys))
-    }
-
-    /// Look up the `_value_` attribute of an enum class. This field has to be a plain instance
-    /// attribute annotated in the class body; it is used to validate enum member values, which are
-    /// supposed to all share this type.
-    pub fn type_of_enum_value(&self, enum_: &EnumMetadata) -> Option<Type> {
-        let base = Type::ClassType(enum_.cls.clone());
-        match self.lookup_attr_no_union(&base, &Name::new_static("_value_")) {
-            LookupResult::Found(attr) => match attr.inner {
-                AttributeInner::Simple(ty, ..) => Some(ty),
-                // NOTE: We currently do not expect to use `__getattr__` for `_value_` annotation lookup.
-                AttributeInner::NoAccess(_)
-                | AttributeInner::Property(..)
-                | AttributeInner::Descriptor(..)
-                | AttributeInner::GetAttr(..)
-                | AttributeInner::ModuleFallback(..) => None,
-            },
-            _ => None,
-        }
     }
 
     /// Check whether a type or expression is assignable to an attribute, using contextual
@@ -1276,24 +1258,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn resolve_named_tuple_element(&self, cls: ClassType, name: &Name) -> Option<Type> {
-        match self
-            .try_lookup_attr_from_class_type(cls.clone(), name)?
-            .inner
-        {
-            // NamedTuples are immutable, so their attributes are always read-only
-            // NOTE(grievejia): We do not use `__getattr__` here because this lookup is expected to be invoked
-            // on NamedTuple attributes with known names.
-            AttributeInner::Simple(ty, Visibility::ReadOnly(_)) => Some(ty),
-            AttributeInner::Simple(_, Visibility::ReadWrite)
-            | AttributeInner::NoAccess(_)
-            | AttributeInner::Property(..)
-            | AttributeInner::Descriptor(..)
-            | AttributeInner::GetAttr(..)
-            | AttributeInner::ModuleFallback(..) => None,
-        }
-    }
-
     /// A convenience function for callers which want an error but do not need to distinguish
     /// between NotFound and Error results.
     fn get_type_or_conflated_error_msg(
@@ -1384,10 +1348,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AttributeBase::SuperInstance(cls, obj) => {
                 match self.get_super_attribute(&cls, &obj, attr_name) {
-                    Some(attr) => LookupResult::Found(Attribute::read_only_equivalent(
-                        attr,
-                        ReadOnlyReason::Super,
-                    )),
+                    Some(attr) => {
+                        LookupResult::Found(attr.read_only_equivalent(ReadOnlyReason::Super))
+                    }
                     None if let SuperObj::Instance(cls) = &obj
                         && self.extends_any(cls.class_object()) =>
                     {
@@ -1453,7 +1416,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     LookupResult::found_type(Type::type_form(Type::Kwargs(Box::new(q))))
                 }
                 (QuantifiedKind::TypeVar, _) if let Some(upper_bound) = bound => {
-                    match self.get_bounded_type_var_attribute(q, &upper_bound, attr_name) {
+                    match self.get_bounded_quantified_attribute(q, &upper_bound, attr_name) {
                         Some(attr) => LookupResult::Found(attr),
                         None => LookupResult::NotFound(NotFound::Attribute(
                             upper_bound.class_object().dupe(),
@@ -1907,6 +1870,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// This is what the runtime automatically does when we try to call an instance.
     pub fn instance_as_dunder_call(&self, cls: &ClassType) -> Option<Type> {
         self.get_instance_attribute(cls, &dunder::CALL)
+            .and_then(|attr| self.resolve_as_instance_method(attr))
+    }
+
+    /// Return `__call__` as a bound method if instances of `type_var` have `__call__`.
+    /// We look up `__call__` from the upper bound of `type_var`, but `Self` is substituted with
+    /// the `type_var` instead of the upper bound class.
+    pub fn quantified_instance_as_dunder_call(
+        &self,
+        quantified: Quantified,
+        upper_bound: &ClassType,
+    ) -> Option<Type> {
+        self.get_bounded_quantified_attribute(quantified, upper_bound, &dunder::CALL)
             .and_then(|attr| self.resolve_as_instance_method(attr))
     }
 }

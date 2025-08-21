@@ -229,6 +229,8 @@ impl Workspaces {
                         env.site_package_path = site_package_path;
                         config.interpreters.set_lsp_python_interpreter(interpreter);
                         config.python_environment = env;
+                        // skip interpreter query because we already have the interpreter from the workspace
+                        config.interpreters.skip_interpreter_query = true;
                     }
                 })
             };
@@ -273,8 +275,13 @@ impl Workspaces {
         scope_uri: &Option<Url>,
         config: Value,
     ) {
-        let config = match serde_json::from_value::<LspConfig>(config) {
-            Err(_) => return,
+        let config = match serde_json::from_value::<LspConfig>(config.clone()) {
+            Err(e) => {
+                eprintln!(
+                    "Could not decode `LspConfig` from {config:?}, skipping client configuration request: {e}."
+                );
+                return;
+            }
             Ok(x) => x,
         };
 
@@ -293,7 +300,9 @@ impl Workspaces {
                 self.update_disable_type_errors(modified, scope_uri, disable_type_errors);
             }
         }
-        self.update_ide_settings(modified, scope_uri, config.analysis);
+        if let Some(analysis) = config.analysis {
+            self.update_ide_settings(modified, scope_uri, analysis);
+        }
     }
 
     /// Update disableLanguageServices setting for scope_uri, None if default workspace
@@ -339,19 +348,19 @@ impl Workspaces {
         &self,
         modified: &mut bool,
         scope_uri: &Option<Url>,
-        lsp_analysis_config: Option<LspAnalysisConfig>,
+        lsp_analysis_config: LspAnalysisConfig,
     ) {
         let mut workspaces = self.workspaces.write();
         match scope_uri {
             Some(scope_uri) => {
                 if let Some(workspace) = workspaces.get_mut(&scope_uri.to_file_path().unwrap()) {
                     *modified = true;
-                    workspace.lsp_analysis_config = lsp_analysis_config;
+                    workspace.lsp_analysis_config = Some(lsp_analysis_config);
                 }
             }
             None => {
                 *modified = true;
-                self.default.write().lsp_analysis_config = lsp_analysis_config;
+                self.default.write().lsp_analysis_config = Some(lsp_analysis_config);
             }
         }
     }

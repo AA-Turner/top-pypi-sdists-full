@@ -6,8 +6,8 @@ from typing import Union
 import ccxt
 import pandas as pd
 
-from lumibot.tools.lumibot_logger import get_logger
 from lumibot.entities import Asset, Bars
+from lumibot.tools.lumibot_logger import get_logger
 
 from .data_source import DataSource
 
@@ -98,7 +98,7 @@ class CcxtData(DataSource):
         )
 
     def get_historical_prices(
-        self, asset, length, timestep="", timeshift=None, quote=None, exchange=None, include_after_hours=True
+        self, asset, length, timestep="", timeshift=None, quote=None, exchange=None, include_after_hours=True, return_polars: bool = False
     ):
         """Get bars for a given asset"""
         if isinstance(asset, str):

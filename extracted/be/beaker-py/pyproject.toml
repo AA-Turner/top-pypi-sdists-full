@@ -23,7 +23,7 @@ dependencies = [
     "packaging",
     "PyYAML",
     "grpcio>=1.70.0",  # NOTE: when updating min version, make sure to also update it in the Makefile
-    "protobuf>=5.0,<6.0",
+    "protobuf>=5.0,<7.0",
     "google-crc32c",
 ]
 

@@ -126,6 +126,7 @@ __all__ = (
     "ActionParametersTypeDef",
     "AddEntityOwnerInputTypeDef",
     "AddPolicyGrantInputTypeDef",
+    "AddPolicyGrantOutputTypeDef",
     "AddToProjectMemberPoolPolicyGrantDetailTypeDef",
     "AggregationListItemTypeDef",
     "AggregationOutputItemTypeDef",
@@ -2525,6 +2526,11 @@ class AcceptPredictionsOutputTypeDef(TypedDict):
     assetId: str
     domainId: str
     revision: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AddPolicyGrantOutputTypeDef(TypedDict):
+    grantId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5985,6 +5991,7 @@ class PolicyGrantMemberTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     createdBy: NotRequired[str]
     detail: NotRequired[PolicyGrantDetailOutputTypeDef]
+    grantId: NotRequired[str]
     principal: NotRequired[PolicyGrantPrincipalOutputTypeDef]
 
 
@@ -6336,6 +6343,7 @@ class RemovePolicyGrantInputTypeDef(TypedDict):
     policyType: ManagedPolicyTypeType
     principal: PolicyGrantPrincipalUnionTypeDef
     clientToken: NotRequired[str]
+    grantIdentifier: NotRequired[str]
 
 
 class CreateProjectProfileInputTypeDef(TypedDict):

@@ -174,6 +174,10 @@ def logging_func_before_in_api_exception_handler(
         ):
             return
 
+        if isinstance(exception, APIException):
+            if exception.kwargs_.get("logging") is False:
+                return
+
         _logger.exception(exception)
 
     return func
@@ -208,6 +212,10 @@ def create_story_log_func_before_in_api_exception_handler(
                 exception in ignore_exception_types or type(exception) in ignore_exception_types
         ):
             return
+
+        if isinstance(exception, APIException):
+            if exception.kwargs_.get("create_story_log") is False:
+                return
 
         async with get_cached_sqlalchemy_db().new_async_session() as session:
             story_log_dbm = StoryLogDBM(

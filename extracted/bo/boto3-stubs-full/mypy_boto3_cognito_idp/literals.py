@@ -76,6 +76,8 @@ __all__ = (
     "RiskLevelTypeType",
     "ServiceName",
     "StatusTypeType",
+    "TermsEnforcementTypeType",
+    "TermsSourceTypeType",
     "TimeUnitsTypeType",
     "UserImportJobStatusTypeType",
     "UserPoolMfaTypeType",
@@ -192,6 +194,8 @@ RecoveryOptionNameTypeType = Literal["admin_only", "verified_email", "verified_p
 RiskDecisionTypeType = Literal["AccountTakeover", "Block", "NoRisk"]
 RiskLevelTypeType = Literal["High", "Low", "Medium"]
 StatusTypeType = Literal["Disabled", "Enabled"]
+TermsEnforcementTypeType = Literal["NONE"]
+TermsSourceTypeType = Literal["LINK"]
 TimeUnitsTypeType = Literal["days", "hours", "minutes", "seconds"]
 UserImportJobStatusTypeType = Literal[
     "Created", "Expired", "Failed", "InProgress", "Pending", "Stopped", "Stopping", "Succeeded"

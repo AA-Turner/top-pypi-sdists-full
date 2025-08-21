@@ -184,28 +184,6 @@ def test_environments(name, expected):
     assert is_valid_environment_name(name) == expected
 
 
-@pytest.mark.skip("Test requires internet access.")
-def test_requirements_resolution_uv(input_requirements_file, tmp_path, uv_binary_setup):
-    # tests python dependency resolution (using `uv`)
-    resolved_requirements_path, tecton_runtime_version, tecton_rift_version = _run_dependency_resolution(
-        input_requirements_file, tmp_path, python_version="3.9", tool="uv"
-    )
-
-    assert tecton_runtime_version == "1.0.0"
-    assert tecton_rift_version == "1.1.0b6"
-
-
-@pytest.mark.skip("Test requires internet access. Pex cannot resolve `xformers` because of manylinux compatibility")
-def test_requirements_resolution_pex(input_requirements_file, tmp_path):
-    # tests python dependency resolution (using `pex`)
-    resolved_requirements_path, tecton_runtime_version, tecton_rift_version = _run_dependency_resolution(
-        input_requirements_file, tmp_path, python_version="3.9", tool="pex"
-    )
-
-    assert tecton_runtime_version == "1.0.0"
-    assert tecton_rift_version == "1.1.0b6"
-
-
 def test_error_requirements_resolution(error_input_requirements_file, tmp_path):
     # exists because requirements does not have any supporting tecton libraries
     with pytest.raises(SystemExit) as e:

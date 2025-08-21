@@ -399,6 +399,14 @@ class CfnPlan(
         return typing.cast(builtins.str, jsii.get(self, "attrOwner"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrRoute53HealthChecks")
+    def attr_route53_health_checks(self) -> _IResolvable_da3f097b:
+        '''
+        :cloudformationAttribute: Route53HealthChecks
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrRoute53HealthChecks"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrVersion")
     def attr_version(self) -> builtins.str:
         '''The version for the plan.
@@ -3269,6 +3277,106 @@ class CfnPlan(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.Route53HealthChecksProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "health_check_ids": "healthCheckIds",
+            "hosted_zone_ids": "hostedZoneIds",
+            "record_names": "recordNames",
+            "regions": "regions",
+        },
+    )
+    class Route53HealthChecksProperty:
+        def __init__(
+            self,
+            *,
+            health_check_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            hosted_zone_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            record_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+            regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param health_check_ids: 
+            :param hosted_zone_ids: 
+            :param record_names: 
+            :param regions: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-route53healthchecks.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                route53_health_checks_property = arcregionswitch.CfnPlan.Route53HealthChecksProperty(
+                    health_check_ids=["healthCheckIds"],
+                    hosted_zone_ids=["hostedZoneIds"],
+                    record_names=["recordNames"],
+                    regions=["regions"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__263c4da9f1f5975ed2f9cd59594fd7c0d4e80f870143ed3f809ffa520d38823d)
+                check_type(argname="argument health_check_ids", value=health_check_ids, expected_type=type_hints["health_check_ids"])
+                check_type(argname="argument hosted_zone_ids", value=hosted_zone_ids, expected_type=type_hints["hosted_zone_ids"])
+                check_type(argname="argument record_names", value=record_names, expected_type=type_hints["record_names"])
+                check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if health_check_ids is not None:
+                self._values["health_check_ids"] = health_check_ids
+            if hosted_zone_ids is not None:
+                self._values["hosted_zone_ids"] = hosted_zone_ids
+            if record_names is not None:
+                self._values["record_names"] = record_names
+            if regions is not None:
+                self._values["regions"] = regions
+
+        @builtins.property
+        def health_check_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-route53healthchecks.html#cfn-arcregionswitch-plan-route53healthchecks-healthcheckids
+            '''
+            result = self._values.get("health_check_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def hosted_zone_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-route53healthchecks.html#cfn-arcregionswitch-plan-route53healthchecks-hostedzoneids
+            '''
+            result = self._values.get("hosted_zone_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def record_names(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-route53healthchecks.html#cfn-arcregionswitch-plan-route53healthchecks-recordnames
+            '''
+            result = self._values.get("record_names")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def regions(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-route53healthchecks.html#cfn-arcregionswitch-plan-route53healthchecks-regions
+            '''
+            result = self._values.get("regions")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "Route53HealthChecksProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.Route53ResourceRecordSetProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4883,6 +4991,16 @@ def _typecheckingstub__dafd3d15027013dc86ea477c0cc06ceb95b9df4585b699565ae5446c3
     external_id: typing.Optional[builtins.str] = None,
     record_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.Route53ResourceRecordSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     timeout_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__263c4da9f1f5975ed2f9cd59594fd7c0d4e80f870143ed3f809ffa520d38823d(
+    *,
+    health_check_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    hosted_zone_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    record_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+    regions: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
